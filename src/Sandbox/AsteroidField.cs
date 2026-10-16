@@ -101,7 +101,7 @@ public sealed record AsteroidField(Vector3 Center, int Min, int Max, float Radiu
     }
 
     // The seed of a field: FNV-1a over the map's own content (its description, mission file, terrain name, and
-    // object count) and the field's handle and id (the handle alone is shared by objects of one class). The typed map name and string.GetHashCode play no part, so the same
+    // object count) and the field's handle and id. The typed map name and string.GetHashCode play no part, so the same
     // map gives the same rocks on every start.
     static uint SeedOf(BznMap map, MapObject field)
     {

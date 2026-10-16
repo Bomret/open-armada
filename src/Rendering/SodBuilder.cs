@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using OpenArmada.Assets;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Rendering;
@@ -9,10 +10,10 @@ namespace OpenArmada.Rendering;
 // Godot is right-handed, so Z is mirrored and triangle winding reversed.
 public sealed class SodBuilder
 {
-    readonly GameFiles _files;
+    readonly GameFileSystem _files;
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
 
-    public SodBuilder(GameFiles files) => _files = files;
+    public SodBuilder(GameFileSystem files) => _files = files;
 
     public Node3D Build(Sod sod)
     {
@@ -110,12 +111,11 @@ public sealed class SodBuilder
         if (name.Length == 0 || name.Equals("noIcon", System.StringComparison.OrdinalIgnoreCase)) return null;
         if (_textures.TryGetValue(name, out var cached)) return cached;
         Texture2D? tex = null;
-        // Some textures ship only as 8-bit palette TGAs in Index8.
-        var path = _files.Find("Textures/RGB", name + ".tga") ?? _files.Find("Textures/Index8", name + ".tga");
-        if (path != null)
+        // The file system prefers full-color textures; some ship only as 8-bit palette TGAs.
+        if (_files.Find(name + ".tga") != null)
         {
             var image = new Image();
-            if (image.LoadTgaFromBuffer(System.IO.File.ReadAllBytes(path)) == Error.Ok)
+            if (image.LoadTgaFromBuffer(_files.ReadAllBytes(name + ".tga")) == Error.Ok)
             {
                 image.GenerateMipmaps();
                 tex = ImageTexture.CreateFromImage(image);

@@ -13,7 +13,8 @@
   - Build — `dotnet build OpenArmada.csproj`
   - Run the model viewer — `godot-mono --path . -- --game "$ARMADA_DIR" [--model <name>]`
   - Render one frame to a file and quit — append `--screenshot <file.png>` to the viewer command
-  - Check every model of an install — `dotnet run --project tools/SodCheck -- "$ARMADA_DIR/SOD"`
-  - Print one model's node tree — `dotnet run --project tools/SodCheck -- "$ARMADA_DIR/SOD/<name>.SOD"`
+  - Unit tests — `dotnet test --project tests/OpenArmada.Tests` (MSTest on Microsoft.Testing.Platform,
+    selected in `global.json`)
+  - Asset check of an install — `godot-mono --headless --path . -- --check --game "$ARMADA_DIR"`
 - Not wired: no formatter, linter, or `.editorconfig` — formatting is not enforced.
 - Style prose: none beyond `README.md`.

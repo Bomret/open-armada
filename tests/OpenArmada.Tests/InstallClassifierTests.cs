@@ -28,6 +28,7 @@ public class InstallClassifierTests
     [DataRow("cursors/a.cur")]
     [DataRow("misc/gui_fed.cfg")]
     [DataRow("input.map")]
+    [DataRow("RTS_CFG.h")]
     [DataRow("shell.set")]
     [DataRow("string.ldl")]
     [DataRow("BZONE.FNT")]
@@ -68,7 +69,9 @@ public class InstallClassifierTests
     [DataRow("misc/moon.alb")]
     [DataRow("misc/usrmsn01.trn")]
     [DataRow("giddi/joystick.std")]
-    [DataRow("RTS_CFG.h")]
+    [DataRow("ART_CFG.h")]
+    [DataRow("game_cfg.h")]
+    [DataRow("Dynamic_Localized_Strings.h")]
     [DataRow("shell_cfg.h")]
     [DataRow("CCA.cfg")]
     [DataRow("events.odf")]
@@ -115,7 +118,7 @@ public class InstallClassifierTests
                 "bitmaps/ms/m.bmp", "bzn/k.bzn", "bzn/n.bmp", "bzn/o.xyz", "splash.bmp", "other.bmp",
                 "sounds/music/e.wav", "sounds/f.wav", "wav/g.wav",
                 "cursors/c.cur", "cursors/sub/d.cur", "misc/gui_a.cfg", "misc/other.cfg",
-                "l.map", "l.set", "l.ldl", "l.fnt", "addon/h.odf", "addon/sub/i.odf", "events.odf", "j.odf",
+                "RTS_CFG.h", "ART_CFG.h", "addon/ART_CFG.h", "l.map", "l.set", "l.ldl", "l.fnt", "addon/h.odf", "addon/sub/i.odf", "events.odf", "j.odf",
                 "addon/p.sod", "addon/r.wav",
                 "addon/l.fnt", "addon/l.map", "addon/l.set", "addon/Armada.pal", "addon/splash.bmp", "addon/gui_a.cfg",
             };
@@ -144,7 +147,7 @@ public class InstallClassifierTests
             "addon/armada.pal", "addon/gui_a.cfg", "addon/h.odf", "addon/l.fnt", "addon/l.map", "addon/l.set",
             "addon/p.sod", "addon/q.1", "addon/q.tga", "addon/splash.bmp", "assets.zfs::z.odf",
             "bitmaps/ms/m.bmp", "bzn/k.bzn", "bzn/n.bmp", "cursors/c.cur", "cursors/sub/d.cur", "l.ldl",
-            "sod/a.sod", "sod/software/b.sod", "sounds/f.wav", "sounds/music/e.wav", "sprites/s.spr",
+            "rts_cfg.h", "sod/a.sod", "sod/software/b.sod", "sounds/f.wav", "sounds/music/e.wav", "sprites/s.spr",
             "textures/index8/u.tga", "textures/rgb/pal1.pal", "textures/rgb/q.1", "textures/rgb/q.tga", "textures/rgb/t.tga",
         };
         var loaded = ClassifyFixture()

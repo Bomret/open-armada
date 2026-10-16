@@ -53,7 +53,9 @@ public partial class MapView : Control
             var width = font.GetStringSize(number, HorizontalAlignment.Left, -1, 14).X;
             // The number sits right of the ring, or left of it when that would cross the square's edge.
             var labelX = col + 11 + width > size ? col - 11 - width : col + 11;
-            DrawString(font, new Vector2(labelX, row + 5), number, HorizontalAlignment.Left, -1, 14, Colors.White);
+            // Likewise the baseline is clamped so the digits stay inside the square at the top and bottom edges.
+            var baseline = Mathf.Clamp(row + 5, font.GetAscent(14), size - font.GetDescent(14));
+            DrawString(font, new Vector2(labelX, baseline), number, HorizontalAlignment.Left, -1, 14, Colors.White);
         }
     }
 

@@ -118,6 +118,27 @@ public sealed class CameraRig
 
     public void Rotate(double radians) => Rotation = Wrap(Rotation + radians);
 
+    // stand-in: the trackpad scales; the game had no trackpad. Godot reports a two-finger pan in trackpad points
+    // times 0.03, about the wheel's line units: one unit counts as one wheel notch of height and as 1 / 0.03
+    // dragged pixels of rotation.
+    const double PanNotchesPerUnit = 1, PanPixelsPerUnit = 1 / 0.03;
+
+    // A two-finger trackpad pan, `delta` as Godot reports it (negative Y where the wheel turns up, negative X
+    // where the fingers move right under macOS natural scrolling): the vertical part changes the height as the
+    // wheel does, the horizontal part rotates as a middle-button drag to the same side.
+    public void TrackpadPan(Vector2 delta)
+    {
+        ChangeHeight(delta.Y * PanNotchesPerUnit * ZoomStep);
+        Rotate(-delta.X * PanPixelsPerUnit * RotationPerPixel);
+    }
+
+    // A pinch of `factor` (above 1 spreading the fingers) divides the height by it. stand-in: the pinch-to-height
+    // ratio is the engine's own.
+    public void Pinch(double factor)
+    {
+        if (factor > 0) ChangeHeight(1 / factor - 1);
+    }
+
     // `input` is (right, forward) on the screen; it turns with the rotation and shrinks with the distance of
     // the height from the initial height. The look-at point stays within the map's bounds.
     public void Pan(Vector2 input)

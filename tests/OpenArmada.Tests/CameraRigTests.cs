@@ -115,6 +115,32 @@ public class CameraRigTests
     }
 
     [TestMethod]
+    public void AVerticalTrackpadPanUnitChangesTheHeightLikeOneWheelNotch()
+    {
+        var pan = Rig();
+        pan.TrackpadPan(new Vector2(0, -1)); // Godot's pan Y is negative where the wheel turns up
+        var wheel = Rig();
+        wheel.ChangeHeight(-wheel.ZoomStep);
+        Near(wheel.Pose.Eye.Y, pan.Pose.Eye.Y);
+    }
+
+    [TestMethod]
+    public void AHorizontalTrackpadPanRotatesLikeAMiddleDragToTheSameSide()
+    {
+        var rig = Rig();
+        rig.TrackpadPan(new Vector2(-0.03f, 0)); // fingers one point to the right (natural scrolling)
+        Assert.AreEqual(rig.RotationPerPixel, rig.Rotation, 1e-6);
+    }
+
+    [TestMethod]
+    public void APinchDividesTheHeightByItsFactor()
+    {
+        var rig = Rig();
+        rig.Pinch(1.5); // 450 / 1.5
+        Near(300, rig.Pose.Eye.Y);
+    }
+
+    [TestMethod]
     public void ThePanStepIsRotatedByTheRotationAndScaledByTheHeight()
     {
         var rig = Rig();

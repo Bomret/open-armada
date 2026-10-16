@@ -196,7 +196,9 @@ public partial class MapSandboxView : Node3D
         _camera.LookAt(new Vector3(target.X, target.Y, -target.Z));
     }
 
-    // The wheel changes the height (stand-in: the game uses a vertical drag), a middle-button drag rotates.
+    // The wheel changes the height (stand-in: the game uses a vertical drag), a middle-button drag rotates. On a
+    // trackpad (stand-in: the game had none) a two-finger pan does both and a pinch changes the height (CameraRig
+    // names the scales). Esc releases the confined cursor.
     public override void _Input(InputEvent e)
     {
         if (_rig == null) return;
@@ -206,6 +208,10 @@ public partial class MapSandboxView : Node3D
             _rig.ChangeHeight(b.ButtonIndex == MouseButton.WheelUp ? -_rig.ZoomStep : _rig.ZoomStep);
         else if (e is InputEventMouseMotion m && m.ButtonMask.HasFlag(MouseButtonMask.Middle))
             _rig.Rotate(m.Relative.X * _rig.RotationPerPixel);
+        else if (e is InputEventPanGesture p)
+            _rig.TrackpadPan(new System.Numerics.Vector2(p.Delta.X, p.Delta.Y));
+        else if (e is InputEventMagnifyGesture g)
+            _rig.Pinch(g.Factor);
     }
 
     public override void _Process(double delta)

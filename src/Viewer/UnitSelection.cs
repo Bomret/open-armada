@@ -13,7 +13,6 @@ namespace OpenArmada.Viewer;
 // display scale.
 public partial class UnitSelection : Node3D
 {
-    readonly UnitPlan _plan;
     readonly Dictionary<PlacedObject, Node3D> _nodes;
     readonly Dictionary<PlacedObject, SelectableUnit> _units;
     readonly Dictionary<SelectableUnit, (MeshInstance3D Ring, Label Name)> _marks = new();
@@ -23,13 +22,14 @@ public partial class UnitSelection : Node3D
 
     public UnitSelection(GameFileSystem files, SandboxPlan plan, Dictionary<PlacedObject, Node3D> nodes)
     {
-        _plan = UnitPlan.Build(files, plan);
+        var unitPlan = UnitPlan.Build(files, plan, nodes.ContainsKey); // an object whose model is unreadable has no node and is no unit
+        Reports = unitPlan.Reports;
         _nodes = nodes;
-        _units = _plan.Units.Where(u => nodes.ContainsKey(u.Object)).ToDictionary(u => u.Object); // an object whose model is unreadable has no node
+        _units = unitPlan.Units.ToDictionary(u => u.Object);
     }
 
     // The gaps found while telling units apart.
-    public IReadOnlyList<ReportEntry> Reports => _plan.Reports;
+    public IReadOnlyList<ReportEntry> Reports { get; }
 
     // The selected units; a ship whose Movable is false has no physics definition and takes no order.
     public IReadOnlyList<SelectableUnit> Selected => _marks.Keys.ToList();
@@ -70,7 +70,8 @@ public partial class UnitSelection : Node3D
         foreach (var (placed, node) in _nodes)
         {
             // ponytail: the box around the model's meshes is the hit shape; a mesh-exact pick if overlaps matter
-            if (Extent(node) is not { } box || Enters(box, origin, direction) is not { } distance) continue;
+            // a box around the camera (a big planet it sits in) takes no click
+            if (Extent(node) is not { } box || box.HasPoint(origin) || Enters(box, origin, direction) is not { } distance) continue;
             if (distance < nearest) { nearest = distance; hit = placed; }
         }
         Select(hit != null && _units.TryGetValue(hit, out var unit) ? new[] { unit } : Array.Empty<SelectableUnit>());
@@ -121,8 +122,8 @@ public partial class UnitSelection : Node3D
         }
     }
 
-    // The distance along the ray at which it enters the box (0 when it starts inside); null when it misses
-    // the box or the box lies behind the origin. The slab test: the ray is inside each axis' slab from `near` to `far`.
+    // The distance along the ray at which it enters the box; null when it misses the box or the box lies
+    // behind the origin. The slab test: the ray is inside each axis' slab from `near` to `far`.
     static float? Enters(Aabb box, Vector3 origin, Vector3 direction)
     {
         float near = 0, far = float.MaxValue;

@@ -14,6 +14,8 @@ public sealed class UnitPlan
 {
     const string MissingPhysics = "physics definition missing, units cannot move";
     const string BadStarbase = "is_starbase is no whole number, units taken as ships";
+    const string BadName = "unitName is no single value, class name used";
+    const string BadPhysics = "physicsFile is no single value, units cannot move";
 
     public IReadOnlyList<SelectableUnit> Units { get; }
     public IReadOnlyList<ReportEntry> Reports { get; }
@@ -24,7 +26,8 @@ public sealed class UnitPlan
         Reports = reports;
     }
 
-    public static UnitPlan Build(GameFileSystem files, SandboxPlan plan)
+    // `selectable` tells whether an object can be selected (its model is on screen); the others are no units.
+    public static UnitPlan Build(GameFileSystem files, SandboxPlan plan, Func<PlacedObject, bool> selectable)
     {
         var units = new List<SelectableUnit>();
         // cause -> distinct names and object count, in order of first sight
@@ -35,20 +38,29 @@ public sealed class UnitPlan
             if (!g.Names.Contains(name)) g.Names.Add(name);
             gaps[cause] = (g.Names, g.Count + 1);
         }
-        var byClass = new Dictionary<string, ResolvedDefinition>(StringComparer.OrdinalIgnoreCase);
         foreach (var o in plan.Objects)
         {
-            if (!byClass.TryGetValue(o.Class, out var definition)) byClass[o.Class] = definition = ResolvedDefinition.Resolve(files, o.Class + ".odf");
+            if (!selectable(o) || !plan.Resolved.TryGetValue(o.Class, out var definition)) continue;
             Unit? unit;
             try { unit = UnitRules.Classify(definition); }
             catch (DefinitionException)
             {
-                Gap(BadStarbase, o.Class);
-                unit = new Ship(definition.Has("unitName") ? definition.GetString("unitName") : o.Class);
+                // a key of the definition is unreadable: report each one by its own cause and fall back
+                // to the class name and to a ship
+                var name = o.Class;
+                if (definition.Has("unitName"))
+                    try { name = definition.GetString("unitName"); }
+                    catch (DefinitionException) { Gap(BadName, o.Class); }
+                var station = false;
+                if (definition.Has("is_starbase"))
+                    try { station = definition.GetInt("is_starbase") != 0; }
+                    catch (DefinitionException) { Gap(BadStarbase, o.Class); }
+                unit = station ? new Station(name) : new Ship(name);
             }
             if (unit == null) continue;
-            var movable = files.Find(definition.GetString("physicsFile")) != null;
-            if (!movable) Gap(MissingPhysics, o.Class);
+            bool movable;
+            try { movable = files.Find(definition.GetString("physicsFile")) != null; if (!movable) Gap(MissingPhysics, o.Class); }
+            catch (DefinitionException) { movable = false; Gap(BadPhysics, o.Class); }
             units.Add(new SelectableUnit(o, unit, movable));
         }
         return new UnitPlan(units, gaps.Select(g => new ReportEntry(g.Key, g.Value.Names, g.Value.Count)).ToList());

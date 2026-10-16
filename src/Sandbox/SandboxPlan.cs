@@ -38,8 +38,12 @@ public sealed class SandboxPlan
     // The map's bounds in the map's own frame (Z not mirrored).
     public MapBounds Bounds { get; }
 
-    SandboxPlan(IReadOnlyList<PlacedObject> objects, IReadOnlyList<ReportEntry> reports, Vector3 ambient, string? background, MapBounds bounds)
+    // The resolved definitions the plan was built from, by class name without regard to case.
+    public IReadOnlyDictionary<string, ResolvedDefinition> Resolved { get; }
+
+    SandboxPlan(IReadOnlyList<PlacedObject> objects, IReadOnlyList<ReportEntry> reports, Vector3 ambient, string? background, MapBounds bounds, IReadOnlyDictionary<string, ResolvedDefinition> resolved)
     {
+        Resolved = resolved;
         Objects = objects;
         Reports = reports;
         Ambient = ambient;
@@ -77,7 +81,7 @@ public sealed class SandboxPlan
                 new Vector3(o.Position.X, o.Position.Y, -o.Position.Z), x, y, z));
         }
         var background = BackgroundOf(map, hasModel, gaps);
-        return new SandboxPlan(placed, gaps.Entries, map.Ambient, background, map.Bounds);
+        return new SandboxPlan(placed, gaps.Entries, map.Ambient, background, map.Bounds, definitions);
     }
 
     // The definition's baseName, else the model named like the class; null when there is none (a baseName

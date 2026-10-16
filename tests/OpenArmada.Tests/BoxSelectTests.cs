@@ -38,4 +38,12 @@ public class BoxSelectTests
         Assert.IsTrue(BoxSelect.IsClick(new Vector2(10, 10), new Vector2(12, 10)));
         Assert.IsFalse(BoxSelect.IsClick(new Vector2(10, 10), new Vector2(30, 10)));
     }
+
+    [TestMethod]
+    public void ADragOfThreePixelsIsAClickAndOneOfFourIsABox()
+    {
+        Assert.IsTrue(BoxSelect.IsClick(new Vector2(10, 10), new Vector2(13, 13)));
+        Assert.IsFalse(BoxSelect.IsClick(new Vector2(10, 10), new Vector2(14, 10)));
+        Assert.IsFalse(BoxSelect.IsClick(new Vector2(10, 10), new Vector2(10, 6)));
+    }
 }

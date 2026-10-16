@@ -18,14 +18,17 @@ public class UnitPlanTests
     public void CleanUp() => temp.CleanUp();
 
     // Each definition is "class" -> odf text; the install also holds the loose files given.
-    UnitPlan Plan(string[] classes, (string Class, string Odf)[] definitions, params (string Path, string Content)[] loose)
+    UnitPlan Plan(string[] classes, (string Class, string Odf)[] definitions, params (string Path, string Content)[] loose) =>
+        Plan(_ => true, classes, definitions, loose);
+
+    UnitPlan Plan(Func<PlacedObject, bool> selectable, string[] classes, (string Class, string Odf)[] definitions, params (string Path, string Content)[] loose)
     {
         var install = new GameFileSystem(temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).Concat(loose).ToArray()));
         var map = new BznBuilder { Background = "" };
         foreach (var c in classes) map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
         var asset = new MapAsset("bzn/t.bzn", Bzn.Read(map.Build()), Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
-        return UnitPlan.Build(install, plan);
+        return UnitPlan.Build(install, plan, selectable);
     }
 
     const string Physics = "physicsFile = \"p.odf\"\r\n";
@@ -66,5 +69,45 @@ public class UnitPlanTests
         var plan = Plan(new[] { "x" }, new[] { ("x", Physics + "unitName = \"X\"\r\nis_starbase = yes") }, ("addon/p.odf", ""));
         Assert.AreEqual(new Ship("X"), plan.Units.Single().Unit);
         StringAssert.Contains(plan.Reports.Single().Cause, "is_starbase");
+    }
+
+    [TestMethod]
+    public void AUnitNameThatIsNoSingleValueIsReportedByItsOwnCauseAndTheClassNameStandsIn()
+    {
+        var plan = Plan(new[] { "x", "x" }, new[] { ("x", Physics + "unitName = Borg Cube") }, ("addon/p.odf", ""));
+        Assert.AreEqual(new Ship("x"), plan.Units[0].Unit);
+        var report = plan.Reports.Single();
+        StringAssert.Contains(report.Cause, "unitName");
+        Assert.AreEqual(2, report.Count);
+    }
+
+    [TestMethod]
+    public void AUnitNameAndAStarbaseValueThatAreBothBadAreReportedEachOnce()
+    {
+        var plan = Plan(new[] { "x" }, new[] { ("x", Physics + "unitName = Borg Cube\r\nis_starbase = yes") }, ("addon/p.odf", ""));
+        Assert.AreEqual(2, plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void APhysicsFileThatIsNoSingleValueIsReportedAndTheUnitStaysSelectableButNotMovable()
+    {
+        var plan = Plan(new[] { "x" }, new[] { ("x", "physicsFile = a b") });
+        Assert.IsFalse(plan.Units.Single().Movable);
+        StringAssert.Contains(plan.Reports.Single().Cause, "physicsFile");
+    }
+
+    [TestMethod]
+    public void AnObjectThatCannotBeSelectedIsNoUnitAndNoGap()
+    {
+        var plan = Plan(o => o.Class != "b", new[] { "a", "b" }, new[] { ("a", Physics), ("b", Physics) });
+        Assert.AreEqual("a", plan.Units.Single().Object.Class);
+        CollectionAssert.AreEqual(new[] { "a" }, plan.Reports.Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void ADefinitionWithPhysicsButNoUnitNameTakesTheClassName()
+    {
+        var plan = Plan(new[] { "x" }, new[] { ("x", Physics) }, ("addon/p.odf", ""));
+        Assert.AreEqual(new Ship("x"), plan.Units.Single().Unit);
     }
 }

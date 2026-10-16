@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
@@ -7,6 +8,8 @@ namespace OpenArmada.Assets;
 // (splash.exe) configuration script. Each is XOR-encoded with a key that Load reads at run time from the
 // install's own splash.exe; a missing or short splash.exe, or text that does not decode with the key,
 // throws UnsupportedFormatException with that reason. Load returns a TextTable with its imports read in.
+// splash.exe, the .ldl file, and its imports are read from the install root by path, as the launcher opens
+// them: a copy in addon\, an archive, or the index does not replace them.
 public sealed class TextTableKind : AssetKind
 {
     public const string KindName = "texttables";
@@ -18,9 +21,10 @@ public sealed class TextTableKind : AssetKind
 
     public override object Load(GameFileSystem files, string name)
     {
-        if (files.Find(Launcher) is null) throw new UnsupportedFormatException($"{name}: the text table key is read from {Launcher}, which the install lacks");
-        var key = TextTable.KeyFrom(Launcher, files.ReadAllBytes(Launcher));
-        return TextTable.Read(name, files.ReadAllBytes(name), key, n => files.Find(n) is null ? null : files.ReadAllBytes(n));
+        if (files.ReadByPath(Launcher) is not { } exe) throw new UnsupportedFormatException($"{name}: the text table key is read from {Launcher}, which the install lacks");
+        var key = TextTable.KeyFrom(Launcher, exe);
+        var raw = files.ReadByPath(name) ?? throw new FileNotFoundException($"'{name}' is not in the install root", name);
+        return TextTable.Read(name, raw, key, files.ReadByPath);
     }
 
     public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((TextTable)Load(files, name)).Notes;

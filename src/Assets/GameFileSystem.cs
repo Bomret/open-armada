@@ -15,7 +15,8 @@ namespace OpenArmada.Assets;
 // model folder before its software-renderer copies, ".pal" in the install root before the texture
 // folder, ".bmp" in the install root (splash.bmp), and ".map", ".set", ".ldl", ".fnt" and ".exe" in the
 // install root (the key and label maps, settings files, text tables, fonts and the launcher splash.exe,
-// whose bytes decode the text tables). Any other bare name is not found.
+// whose bytes decode the text tables). Any other bare name is not found. ReadByPath reads a root file
+// by path with no layers; the text tables and splash.exe load that way, as the launcher opens them.
 //
 // A bare name is looked up the way Armada.exe does (REA report of Armada.exe: FUN_004b8eb0 builds the
 // index, FUN_004b9270 scans addon\, FUN_004b9900 picks the lowest slot), first match wins:
@@ -148,6 +149,11 @@ public sealed class GameFileSystem
             { } hit => File.ReadAllBytes(hit.Path),
             null => throw new FileNotFoundException($"'{name}' is not in the install", name),
         };
+
+    // The loose file at the path, relative to the install root, as a program that opens it by path reads
+    // it: no addon folder, archive, or index; null when there is none.
+    public byte[]? ReadByPath(string name) =>
+        Parts(name) is { Length: > 0 } parts && Resolve(parts) is { } path ? File.ReadAllBytes(path) : null;
 
     Hit? Locate(string name)
     {

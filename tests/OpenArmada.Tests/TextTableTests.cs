@@ -42,6 +42,25 @@ public class TextTableTests
     }
 
     [TestMethod]
+    public void ABlockReopenedWithAnotherParentKeepsTheFirstAndNotesTheDifference()
+    {
+        var t = Read("b:p { string a \"1\" }\nb:q { string c \"2\" }\nb:p { }\nb { }\n");
+        Assert.AreEqual("p", t.Blocks.Single().Parent);
+        Assert.AreEqual(2, t.Entries.Count);
+        var notes = t.Notes.Where(n => n.Contains("'b'") && n.Contains("parent")).ToList();
+        Assert.AreEqual(1, notes.Count, string.Join("|", t.Notes));
+        StringAssert.StartsWith(notes[0], "t.ldl:2:");
+    }
+
+    [TestMethod]
+    public void AHeaderWithoutASpaceBeforeTheBraceIsANoteNotABlock()
+    {
+        var t = Read("b{ string a \"1\" }\n");
+        Assert.AreEqual(0, t.Blocks.Count);
+        Assert.IsTrue(t.Notes.Any(n => n.StartsWith("t.ldl:1:") && n.Contains("b{")), string.Join("|", t.Notes));
+    }
+
+    [TestMethod]
     public void CommentsOutsideQuotesTemplatesAndTheDollarEndAreHandled()
     {
         var t = Read("# head\nb { # open\n string a \"x # not a comment\" # tail\n template\n string c \"d\"\n}\n$\nb { string never \"1\" }\n");
@@ -114,6 +133,16 @@ public class TextTableTests
         StringAssert.Contains(e.Message, "too short");
     }
 
+    [TestMethod]
+    public void AKeyOfAnotherLengthThanTheFileKeyIsUnsupported()
+    {
+        foreach (var key in new[] { Array.Empty<byte>(), Key[..^1] })
+        {
+            var e = Assert.ThrowsExactly<UnsupportedFormatException>(() => TextTable.Read("t.ldl", Encode("b { }"), key, _ => null));
+            StringAssert.Contains(e.Message, "400");
+        }
+    }
+
     // --- the kind: the key is read from splash.exe of the install at run time ---
 
     readonly TempInstall temp = new();
@@ -146,6 +175,24 @@ public class TextTableTests
     {
         var files = Install(true, ("default.ldl", Latin1(Encode("import \"string.ldl\"\n"))), ("string.ldl", Latin1(Encode("b { string p \"1\" }"))));
         Assert.AreEqual("string.ldl", ((TextTable)new TextTableKind().Load(files, "default.ldl")).Entries.Single().File);
+    }
+
+    [TestMethod]
+    public void TextTablesSplashExeAndImportsAreReadFromTheInstallRootByPathNotThroughTheAddonLayer()
+    {
+        var exe = new byte[TextTable.KeyOffset + TextTable.KeyLength];
+        Key.CopyTo(exe, TextTable.KeyOffset);
+        var files = Install(true,
+            ("default.ldl", Latin1(Encode("import \"string.ldl\"\nb { string r \"root\" }"))),
+            ("string.ldl", Latin1(Encode("c { string r \"root\" }"))),
+            ("addon/default.ldl", Latin1(Encode("b { string r \"addon\" }"))),
+            ("addon/string.ldl", Latin1(Encode("c { string r \"addon\" }"))),
+            ("addon/splash.exe", Latin1(new byte[exe.Length])),
+            ("addon/only.ldl", Latin1(Encode("b { }"))));
+        var t = (TextTable)new TextTableKind().Load(files, "default.ldl");
+        CollectionAssert.AreEqual(new[] { "root", "root" }, t.Entries.Select(e => e.Value).ToArray());
+        Assert.AreEqual(0, t.Notes.Count, string.Join("|", t.Notes));
+        Assert.ThrowsExactly<System.IO.FileNotFoundException>(() => new TextTableKind().Load(files, "only.ldl"));
     }
 
     [TestMethod]

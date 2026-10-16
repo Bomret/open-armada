@@ -26,10 +26,13 @@ public sealed record TextTableEntry(string Block, string Key, string Value, stri
 // both. A statement that fits none of this, a value that is not quoted, a block left open, an import that
 // cannot be read and an import cycle are Notes naming file:line (INV-0002); the rest still loads.
 //
+// A block reopened merges with the first (its entries add up); a different `:Parent` on the reopening is a
+// Note and the first parent stays. A header written `Name{` is one token that is no keyword, so it is a Note.
+//
 // Not established by the REA report, so not interpreted here: what Name:Parent inherits, which of two
 // entries with one block path and key wins (both are kept, in reading order), and how splash.exe matches a
-// `switch` child to the system language. Imports resolve by the name as written, not relative to the
-// importing file's folder (the install's files all sit in the root).
+// `switch` child to the system language. `open` receives an import's name as written; the install's files
+// all sit in its root, so the caller resolves it from there.
 public sealed class TextTable
 {
     public const int KeyOffset = 0x2ee40, KeyLength = 400;
@@ -52,9 +55,10 @@ public sealed class TextTable
             : throw new UnsupportedFormatException($"{name} is too short ({exe.Length} bytes) to hold the text table key at offset 0x{KeyOffset:x}");
 
     // `open` returns the encoded bytes of an imported file by the name written after `import`, or null.
-    // Throws UnsupportedFormatException when `file` does not decode to text with `key`.
+    // Throws UnsupportedFormatException when `key` is not KeyLength bytes or `file` does not decode to text with it.
     public static TextTable Read(string name, byte[] file, byte[] key, Func<string, byte[]?> open)
     {
+        if (key.Length != KeyLength) throw new UnsupportedFormatException($"{name}: the text table key is {key.Length} bytes, not {KeyLength}");
         var t = new TextTable(name);
         t.ReadFile(name, Decode(name, file, key), key, open, new List<string> { name });
         return t;
@@ -107,7 +111,9 @@ public sealed class TextTable
                 var colon = tok.IndexOf(':');
                 var (blockName, parent) = colon < 0 ? (tok, null) : (tok[..colon], tok[(colon + 1)..]);
                 var path = blocks.Count == 0 ? blockName : blocks[^1].Path + "." + blockName;
-                if (_blocks.All(b => b.Path != path)) _blocks.Add(new TextTableBlock(path, parent));
+                if (_blocks.FirstOrDefault(b => b.Path == path) is not { } first) _blocks.Add(new TextTableBlock(path, parent));
+                else if (parent != null && parent != first.Parent)
+                    _notes.Add($"{At(line)}: block '{path}' is reopened with parent '{parent}'; it keeps its first parent '{first.Parent ?? "(none)"}'");
                 blocks.Add((path, line));
                 k++;
             }

@@ -142,12 +142,24 @@ public sealed class GameFileSystem
     public string? Find(string name) => Locate(name)?.Display;
 
     public byte[] ReadAllBytes(string name) =>
-        Locate(name) switch
-        {
-            { Archive: { } a, Member: { } m } => a.Zfs.Read(m),
-            { } hit => File.ReadAllBytes(hit.Path),
-            null => throw new FileNotFoundException($"'{name}' is not in the install", name),
-        };
+        Locate(name) is { } hit ? Read(hit) : throw new FileNotFoundException($"'{name}' is not in the install", name);
+
+    // The file `sibling` (a bare name) from the source of `name`'s winning copy: the override layer when
+    // that copy is an override, else the same folder or archive; null when that source lacks it. A
+    // texture reads its mip levels this way, so it never takes the levels of a copy it replaces or that
+    // replaces it.
+    public byte[]? ReadBeside(string name, string sibling)
+    {
+        if (Locate(name) is not { } hit) return null;
+        var parts = Parts(name);
+        var found = parts.Length == 1 && FromAddon(parts[0]) != null ? FromAddon(sibling)
+            : hit.Archive is { } a ? (a.Zfs.Contains(ZixIndex.MemberKey(sibling)) ? new Hit(null, a, ZixIndex.MemberKey(sibling)) : null)
+            : Entries(Path.GetDirectoryName(hit.Loose)!).TryGetValue(sibling, out var path) && File.Exists(path) ? new Hit(path)
+            : null;
+        return found == null ? null : Read(found);
+    }
+
+    static byte[] Read(Hit hit) => hit is { Archive: { } a, Member: { } m } ? a.Zfs.Read(m) : File.ReadAllBytes(hit.Path);
 
     // The loose file at the path, relative to the install root, as a program that opens it by path reads
     // it: no addon folder, archive, or index; null when there is none.

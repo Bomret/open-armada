@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
@@ -12,8 +11,9 @@ public sealed record TextureLevel(string Name, TgaInfo Info, byte[] Data);
 // reports without failing: the level that ended the chain by its size.
 public sealed record TextureAsset(TextureLevel Base, IReadOnlyList<TextureLevel> Mips, IReadOnlyList<string> Notes);
 
-// Textures: the .tga files of Textures/RGB (full color) and Textures/Index8 (8-bit), each with its
-// mip levels. The game finds level N as "<name>.N", N from 1 to 9, and counts levels up to the first
+// Textures: the .tga files of Textures/RGB (full color), Textures/Index8 (8-bit) and the override layer,
+// each with its mip levels, read from the source the texture itself comes from (its folder, its archive,
+// or the override layer). The game finds level N as "<name>.N", N from 1 to 9, and counts levels up to the first
 // missing one, so a file past a gap belongs to no texture. It also requires each level to be half the
 // size of the one before; the chain here ends at the first level that is not, and that level and the
 // later ones are no part of the texture. Files that are neither a texture nor a level (no extension,
@@ -40,8 +40,6 @@ public sealed class TextureKind : AssetKind
     public override object Load(GameFileSystem files, string name)
     {
         var baseLevel = LoadBase(files, name);
-        var cut = name.LastIndexOfAny(new[] { '/', '\\' });
-        var folder = cut >= 0 ? name[..(cut + 1)] : files.Find("Textures/RGB/" + name) != null ? "Textures/RGB/" : "Textures/Index8/";
         var stem = Path.GetFileNameWithoutExtension(name);
         var mips = new List<TextureLevel>();
         var notes = new List<string>();
@@ -49,8 +47,8 @@ public sealed class TextureKind : AssetKind
         for (var i = 1; i <= MaxMipLevel; i++)
         {
             var mipName = $"{stem}.{i}";
-            if (files.Find(folder + mipName) == null) break;
-            var bytes = files.ReadAllBytes(folder + mipName);
+            // A level comes from where the base came from (GameFileSystem.ReadBeside).
+            if (files.ReadBeside(name, mipName) is not { } bytes) break;
             TgaInfo info;
             try { info = Tga.Read(bytes); }
             catch (InvalidDataException e) { throw new InvalidDataException($"{mipName}: {e.Message}"); }

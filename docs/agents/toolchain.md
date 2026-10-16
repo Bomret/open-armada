@@ -11,8 +11,8 @@
 - Commands:
   - Tests — see `docs/agents/verification.md`
   - Build — `dotnet build OpenArmada.csproj`
-  - Run the model viewer — `godot-mono --path . -- --game "$ARMADA_DIR" [--model <name>]`
-  - Render one frame to a file and quit — append `--screenshot <file.png>` to the viewer command
+  - Run the asset browser — `godot-mono --path . -- --game "$ARMADA_DIR" [--model <name>]`
+  - Render one frame to a file and quit — append `--screenshot <file.png>` to the browser command
   - Unit tests — `dotnet test --project tests/OpenArmada.Tests` (MSTest on Microsoft.Testing.Platform,
     selected in `global.json`)
   - Asset check of an install — `godot-mono --headless --path . -- --check --game "$ARMADA_DIR"`

@@ -2,7 +2,7 @@
 
 An open-source engine for Star Trek: Armada (2000), built on Godot 4 with C#. It ships no game content: it reads the files of an Armada install the player owns.
 
-Status: prototype. A model viewer loads ships and stations from the original `.sod` files with their textures.
+Status: prototype. An asset browser previews the assets of an install: models, textures, sounds, maps, object definitions, tech trees, sprite tables, interface data, fonts, and cursors. A headless asset check loads every asset and reports each failure.
 
 ## Requirements
 
@@ -10,20 +10,20 @@ Status: prototype. A model viewer loads ships and stations from the original `.s
 - .NET SDK 10 (pinned in `global.json`; the project targets `net8.0`)
 - An installed copy of Star Trek: Armada
 
-## Run the model viewer
+## Run the asset browser
 
 ```sh
 dotnet build OpenArmada.csproj
 godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 ```
 
-`ARMADA_DIR` can replace `--game`. Drag to orbit, use the mouse wheel to zoom, Left/Right to step through models. `--screenshot out.png` renders one frame to a file and quits.
+`ARMADA_DIR` can replace `--game`. Pick a category and an asset in the lists to see its preview. In a model preview, drag to orbit and use the mouse wheel to zoom. `--model <name>` opens the named model. `--screenshot out.png` renders one frame to a file and quits.
 
 ## Layout
 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
 - `src/Rendering/` — converts parsed data into Godot nodes.
-- `src/Viewer/` — the model viewer scene script.
+- `src/Viewer/` — the asset browser scene script and one preview per asset kind.
 - `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.
 
@@ -33,7 +33,7 @@ godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 godot-mono --headless --path . -- --check --game "/path/to/Star Trek - Armada"
 ```
 
-Loads every asset, prints each failure with its name and reason, and exits non-zero when any asset failed. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
+Loads every asset, prints each failure with its name and reason, classifies every file of the install, lists references that do not resolve, and exits non-zero when any asset failed or any file is unclassified. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
 
 ## SOD format notes
 

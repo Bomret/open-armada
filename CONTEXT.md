@@ -25,6 +25,12 @@ _Avoid_: zix, file list
 The install's `addon` folder, whose files replace same-named files from the archives.
 _Avoid_: patch folder, addon directory
 
+**Shadowed copy**
+A file of an install whose name another file wins in the game file system's lookup, such as a stock
+definition that the override layer replaces. The asset check reports a shadowed copy that no kind reads as
+known but not loaded.
+_Avoid_: duplicate, overridden file
+
 **Asset**
 One loadable piece of game data in an install: a model, texture, sound, map, object definition, tech
 tree, sprite table, interface configuration, font, cursor, or text table.
@@ -47,6 +53,14 @@ _Avoid_: TT file, build tree
 A playable scenario (`.bzn`) with its objects, their positions and teams, plus its start positions
 (`.mdf`) and overview image.
 _Avoid_: level, scenario file, BZN
+
+**Start position**
+The place where one player begins on a map, read from the map's `.mdf` file. Only multiplayer maps have them.
+_Avoid_: spawn, start cell, start point
+
+**Overview image**
+The picture of a map that the game's menus show, the map's `.bmp` file.
+_Avoid_: minimap, map thumbnail
 
 **Sprite table**
 A text file (`.spr`) that names regions of textures as sprites and gives their blend mode and animation.

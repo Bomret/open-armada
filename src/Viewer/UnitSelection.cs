@@ -26,7 +26,11 @@ public partial class UnitSelection : Node3D
         Reports = unitPlan.Reports;
         _nodes = nodes;
         _units = unitPlan.Units.ToDictionary(u => u.Object);
+        Units = unitPlan.Units;
     }
+
+    // Every unit of the scene, selected or not.
+    public IReadOnlyList<SelectableUnit> Units { get; }
 
     // The gaps found while telling units apart.
     public IReadOnlyList<ReportEntry> Reports { get; }

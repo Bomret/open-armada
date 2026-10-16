@@ -74,6 +74,7 @@ public partial class MapSandboxView : Node3D
         var selection = new UnitSelection(files, plan, nodes);
         AddChild(selection);
         _gaps.AddRange(selection.Reports.Select(r => r.Text));
+        AddChild(new MoveOrders(files, plan, selection, nodes, AddGap));
 
         AddChild(new AsteroidFieldsView(files, plan, AddGap));
 

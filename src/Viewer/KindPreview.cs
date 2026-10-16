@@ -29,6 +29,9 @@ public abstract class KindPreview
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
 
+    // The notes of an asset as a block ahead of its text; empty when there are none.
+    protected static string NotesBlock(IReadOnlyList<string> notes) => notes.Count == 0 ? "" : "NOTES\n" + string.Join("\n", notes) + "\n\n";
+
     // The previews by kind name, matched against `kindNames` (the registered kinds, AssetKind.Discover,
     // which exist with or without an install). Broken registrations are skipped and described in
     // `problems`; see PreviewMatch.

@@ -13,7 +13,10 @@ namespace OpenArmada.Assets;
 // A bare name (no folder) is searched only in the folders that hold its kind, by extension, first
 // match wins: ".tga" in the full-color texture folder before the 8-bit one, ".sod" in the main
 // model folder before its software-renderer copies, ".pal" in the install root before the texture
-// folder, ".bmp" in the install root (splash.bmp). Any other bare name is not found.
+// folder, ".bmp" in the install root (splash.bmp), and ".map", ".set", ".ldl", ".fnt" and ".exe" in the
+// install root (the key and label maps, settings files, text tables, fonts and the launcher splash.exe,
+// whose bytes decode the text tables). Any other bare name is not found. ReadByPath reads a root file
+// by path with no layers; the text tables and splash.exe load that way, as the launcher opens them.
 //
 // A bare name is looked up the way Armada.exe does (REA report of Armada.exe: FUN_004b8eb0 builds the
 // index, FUN_004b9270 scans addon\, FUN_004b9900 picks the lowest slot), first match wins:
@@ -147,6 +150,11 @@ public sealed class GameFileSystem
             null => throw new FileNotFoundException($"'{name}' is not in the install", name),
         };
 
+    // The loose file at the path, relative to the install root, as a program that opens it by path reads
+    // it: no addon folder, archive, or index; null when there is none.
+    public byte[]? ReadByPath(string name) =>
+        Parts(name) is { Length: > 0 } parts && Resolve(parts) is { } path ? File.ReadAllBytes(path) : null;
+
     Hit? Locate(string name)
     {
         var parts = Parts(name);
@@ -158,7 +166,7 @@ public sealed class GameFileSystem
             ".tga" => TextureFolders,
             ".sod" => ModelFolders,
             ".pal" => PaletteFolders,
-            ".bmp" => RootFolder,
+            ".bmp" or ".map" or ".set" or ".ldl" or ".fnt" or ".exe" => RootFolder,
             _ => Array.Empty<string[]>(),
         };
         foreach (var folder in folders)

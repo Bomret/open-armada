@@ -34,7 +34,7 @@ public class AssetCheckTests
     }
 
     // Per-test temp folders, deleted by CleanUp; one instance per test, so nothing is shared.
-    readonly GameFileSystemTests temp = new();
+    readonly TempInstall temp = new();
 
     string Install(params (string, string)[] files) => temp.MakeInstall(files);
 

@@ -41,8 +41,7 @@ public abstract class KindPreview
             .Where(t => t.IsSubclassOf(typeof(KindPreview)) && !t.IsAbstract)
             .Select(t => (t.Name, (Func<(string, KindPreview)>)(() =>
             {
-                if (t.GetConstructor(Type.EmptyTypes) == null) throw new InvalidOperationException("it has no parameterless constructor");
-                var p = (KindPreview)Activator.CreateInstance(t)!;
+                var p = PreviewMatch.Create<KindPreview>(t);
                 return (p.KindName, p);
             })));
         return PreviewMatch.Match(candidates, kindNames, out problems);

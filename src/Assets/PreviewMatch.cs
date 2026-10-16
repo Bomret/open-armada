@@ -32,4 +32,12 @@ public static class PreviewMatch
         problems = list;
         return found;
     }
+
+    // A preview of type `type` built with its parameterless constructor. Throws InvalidOperationException
+    // when the type has none; an exception its constructor throws arrives wrapped, and Match reports the
+    // inner one's message.
+    public static T Create<T>(Type type) =>
+        type.GetConstructor(Type.EmptyTypes) == null
+            ? throw new InvalidOperationException("it has no parameterless constructor")
+            : (T)Activator.CreateInstance(type)!;
 }

@@ -45,12 +45,26 @@ public class PreviewMatchTests
         Assert.AreEqual("preview Bad cannot be created: boom", problems.Single());
     }
 
+    sealed class NoCtor { public NoCtor(int _) { } }
+
+    sealed class ThrowingCtor { public ThrowingCtor() => throw new InvalidOperationException("boom"); }
+
+    // A candidate the way KindPreview.Discover builds one: PreviewMatch.Create makes the instance.
+    static (string, Func<(string, object)>) Built(Type t) => (t.Name, () => ("models", PreviewMatch.Create<object>(t)));
+
     [TestMethod]
     public void MissingParameterlessConstructorIsReported()
     {
-        var bad = ("NoCtor", (Func<(string, string)>)(() => throw new InvalidOperationException("it has no parameterless constructor")));
-        var found = PreviewMatch.Match(new[] { bad }, new[] { "models" }, out var problems);
+        var found = PreviewMatch.Match(new[] { Built(typeof(NoCtor)) }, new[] { "models" }, out var problems);
         Assert.AreEqual(0, found.Count);
         Assert.AreEqual("preview NoCtor cannot be created: it has no parameterless constructor", problems.Single());
+    }
+
+    [TestMethod]
+    public void ConstructorThatThrowsIsReportedWithItsMessage()
+    {
+        var found = PreviewMatch.Match(new[] { Built(typeof(ThrowingCtor)) }, new[] { "models" }, out var problems);
+        Assert.AreEqual(0, found.Count);
+        Assert.AreEqual("preview ThrowingCtor cannot be created: boom", problems.Single());
     }
 }

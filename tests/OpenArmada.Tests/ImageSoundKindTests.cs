@@ -51,6 +51,23 @@ public class ImageSoundKindTests
         StringAssert.Contains(w.ToString(), "NOT LOADED Textures/RGB/a.2: texture extras");
     }
 
+    // The asset check's decode step loads the texture Check just loaded; that load reads no file again.
+    [TestMethod]
+    public void SecondLoadOfTheSameTextureReturnsTheFirstLoad()
+    {
+        var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(4)));
+        var kind = new TextureKind();
+        Assert.AreSame(kind.Load(fs, "a.tga"), kind.Load(fs, "a.tga"));
+    }
+
+    [TestMethod]
+    public void TextureOfTheSameNameInAnotherInstallIsLoadedFromThatInstall()
+    {
+        var kind = new TextureKind();
+        kind.Load(Install(("Textures/RGB/a.tga", Tga(8))), "a.tga");
+        Assert.AreEqual(4, ((TextureAsset)kind.Load(Install(("Textures/RGB/a.tga", Tga(4))), "a.tga")).Base.Info.Width);
+    }
+
     // An override texture takes its mip levels from the override layer, never the stock texture's levels.
     [TestMethod]
     public void OverrideTextureReadsNoMipLevelOfTheStockTexture()

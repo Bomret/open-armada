@@ -38,7 +38,20 @@ public sealed class TextureKind : AssetKind
         return new TextureLevel(name, Tga.Read(data), data);
     }
 
+    // The last texture loaded, with its install and name. The asset check's decode step loads the texture
+    // Check has just loaded; it takes this one instead of reading the files again.
+    // simplicity: one entry, not a cache of every texture, so the check holds one texture's bytes at a time.
+    (GameFileSystem Files, string Name, TextureAsset Asset)? _last;
+
     public override object Load(GameFileSystem files, string name)
+    {
+        if (_last is { } last && last.Files == files && last.Name == name) return last.Asset;
+        var asset = Read(files, name);
+        _last = (files, name, asset);
+        return asset;
+    }
+
+    TextureAsset Read(GameFileSystem files, string name)
     {
         var baseLevel = LoadBase(files, name);
         var stem = Path.GetFileNameWithoutExtension(name);

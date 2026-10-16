@@ -112,6 +112,36 @@ public class CombatRulesTests
         Assert.AreEqual(100 - (1 + 100 * 0.5 * 6 / 100), target.Crew, 1e-6);
     }
 
+    static TargetValue Overridden(float value, float forTarget) =>
+        new(value, new Dictionary<string, float> { ["t.odf"] = forTarget });
+
+    [TestMethod]
+    public void TheDamageThresholdTakesTheOverrideOfTheTargetsDefinitionName()
+    {
+        var target = Target(); // definition name t.odf
+        var ordnance = Beam(shieldCrew: 0.5f) with { DamageThreshold = Overridden(99, 4) };
+        CombatRules.Apply(target, ordnance, 10, HitLocation.Critical, 1);
+        Assert.AreEqual(100 - (1 + 100 * 0.5 * 6 / 100), target.Crew, 1e-6);
+    }
+
+    [TestMethod]
+    public void TheShieldCrewModifierTakesTheOverrideOfTheTargetsDefinitionName()
+    {
+        var target = Target();
+        var ordnance = Beam(threshold: 4) with { ShieldCrewModifier = Overridden(0, 0.5f) };
+        CombatRules.Apply(target, ordnance, 10, HitLocation.Critical, 1);
+        Assert.AreEqual(100 - (1 + 100 * 0.5 * 6 / 100), target.Crew, 1e-6);
+    }
+
+    [TestMethod]
+    public void TheHullCrewModifierTakesTheOverrideOfTheTargetsDefinitionName()
+    {
+        var target = Target(shields: 0);
+        var ordnance = Beam() with { HullCrewModifier = Overridden(0, 10) };
+        var hit = CombatRules.Apply(target, ordnance, 3, HitLocation.Hull, 1);
+        Assert.AreEqual(1 + 100 * 10 * 3 / 100.0, hit.CrewLoss, 1e-6);
+    }
+
     [TestMethod]
     public void DamageBelowTheThresholdCostsNoCrew()
     {

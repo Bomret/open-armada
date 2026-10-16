@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenArmada.Assets;
 using OpenArmada.Sandbox;
 using static OpenArmada.Tests.CombatFixtures;
 
@@ -384,10 +385,16 @@ public class CombatWorldTests
         {
             var a = Fighter("a", 1, 0, Weapon(Beam(life: 0.3f, threshold: 99), delay: 0.17f, range: 200));
             var b = Fighter("b", 2, 100, Weapon(Beam(life: 0.3f, threshold: 99), delay: 0.23f, range: 200));
+            var torpedo = Beam(label: "photontorpedo", damage: 1, speed: 50, life: 10, threshold: 99);
+            var pulse = Beam(label: "pphaser", damage: 1, speed: 50, life: 10, threshold: 99);
+            var c = new Spec(Placed("c", 1, 0, 300), Profile(new[] { Weapon(torpedo, delay: 0.7f, range: 200) }));
+            var d = new Spec(Placed("d", 2, 100, 300), Profile(new[] { Weapon(pulse, delay: 0.9f, range: 200) }));
             target = b.Object;
-            var world = World(null, a, b);
+            var world = World(null, a, b, c, d);
             world.Attack(a.Object, b.Object);
             world.Attack(b.Object, a.Object);
+            world.Attack(c.Object, d.Object);
+            world.Attack(d.Object, c.Object);
             return world;
         }
         var longWorld = Build(out var t1);
@@ -400,5 +407,110 @@ public class CombatWorldTests
         Assert.AreEqual(shortEvents.OfType<ShotLanded>().Count(), longEvents.OfType<ShotLanded>().Count());
         Assert.AreEqual(shortWorld.State(t2)!.Shields, longWorld.State(t1)!.Shields, 1e-6);
         Assert.IsTrue(longEvents.OfType<ShotLanded>().Any());
+        Assert.IsTrue(longEvents.OfType<ShotLanded>().Any(e => e.Shot.Kind == ShotKind.Torpedo));
+        Assert.IsTrue(longEvents.OfType<ShotLanded>().Any(e => e.Shot.Kind == ShotKind.Pulse));
+    }
+
+    [TestMethod]
+    public void AToHitOverrideIsFoundThroughTheTargetsDefinitionName()
+    {
+        var weapon = Weapon(range: 200) with
+        {
+            HitChance = new TargetValue(0.5f, new Dictionary<string, float> { ["b.odf"] = 1 }),
+        };
+        var a = new Spec(Placed("a", 1, 0), Profile(new[] { weapon }));
+        var b = Fighter("b", 2, 100);
+        var c = Fighter("c", 3, -100);
+        var world = World(() => 0.9, a, b, c);
+        world.Attack(a.Object, b.Object);
+        Assert.IsTrue(world.Step(0.02).OfType<ShotFired>().First().Shot.Hits);
+        world.Attack(a.Object, c.Object);
+        Assert.IsFalse(world.Step(1.1).OfType<ShotFired>().First().Shot.Hits);
+    }
+
+    [TestMethod]
+    public void AMovingShipIsNotStoppedForTheTicksOfAFrameAfterTheFirstOne()
+    {
+        // 0.5 to hit, +0.2 when the shooter is stopped, roll 0.6: only a stopped shooter hits
+        var a = Fighter("a", 1, 0, Weapon(delay: 0.02f, range: 2000, hitChance: 0.5f, stopModifier: 0.2f));
+        var b = Fighter("b", 2, 100);
+        var world = World(out var poses, () => 0.6, a, b);
+        world.Attack(a.Object, b.Object);
+        world.Step(0.02);
+        poses.Advance(a.Object, MovingTo(a.Object, 1000, 0), 30);
+        Assert.AreNotEqual(Vector3.Zero, poses.Pose(a.Object).Position);
+        var shots = world.Step(0.1).OfType<ShotFired>().ToList(); // five ticks of one frame
+        Assert.AreEqual(5, shots.Count);
+        Assert.IsFalse(shots.Any(s => s.Shot.Hits));
+    }
+
+    [TestMethod]
+    public void AShipThatMovedOnlyBeforeTheLastStepIsStoppedAgain()
+    {
+        var a = Fighter("a", 1, 0, Weapon(delay: 0.02f, range: 2000, hitChance: 0.5f, stopModifier: 0.2f));
+        var b = Fighter("b", 2, 100);
+        var world = World(out var poses, () => 0.6, a, b);
+        world.Attack(a.Object, b.Object);
+        world.Step(0.02);
+        poses.Advance(a.Object, MovingTo(a.Object, 1000, 0), 30);
+        world.Step(0.02);
+        Assert.IsTrue(world.Step(0.02).OfType<ShotFired>().First().Shot.Hits);
+    }
+
+    [TestMethod]
+    public void TheFallbackTargetIsPickedWithinTheLongestRangeLessTwentyFive()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 100));
+        var target = Fighter("t", 2, 1000);
+        var outside = Fighter("out", 2, 90); // inside the range, outside range less 25
+        var world = World(null, a, target, outside);
+        world.Attack(a.Object, target.Object);
+        Assert.AreEqual(0, Fired(world.Step(2), "a"));
+        var inside = Fighter("in", 3, 70);
+        var world2 = World(null, a, target, outside, inside);
+        world2.Attack(a.Object, target.Object);
+        Assert.AreEqual("in", world2.Step(0.02).OfType<ShotFired>().Single().Shot.Target.Unit.Label);
+    }
+
+    [TestMethod]
+    public void TheFallbackTargetIsKeptWhileItStaysValidAndInsideTheRadius()
+    {
+        var a = Fighter("a", 1, 0, Weapon(delay: 0.02f, range: 100));
+        var far = Fighter("far", 2, 1000);
+        var kept = Fighter("kept", 2, 60);
+        var nearer = Fighter("nearer", 3, -70);
+        var world = World(out var poses, null, a, far, kept, nearer);
+        world.Attack(a.Object, far.Object);
+        Assert.AreEqual("kept", world.Step(0.02).OfType<ShotFired>().First().Shot.Target.Unit.Label);
+        poses.Advance(nearer.Object, MovingTo(nearer.Object, -20, 0), 1000);
+        Assert.IsTrue(poses.Pose(nearer.Object).Position.X > -40);
+        var labels = world.Step(0.1).OfType<ShotFired>().Select(s => s.Shot.Target.Unit.Label).ToList();
+        Assert.IsTrue(labels.Count > 0);
+        Assert.IsTrue(labels.All(l => l == "kept"));
+    }
+
+    [TestMethod]
+    public void ABeamDealsNothingWhenItsTargetLeavesBeyondTwiceTheRangeAndComesBack()
+    {
+        var a = Fighter("a", 1, 0, Weapon(Beam(life: 1), delay: 100, range: 100));
+        var b = Fighter("b", 2, 50);
+        var world = World(out var poses, null, a, b);
+        world.Attack(a.Object, b.Object);
+        world.Step(0.5);
+        poses.Advance(b.Object, MovingTo(b.Object, 1000, 0), 1000);
+        world.Step(0.1);
+        poses.Advance(b.Object, MovingTo(b.Object, 50, 0), 0.001);
+        Assert.AreEqual(0, world.Step(1).OfType<ShotLanded>().Count());
+    }
+
+    [TestMethod]
+    public void AWeaponWhoseDelayIsBelowATickFiresEveryShotItsDelayAllows()
+    {
+        var a = Fighter("a", 1, 0, Weapon(delay: 0.005f, range: 200));
+        var b = Fighter("b", 2, 100);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.IsTrue(Fired(world.Step(1), "a") >= 200);
+        Assert.IsTrue(world.State(a.Object)!.Weapons[0].Cooldown >= -1e-6);
     }
 }

@@ -29,6 +29,7 @@ public partial class UnitOrders : Node3D
     readonly UnitPoses _poses;
     readonly MovePlan _plan;
     readonly CombatWorld _world;
+    readonly HashSet<PlacedObject> _fighting; // the units the world was built with, to tell the destroyed ones
     readonly float _planeHeight;
     readonly MapBounds _bounds;
 
@@ -71,12 +72,14 @@ public partial class UnitOrders : Node3D
             combat.ShieldDamageProtection,
             random.NextDouble
         );
+        _fighting = _world.Units.Select(u => u.Unit).ToHashSet();
     }
 
     // The combat state of the units still in the fight.
     public CombatWorld Combat => _world;
 
     // Half the longest side of the box around the model's meshes, as the selection's picks take it; 0 without meshes.
+    // stand-in: the unit radius is read from the mesh box; the game's collision radius is not known.
     static float Radius(Node3D node) =>
         VisibleMeshes.Extent(VisibleMeshes.Of(node), node.GlobalTransform) is { } box
             ? Math.Max(box.Size.X, Math.Max(box.Size.Y, box.Size.Z)) / 2
@@ -168,15 +171,18 @@ public partial class UnitOrders : Node3D
         // A failure of one frame's combat never stops the sandbox (INV-0002); the next frame goes on.
         try
         {
-            foreach (var destroyed in _world.Step(delta).OfType<UnitDestroyed>())
-            {
-                _moving.Remove(destroyed.Unit);
-                _selection.Remove(destroyed.Unit);
-            }
+            _world.Step(delta);
         }
         catch (Exception e)
         {
             GD.PrintErr($"combat step failed: {e.Message}");
+        }
+        // The world, not the step's events, says who is gone, so a failed step still takes its destroyed units out.
+        foreach (var unit in _fighting.Where(u => _world.State(u) == null).ToList())
+        {
+            _fighting.Remove(unit);
+            _moving.Remove(unit);
+            _selection.Remove(unit);
         }
     }
 }

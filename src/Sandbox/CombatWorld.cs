@@ -85,6 +85,14 @@ public sealed class CombatWorld
     public IReadOnlyList<CombatEvent> Step(double seconds)
     {
         var events = new List<CombatEvent>();
+        // Positions change once per Step call (a frame), so a unit is stopped when it did not move since the
+        // previous call; every tick of the call shares that, and the to-hit does not depend on the frame rate.
+        foreach (var u in _units.Values)
+        {
+            var at = Position(u);
+            u.Stopped = u.LastPosition == null || u.LastPosition == at;
+            u.LastPosition = at;
+        }
         _pending += Math.Max(0, seconds);
         while (_pending + Epsilon >= Tick)
         {
@@ -96,12 +104,6 @@ public sealed class CombatWorld
 
     void RunTick(List<CombatEvent> events)
     {
-        foreach (var u in _units.Values)
-        {
-            var at = Position(u);
-            u.Stopped = u.LastPosition == null || u.LastPosition == at;
-            u.LastPosition = at;
-        }
         AdvanceShots(events);
         foreach (var u in _units.Values.ToList())
         {
@@ -124,6 +126,7 @@ public sealed class CombatWorld
     // Sets the unit's movement and the target its weapons fire at.
     void Think(UnitCombatState u)
     {
+        var held = u.Target; // the fallback target of the previous tick, if any
         u.Target = null;
         if (u.Weapons.Count == 0)
             return;
@@ -143,7 +146,17 @@ public sealed class CombatWorld
             // range, then holds position and turns toward it.
             u.Intent = new MoveIntent(distance > range - 50 ? MoveKind.MoveTo : MoveKind.Face, there.X, there.Z);
         }
-        u.Target = distance <= range ? order : NearestHostile(u, range);
+        if (distance <= range)
+        {
+            u.Target = order;
+            return;
+        }
+        // Target selection (0x42fd6f): the radius is the longest range less 25; a valid target inside it is kept.
+        var radius = range - 25;
+        u.Target =
+            held is { Destroyed: false } && CombatRules.Hostile(u.Team, held.Team) && Surface(u, held) <= radius
+                ? held
+                : NearestHostile(u, radius);
     }
 
     // The nearest hostile unit whose surface is within `range`; null when none is.
@@ -166,15 +179,24 @@ public sealed class CombatWorld
                 weapon.Cooldown = Math.Max(0, weapon.Cooldown); // an idle weapon does not store shots
                 continue;
             }
-            if (weapon.Cooldown > Epsilon)
-                continue;
-            for (var i = 0; i < Math.Max(1, weapon.Profile.Hardpoints.Count); i++)
-                events.Add(new ShotFired(Launch(u, weapon.Profile, target)));
-            weapon.Cooldown += CombatRules.ReloadDelay(weapon.Profile, u);
+            var delay = CombatRules.ReloadDelay(weapon.Profile, u);
+            // A delay below a tick fires several rounds in one tick; a delay of zero fires one round per tick.
+            while (weapon.Cooldown <= Epsilon)
+            {
+                for (var i = 0; i < Math.Max(1, weapon.Profile.Hardpoints.Count); i++)
+                    events.Add(new ShotFired(Launch(u, weapon.Profile, target)));
+                weapon.Cooldown += delay;
+                if (delay <= Epsilon)
+                {
+                    weapon.Cooldown = 0;
+                    break;
+                }
+            }
         }
     }
 
     // One shot of the weapon at the target, with its to-hit rolled now. A shot that missed is reported and not kept.
+    // stand-in: a missed shot hits nothing and flies on to nowhere; the game's miss behavior is not known.
     Shot Launch(UnitCombatState shooter, WeaponProfile weapon, UnitCombatState target)
     {
         // stand-in: nothing in the engine is at warp yet, so the warp modifiers never apply
@@ -187,12 +209,13 @@ public sealed class CombatWorld
             target.Stopped
         );
         var hits = _random() <= chance;
+        // stand-in: shots start from the shooter's center; the hardpoint positions are not used yet.
         var from = Position(shooter);
         var toward = Position(target) - from;
         var kind = weapon.Ordnance.ClassLabel switch
         {
             "phaser" => ShotKind.Beam,
-            "pphaser" => ShotKind.Pulse,
+            "pphaser" => ShotKind.Pulse, // stand-in: a pulse flies straight; the game's pulse flight is not known
             _ => ShotKind.Torpedo, // stand-in: poleron torpedoes and unknown classes fly as torpedoes
         };
         var shot = new Shot(
@@ -222,11 +245,14 @@ public sealed class CombatWorld
             var ordnance = shot.Weapon.Ordnance;
             if (shot.Kind == ShotKind.Beam)
             {
-                if (shot.Age + Epsilon < ordnance.LifeSpan)
-                    continue;
-                _shots.Remove(shot);
-                if (!shot.Shooter.Destroyed && Surface(shot.Shooter, shot.Target) <= 2 * shot.Weapon.Range)
+                // The beam ends without damage as soon as its shooter is gone or its target is beyond twice the range.
+                if (shot.Shooter.Destroyed || Surface(shot.Shooter, shot.Target) > 2 * shot.Weapon.Range)
+                    _shots.Remove(shot);
+                else if (shot.Age + Epsilon >= ordnance.LifeSpan)
+                {
+                    _shots.Remove(shot);
                     Land(shot, events);
+                }
                 continue;
             }
             if (shot.Kind == ShotKind.Torpedo && shot.Age <= ordnance.SeekTime)
@@ -253,6 +279,7 @@ public sealed class CombatWorld
             return shot.Direction;
         want = Vector3.Normalize(want);
         var angle = MathF.Acos(Math.Clamp(Vector3.Dot(shot.Direction, want), -1, 1));
+        // stand-in: omegaTurn is read as radians per second; its unit in the game is not known.
         var most = shot.Weapon.Ordnance.OmegaTurn * (float)seconds;
         if (angle <= most)
             return want;

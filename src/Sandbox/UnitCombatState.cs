@@ -66,9 +66,9 @@ public sealed class UnitCombatState(
     public MoveIntent Intent { get; set; }
     public bool Destroyed { get; set; }
 
-    // The position at the previous tick, to tell a stopped unit from a moving one.
+    // The position at the previous Step call, to tell a stopped unit from a moving one.
     public Vector3? LastPosition { get; set; }
 
-    // Whether the unit did not move since the previous tick (a unit the world has not yet seen is stopped).
+    // Whether the unit did not move since the previous Step call (a unit the world has not yet seen is stopped).
     public bool Stopped { get; set; } = true;
 }

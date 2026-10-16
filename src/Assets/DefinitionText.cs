@@ -55,6 +55,7 @@ public static class DefinitionText
     static string RaceOf(GameFileSystem files, string definition)
     {
         try { return ResolvedDefinition.Resolve(files, definition).GetString("race"); }
-        catch (Exception e) when (e is System.IO.FileNotFoundException or DefinitionException) { return Unknown; }
+        catch (Exception e) when (e is System.IO.FileNotFoundException or System.IO.InvalidDataException
+                                      or UnsupportedFormatException or DefinitionException) { return Unknown; }
     }
 }

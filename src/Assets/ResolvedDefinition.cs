@@ -56,17 +56,20 @@ public sealed class ResolvedDefinition
     public static ResolvedDefinition Resolve(GameFileSystem files, string name)
     {
         var def = new ResolvedDefinition(name);
-        def.Visit(files, name, new List<string>());
+        def.Visit(files, name, new List<string>(), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         return def;
     }
 
-    void Visit(GameFileSystem files, string name, List<string> path)
+    // `visited` holds every definition read so far: one reached again (a diamond, a repeated include)
+    // has already lost all its keys to the first visit, so it is skipped, not parsed again.
+    void Visit(GameFileSystem files, string name, List<string> path, HashSet<string> visited)
     {
         if (path.Any(p => p.Equals(name, StringComparison.OrdinalIgnoreCase)))
         {
             _problems.Add($"include cycle {string.Join(" -> ", path.Append(name))}");
             return;
         }
+        if (visited.Contains(name)) return;
         if (path.Count >= MaxDepth)
         {
             _problems.Add($"include chain deeper than {MaxDepth} at '{name}'");
@@ -80,17 +83,23 @@ public sealed class ResolvedDefinition
             return;
         }
         var odf = Odf.Parse(Windows1252.Encoding.GetString(bytes));
-        _notes.AddRange(odf.Problems.Select(p => $"{name}: {p}"));
+        visited.Add(name);
+        // The definition's own notes carry no name: the check line and the preview already show it.
+        _notes.AddRange(odf.Problems.Select(p => path.Count == 0 ? p : $"{name}: {p}"));
         _chain.Add(name);
 
         var origin = files.Overrides(name) ? ValueOrigin.Overridden : path.Count == 0 ? ValueOrigin.Own : ValueOrigin.Inherited;
         var own = new Dictionary<string, OdfEntry>(StringComparer.OrdinalIgnoreCase);
-        foreach (var e in odf.Entries) own[e.Key] = e; // a repeated key in one file: the last wins, at the first's place
+        // The engine's rule, not confirmed against the game's reader: a repeated key in one file keeps
+        // its last value, at the first one's place.
+        foreach (var e in odf.Entries) own[e.Key] = e;
         foreach (var e in own.Values)
             if (_index.TryAdd(e.Key, _values.Count)) _values.Add(new DefinitionValue(e.Key, e.Tokens, origin, name));
 
+        // The engine's rule, not confirmed against the game's reader: includes are visited depth first,
+        // the last include first, so a later include (with everything it includes) beats an earlier one.
         path.Add(name);
-        for (var i = odf.Includes.Count - 1; i >= 0; i--) Visit(files, odf.Includes[i], path);
+        for (var i = odf.Includes.Count - 1; i >= 0; i--) Visit(files, odf.Includes[i], path, visited);
         path.RemoveAt(path.Count - 1);
     }
 
@@ -99,11 +108,15 @@ public sealed class ResolvedDefinition
     public DefinitionValue? Find(string key) => _index.TryGetValue(key, out var i) ? _values[i] : null;
 
     // The values of keys `prefix` + digits (weapon1, weapon2, ...), in numeric order.
-    public IReadOnlyList<DefinitionValue> Indexed(string prefix) =>
-        _values.Where(v => v.Key.Length > prefix.Length && v.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-                           && v.Key.AsSpan(prefix.Length).ToString().All(char.IsAsciiDigit))
-            .OrderBy(v => int.TryParse(v.Key.AsSpan(prefix.Length), out var n) ? n : int.MaxValue)
-            .ToList();
+    public IReadOnlyList<DefinitionValue> Indexed(string prefix)
+    {
+        var found = new List<(int N, DefinitionValue Value)>();
+        foreach (var v in _values)
+            if (v.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(v.Key.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var n))
+                found.Add((n, v));
+        return found.OrderBy(f => f.N).Select(f => f.Value).ToList();
+    }
 
     public IReadOnlyList<string> GetList(string key) => Get(key).Tokens;
 
@@ -124,7 +137,7 @@ public sealed class ResolvedDefinition
     {
         var t = Get(key).Tokens;
         if (t.Count == 1 && float.TryParse(t[0].EndsWith('f') || t[0].EndsWith('F') ? t[0][..^1] : t[0],
-                NumberStyles.Float, CultureInfo.InvariantCulture, out var f)) return f;
+                NumberStyles.Float, CultureInfo.InvariantCulture, out var f) && float.IsFinite(f)) return f;
         throw Wrong(key, "a number", t);
     }
 

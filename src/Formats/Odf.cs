@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace OpenArmada.Formats;
@@ -8,7 +7,7 @@ namespace OpenArmada.Formats;
 // One `key = value` pair of an object definition. Tokens are the value split on whitespace; a quoted
 // string is one token with its quotes removed. Numbers stay text: the typed lookups of the resolved
 // definition convert them.
-public sealed record OdfEntry(string Key, IReadOnlyList<string> Tokens, string? Section, int Line);
+public sealed record OdfEntry(string Key, IReadOnlyList<string> Tokens, string? Section);
 
 // The text of one object definition (.odf), parsed without resolving includes. Lines are
 // `key = value`, `[Section]`, `#include "parent.odf"`, `//` comments (full-line or trailing) and
@@ -53,7 +52,7 @@ public sealed class Odf
             {
                 current = null;
                 if (!Tokenize(m.Groups[2].Value, out var tokens, out var why)) { odf._problems.Add($"line {n}: {why}"); continue; }
-                odf._entries.Add(new OdfEntry(m.Groups[1].Value, tokens, section, n));
+                odf._entries.Add(new OdfEntry(m.Groups[1].Value, tokens, section));
                 current = tokens;
             }
             else if (current != null && (char.IsWhiteSpace(line[0]) || trimmed[0] == '"')) // the game also writes quoted names flush left
@@ -89,7 +88,6 @@ public sealed class Odf
         while (i < s.Length)
         {
             if (char.IsWhiteSpace(s[i])) { i++; continue; }
-            var sb = new StringBuilder();
             if (s[i] == '"')
             {
                 var end = s.IndexOf('"', i + 1);
@@ -98,8 +96,9 @@ public sealed class Odf
                 i = end + 1;
                 continue;
             }
-            while (i < s.Length && !char.IsWhiteSpace(s[i])) sb.Append(s[i++]);
-            tokens.Add(sb.ToString());
+            var start = i;
+            while (i < s.Length && !char.IsWhiteSpace(s[i])) i++;
+            tokens.Add(s[start..i]);
         }
         return true;
     }

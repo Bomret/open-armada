@@ -11,8 +11,14 @@ public class TechTreeTests
 {
     readonly ResolvedDefinitionTests defs = new();
 
+    readonly TempInstall temp = new();
+
     [TestCleanup]
-    public void CleanUp() => defs.CleanUp();
+    public void CleanUp()
+    {
+        defs.CleanUp();
+        temp.CleanUp();
+    }
 
     [TestMethod]
     public void ParsesNamesWithTheirRequirementsAndSkipsBlankLines()
@@ -48,6 +54,16 @@ public class TechTreeTests
     {
         Assert.IsTrue(AssetKind.Discover().Any(k => k is DefinitionKind));
         Assert.IsTrue(AssetKind.Discover().Any(k => k is TechTreeKind));
+    }
+
+    [TestMethod]
+    public void PreviewFilesAnEntryWhoseArchiveMemberCannotBeReadUnderUnknownRace()
+    {
+        var zfs = ZfsBuilder.Build(0, ZfsBuilder.M("zip.odf", "race = \"x\"", 2 | (10u << 8)));
+        var zix = "1\n-\nDIR: assets.zfs\n-\n1 zip.odf\n";
+        var install = new GameFileSystem(temp.MakeInstall(("assets.zfs", System.Text.Encoding.Latin1.GetString(zfs)), ("startrek.zix", zix)));
+        var text = DefinitionText.Format(install, TechTree.Parse("zip.odf 0\r\n"));
+        StringAssert.Contains(text, "unknown race");
     }
 
     [TestMethod]

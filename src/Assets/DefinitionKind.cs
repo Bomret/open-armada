@@ -27,10 +27,11 @@ public sealed class DefinitionKind : AssetKind
     }
 
     // Names of the files with the extension that the archives and the override layer hold. Loose files
-    // elsewhere in the install (events.odf is not a definition) are left out.
+    // elsewhere in the install (events.odf is not a definition) are left out, and so are loose files in a
+    // subfolder of addon (the game reads addon non-recursively, so no name reaches them).
     internal static IEnumerable<string> Named(GameFileSystem files, string extension) =>
         files.Inventory()
-            .Where(f => f.Contains("::") || f.StartsWith("addon/", StringComparison.OrdinalIgnoreCase))
+            .Where(f => f.Contains("::") || (f.StartsWith("addon/", StringComparison.OrdinalIgnoreCase) && f.IndexOf('/', 6) < 0))
             .Select(f => f[(Math.Max(f.LastIndexOf('/'), f.LastIndexOf(':')) + 1)..])
             .Where(f => f.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase);

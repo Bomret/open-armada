@@ -167,6 +167,77 @@ public class ResolvedDefinitionTests
         Assert.IsTrue(def.Problems.Count > 0);
     }
 
+    [TestMethod, Timeout(10000)]
+    public void DoubledIncludeChainResolvesEachDefinitionOnce()
+    {
+        const int depth = 40;
+        var defs = Enumerable.Range(0, depth)
+            .Select(i => ($"d{i}.odf", $"#include \"d{i + 1}.odf\"\r\n#include \"d{i + 1}.odf\"")).ToList();
+        defs.Add(($"d{depth}.odf", "x = 1"));
+        var def = Resolve("d0.odf", defs.ToArray());
+        Assert.AreEqual(depth + 1, def.Chain.Count);
+        Assert.AreEqual(1, def.GetInt("x"));
+    }
+
+    [TestMethod]
+    public void DiamondIncludeResolvesTheSharedDefinitionOnce()
+    {
+        var def = Resolve("top.odf",
+            ("top.odf", "#include \"l.odf\"\r\n#include \"r.odf\""),
+            ("l.odf", "#include \"base.odf\""), ("r.odf", "#include \"base.odf\""), ("base.odf", "x = 1\r\njunk line"));
+        Assert.AreEqual(1, def.Chain.Count(c => c == "base.odf"));
+        Assert.AreEqual(1, def.Notes.Count);
+        Assert.AreEqual(0, def.Problems.Count);
+    }
+
+    [TestMethod]
+    public void NoteOfTheDefinitionItselfDoesNotRepeatItsName()
+    {
+        var notes = Resolve("a.odf", ("a.odf", "x = 1\r\ngarbage line")).Notes;
+        Assert.AreEqual("line 2: not a key = value line: garbage line", notes[0]);
+    }
+
+    [TestMethod]
+    public void NonFiniteNumberAskedAsFloatIsReportedForThatKey()
+    {
+        var def = Resolve("a.odf", ("a.odf", "a = NaN\r\nb = Infinity\r\nc = -Infinity\r\nd = 1e999\r\ne = 1"));
+        foreach (var key in new[] { "a", "b", "c", "d" })
+            StringAssert.Contains(Assert.ThrowsExactly<DefinitionException>(() => def.GetFloat(key)).Message, $"'{key}'");
+        Assert.AreEqual(1f, def.GetFloat("e"));
+    }
+
+    // The engine's rule, not confirmed against the game's reader: a repeated key in one file keeps its last value.
+    [TestMethod]
+    public void RepeatedKeyInOneFileKeepsTheLastValue() =>
+        Assert.AreEqual(2, Resolve("a.odf", ("a.odf", "x = 1\r\nx = 2")).GetInt("x"));
+
+    // The engine's rule, not confirmed against the game's reader: includes are visited depth first, the
+    // last include first, so a later include and everything it pulls in beat an earlier include's.
+    [TestMethod]
+    public void NestedIncludesFollowDepthFirstOrderLastIncludeFirst()
+    {
+        var def = Resolve("c.odf",
+            ("c.odf", "#include \"a.odf\"\r\n#include \"b.odf\""),
+            ("a.odf", "#include \"p.odf\"\r\nx = 1"), ("p.odf", "y = p\r\nz = p"),
+            ("b.odf", "#include \"q.odf\"\r\nx = 2"), ("q.odf", "y = q"));
+        Assert.AreEqual(2, def.GetInt("x"));
+        Assert.AreEqual("q", def.GetString("y"));
+        Assert.AreEqual("p", def.GetString("z"));
+    }
+
+    [TestMethod]
+    public void IncludeNameWithoutQuotesResolves() =>
+        Assert.AreEqual(1, Resolve("c.odf", ("a.odf", "x = 1"), ("c.odf", "#include a.odf")).GetInt("x"));
+
+    [TestMethod]
+    public void EveryListedDefinitionResolvesByItsListedNameAndAnAddonSubfolderFileIsNotListed()
+    {
+        var install = Install(new[] { ("a.odf", "x = 1") }, ("b.odf", "x = 2"), ("mods/s.odf", "x = 7"));
+        var listed = DefinitionKind.Named(install, ".odf").ToArray();
+        CollectionAssert.AreEquivalent(new[] { "a.odf", "b.odf" }, listed);
+        foreach (var name in listed) ResolvedDefinition.Resolve(install, name);
+    }
+
     [TestMethod]
     public void NameWithWindows1252CharacterKeepsIt()
     {

@@ -10,11 +10,5 @@ public sealed class TechTreePreview : KindPreview
     public override string KindName => TechTreeKind.KindName;
 
     public override Control Create(GameFileSystem files, AssetKind kind, string name) =>
-        new TextEdit
-        {
-            Text = DefinitionText.Format(files, (TechTree)kind.Load(files, name)),
-            Editable = false,
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-        };
+        ReadOnlyText(DefinitionText.Format(files, (TechTree)kind.Load(files, name)));
 }

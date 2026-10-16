@@ -19,26 +19,15 @@ public partial class MoveOrders : Node3D
     readonly MovePlan _plan;
     readonly float _planeHeight;
 
-    public MoveOrders(GameFileSystem files, SandboxPlan plan, UnitSelection selection, Dictionary<PlacedObject, Node3D> nodes, Action<string> gap)
+    // `planeHeight` is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
+    // stand-ins), so orders aim at the plane the camera looks at.
+    public MoveOrders(GameFileSystem files, SandboxPlan plan, UnitSelection selection, Dictionary<PlacedObject, Node3D> nodes, float planeHeight, Action<string> gap)
     {
         _selection = selection;
         _nodes = nodes;
+        _planeHeight = planeHeight;
         _plan = MovePlan.Build(plan, selection.Units, files);
         foreach (var report in _plan.Reports) gap(report.Text);
-        // The combat plane's middle height is read from the game constants; when they cannot be read, the plane
-        // lies at height 0 and a gap says so (INV-0002).
-        // stand-in: the combat plane at height 0 when SHIP_COMBAT_FLOOR or SHIP_COMBAT_CEILING is unreadable.
-        try
-        {
-            var constants = GameConstantsKind.Of(files);
-            if (!constants.TryNumber("SHIP_COMBAT_FLOOR", out var floor, out var p1)) gap($"combat plane height unreadable ({p1}), plane at height 0 used");
-            else if (!constants.TryNumber("SHIP_COMBAT_CEILING", out var ceiling, out var p2)) gap($"combat plane height unreadable ({p2}), plane at height 0 used");
-            else _planeHeight = (float)((floor + ceiling) / 2);
-        }
-        catch (Exception e)
-        {
-            gap($"combat plane height unreadable ({e.Message}), plane at height 0 used");
-        }
     }
 
     public override void _UnhandledInput(InputEvent e)

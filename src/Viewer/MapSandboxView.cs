@@ -80,10 +80,8 @@ public partial class MapSandboxView : Node3D
         var selection = new UnitSelection(files, plan, nodes);
         AddChild(selection);
         _gaps.AddRange(selection.Reports.Select(r => r.Text));
-        AddChild(new MoveOrders(files, plan, selection, nodes, AddGap));
 
-        AddChild(new AsteroidFieldsView(files, plan, AddGap));
-
+        // The rig reads the game constants once per start; move orders aim at its combat plane.
         var bounds = plan.Bounds;
         try { _rig = new CameraRig(GameConstantsKind.Of(files), bounds); }
         catch (Exception e) // no readable RTS_CFG.h: the camera uses its stand-ins (INV-0002)
@@ -92,6 +90,10 @@ public partial class MapSandboxView : Node3D
             _rig = new CameraRig(null, bounds);
         }
         foreach (var problem in _rig.Problems) AddGap(problem);
+        AddChild(new MoveOrders(files, plan, selection, nodes, (float)_rig.CombatPlaneHeight, AddGap));
+
+        AddChild(new AsteroidFieldsView(files, plan, AddGap));
+
         // The sandbox's reach: no camera is farther from an object than the rig's greatest eye distance from its
         // look-at point (which stays within the map) plus the map's diagonal.
         var reach = (float)_rig.MaxDistance + MathF.Sqrt(bounds.Width * bounds.Width + bounds.Depth * bounds.Depth);

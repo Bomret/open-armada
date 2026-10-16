@@ -53,6 +53,14 @@ public class CameraRigTests
         Near(0, eye.Z); // distance sqrt(200 * 450) = 300 behind the target, rotation 0
     }
 
+    // Move orders aim at the plane the camera looks at, so a missing combat constant moves both by one stand-in.
+    [TestMethod]
+    public void AMissingCombatFloorGivesTheStandInCombatPlaneHeight()
+    {
+        var rig = Rig(("SHIP_COMBAT_FLOOR", null));
+        Near(38.5f, (float)rig.CombatPlaneHeight);
+    }
+
     [TestMethod]
     public void AChangedInitHeightAndRotationChangeTheStartPose()
     {

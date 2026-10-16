@@ -22,6 +22,10 @@ public sealed class CameraRig
     // farther from the target's height), on its parabola.
     public double MaxDistance => Math.Max(DistanceAt(MaxHeight), DistanceAt(_minHeight));
 
+    // The middle of the combat plane (SHIP_COMBAT_FLOOR and SHIP_COMBAT_CEILING, or their stand-ins): the
+    // height the camera looks at and the one plane move orders aim at.
+    public double CombatPlaneHeight => _targetY;
+
     double DistanceAt(double height) => Math.Sqrt(_focus * height + (height - _targetY) * (height - _targetY));
     // The height change per mouse wheel notch (ZOOM_SCROLL_COEFFICIENT) and the rotation per dragged pixel.
     public double ZoomStep { get; }

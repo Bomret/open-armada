@@ -162,18 +162,57 @@ public class AsteroidFieldTests
     }
 
     [TestMethod]
-    public void AFieldWithNoModelLeftIsReportedAndSkipped()
+    public void AMissingModelIsCountedOncePerFieldWhateverTheNumberOfMissingModels()
     {
-        var (fields, reports) = Collect(MapOf("m", Obj("mafield", 1)), Good, _ => false);
-        Assert.AreEqual(0, fields.Count);
-        Assert.IsTrue(reports.Count >= 1);
+        var (_, reports) = Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2), Obj("mafield", 3)), Good, m => Eight.Contains(m) && m != "master3" && m != "master4");
+        Assert.AreEqual(3, reports.Single().Count);
+        CollectionAssert.AreEqual(new[] { "master3", "master4" }, reports.Single().Names.ToArray());
     }
 
     [TestMethod]
-    public void TheSeedDoesNotDependOnTheMapNameSpellingOnlyOnTheMapContent()
+    public void AFieldWithNoModelLeftIsReportedWithACountAndSkipped()
     {
-        var a = Collect(MapOf("one", Obj("mafield", 1)), Good).Fields.Single().Seed;
-        var b = Collect(MapOf("two", Obj("mafield", 1)), Good).Fields.Single().Seed;
-        Assert.AreNotEqual(a, b);
+        var (fields, reports) = Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2)), Good, _ => false);
+        Assert.AreEqual(0, fields.Count);
+        var noModel = reports.Single(r => r.Cause.StartsWith("no asteroid model left"));
+        Assert.AreEqual(2, noModel.Count);
+    }
+
+    [DataTestMethod]
+    [DataRow("minAsteroids = 3", "minAsteroids = -1")]
+    [DataRow("maxAsteroids = 8", "maxAsteroids = -1")]
+    [DataRow("maxAsteroids = 8", "maxAsteroids = 2147483647")]
+    [DataRow("maxAsteroids = 8", "maxAsteroids = 1000000")]
+    public void AFieldWithANegativeOrHugeCountIsReportedWithACountAndSkipped(string from, string to)
+    {
+        var (fields, reports) = Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2)), Good.Replace(from, to));
+        Assert.AreEqual(0, fields.Count);
+        Assert.AreEqual(2, reports.Single().Count);
+        StringAssert.Contains(reports.Single().Cause, "count");
+    }
+
+    static uint SeedUnder(string path, string description)
+    {
+        var temp = new TempInstall();
+        try
+        {
+            var install = new GameFileSystem(temp.MakeInstall(("addon/mafield.odf", Good)));
+            var parsed = Bzn.Read(MapOf(description, Obj("mafield", 1)).Build());
+            var asset = new MapAsset(path, parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+            return SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), m => Eight.Contains(m)).Fields.Single().Seed;
+        }
+        finally { temp.CleanUp(); }
+    }
+
+    [TestMethod]
+    public void TheSeedDoesNotDependOnTheSpellingOfTheMapPath()
+    {
+        Assert.AreEqual(SeedUnder("bzn/4mama.bzn", "m"), SeedUnder("BZN/4MAMA.BZN", "m"));
+    }
+
+    [TestMethod]
+    public void TheSeedFollowsTheMapContent()
+    {
+        Assert.AreNotEqual(SeedUnder("bzn/t.bzn", "one"), SeedUnder("bzn/t.bzn", "two"));
     }
 }

@@ -61,16 +61,20 @@ public sealed record AsteroidField(Vector3 Center, int Min, int Max, float Radiu
     const string MissingKey = "asteroid field value missing or not a number, fields skipped";
     const string MinAboveMax = "asteroid field minimum above maximum, fields skipped";
     const string BadRadius = "asteroid field radius not above 0, fields skipped";
+    const string BadCount = "asteroid field count negative or above the bound, fields skipped";
+    // stand-in: the largest rock count of one field the sandbox plans (the game's limit is not known; 4mama's fields
+    // hold up to 4,800 rocks together), which keeps a bad value from allocating without bound.
+    const int MaxRocksPerField = 20000;
     const string MissingModel = "asteroid model missing, the others used";
     const string NoModel = "no asteroid model left, fields skipped";
 
     // The fields of the map, each from its definition (a class whose classLabel is asteroidfield), and the gaps
     // found: a field with a missing or illegal value is reported and left out, a missing model is reported and
-    // the rest used (INV-0002). Reports are grouped by cause with the field count.
+    // the rest used (INV-0002). Reports are grouped by cause; the count is the number of fields the cause touches.
     public static (IReadOnlyList<AsteroidField> Fields, IReadOnlyList<ReportEntry> Reports) Collect(
         BznMap map, IReadOnlyDictionary<string, ResolvedDefinition> definitions, Func<string, bool> hasModel)
     {
-        var gaps = new List<(string Cause, string Name)>();
+        var gaps = new List<(string Cause, string Name, MapObject Field)>();
         var present = ModelNames.Where(hasModel).ToList();
         var fields = new List<AsteroidField>();
         foreach (var o in map.Objects)
@@ -81,7 +85,7 @@ public sealed record AsteroidField(Vector3 Center, int Min, int Max, float Radiu
             T Read<T>(string key, Func<string, T> get)
             {
                 try { return get(key); }
-                catch (DefinitionException) { gaps.Add((MissingKey, $"{o.Class}: {key}")); bad = true; return default!; }
+                catch (DefinitionException) { gaps.Add((MissingKey, $"{o.Class}: {key}", o)); bad = true; return default!; }
             }
             var min = Read("minAsteroids", d.GetInt);
             var max = Read("maxAsteroids", d.GetInt);
@@ -89,14 +93,15 @@ public sealed record AsteroidField(Vector3 Center, int Min, int Max, float Radiu
             var spin = Read("rotationSpeed", d.GetFloat);
             var orbit = Read("orbitingSpeed", d.GetFloat);
             if (bad) continue;
-            if (min > max) { gaps.Add((MinAboveMax, o.Class)); continue; }
-            if (!(radius > 0)) { gaps.Add((BadRadius, o.Class)); continue; }
-            foreach (var missing in ModelNames.Except(present)) gaps.Add((MissingModel, missing));
-            if (present.Count == 0) { gaps.Add((NoModel, o.Class)); continue; }
+            if (min < 0 || max < 0 || max > MaxRocksPerField) { gaps.Add((BadCount, o.Class, o)); continue; }
+            if (min > max) { gaps.Add((MinAboveMax, o.Class, o)); continue; }
+            if (!(radius > 0)) { gaps.Add((BadRadius, o.Class, o)); continue; }
+            foreach (var missing in ModelNames.Except(present)) gaps.Add((MissingModel, missing, o));
+            if (present.Count == 0) { gaps.Add((NoModel, o.Class, o)); continue; }
             fields.Add(new AsteroidField(new Vector3(o.Position.X, o.Position.Y, -o.Position.Z), min, max, radius, spin, orbit, SeedOf(map, o), present));
         }
         var reports = gaps.GroupBy(g => g.Cause)
-            .Select(g => new ReportEntry(g.Key, g.Select(x => x.Name).Distinct().ToList(), g.Count())).ToList();
+            .Select(g => new ReportEntry(g.Key, g.Select(x => x.Name).Distinct().ToList(), g.Select(x => x.Field).Distinct().Count())).ToList();
         return (fields, reports);
     }
 

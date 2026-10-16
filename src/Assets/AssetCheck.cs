@@ -47,9 +47,10 @@ public static class AssetCheck
                 try
                 {
                     var notes = kind.Check(files, name);
+                    // Notes print before the decoder runs, so a decode failure does not lose them.
+                    foreach (var note in notes) output.WriteLine($"NOTE {kind.Name}/{name}: {note}");
                     // The game's own decoders run after the readers accepted the file.
                     decode?.Invoke(kind, files, name);
-                    foreach (var note in notes) output.WriteLine($"NOTE {kind.Name}/{name}: {note}");
                     loaded++;
                 }
                 catch (UnsupportedFormatException e)

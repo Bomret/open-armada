@@ -97,6 +97,27 @@ public class ImageSoundKindTests
     }
 
     [TestMethod]
+    public void NoteIsPrintedEvenWhenTheDecoderRejectsTheTexture()
+    {
+        var dir = Dir(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(3)));
+        var output = new StringWriter();
+        var code = AssetCheck.Run(dir, new AssetKind[] { new TextureKind() }, output,
+            (kind, files, name) => throw new InvalidDataException("Godot cannot decode it"));
+        StringAssert.Contains(output.ToString(), "NOTE textures/a.tga: level a.1 is 3x3, expected 4x4");
+        StringAssert.Contains(output.ToString(), "FAIL textures/a.tga: Godot cannot decode it");
+        Assert.AreEqual(1, code);
+    }
+
+    [TestMethod]
+    public void NonSquareMipChainKeepsASideAtOneAndKeepsHalving()
+    {
+        var fs = Install(("Textures/RGB/a.tga", TgaTests.Make(8, 2, 24)), ("Textures/RGB/a.1", TgaTests.Make(4, 1, 24)),
+            ("Textures/RGB/a.2", TgaTests.Make(2, 1, 24)), ("Textures/RGB/a.3", TgaTests.Make(1, 1, 24)));
+        var t = (TextureAsset)new TextureKind().Load(fs, "a.tga");
+        Assert.AreEqual(3, t.Mips.Count);
+    }
+
+    [TestMethod]
     public void DecoderThatThrowsFailsOnlyItsAsset()
     {
         var dir = Dir(("sounds/ok.wav", WavTests.Make()), ("sounds/godot-rejects.wav", WavTests.Make()));

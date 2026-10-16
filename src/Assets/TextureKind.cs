@@ -58,10 +58,8 @@ public sealed class TextureKind : AssetKind
             var bytes = files.ReadAllBytes(folder + mipName);
             TgaInfo info;
             try { info = Tga.Read(bytes); }
-            catch (Exception e) when (e is InvalidDataException or UnsupportedFormatException)
-            {
-                throw (Exception)Activator.CreateInstance(e.GetType(), $"{mipName}: {e.Message}")!;
-            }
+            catch (InvalidDataException e) { throw new InvalidDataException($"{mipName}: {e.Message}"); }
+            catch (UnsupportedFormatException e) { throw new UnsupportedFormatException($"{mipName}: {e.Message}"); }
             int wantW = Math.Max(1, previous.Width / 2), wantH = Math.Max(1, previous.Height / 2);
             if (info.Width != wantW || info.Height != wantH)
             {

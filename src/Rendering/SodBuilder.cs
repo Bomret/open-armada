@@ -113,6 +113,7 @@ public sealed class SodBuilder
         if (_textures.TryGetValue(name, out var cached)) return cached;
         Texture2D? tex = null;
         // Textures come through the textures kind: full-color wins over 8-bit palette TGAs.
+        string? why = null;
         try
         {
             // Base level only: a bad mip level must not leave the model untextured.
@@ -123,12 +124,13 @@ public sealed class SodBuilder
                 image.GenerateMipmaps();
                 tex = ImageTexture.CreateFromImage(image);
             }
+            else why = "not a readable TGA";
         }
-        catch (System.Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException)
+        catch (System.Exception e) when (e is System.IO.IOException or System.UnauthorizedAccessException or UnsupportedFormatException or System.IO.InvalidDataException)
         {
-            GD.Print($"texture '{name}': {e.Message}");
+            why = e.Message;
         }
-        if (tex == null) GD.Print($"texture '{name}' not loaded, rendering untextured");
+        if (tex == null) GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
         return _textures[name] = tex;
     }
 

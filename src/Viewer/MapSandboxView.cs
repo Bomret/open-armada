@@ -70,6 +70,8 @@ public partial class MapSandboxView : Node3D
             AddChild(node);
         }
 
+        AddChild(new AsteroidFieldsView(files, plan, AddGap));
+
         var bounds = plan.Bounds;
         // stand-in: the sandbox's reach, no camera farther from an object than twice the map's diagonal
         // (the install defines no camera limit).

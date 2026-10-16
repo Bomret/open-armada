@@ -173,13 +173,23 @@ public class SandboxPlanTests
     }
 
     [TestMethod]
-    public void AnObjectOfClassLabelAsteroidFieldIsSkippedWithoutAReport()
+    public void AnObjectOfClassLabelAsteroidFieldIsNotPlacedAsAModelObject()
     {
         // The map stores the class name ("mafield"); the definition's classLabel says it is an asteroid field,
         // and the model its baseName names is not in the install.
         var plan = Plan(MapOf(Ship("mafield")), new[] { ("mafield", "classLabel = AsteroidField\nbaseName = sscr_1") });
         Assert.AreEqual(0, plan.Objects.Count);
-        Assert.AreEqual(0, plan.Reports.Count);
+        Assert.IsFalse(plan.Reports.Any(r => r.Names.Contains("sscr_1")));
+    }
+
+    [TestMethod]
+    public void AnAsteroidFieldIsPlannedWithItsRocksAndItsGapsAreReported()
+    {
+        const string odf = "classLabel = AsteroidField\nminAsteroids = 1\nmaxAsteroids = 2\nfieldRadius = 50\nrotationSpeed = 1\norbitingSpeed = 1";
+        var plan = Plan(MapOf(Ship("mafield")), new[] { ("mafield", odf) }, "master", "master1");
+        Assert.AreEqual(1, plan.Fields.Count);
+        Assert.AreEqual(1, plan.Reports.Count); // six of the eight models are missing
+        Assert.AreEqual(6, plan.Reports.Single().Names.Count);
     }
 
     [TestMethod]

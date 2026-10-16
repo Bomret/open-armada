@@ -25,7 +25,7 @@ public sealed record ReportEntry(string Cause, IReadOnlyList<string> Names, int 
 // a gap is reported and the map still opens).
 public sealed class SandboxPlan
 {
-    const string AsteroidField = "asteroidfield"; // a definition's classLabel; the rocks are generated, not placed from a model
+    const string AsteroidFieldLabel = "asteroidfield"; // a definition's classLabel; the rocks are generated, not placed from a model
     const string MissingDefinition = "object definition missing, objects left out";
     const string MissingModel = "model missing, objects left out";
     const string DegenerateOrientation = "degenerate orientation, identity used";
@@ -37,9 +37,13 @@ public sealed class SandboxPlan
     public string? Background { get; }
     // The map's bounds in the map's own frame (Z not mirrored).
     public MapBounds Bounds { get; }
+    // The asteroid fields to fill with rocks (a field with a missing or illegal value is reported and absent).
+    public IReadOnlyList<AsteroidField> Fields { get; }
 
-    SandboxPlan(IReadOnlyList<PlacedObject> objects, IReadOnlyList<ReportEntry> reports, Vector3 ambient, string? background, MapBounds bounds)
+    SandboxPlan(IReadOnlyList<PlacedObject> objects, IReadOnlyList<ReportEntry> reports, Vector3 ambient, string? background, MapBounds bounds,
+        IReadOnlyList<AsteroidField> fields)
     {
+        Fields = fields;
         Objects = objects;
         Reports = reports;
         Ambient = ambient;
@@ -69,7 +73,7 @@ public sealed class SandboxPlan
         foreach (var o in map.Objects)
         {
             if (!definitions.TryGetValue(o.Class, out var definition)) { gaps.Add(MissingDefinition, o.Class); continue; }
-            if (definition.Find("classLabel")?.Tokens.FirstOrDefault()?.Equals(AsteroidField, StringComparison.OrdinalIgnoreCase) == true) continue;
+            if (definition.Find("classLabel")?.Tokens.FirstOrDefault()?.Equals(AsteroidFieldLabel, StringComparison.OrdinalIgnoreCase) == true) continue;
             var model = ModelOf(o.Class, definition, hasModel, gaps);
             if (model == null) continue;
             var (x, y, z) = Orientation(o, gaps);
@@ -77,7 +81,8 @@ public sealed class SandboxPlan
                 new Vector3(o.Position.X, o.Position.Y, -o.Position.Z), x, y, z));
         }
         var background = BackgroundOf(map, hasModel, gaps);
-        return new SandboxPlan(placed, gaps.Entries, map.Ambient, background, map.Bounds);
+        var (fields, fieldReports) = AsteroidField.Collect(map, definitions, hasModel);
+        return new SandboxPlan(placed, gaps.Entries.Concat(fieldReports).ToList(), map.Ambient, background, map.Bounds, fields);
     }
 
     // The definition's baseName, else the model named like the class; null when there is none (a baseName

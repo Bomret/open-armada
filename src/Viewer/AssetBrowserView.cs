@@ -36,7 +36,7 @@ public partial class AssetBrowserView : Control
         {
             // A Godot callback exception does not set the exit code, so the check owns it.
             int code;
-            try { code = AssetCheck.Run(game, AssetKind.Discover(), Console.Out); }
+            try { code = AssetCheck.Run(game, AssetKind.Discover(), Console.Out, GodotDecoders.Check); }
             catch (Exception e)
             {
                 Console.Out.WriteLine($"asset check crashed: {e}");

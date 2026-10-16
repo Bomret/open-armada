@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Formats;
@@ -35,6 +36,15 @@ public class WavTests
     public void SkipsOddFormatChunkExtension()
     {
         Assert.AreEqual(22050, Wav.Read(Make(fmtSize: 18)).SampleRate);
+    }
+
+    [TestMethod]
+    public void OddSizedChunkBeforeDataIsSkippedWithItsPadByte()
+    {
+        var bytes = Make();
+        var junk = new byte[] { (byte)'j', (byte)'u', (byte)'n', (byte)'k', 3, 0, 0, 0, 1, 2, 3, 0 };
+        var withJunk = bytes[..36].Concat(junk).Concat(bytes[36..]).ToArray();
+        Assert.AreEqual(8, Wav.Read(withJunk).Data.Length);
     }
 
     [TestMethod]

@@ -8,13 +8,16 @@ namespace OpenArmada.Assets;
 
 public sealed record TextureLevel(string Name, TgaInfo Info, byte[] Data);
 
-// A texture with its mip levels (smaller copies, level 1 first).
-public sealed record TextureAsset(string Name, TgaInfo Info, byte[] Data, IReadOnlyList<TextureLevel> Mips);
+// A texture with its mip levels (smaller copies, level 1 first). Notes lists what the asset check
+// reports without failing: the level that ended the chain by its size.
+public sealed record TextureAsset(TextureLevel Base, IReadOnlyList<TextureLevel> Mips, IReadOnlyList<string> Notes);
 
 // Textures: the .tga files of Textures/RGB (full color) and Textures/Index8 (8-bit), each with its
 // mip levels. The game finds level N as "<name>.N", N from 1 to 9, and counts levels up to the first
-// missing one, so a file past a gap belongs to no texture. Files that are neither a texture nor a
-// level (no extension, other extensions) are not this kind's.
+// missing one, so a file past a gap belongs to no texture. It also requires each level to be half the
+// size of the one before; the chain here ends at the first level that is not, and that level and the
+// later ones are no part of the texture. Files that are neither a texture nor a level (no extension,
+// other extensions) are not this kind's.
 public sealed class TextureKind : AssetKind
 {
     public const string KindName = "textures";
@@ -32,25 +35,44 @@ public sealed class TextureKind : AssetKind
         return rgb.Concat(shadowed);
     }
 
-    public override object Load(GameFileSystem files, string name)
+    // The texture's own file only, with no mip level read. The builder uses it: a model needs the base image.
+    public TextureLevel LoadBase(GameFileSystem files, string name)
     {
         var data = files.ReadAllBytes(name);
-        var info = Tga.Read(data);
+        return new TextureLevel(name, Tga.Read(data), data);
+    }
+
+    public override object Load(GameFileSystem files, string name)
+    {
+        var baseLevel = LoadBase(files, name);
         var cut = name.LastIndexOfAny(new[] { '/', '\\' });
         var folder = cut >= 0 ? name[..(cut + 1)] : files.Find("Textures/RGB/" + name) != null ? "Textures/RGB/" : "Textures/Index8/";
         var stem = Path.GetFileNameWithoutExtension(name);
         var mips = new List<TextureLevel>();
+        var notes = new List<string>();
+        var previous = baseLevel.Info;
         for (var i = 1; i <= MaxMipLevel; i++)
         {
             var mipName = $"{stem}.{i}";
             if (files.Find(folder + mipName) == null) break;
             var bytes = files.ReadAllBytes(folder + mipName);
-            // simplicity: level sizes are not checked against the half-size rule the game applies; some
-            // shipped 8-bit textures break it, and the preview shows each level's own size.
-            try { mips.Add(new TextureLevel(mipName, Tga.Read(bytes), bytes)); }
-            catch (InvalidDataException e) { throw new InvalidDataException($"{mipName}: {e.Message}"); }
-            catch (UnsupportedFormatException e) { throw new UnsupportedFormatException($"{mipName}: {e.Message}"); }
+            TgaInfo info;
+            try { info = Tga.Read(bytes); }
+            catch (Exception e) when (e is InvalidDataException or UnsupportedFormatException)
+            {
+                throw (Exception)Activator.CreateInstance(e.GetType(), $"{mipName}: {e.Message}")!;
+            }
+            int wantW = Math.Max(1, previous.Width / 2), wantH = Math.Max(1, previous.Height / 2);
+            if (info.Width != wantW || info.Height != wantH)
+            {
+                notes.Add($"level {mipName} is {info.Width}x{info.Height}, expected {wantW}x{wantH}");
+                break;
+            }
+            mips.Add(new TextureLevel(mipName, info, bytes));
+            previous = info;
         }
-        return new TextureAsset(name, info, data, mips);
+        return new TextureAsset(baseLevel, mips, notes);
     }
+
+    public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((TextureAsset)Load(files, name)).Notes;
 }

@@ -1,4 +1,3 @@
-using System.Linq;
 using Godot;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
@@ -19,22 +18,16 @@ public sealed class SoundPreview : KindPreview
         {
             Text = $"PCM WAV, {wav.SampleRate} Hz, {(wav.Channels == 1 ? "mono" : "stereo")}, {wav.BitsPerSample}-bit, {seconds:0.00} s",
         });
-        var player = new AudioStreamPlayer { Stream = Stream(wav) };
+        var player = new AudioStreamPlayer { Stream = GodotDecoders.Wav(files.ReadAllBytes(name), name) };
         var play = new Button { Text = "Play" };
-        play.Pressed += () => { if (player.Playing) player.Stop(); else player.Play(); };
+        play.Pressed += () =>
+        {
+            if (player.Playing) player.Stop(); else player.Play();
+            play.Text = player.Playing ? "Stop" : "Play";
+        };
         player.Finished += () => play.Text = "Play";
-        play.Pressed += () => play.Text = player.Playing ? "Stop" : "Play";
         box.AddChild(player);
         box.AddChild(play);
         return box;
     }
-
-    // Godot's 8-bit samples are signed; WAV's are unsigned.
-    static AudioStreamWav Stream(WavInfo wav) => new()
-    {
-        Data = wav.BitsPerSample == 8 ? wav.Data.Select(b => unchecked((byte)(b - 128))).ToArray() : wav.Data,
-        Format = wav.BitsPerSample == 8 ? AudioStreamWav.FormatEnum.Format8Bits : AudioStreamWav.FormatEnum.Format16Bits,
-        MixRate = wav.SampleRate,
-        Stereo = wav.Channels == 2,
-    };
 }

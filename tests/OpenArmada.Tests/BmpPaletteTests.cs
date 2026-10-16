@@ -58,6 +58,16 @@ public class BmpPaletteTests
     }
 
     [TestMethod]
+    [DataRow(108)]
+    [DataRow(124)]
+    public void NewerInfoHeaderIsUnsupported(int headerSize)
+    {
+        var bytes = MakeBmp(5, 3, 24);
+        BitConverter.GetBytes(headerSize).CopyTo(bytes, 14);
+        Assert.ThrowsExactly<UnsupportedFormatException>(() => Bmp.Read(bytes));
+    }
+
+    [TestMethod]
     public void UnknownPixelDepthIsUnsupported()
     {
         Assert.ThrowsExactly<UnsupportedFormatException>(() => Bmp.Read(MakeBmp(5, 3, 12)));

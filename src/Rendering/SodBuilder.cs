@@ -115,7 +115,8 @@ public sealed class SodBuilder
         // Textures come through the textures kind: full-color wins over 8-bit palette TGAs.
         try
         {
-            var asset = (TextureAsset)new TextureKind().Load(_files, name + ".tga");
+            // Base level only: a bad mip level must not leave the model untextured.
+            var asset = new TextureKind().LoadBase(_files, name + ".tga");
             var image = new Image();
             if (image.LoadTgaFromBuffer(asset.Data) == Error.Ok)
             {

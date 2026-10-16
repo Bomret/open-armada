@@ -18,8 +18,13 @@ public abstract class AssetKind
     // is known but its format is not supported.
     public abstract object Load(GameFileSystem files, string name);
 
-    // What the asset check runs per asset. Kinds with a stricter check override it.
-    public virtual void Check(GameFileSystem files, string name) => Load(files, name);
+    // What the asset check runs per asset. Kinds with a stricter check override it. Returns notes the
+    // check prints without failing the asset.
+    public virtual IReadOnlyList<string> Check(GameFileSystem files, string name)
+    {
+        Load(files, name);
+        return Array.Empty<string>();
+    }
 
     public static IReadOnlyList<AssetKind> Discover() =>
         typeof(AssetKind).Assembly.GetTypes()

@@ -67,6 +67,28 @@ public class TgaTests
     }
 
     [TestMethod]
+    public void ColorMappedWithoutColorMapIsCorrupt()
+    {
+        var bytes = Make(4, 4, 8, type: 1);
+        bytes[1] = 0;
+        Assert.ThrowsExactly<InvalidDataException>(() => Tga.Read(bytes));
+    }
+
+    [TestMethod]
+    public void ColorMapEntriesOtherThan24BitsAreUnsupported()
+    {
+        var bytes = Make(4, 4, 8, type: 1);
+        bytes[7] = 16;
+        Assert.ThrowsExactly<UnsupportedFormatException>(() => Tga.Read(bytes));
+    }
+
+    [TestMethod]
+    public void CutOffColorMapIsCorrupt()
+    {
+        Assert.ThrowsExactly<InvalidDataException>(() => Tga.Read(Make(4, 4, 8, type: 1)[..100]));
+    }
+
+    [TestMethod]
     public void UnknownPixelDepthIsUnsupported()
     {
         Assert.ThrowsExactly<UnsupportedFormatException>(() => Tga.Read(Make(2, 2, 12)));

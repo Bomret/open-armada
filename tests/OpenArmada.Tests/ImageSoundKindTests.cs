@@ -39,7 +39,7 @@ public class ImageSoundKindTests
         var kind = new TextureKind();
         CollectionAssert.AreEquivalent(new[] { "a.tga", "Textures/Index8/a.tga" }, kind.Enumerate(fs).ToArray());
         var t = (TextureAsset)kind.Load(fs, "Textures/Index8/a.tga");
-        Assert.AreEqual((true, 1), (t.Info.Indexed, t.Mips.Count));
+        Assert.AreEqual((true, 1), (t.Base.Info.Indexed, t.Mips.Count));
     }
 
     [TestMethod]
@@ -69,12 +69,69 @@ public class ImageSoundKindTests
     }
 
     [TestMethod]
-    public void MipLevelOfUnexpectedSizeStillLoadsWithItsOwnSize()
+    public void MipChainEndsAtTheFirstLevelNotHalfTheSizeOfThePrevious()
     {
-        // The install ships such files (a 32x32 base with a 128x128 level 1); the preview shows the sizes as they are.
+        // The install ships such files (a 32x32 base with a 128x128 level 1): level 1 and the ones after it are no part of the texture.
+        var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(4)), ("Textures/RGB/a.2", Tga(3)), ("Textures/RGB/a.3", Tga(1)));
+        var t = (TextureAsset)new TextureKind().Load(fs, "a.tga");
+        CollectionAssert.AreEqual(new[] { "a.1" }, t.Mips.Select(m => m.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void MipChainMismatchIsANoteNamingLevelSizeAndExpectedSize()
+    {
         var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(3)));
         var t = (TextureAsset)new TextureKind().Load(fs, "a.tga");
-        Assert.AreEqual(3, t.Mips[0].Info.Width);
+        Assert.AreEqual("level a.1 is 3x3, expected 4x4", t.Notes.Single());
+    }
+
+    [TestMethod]
+    public void MipChainMismatchIsPrintedAsANoteAndDoesNotFailTheCheck()
+    {
+        var dir = Dir(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(3)));
+        var output = new StringWriter();
+        var code = AssetCheck.Run(dir, new AssetKind[] { new TextureKind() }, output);
+        StringAssert.Contains(output.ToString(), "NOTE textures/a.tga: level a.1 is 3x3, expected 4x4");
+        StringAssert.Contains(output.ToString(), "textures: 1 loaded, 0 unsupported, 0 failed");
+        Assert.AreEqual(0, code);
+    }
+
+    [TestMethod]
+    public void DecoderThatThrowsFailsOnlyItsAsset()
+    {
+        var dir = Dir(("sounds/ok.wav", WavTests.Make()), ("sounds/godot-rejects.wav", WavTests.Make()));
+        var output = new StringWriter();
+        var code = AssetCheck.Run(dir, new AssetKind[] { new SoundKind() }, output,
+            (kind, files, name) => { if (name.Contains("godot-rejects")) throw new InvalidDataException("Godot cannot decode it (ErrFileCorrupt)"); });
+        StringAssert.Contains(output.ToString(), "FAIL sounds/sounds/godot-rejects.wav: Godot cannot decode it");
+        StringAssert.Contains(output.ToString(), "sounds: 1 loaded, 0 unsupported, 1 failed");
+        Assert.AreEqual(1, code);
+    }
+
+    [TestMethod]
+    public void DecoderDoesNotRunOnAnAssetTheReaderRejected()
+    {
+        var dir = Dir(("sounds/cut.wav", WavTests.Make(declared: 100)));
+        var decoded = 0;
+        AssetCheck.Run(dir, new AssetKind[] { new SoundKind() }, new StringWriter(), (kind, files, name) => decoded++);
+        Assert.AreEqual(0, decoded);
+    }
+
+    [TestMethod]
+    public void RootSplashBitmapBelongsToTheBitmapsKind()
+    {
+        var bmp = BmpPaletteTests.MakeBmp(2, 2, 24);
+        var fs = Install(("splash.bmp", bmp), ("other.bmp", bmp));
+        var kind = new BitmapKind();
+        CollectionAssert.AreEqual(new[] { "splash.bmp" }, kind.Enumerate(fs).ToArray());
+        Assert.AreEqual(2, ((OpenArmada.Formats.BmpInfo)kind.Load(fs, "splash.bmp")).Width);
+    }
+
+    [TestMethod]
+    public void BaseOnlyLoadIgnoresMipLevels()
+    {
+        var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", new byte[4]));
+        Assert.AreEqual(8, new TextureKind().LoadBase(fs, "a.tga").Info.Width);
     }
 
     [TestMethod]

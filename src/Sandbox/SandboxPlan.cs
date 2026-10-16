@@ -35,13 +35,16 @@ public sealed class SandboxPlan
     public IReadOnlyList<ReportEntry> Reports { get; }
     public Vector3 Ambient { get; }
     public string? Background { get; }
+    // The map's bounds in the map's own frame (Z not mirrored).
+    public MapBounds Bounds { get; }
 
-    SandboxPlan(IReadOnlyList<PlacedObject> objects, IReadOnlyList<ReportEntry> reports, Vector3 ambient, string? background)
+    SandboxPlan(IReadOnlyList<PlacedObject> objects, IReadOnlyList<ReportEntry> reports, Vector3 ambient, string? background, MapBounds bounds)
     {
         Objects = objects;
         Reports = reports;
         Ambient = ambient;
         Background = background;
+        Bounds = bounds;
     }
 
     // The resolved definition of each object class of the map, by class name without regard to case. A
@@ -74,7 +77,7 @@ public sealed class SandboxPlan
                 new Vector3(o.Position.X, o.Position.Y, -o.Position.Z), x, y, z));
         }
         var background = BackgroundOf(map, hasModel, gaps);
-        return new SandboxPlan(placed, gaps.Entries, map.Ambient, background);
+        return new SandboxPlan(placed, gaps.Entries, map.Ambient, background, map.Bounds);
     }
 
     // The definition's baseName, else the model named like the class; null when there is none (a baseName

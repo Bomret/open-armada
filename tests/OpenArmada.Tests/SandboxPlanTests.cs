@@ -168,6 +168,7 @@ public class SandboxPlanTests
         var plan = Plan(map, Array.Empty<(string, string)>(), "mbgnebula");
         Assert.AreEqual(new Vector3(0.1f, 0.2f, 0.3f), plan.Ambient);
         Assert.AreEqual("mbgnebula", plan.Background);
+        Assert.AreEqual(6400f, plan.Bounds.Width);
     }
 
     [TestMethod]

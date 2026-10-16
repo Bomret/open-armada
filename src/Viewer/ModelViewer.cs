@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Godot;
+using OpenArmada.Assets;
 using OpenArmada.Formats;
 using OpenArmada.Rendering;
 
@@ -13,7 +14,7 @@ namespace OpenArmada.Viewer;
 // Drag to orbit, wheel to zoom, Left/Right to step through models.
 public partial class ModelViewer : Node3D
 {
-    GameFiles _files = null!;
+    GameFileSystem _files = null!;
     SodBuilder _builder = null!;
     string[] _models = Array.Empty<string>();
     int _index;
@@ -34,17 +35,35 @@ public partial class ModelViewer : Node3D
         }
 
         var game = Arg("--game") ?? System.Environment.GetEnvironmentVariable("ARMADA_DIR");
+        if (Array.IndexOf(args, "--check") >= 0)
+        {
+            // A Godot callback exception does not set the exit code, so the check owns it.
+            int code;
+            try { code = AssetCheck.Run(game, AssetKind.Discover(), Console.Out); }
+            catch (Exception e)
+            {
+                Console.Out.WriteLine($"asset check crashed: {e}");
+                code = 1;
+            }
+            GetTree().Quit(code);
+            return;
+        }
         if (game == null)
         {
             GD.PrintErr("pass --game <Armada install dir> or set ARMADA_DIR");
             GetTree().Quit(1);
             return;
         }
-        _files = new GameFiles(game);
+        try { _files = new GameFileSystem(game); }
+        catch (Exception e) // no install, or the root cannot be listed (permissions, I/O)
+        {
+            GD.PrintErr(e.Message);
+            GetTree().Quit(1);
+            return;
+        }
         _builder = new SodBuilder(_files);
         _screenshot = Arg("--screenshot");
-        _models = Directory.GetFiles(Path.Combine(_files.Root, "SOD"))
-            .Where(f => f.EndsWith(".sod", StringComparison.OrdinalIgnoreCase))
+        _models = new ModelKind().Enumerate(_files)
             .Select(Path.GetFileNameWithoutExtension).OfType<string>()
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToArray();
         var model = Arg("--model") ?? "Fente";
@@ -79,7 +98,7 @@ public partial class ModelViewer : Node3D
         var name = _models[_index];
         try
         {
-            _model = _builder.Build(Sod.Load(_files.Find("SOD", name + ".sod")!));
+            _model = _builder.Build(Sod.Read(_files.ReadAllBytes(name + ".sod")));
             AddChild(_model);
             var bounds = Bounds(_model);
             _model.Position = -bounds.GetCenter();

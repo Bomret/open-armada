@@ -24,8 +24,16 @@ godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
 - `src/Rendering/` — converts parsed data into Godot nodes.
 - `src/Viewer/` — the model viewer scene script.
-- `tools/SodCheck/` — parses every `.sod` in an install and reports failures:
-  `dotnet run --project tools/SodCheck -- "/path/to/Star Trek - Armada/SOD"`
+- `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
+- `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.
+
+## Check an install
+
+```sh
+godot-mono --headless --path . -- --check --game "/path/to/Star Trek - Armada"
+```
+
+Loads every asset, prints each failure with its name and reason, and exits non-zero when any asset failed. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
 
 ## SOD format notes
 

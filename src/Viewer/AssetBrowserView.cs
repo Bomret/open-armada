@@ -47,8 +47,9 @@ public partial class AssetBrowserView : Control
         }
 
         _screenshot = Arg("--screenshot");
-        _browser = AssetBrowser.Open(game, AssetKind.Discover());
-        _previews = KindPreview.Discover(_browser.Kinds.Select(k => k.Name), out var previewProblems);
+        var registered = AssetKind.Discover();
+        _browser = AssetBrowser.Open(game, registered);
+        _previews = KindPreview.Discover(registered.Select(k => k.Name), out var previewProblems);
 
         var split = new HSplitContainer();
         split.SetAnchorsPreset(LayoutPreset.FullRect);

@@ -56,7 +56,7 @@ public sealed class AssetBrowser
     {
         int kind = -1;
         for (int i = 0; i < Kinds.Count; i++)
-            if (Kinds[i].Name == "models") kind = i;
+            if (Kinds[i].Name == ModelKind.KindName) kind = i;
         if (kind < 0) return -1;
         SelectKind(kind);
         for (int i = 0; i < Assets.Count; i++)

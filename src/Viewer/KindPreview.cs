@@ -18,25 +18,19 @@ public abstract class KindPreview
     // asset's name and the reason in its place.
     public abstract Control Create(GameFileSystem files, AssetKind kind, string name);
 
-    // The previews by kind name. A broken registration (a preview that cannot be constructed, a
-    // second preview for one kind, a preview naming no kind in `kindNames`) is skipped and described
-    // in `problems`, so the browser still opens and shows it (INV-0002).
+    // The previews by kind name, matched against `kindNames` (the registered kinds, AssetKind.Discover,
+    // which exist with or without an install). Broken registrations are skipped and described in
+    // `problems`; see PreviewMatch.
     public static IReadOnlyDictionary<string, KindPreview> Discover(IEnumerable<string> kindNames, out IReadOnlyList<string> problems)
     {
-        var found = new Dictionary<string, KindPreview>();
-        var list = new List<string>();
-        var known = kindNames.ToHashSet();
-        var types = typeof(KindPreview).Assembly.GetTypes()
-            .Where(t => t.IsSubclassOf(typeof(KindPreview)) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) != null);
-        foreach (var t in types)
-        {
-            KindPreview p;
-            try { p = (KindPreview)Activator.CreateInstance(t)!; }
-            catch (Exception e) { list.Add($"preview {t.Name} cannot be created: {(e.InnerException ?? e).Message}"); continue; }
-            if (!known.Contains(p.KindName)) list.Add($"preview {t.Name} names kind \"{p.KindName}\", which no asset kind has");
-            else if (!found.TryAdd(p.KindName, p)) list.Add($"preview {t.Name} is a second preview for kind \"{p.KindName}\"");
-        }
-        problems = list;
-        return found;
+        var candidates = typeof(KindPreview).Assembly.GetTypes()
+            .Where(t => t.IsSubclassOf(typeof(KindPreview)) && !t.IsAbstract)
+            .Select(t => (t.Name, (Func<(string, KindPreview)>)(() =>
+            {
+                if (t.GetConstructor(Type.EmptyTypes) == null) throw new InvalidOperationException("it has no parameterless constructor");
+                var p = (KindPreview)Activator.CreateInstance(t)!;
+                return (p.KindName, p);
+            })));
+        return PreviewMatch.Match(candidates, kindNames, out problems);
     }
 }

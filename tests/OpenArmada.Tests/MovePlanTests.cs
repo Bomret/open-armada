@@ -19,9 +19,10 @@ public class MovePlanTests
 
     const string Ship = "physicsFile = \"p.odf\"\r\n";
 
-    MovePlan Plan(string[] classes, (string Class, string Odf)[] definitions, string? physics)
+    // `physicsFile` is the install file that holds p.odf (a loose file, or an archive given as Latin-1 text).
+    MovePlan Plan(string[] classes, (string Class, string Odf)[] definitions, string? physics, string physicsFile = "addon/p.odf")
     {
-        var loose = physics == null ? Array.Empty<(string, string)>() : new[] { ("addon/p.odf", physics) };
+        var loose = physics == null ? Array.Empty<(string, string)>() : new[] { (physicsFile, physics) };
         var install = new GameFileSystem(temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).Concat(loose).ToArray()));
         var map = new BznBuilder { Background = "" };
         foreach (var c in classes) map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
@@ -104,6 +105,19 @@ public class MovePlanTests
         var plan = Plan(new[] { "a" }, new[] { ("a", Ship) }, "impulseSpeed = 1\r\nyawRotationRate = 1\r\nmaxRoll = 0");
         Assert.AreEqual(0.0, plan.Physics.Values.Single().MaxRoll);
         Assert.AreEqual(0, plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void APhysicsDefinitionThatCannotBeReadIsReportedOncePerCauseWithNamesAndACount()
+    {
+        // a compressed archive entry: the install lists p.odf, but reading it throws UnsupportedFormatException
+        var archive = System.Text.Encoding.Latin1.GetString(ZfsBuilder.Build(0, ZfsBuilder.M("p.odf", "impulseSpeed = 1\r\nyawRotationRate = 1", 2)));
+        var plan = Plan(new[] { "a", "b", "a" }, new[] { ("a", Ship), ("b", Ship) }, archive, "addon/x.zfs");
+        Assert.AreEqual(0, plan.Physics.Count);
+        var report = plan.Reports.Single();
+        CollectionAssert.AreEqual(new[] { "a", "b" }, report.Names.ToArray());
+        Assert.AreEqual(3, report.Count);
+        StringAssert.Contains(report.Text, "physics definition cannot be read");
     }
 
     [TestMethod]

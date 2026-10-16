@@ -7,7 +7,8 @@ namespace OpenArmada.Sandbox;
 
 // The movement values of the scene's ships, read from their physics definitions, and the gaps found
 // while reading them (INV-0002). A ship with a gap has no entry: it stays selectable and never moves.
-// A physics definition that is missing altogether is the unit plan's report.
+// A physics definition that is missing altogether is the unit plan's report (such a ship is not Movable); one
+// the install holds that cannot be read is a gap here.
 public sealed class MovePlan
 {
     public IReadOnlyDictionary<PlacedObject, PhysicsValues> Physics { get; }
@@ -29,7 +30,11 @@ public sealed class MovePlan
             var o = unit.Object;
             ResolvedDefinition definition;
             try { definition = ResolvedDefinition.Resolve(files, plan.Resolved[o.Class].GetString("physicsFile")); }
-            catch (Exception e) when (e is System.IO.FileNotFoundException or DefinitionException) { continue; } // the unit plan reported it
+            catch (Exception) // a physics definition the install holds but that cannot be read is a gap, whatever the reason (INV-0002)
+            {
+                gaps.Add(("physics definition cannot be read, ships cannot move", o.Class));
+                continue;
+            }
             var speed = Positive(definition, "impulseSpeed", o.Class, gaps);
             var yaw = Positive(definition, "yawRotationRate", o.Class, gaps);
             if (speed == null || yaw == null) continue;

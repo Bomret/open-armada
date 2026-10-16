@@ -6,6 +6,6 @@
     <RootNamespace>OpenArmada</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="tools/**" />
+    <Compile Remove="tools/**;tests/**" />
   </ItemGroup>
 </Project>

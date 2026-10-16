@@ -148,16 +148,23 @@ public sealed class GameFileSystem
     // that copy is an override, else the same folder or archive; null when that source lacks it. A
     // texture reads its mip levels this way, so it never takes the levels of a copy it replaces or that
     // replaces it.
-    public byte[]? ReadBeside(string name, string sibling)
+    public byte[]? ReadBeside(string name, string sibling) => Beside(name, sibling) is { } hit ? Read(hit) : null;
+
+    // The Inventory entry of the file `name` resolves to, and of the file ReadBeside reads; null when there is none.
+    public string? Entry(string name) => Locate(name) is { } hit ? Entry(hit) : null;
+    public string? EntryBeside(string name, string sibling) => Beside(name, sibling) is { } hit ? Entry(hit) : null;
+
+    Hit? Beside(string name, string sibling)
     {
         if (Locate(name) is not { } hit) return null;
         var parts = Parts(name);
-        var found = parts.Length == 1 && FromAddon(parts[0]) != null ? FromAddon(sibling)
+        return parts.Length == 1 && FromAddon(parts[0]) != null ? FromAddon(sibling)
             : hit.Archive is { } a ? (a.Zfs.Contains(ZixIndex.MemberKey(sibling)) ? new Hit(null, a, ZixIndex.MemberKey(sibling)) : null)
             : Entries(Path.GetDirectoryName(hit.Loose)!).TryGetValue(sibling, out var path) && File.Exists(path) ? new Hit(path)
             : null;
-        return found == null ? null : Read(found);
     }
+
+    string Entry(Hit hit) => hit.Archive == null ? Path.GetRelativePath(Root, hit.Loose!).Replace('\\', '/') : hit.Display;
 
     static byte[] Read(Hit hit) => hit is { Archive: { } a, Member: { } m } ? a.Zfs.Read(m) : File.ReadAllBytes(hit.Path);
 

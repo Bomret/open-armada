@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
@@ -97,14 +99,17 @@ public class InstallClassifierTests
     public void NumberedSuffixNoMipLevelHasIsATextureExtra(string entry) =>
         Assert.AreEqual(FileClass.KnownNotLoaded, ClassOf(entry, "Textures/RGB/a.tga"));
 
-    // The classifier's Loaded rules repeat each kind's file scope; on an install holding files in and
-    // beside every scope, the two agree on which files load.
+    // On an install holding files in and beside every kind's scope, override copies, and copies an
+    // override or a loose file shadows, the Loaded entries are exactly the files the kinds load: each
+    // enumerated name as the lookup resolves it, and each mip level a texture reads beside its base. The
+    // archive and the index are containers, read by the file system rather than a kind.
     [TestMethod]
     public void LoadedEntriesAreExactlyTheFilesTheKindsEnumerate()
     {
         var temp = new TempInstall();
         try
         {
+            string Tga(int size) => System.Text.Encoding.Latin1.GetString(TgaTests.Make(size, size, 24));
             string[] files =
             {
                 "SOD/a.sod", "SOD/Software/b.sod", "SOD/sub/c.sod", "SOD/readme.txt",
@@ -114,16 +119,42 @@ public class InstallClassifierTests
                 "sounds/music/e.wav", "sounds/f.wav", "wav/g.wav",
                 "cursors/c.cur", "cursors/sub/d.cur", "misc/gui_a.cfg", "misc/other.cfg",
                 "l.map", "l.set", "l.ldl", "l.fnt", "addon/h.odf", "addon/sub/i.odf", "events.odf", "j.odf",
-                "addon/p.sod", "addon/q.tga", "addon/r.wav",
+                "addon/p.sod", "addon/r.wav",
+                "addon/l.fnt", "addon/l.map", "addon/l.set", "addon/Armada.pal", "addon/splash.bmp",
             };
-            var fs = new GameFileSystem(temp.MakeInstall(files.Select(f => (f, "")).ToArray()));
-            string Bare(string e) => e[(Math.Max(e.LastIndexOf('/'), e.LastIndexOf(':')) + 1)..].ToLowerInvariant();
-            var inFixture = files.Select(Bare).ToHashSet();
-            var enumerated = AssetKind.Discover().Where(k => k.GetType().Namespace == "OpenArmada.Assets").SelectMany(k => k.Enumerate(fs)).Select(Bare).Where(inFixture.Contains).ToHashSet();
-            var loaded = InstallClassifier.Classify(fs.Inventory()).Where(c => c.Class == FileClass.Loaded).Select(c => Bare(c.Entry)).ToHashSet();
-            Assert.AreEqual(string.Join(" ", enumerated.Order()), string.Join(" ", loaded.Order()));
+            var root = temp.MakeInstall(files.Select(f => (f, ""))
+                .Append(("addon/q.tga", Tga(8))).Append(("addon/q.1", Tga(4)))
+                .Append(("Textures/RGB/q.tga", Tga(16))).Append(("Textures/RGB/q.1", Tga(8)))
+                .Append(("assets.zfs", System.Text.Encoding.Latin1.GetString(ZfsBuilder.Build(0,
+                    ZfsBuilder.M("a.sod", ""), ZfsBuilder.M("t.tga", ""), ZfsBuilder.M("z.odf", "")))))
+                .Append(("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: assets.zfs\n----\n1 z.odf\n"))
+                .ToArray());
+            var fs = new GameFileSystem(root);
+            string Entry(string found) => (found.Contains("::") ? found : Path.GetRelativePath(root, found).Replace('\\', '/')).ToLowerInvariant();
+            string Beside(string entry, string name) => entry.Contains("::") ? entry[..(entry.IndexOf("::") + 2)] + name.ToLowerInvariant() : Path.GetDirectoryName(entry)!.Replace('\\', '/') is var d && d != "" ? $"{d}/{name.ToLowerInvariant()}" : name.ToLowerInvariant();
+            var kinds = AssetKind.Discover().Where(k => k.GetType().Namespace == "OpenArmada.Assets").ToList();
+            var expected = new HashSet<string>();
+            foreach (var kind in kinds)
+                foreach (var name in kind.Enumerate(fs))
+                {
+                    if (fs.Find(name) is not { } found) continue;
+                    var entry = Entry(found);
+                    expected.Add(entry);
+                    if (kind is TextureKind t && TryLoad(t, fs, name) is { } texture)
+                        foreach (var mip in texture.Mips) expected.Add(Beside(entry, mip.Name));
+                }
+            var loaded = InstallClassifier.Classify(fs.Inventory(), fs)
+                .Where(c => c.Class == FileClass.Loaded && !c.Entry.EndsWith(".zfs") && !c.Entry.EndsWith(".zix"))
+                .Select(c => c.Entry.ToLowerInvariant()).ToHashSet();
+            Assert.AreEqual(string.Join(" ", expected.Order()), string.Join(" ", loaded.Order()));
         }
         finally { temp.CleanUp(); }
+    }
+
+    static TextureAsset? TryLoad(TextureKind kind, GameFileSystem fs, string name)
+    {
+        try { return (TextureAsset)kind.Load(fs, name); }
+        catch (Exception) { return null; }
     }
 
     [TestMethod]

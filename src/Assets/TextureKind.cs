@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
@@ -66,4 +67,15 @@ public sealed class TextureKind : AssetKind
     }
 
     public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((TextureAsset)Load(files, name)).Notes;
+
+    // The base and each level the texture holds, read beside the base; a texture with no first level is
+    // not loaded to find that out, and one that fails to load reads no level.
+    public override IEnumerable<string> Reads(GameFileSystem files, string name)
+    {
+        var reads = base.Reads(files, name).ToList();
+        if (reads.Count == 0 || files.EntryBeside(name, Path.GetFileNameWithoutExtension(name) + ".1") == null) return reads;
+        try { reads.AddRange(((TextureAsset)Load(files, name)).Mips.Select(m => files.EntryBeside(name, m.Name)).OfType<string>()); }
+        catch (Exception) { }
+        return reads;
+    }
 }

@@ -29,4 +29,7 @@ public sealed class TextTableKind : AssetKind
     }
 
     public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((TextTable)Load(files, name)).Notes;
+
+    // The root file itself: a text table is read by path, past any override of its name.
+    public override IEnumerable<string> Reads(GameFileSystem files, string name) => new[] { name };
 }

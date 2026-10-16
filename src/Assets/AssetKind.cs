@@ -31,6 +31,12 @@ public abstract class AssetKind
     // fail the asset. Kinds whose assets refer to others override it.
     public virtual IReadOnlyList<string> Unresolved(GameFileSystem files, string name) => Array.Empty<string>();
 
+    // The install files (Inventory entries) a load of the asset reads: the file its name resolves to, the
+    // override copy when one wins. The asset check classifies these as loaded. Kinds that read more files,
+    // or read by another lookup, override it.
+    public virtual IEnumerable<string> Reads(GameFileSystem files, string name) =>
+        files.Entry(name) is { } entry ? new[] { entry } : Array.Empty<string>();
+
     // The loose files of the install root with the extension (".map"), not those of a folder or an archive.
     protected static IEnumerable<string> RootFiles(GameFileSystem files, string extension) =>
         files.Inventory().Where(f => f.EndsWith(extension, StringComparison.OrdinalIgnoreCase) && !f.Contains('/') && !f.Contains("::"));

@@ -16,36 +16,64 @@ public enum FileClass { Loaded, OutOfScope, KnownNotLoaded, Unclassified }
 public sealed record Classified(string Entry, FileClass Class, string Group);
 
 // The classification rules: the one place that says which install file belongs to which class. Godot-free.
-// The "Loaded" rules mirror the enumeration scope of the asset kinds, the others come from the REA report
-// of Armada.exe on the unknown file groups. Entries and rules ignore case.
+// The "Loaded" rules mirror the enumeration scope of the asset kinds, and with the install opened the kinds
+// themselves confirm each file they read (Classify); the others come from the REA report of Armada.exe on
+// the unknown file groups. Entries and rules ignore case.
 public static class InstallClassifier
 {
     static readonly Regex Numbered = new(@"^\.\d+$");
 
-    // With `files`, a mip level counts only when TextureKind reads it as part of its texture, so a level
-    // that ends the chain by its size is a texture extra too; without, the names alone decide.
+    // With `files`, the kinds decide what loads (AssetKind.Reads): a file some kind reads is loaded, the
+    // override copy where it wins its name. A file the rules below call loaded that no kind reads is known
+    // but not loaded: a mip level is a texture extra (past a gap, or after a level of the wrong size), and a
+    // file whose bare name a kind reads from another copy is a shadowed copy. Without, the names alone decide.
     public static IReadOnlyList<Classified> Classify(IEnumerable<string> inventory, GameFileSystem? files = null)
     {
         var entries = inventory.ToList();
         var all = new HashSet<string>(entries.Select(e => e.ToLowerInvariant()));
-        var read = new Dictionary<string, HashSet<string>>();
-        // A texture that fails to load reads no level; the textures kind reports the failure.
-        HashSet<string> Levels(string texture)
+        var reads = files == null ? null : Reads(files);
+        return entries.Select(e => { var (c, g) = Safe(e.ToLowerInvariant(), all, reads); return new Classified(e, c, g); }).ToList();
+    }
+
+    // The entries the kinds read, each with the name of a kind that reads it, and the bare names the kinds
+    // look up. A kind that cannot list its assets adds nothing; the asset check reports it.
+    sealed record KindReads(Dictionary<string, string> Entries, HashSet<string> Names);
+
+    static KindReads Reads(GameFileSystem files)
+    {
+        var reads = new KindReads(new(), new());
+        foreach (var kind in AssetKind.Discover())
         {
-            if (read.TryGetValue(texture, out var levels)) return levels;
-            try { levels = ((TextureAsset)new TextureKind().Load(files!, texture)).Mips.Select(m => m.Name.ToLowerInvariant()).ToHashSet(); }
-            catch (Exception) { levels = new HashSet<string>(); }
-            return read[texture] = levels;
+            try
+            {
+                foreach (var name in kind.Enumerate(files))
+                    foreach (var entry in kind.Reads(files, name))
+                    {
+                        reads.Entries.TryAdd(entry.ToLowerInvariant(), kind.Name);
+                        if (!name.Contains('/')) reads.Names.Add(name.ToLowerInvariant());
+                    }
+            }
+            catch (Exception) { }
         }
-        Func<string, HashSet<string>>? levels = files == null ? null : Levels;
-        return entries.Select(e => { var (c, g) = Safe(e.ToLowerInvariant(), all, levels); return new Classified(e, c, g); }).ToList();
+        return reads;
     }
 
     // A rule that throws leaves its file unclassified, with the reason as the group, and the rest go on.
-    static (FileClass, string) Safe(string entry, HashSet<string> all, Func<string, HashSet<string>>? levels)
+    static (FileClass, string) Safe(string entry, HashSet<string> all, KindReads? reads)
     {
-        try { return Rule(entry, all, levels); }
+        try { return Asked(entry, Rule(entry, all), reads); }
         catch (Exception e) { return (FileClass.Unclassified, e.Message); }
+    }
+
+    static (FileClass, string) Asked(string entry, (FileClass, string) rule, KindReads? reads)
+    {
+        if (reads == null) return rule;
+        if (reads.Entries.TryGetValue(entry, out var kind)) return rule.Item1 == FileClass.Loaded ? rule : Loaded(kind);
+        if (rule.Item1 != FileClass.Loaded) return rule;
+        var name = entry[(Math.Max(entry.LastIndexOf('/'), entry.LastIndexOf(':')) + 1)..];
+        return Numbered.IsMatch(Path.GetExtension(name)) ? Known("texture extras")
+            : reads.Names.Contains(name) ? Known("shadowed copies")
+            : rule;
     }
 
     static (FileClass, string) Loaded(string group) => (FileClass.Loaded, group);
@@ -53,7 +81,7 @@ public static class InstallClassifier
     static (FileClass, string) Known(string group) => (FileClass.KnownNotLoaded, group);
     static readonly (FileClass, string) Unknown = (FileClass.Unclassified, "");
 
-    static (FileClass, string) Rule(string entry, HashSet<string> all, Func<string, HashSet<string>>? levels)
+    static (FileClass, string) Rule(string entry, HashSet<string> all)
     {
         var at = entry.IndexOf("::", StringComparison.Ordinal);
         if (at >= 0) return Member(entry[..at], entry[(at + 2)..]);
@@ -64,7 +92,7 @@ public static class InstallClassifier
         {
             _ when depth == 1 => RootFile(parts[0], ext),
             "sod" when ext == ".sod" && (depth == 2 || (depth == 3 && parts[1] == "software")) => Loaded("models"),
-            "textures" when depth == 3 && parts[1] is "rgb" or "index8" => Texture(entry, parts, ext, all, levels),
+            "textures" when depth == 3 && parts[1] is "rgb" or "index8" => Texture(entry, parts, ext, all),
             "sprites" when depth == 2 && ext == ".spr" => Loaded("sprite tables"),
             "bitmaps" when ext == ".bmp" => Loaded("bitmaps"),
             "bzn" when depth == 2 && ext == ".bzn" => Loaded("maps"),
@@ -90,7 +118,8 @@ public static class InstallClassifier
     }
 
     // A member of an archive: the objective texts, and the definitions, tech trees, models and textures of
-    // any archive. Any other member of an override-layer archive is an override no kind loads.
+    // any archive. Any other member of an override-layer archive is an override no kind loads, unless a
+    // kind reads it (Classify).
     static (FileClass, string) Member(string archive, string member) =>
         archive == "objtxt.zfs" ? Loaded("objective texts")
         : Layer(member) is var c && (c.Item1 == FileClass.Loaded || archive.StartsWith("addon/", StringComparison.Ordinal)) ? c
@@ -98,7 +127,9 @@ public static class InstallClassifier
 
     // A file of the override layer or an archive, by its extension: the kinds that list such files by
     // bare name load it (DefinitionKind.Named, AssetKind.Layered); a file of any other kind still
-    // replaces a file of its name for the game, but no kind loads it.
+    // replaces a file of its name for the game. With the install opened, Classify marks such a file
+    // loaded when a kind reads it (a font, key map, settings file, palette, splash.bmp, or mip level that
+    // replaces the stock one), and the rest stay overrides no kind loads.
     static (FileClass, string) Layer(string name) => Path.GetExtension(name) switch
     {
         ".odf" => Loaded("definitions"),
@@ -142,10 +173,10 @@ public static class InstallClassifier
         : Layer(parts[1]);
 
     // Full-color and 8-bit textures with their mip levels, and the palettes of the full-color folder. A
-    // level counts when every level before it exists (the game stops at the first gap) and, when `levels`
-    // reads the texture, when the texture's chain holds it (it ends at a level of the wrong size); the
-    // rest of the folder is a file the game never opens.
-    static (FileClass, string) Texture(string entry, string[] parts, string ext, HashSet<string> all, Func<string, HashSet<string>>? levels)
+    // level counts when every level before it exists (the game stops at the first gap); with the install
+    // opened, Classify also drops a level the texture does not read (its chain ends at a level of the
+    // wrong size). The rest of the folder is a file the game never opens.
+    static (FileClass, string) Texture(string entry, string[] parts, string ext, HashSet<string> all)
     {
         if (ext == ".tga") return Loaded("textures");
         if (ext == ".pal" && parts[1] == "rgb") return Loaded("palettes");
@@ -154,6 +185,6 @@ public static class InstallClassifier
         var stem = entry[..^ext.Length];
         if (!int.TryParse(ext[1..], out var level) || level is < 1 or > 9) return Known("texture extras");
         var chain = all.Contains(stem + ".tga") && Enumerable.Range(1, level - 1).All(i => all.Contains($"{stem}.{i}"));
-        return chain && (levels == null || levels(stem + ".tga").Contains(Path.GetFileName(entry))) ? Loaded("textures") : Known("texture extras");
+        return chain ? Loaded("textures") : Known("texture extras");
     }
 }

@@ -68,4 +68,7 @@ public sealed class UnitCombatState(
 
     // The position at the previous tick, to tell a stopped unit from a moving one.
     public Vector3? LastPosition { get; set; }
+
+    // Whether the unit did not move since the previous tick (a unit the world has not yet seen is stopped).
+    public bool Stopped { get; set; } = true;
 }

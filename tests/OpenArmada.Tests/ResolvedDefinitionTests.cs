@@ -212,6 +212,37 @@ public class ResolvedDefinitionTests
     }
 
     [TestMethod]
+    public void CycleBelowACutDefinitionIsListedOnceWhenAShallowerPathWalksItAgain()
+    {
+        const int longChain = 61;
+        var defs = new List<(string, string)>
+        {
+            ("root.odf", "#include \"short.odf\"\r\n#include \"long0.odf\""),
+            ("short.odf", "#include \"mid.odf\""),
+            ("mid.odf", "x = 1\r\n#include \"deep.odf\""),
+            ("deep.odf", "y = 2\r\n#include \"mid.odf\"\r\n#include \"deeper.odf\""),
+            ("deeper.odf", "z = 3"),
+        };
+        for (var i = 0; i < longChain; i++)
+            defs.Add(($"long{i}.odf", $"#include \"{(i + 1 < longChain ? $"long{i + 1}" : "mid")}.odf\""));
+        var def = Resolve("root.odf", defs.ToArray());
+        Assert.AreEqual(3, def.GetInt("z"));
+        Assert.AreEqual(1, def.Problems.Count(p => p.Contains("cycle")));
+    }
+
+    [TestMethod]
+    public void IncludeThatExistsButCannotBeReadIsReportedAndTheRestResolves()
+    {
+        if (System.OperatingSystem.IsWindows()) Assert.Inconclusive("needs POSIX file modes");
+        var root = temp.MakeInstall(("addon/a.odf", "#include \"x.odf\"\r\nx = 1"), ("addon/x.odf", "y = 2"));
+        System.IO.File.SetUnixFileMode(System.IO.Path.Combine(root, "addon", "x.odf"), System.IO.UnixFileMode.None);
+        var def = ResolvedDefinition.Resolve(new GameFileSystem(root), "a.odf");
+        Assert.AreEqual(1, def.Problems.Count);
+        StringAssert.Contains(def.Problems[0], "x.odf");
+        Assert.AreEqual(1, def.GetInt("x"));
+    }
+
+    [TestMethod]
     public void IndexedKeyWithOverflowingSuffixIsListedLast()
     {
         var def = Resolve("a.odf", ("a.odf", "weapon99999999999999 = c\r\nweapon2 = b\r\nweapon1 = a"));

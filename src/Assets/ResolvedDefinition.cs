@@ -47,7 +47,7 @@ public sealed class ResolvedDefinition
     public IReadOnlyList<DefinitionValue> Values => _values;
 
     // One line per fault of the chain: an include that is missing or cannot be read, an include cycle,
-    // a chain too deep.
+    // a chain too deep. A line appears once, however many walks reach the fault.
     public IReadOnlyList<string> Problems => _problems;
 
     // "<definition>: line N: reason" per line a definition of the chain holds that the reader does not
@@ -68,24 +68,29 @@ public sealed class ResolvedDefinition
     // again, includes only, when a shallower path reaches it, so the keys below the cut are not lost.
     bool Visit(GameFileSystem files, string name, List<string> path, HashSet<string> visited)
     {
-        if (path.Any(p => p.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        var at = path.FindIndex(p => p.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (at >= 0)
         {
-            _problems.Add($"include cycle {string.Join(" -> ", path.Append(name))}");
+            // The line names the cycle alone, not the way in, so every path that reaches it gives the same line.
+            AddProblem($"include cycle {string.Join(" -> ", path.Skip(at).Append(name))}");
             return false;
         }
+        // The engine's rule: a definition cut by the depth limit and walked again by a shallower path adds
+        // the keys it recovers after every key added since the cut, so those rank below them (this arises
+        // only in chains deeper than 64). The depth problem stays listed after the recovery, because the
+        // chain does exceed the limit; DefinitionKind.Check fails such a definition.
         if (visited.Contains(name))
             return _cut.TryGetValue(name, out var c) && path.Count < c.Depth && WalkIncludes(files, name, c.Includes, path, visited);
         if (path.Count >= MaxDepth)
         {
-            var problem = $"include chain deeper than {MaxDepth} at '{name}'";
-            if (!_problems.Contains(problem)) _problems.Add(problem);
+            AddProblem($"include chain deeper than {MaxDepth} at '{name}'");
             return true;
         }
         byte[] bytes;
         try { bytes = files.ReadAllBytes(name); }
-        catch (Exception e) when (path.Count > 0 && e is FileNotFoundException or UnsupportedFormatException or InvalidDataException)
+        catch (Exception e) when (path.Count > 0 && e is IOException or UnauthorizedAccessException or UnsupportedFormatException or InvalidDataException)
         {
-            _problems.Add(e is FileNotFoundException
+            AddProblem(e is FileNotFoundException
                 ? $"include '{name}' not found (included by {path[^1]})"
                 : $"include '{name}' cannot be read (included by {path[^1]}): {e.Message}");
             return false;
@@ -107,6 +112,12 @@ public sealed class ResolvedDefinition
         // The engine's rule, not confirmed against the game's reader: includes are visited depth first,
         // the last include first, so a later include (with everything it includes) beats an earlier one.
         return WalkIncludes(files, name, odf.Includes, path, visited);
+    }
+
+    // A fault is listed once, however many walks reach it.
+    void AddProblem(string problem)
+    {
+        if (!_problems.Contains(problem)) _problems.Add(problem);
     }
 
     bool WalkIncludes(GameFileSystem files, string name, IReadOnlyList<string> includes, List<string> path, HashSet<string> visited)

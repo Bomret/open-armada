@@ -77,6 +77,8 @@ public sealed class Sod
         public Vector3 Right, Up, Front, Position;
     }
 
+    static readonly float[] KnownVersions = { 1.2f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f };
+
     public static Sod Load(string path) => Read(File.ReadAllBytes(path));
 
     public static Sod Read(byte[] data)
@@ -90,8 +92,8 @@ public sealed class Sod
         // Only Wviracod.SOD uses 1.0, and nothing in the game references it.
         if (sod.Version == 1.0f)
             throw new UnsupportedFormatException($"SOD version {sod.Version} is not supported");
-        // Any other version below 1.1 (or not a number) is no known version: the file is corrupt.
-        if (!(sod.Version >= 1.1f))
+        // Any version outside the decoded set (including NaN and infinities) is corrupt.
+        if (Array.IndexOf(KnownVersions, sod.Version) < 0)
             throw new InvalidDataException($"unrecognised SOD version {sod.Version}");
 
         // Versions before 1.7 start with a texture material table.

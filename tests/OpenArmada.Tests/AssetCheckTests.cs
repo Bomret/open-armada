@@ -33,7 +33,10 @@ public class AssetCheckTests
         return (AssetCheck.Run(game, kinds, w), w.ToString());
     }
 
-    static string Install(params (string, string)[] files) => GameFileSystemTests.MakeInstall(files);
+    // Per-test temp folders, deleted by CleanUp; one instance per test, so nothing is shared.
+    readonly GameFileSystemTests temp = new();
+
+    string Install(params (string, string)[] files) => temp.MakeInstall(files);
 
     [TestMethod]
     public void ValidModelsPassAndExitZero()
@@ -68,17 +71,20 @@ public class AssetCheckTests
     [DataRow(0f)]
     [DataRow(-1f)]
     [DataRow(1.05f)]
+    [DataRow(1.3f)]
+    [DataRow(2.0f)]
+    [DataRow(float.PositiveInfinity)]
     [DataRow(float.NaN)]
     public void ModelWithUnrecognisedVersionIsCorruptAndFailsTheCheck(float version)
     {
         var (code, output) = Run(Install(("SOD/v.sod", Sod(version))), new ModelKind());
         Assert.AreEqual(1, code);
-        StringAssert.Contains(output, "FAIL models/v.sod:");
+        StringAssert.Contains(output, "FAIL models/v.sod: unrecognised SOD version");
         StringAssert.Contains(output, "1 failed");
     }
 
     [TestCleanup]
-    public void CleanUp() => GameFileSystemTests.DeleteMade();
+    public void CleanUp() => temp.CleanUp();
 
     [TestMethod]
     public void ThrowingReaderFailsThatAssetAndTheRestStillLoad()
@@ -126,7 +132,7 @@ public class AssetCheckTests
     [TestMethod]
     public void FolderWithoutInstallNamesTheFolderAndExitsNonZero()
     {
-        var dir = GameFileSystemTests.MakeDir();
+        var dir = temp.MakeDir();
         var (code, output) = Run(dir, new ModelKind());
         Assert.AreEqual(1, code);
         StringAssert.Contains(output, dir);

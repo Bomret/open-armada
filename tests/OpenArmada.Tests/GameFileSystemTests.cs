@@ -12,7 +12,7 @@ public class GameFileSystemTests
 {
     // Builds an install in a temp folder from "relative/path" -> content pairs. Fixtures are
     // synthesized here; no byte of a real install is used (INV-0001).
-    internal static string MakeInstall(params (string Path, string Content)[] files)
+    internal string MakeInstall(params (string Path, string Content)[] files)
     {
         var root = MakeDir();
         Directory.CreateDirectory(Path.Combine(root, "SOD"));
@@ -25,25 +25,23 @@ public class GameFileSystemTests
         return root;
     }
 
-    static readonly List<string> Made = new();
+    // Folders this test made; MSTest creates one class instance per test, so nothing is shared.
+    readonly List<string> made = new();
 
     // An empty temp folder, deleted by CleanUp after the test.
-    internal static string MakeDir()
+    internal string MakeDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "oa-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
-        Made.Add(dir);
+        made.Add(dir);
         return dir;
     }
 
-    internal static void DeleteMade()
-    {
-        foreach (var dir in Made) Directory.Delete(dir, true);
-        Made.Clear();
-    }
-
     [TestCleanup]
-    public void CleanUp() => DeleteMade();
+    public void CleanUp()
+    {
+        foreach (var dir in made) Directory.Delete(dir, true);
+    }
 
     [TestMethod]
     public void FindIgnoresCaseAndSeparatorOfRequestedName()

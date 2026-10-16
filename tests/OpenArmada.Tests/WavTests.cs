@@ -63,6 +63,12 @@ public class WavTests
     }
 
     [TestMethod]
+    public void MoreThanTwoChannelsAreUnsupported()
+    {
+        Assert.ThrowsExactly<UnsupportedFormatException>(() => Wav.Read(Make(channels: 6, declared: 12, actual: 12)));
+    }
+
+    [TestMethod]
     public void ByteRateDisagreeingWithFormatIsCorrupt()
     {
         Assert.ThrowsExactly<InvalidDataException>(() => Wav.Read(Make(byteRate: 5)));

@@ -27,6 +27,7 @@ public static class Wav
                 channels = BitConverter.ToUInt16(d, b + 2); rate = BitConverter.ToInt32(d, b + 4); bits = BitConverter.ToUInt16(d, b + 14);
                 if (tag != 1) throw new UnsupportedFormatException($"WAV format tag 0x{tag:X} is not PCM");
                 if (bits != 8 && bits != 16) throw new UnsupportedFormatException($"WAV with {bits} bits per sample is not read (only 8 and 16)");
+                if (channels > 2) throw new UnsupportedFormatException($"WAV with {channels} channels is not read (only mono and stereo)");
                 if (channels == 0 || rate <= 0) throw new InvalidDataException($"WAV header declares {channels} channels at {rate} Hz");
                 if (align != channels * bits / 8) throw new InvalidDataException($"WAV block align {align} disagrees with {channels} channels of {bits} bits");
                 if (byteRate != (long)rate * align) throw new InvalidDataException($"WAV byte rate {byteRate} disagrees with {rate} Hz and block align {align}");

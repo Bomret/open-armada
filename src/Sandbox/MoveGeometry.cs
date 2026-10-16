@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
@@ -16,6 +17,15 @@ public static class MoveGeometry
         var point = origin + direction * along;
         return new Vector2(point.X, point.Z);
     }
+
+    // The point of the map nearest to the (X, Z) `target`, each axis clamped on its own as the camera clamps its
+    // look-at point; an inverted pair is swapped, as the camera swaps it. `bounds` are in the map's frame; Godot's
+    // Z is mirrored, so it runs from -MaxZ to -MinZ.
+    public static Vector2 ClampToMap(Vector2 target, MapBounds bounds) =>
+        new(
+            Math.Clamp(target.X, Math.Min(bounds.MinX, bounds.MaxX), Math.Max(bounds.MinX, bounds.MaxX)),
+            Math.Clamp(target.Y, -Math.Max(bounds.MinZ, bounds.MaxZ), -Math.Min(bounds.MinZ, bounds.MaxZ))
+        );
 
     // The ShipMotion heading of a ship whose node basis has `axisZ` as its Z column. SodBuilder mirrors each
     // vertex's Z, so the model's +Z bow sits at node-local -Z and points along -axisZ in the world.

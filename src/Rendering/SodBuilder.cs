@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
@@ -112,10 +113,10 @@ public sealed class SodBuilder
         if (_textures.TryGetValue(name, out var cached)) return cached;
         Texture2D? tex = null;
         // The file system prefers full-color textures; some ship only as 8-bit palette TGAs.
-        if (_files.Find(name + ".tga") != null)
+        if (_files.Find(name + ".tga") is { } path)
         {
             var image = new Image();
-            if (image.LoadTgaFromBuffer(_files.ReadAllBytes(name + ".tga")) == Error.Ok)
+            if (image.LoadTgaFromBuffer(File.ReadAllBytes(path)) == Error.Ok)
             {
                 image.GenerateMipmaps();
                 tex = ImageTexture.CreateFromImage(image);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
@@ -45,7 +46,7 @@ public static class AssetCheck
                     kind.Check(files, name);
                     loaded++;
                 }
-                catch (NotSupportedException e)
+                catch (UnsupportedFormatException e)
                 {
                     output.WriteLine($"UNSUPPORTED {kind.Name}/{name}: {e.Message}");
                     unsupported++;

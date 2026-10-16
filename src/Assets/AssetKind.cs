@@ -14,8 +14,8 @@ public abstract class AssetKind
     // Names of every asset of this kind that the install holds; empty when it holds none.
     public abstract IEnumerable<string> Enumerate(GameFileSystem files);
 
-    // Loads one asset. Throws when it is corrupt; throws NotSupportedException when the asset is
-    // known but its format is not supported.
+    // Loads one asset. Throws when it is corrupt; throws UnsupportedFormatException when the asset
+    // is known but its format is not supported.
     public abstract object Load(GameFileSystem files, string name);
 
     // What the asset check runs per asset. Kinds with a stricter check override it.

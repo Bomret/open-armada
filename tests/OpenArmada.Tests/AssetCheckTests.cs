@@ -65,6 +65,22 @@ public class AssetCheckTests
     }
 
     [TestMethod]
+    [DataRow(0f)]
+    [DataRow(-1f)]
+    [DataRow(1.05f)]
+    [DataRow(float.NaN)]
+    public void ModelWithUnrecognisedVersionIsCorruptAndFailsTheCheck(float version)
+    {
+        var (code, output) = Run(Install(("SOD/v.sod", Sod(version))), new ModelKind());
+        Assert.AreEqual(1, code);
+        StringAssert.Contains(output, "FAIL models/v.sod:");
+        StringAssert.Contains(output, "1 failed");
+    }
+
+    [TestCleanup]
+    public void CleanUp() => GameFileSystemTests.DeleteMade();
+
+    [TestMethod]
     public void ThrowingReaderFailsThatAssetAndTheRestStillLoad()
     {
         var loaded = new List<string>();
@@ -76,8 +92,7 @@ public class AssetCheckTests
         var (code, output) = Run(Install(), kind);
         Assert.AreEqual(1, code);
         CollectionAssert.AreEqual(new[] { "a", "c" }, loaded);
-        StringAssert.Contains(output, "b");
-        StringAssert.Contains(output, "reader blew up");
+        StringAssert.Contains(output, "FAIL fake/b: reader blew up");
     }
 
     sealed class StackOverflowGuardException() : Exception("reader blew up");
@@ -111,8 +126,7 @@ public class AssetCheckTests
     [TestMethod]
     public void FolderWithoutInstallNamesTheFolderAndExitsNonZero()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "oa-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = GameFileSystemTests.MakeDir();
         var (code, output) = Run(dir, new ModelKind());
         Assert.AreEqual(1, code);
         StringAssert.Contains(output, dir);

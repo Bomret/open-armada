@@ -8,17 +8,18 @@ namespace OpenArmada.Assets;
 // The single view of an install's files. Names are game-style ("SOD\Fente.sod"); lookups ignore
 // case and path separator, in folder and file names alike, on every platform.
 //
-// Where a bare name (no folder) exists in more than one loose folder, LooseFolders decides, first
-// match wins: full-color textures before 8-bit ones, the main model folder before its
-// software-renderer copies.
+// A bare name (no folder) is searched only in the folders that hold its kind, by extension, first
+// match wins: ".tga" in the full-color texture folder before the 8-bit one, ".sod" in the main
+// model folder before its software-renderer copies. Any other bare name is not found.
 //
-// Archives and the override layer (slice 03) plug in at Resolve: the sources are tried in order
+// Archives and the override layer (issue #2) plug in at Resolve: the sources are tried in order
 // there, and List and Inventory gather from the same sources.
 public sealed class GameFileSystem
 {
-    public static readonly string[] LooseFolders = { "Textures/RGB", "Textures/Index8", "SOD", "SOD/Software" };
+    static readonly string[][] TextureFolders = { new[] { "Textures", "RGB" }, new[] { "Textures", "Index8" } };
+    static readonly string[][] ModelFolders = { new[] { "SOD" }, new[] { "SOD", "Software" } };
 
-    public readonly string Root;
+    readonly string Root;
     readonly Dictionary<string, Dictionary<string, string>> _entries = new(StringComparer.Ordinal);
 
     // Throws DirectoryNotFoundException when root holds no install (no SOD folder).
@@ -27,7 +28,7 @@ public sealed class GameFileSystem
         if (!Directory.Exists(root))
             throw new DirectoryNotFoundException($"no Armada install at '{root}' (folder does not exist)");
         Root = root;
-        if (Entries(root).ContainsKey("SOD") == false)
+        if (!Entries(root).TryGetValue("SOD", out var sod) || !Directory.Exists(sod))
             throw new DirectoryNotFoundException($"no Armada install at '{root}' (missing SOD folder)");
     }
 
@@ -37,8 +38,14 @@ public sealed class GameFileSystem
         var parts = Parts(name);
         if (parts.Length == 0) return null;
         if (parts.Length > 1) return Resolve(parts);
-        foreach (var folder in LooseFolders)
-            if (Resolve(Parts(folder).Append(parts[0]).ToArray()) is { } found) return found;
+        var folders = Path.GetExtension(parts[0]).ToLowerInvariant() switch
+        {
+            ".tga" => TextureFolders,
+            ".sod" => ModelFolders,
+            _ => Array.Empty<string[]>(),
+        };
+        foreach (var folder in folders)
+            if (Resolve(folder.Append(parts[0]).ToArray()) is { } found) return found;
         return null;
     }
 

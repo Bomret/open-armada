@@ -33,7 +33,7 @@ godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 godot-mono --headless --path . -- --check --game "/path/to/Star Trek - Armada"
 ```
 
-Loads every asset, prints each failure with its name and reason, and exits non-zero when any asset failed. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check.
+Loads every asset, prints each failure with its name and reason, and exits non-zero when any asset failed. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
 
 ## SOD format notes
 

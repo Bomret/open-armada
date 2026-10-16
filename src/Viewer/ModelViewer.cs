@@ -55,7 +55,7 @@ public partial class ModelViewer : Node3D
             return;
         }
         try { _files = new GameFileSystem(game); }
-        catch (DirectoryNotFoundException e)
+        catch (Exception e) // no install, or the root cannot be listed (permissions, I/O)
         {
             GD.PrintErr(e.Message);
             GetTree().Quit(1);

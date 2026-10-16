@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -13,7 +14,7 @@ public class GameFileSystemTests
     // synthesized here; no byte of a real install is used (INV-0001).
     internal static string MakeInstall(params (string Path, string Content)[] files)
     {
-        var root = Path.Combine(Path.GetTempPath(), "oa-tests-" + Guid.NewGuid().ToString("N"));
+        var root = MakeDir();
         Directory.CreateDirectory(Path.Combine(root, "SOD"));
         foreach (var (path, content) in files)
         {
@@ -23,6 +24,26 @@ public class GameFileSystemTests
         }
         return root;
     }
+
+    static readonly List<string> Made = new();
+
+    // An empty temp folder, deleted by CleanUp after the test.
+    internal static string MakeDir()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "oa-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        Made.Add(dir);
+        return dir;
+    }
+
+    internal static void DeleteMade()
+    {
+        foreach (var dir in Made) Directory.Delete(dir, true);
+        Made.Clear();
+    }
+
+    [TestCleanup]
+    public void CleanUp() => DeleteMade();
 
     [TestMethod]
     public void FindIgnoresCaseAndSeparatorOfRequestedName()
@@ -78,8 +99,37 @@ public class GameFileSystemTests
     [TestMethod]
     public void FolderWithoutSodIsNotAnInstall()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "oa-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        var dir = MakeDir();
         Assert.ThrowsExactly<DirectoryNotFoundException>(() => new GameFileSystem(dir));
+    }
+
+    [TestMethod]
+    public void SodEntryThatIsAFileIsNotAnInstall()
+    {
+        var dir = MakeDir();
+        File.WriteAllText(Path.Combine(dir, "SOD"), "x");
+        Assert.ThrowsExactly<DirectoryNotFoundException>(() => new GameFileSystem(dir));
+    }
+
+    [TestMethod]
+    public void RootThatIsAFileIsNotAnInstall()
+    {
+        var file = Path.Combine(MakeDir(), "game");
+        File.WriteAllText(file, "x");
+        Assert.ThrowsExactly<DirectoryNotFoundException>(() => new GameFileSystem(file));
+    }
+
+    [TestMethod]
+    public void BareModelNameIgnoresTextureFolders()
+    {
+        var fs = new GameFileSystem(MakeInstall(("Textures/RGB/x.sod", "tex"), ("SOD/x.sod", "model")));
+        Assert.AreEqual("model", System.Text.Encoding.ASCII.GetString(fs.ReadAllBytes("x.sod")));
+    }
+
+    [TestMethod]
+    public void BareTextureNameIgnoresModelFolders()
+    {
+        var fs = new GameFileSystem(MakeInstall(("SOD/x.tga", "model")));
+        Assert.IsNull(fs.Find("x.tga"));
     }
 }

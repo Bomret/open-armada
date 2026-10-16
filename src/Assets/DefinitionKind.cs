@@ -55,7 +55,10 @@ public sealed class DefinitionKind : AssetKind
         // folder prefix); when the includer is no enumerated definition (a
         // loose file the index places in a folder), no one else would, so the definition it reaches reports it.
         var definitions = new Lazy<HashSet<string>>(() => AssetReferences.DefinitionNames(files));
-        var ownMissing = def.MissingIncludes.Where(m => Path.GetFileName(m.IncludedBy).Equals(name, StringComparison.OrdinalIgnoreCase) || !definitions.Value.Contains(Path.GetFileName(m.IncludedBy))).Select(m => m.Name);
+        // The bare name is the part after the last / or \ (an include may use either; Path.GetFileName
+        // splits only on / outside Windows).
+        static string Bare(string n) => n[(n.LastIndexOfAny(new[] { '/', '\\' }) + 1)..];
+        var ownMissing = def.MissingIncludes.Where(m => Bare(m.IncludedBy).Equals(name, StringComparison.OrdinalIgnoreCase) || !definitions.Value.Contains(Bare(m.IncludedBy))).Select(m => m.Name);
         return AssetReferences.Missing(ownMissing, _ => false)
             .Concat(AssetReferences.Missing(Of(ModelKeys), n => Has(n.EndsWith(".sod", StringComparison.OrdinalIgnoreCase) ? n : n + ".sod")))
             .Concat(AssetReferences.Missing(Of(DefinitionKeys), Has))

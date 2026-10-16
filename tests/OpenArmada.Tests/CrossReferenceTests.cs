@@ -127,6 +127,15 @@ public class CrossReferenceTests
     }
 
     [TestMethod]
+    public void MissingIncludeOfAnEnumeratedParentIncludedWithABackslashFolderPrefixIsListedForTheParentOnly()
+    {
+        var fs = Install(("addon/p.odf", "#include \"gone.odf\"\r\n"), ("addon/c.odf", "#include \"addon\\p.odf\"\r\n"));
+        Assert.IsNotNull(fs.Find("addon\\p.odf"));
+        var all = new[] { "c.odf", "p.odf" }.SelectMany(d => new DefinitionKind().Unresolved(fs, d)).ToList();
+        CollectionAssert.AreEqual(new[] { "gone.odf" }, all);
+    }
+
+    [TestMethod]
     public void MissingIncludeOfAnEnumeratedParentInAChainIsListedForTheParentOnly()
     {
         var fs = Install(("addon/g.odf", "x = 1\r\n"), ("addon/p.odf", "#include \"g.odf\"\r\n#include \"gone.odf\"\r\n"),

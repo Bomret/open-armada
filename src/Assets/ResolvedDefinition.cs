@@ -22,8 +22,8 @@ public sealed class DefinitionException : Exception
 
 // An object definition with its include chain and the override layer applied: one value per key, the
 // definition's own values over its includes', a later include over an earlier one. Keys and include
-// names match regardless of case. Anything wrong with the chain (missing include, cycle, a line the
-// reader does not recognize) is listed in Problems and the rest still resolves; a lookup of a missing
+// names match regardless of case. A fault of the chain (missing include, cycle) is listed in Problems,
+// a line the reader does not recognize in Notes, and the rest still resolves; a lookup of a missing
 // key or of the wrong type throws DefinitionException for that key alone.
 public sealed class ResolvedDefinition
 {
@@ -33,6 +33,7 @@ public sealed class ResolvedDefinition
     readonly List<DefinitionValue> _values = new();
     readonly List<string> _chain = new();
     readonly List<string> _problems = new();
+    readonly List<string> _notes = new();
 
     ResolvedDefinition(string name) => Name = name;
 
@@ -44,8 +45,12 @@ public sealed class ResolvedDefinition
     // Every key once: the definition's own keys in file order, then the inherited ones.
     public IReadOnlyList<DefinitionValue> Values => _values;
 
-    // "<definition>: reason" per problem.
+    // One line per fault of the chain: a missing include, an include cycle, a chain too deep.
     public IReadOnlyList<string> Problems => _problems;
+
+    // "<definition>: line N: reason" per line a definition of the chain holds that the reader does not
+    // recognize (the game's own files have a few). Such a line is left out of the values.
+    public IReadOnlyList<string> Notes => _notes;
 
     // Throws FileNotFoundException when the definition itself is not in the install.
     public static ResolvedDefinition Resolve(GameFileSystem files, string name)
@@ -59,23 +64,23 @@ public sealed class ResolvedDefinition
     {
         if (path.Any(p => p.Equals(name, StringComparison.OrdinalIgnoreCase)))
         {
-            _problems.Add($"{Name}: include cycle {string.Join(" -> ", path.Append(name))}");
+            _problems.Add($"include cycle {string.Join(" -> ", path.Append(name))}");
             return;
         }
         if (path.Count >= MaxDepth)
         {
-            _problems.Add($"{Name}: include chain deeper than {MaxDepth} at '{name}'");
+            _problems.Add($"include chain deeper than {MaxDepth} at '{name}'");
             return;
         }
         byte[] bytes;
         try { bytes = files.ReadAllBytes(name); }
         catch (FileNotFoundException) when (path.Count > 0)
         {
-            _problems.Add($"{Name}: include '{name}' not found (included by {path[^1]})");
+            _problems.Add($"include '{name}' not found (included by {path[^1]})");
             return;
         }
         var odf = Odf.Parse(Windows1252.Encoding.GetString(bytes));
-        _problems.AddRange(odf.Problems.Select(p => $"{Name}: {name}: {p}"));
+        _notes.AddRange(odf.Problems.Select(p => $"{name}: {p}"));
         _chain.Add(name);
 
         var origin = files.Overrides(name) ? ValueOrigin.Overridden : path.Count == 0 ? ValueOrigin.Own : ValueOrigin.Inherited;

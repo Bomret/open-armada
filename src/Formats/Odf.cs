@@ -12,7 +12,7 @@ public sealed record OdfEntry(string Key, IReadOnlyList<string> Tokens, string? 
 
 // The text of one object definition (.odf), parsed without resolving includes. Lines are
 // `key = value`, `[Section]`, `#include "parent.odf"`, `//` comments (full-line or trailing) and
-// indented continuations of the previous value. A line that is none of these, or that holds an
+// continuations of the previous value (indented lines, or lines that start with a quoted name). A line that is none of these, or that holds an
 // unterminated quote, is listed in Problems as "line N: reason" and its entry is left out.
 public sealed class Odf
 {
@@ -56,7 +56,7 @@ public sealed class Odf
                 odf._entries.Add(new OdfEntry(m.Groups[1].Value, tokens, section, n));
                 current = tokens;
             }
-            else if (current != null && char.IsWhiteSpace(line[0]))
+            else if (current != null && (char.IsWhiteSpace(line[0]) || trimmed[0] == '"')) // the game also writes quoted names flush left
             {
                 if (Tokenize(trimmed, out var more, out var why)) current.AddRange(more);
                 else odf._problems.Add($"line {n}: {why}");

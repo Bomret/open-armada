@@ -23,9 +23,12 @@ public class DefinitionKindTests
     }
 
     [TestMethod]
-    public void CheckFailsForAnUnrecognizedLine() =>
-        Assert.ThrowsExactly<InvalidDataException>(() =>
-            new DefinitionKind().Check(defs.Install(new[] { ("a.odf", "x = 1\r\nwhat is this") }), "a.odf"));
+    public void CheckNotesAnUnrecognizedLineWithoutFailing()
+    {
+        var notes = new DefinitionKind().Check(defs.Install(new[] { ("a.odf", "x = 1\r\nwhat is this") }), "a.odf");
+        Assert.AreEqual(1, notes.Count);
+        StringAssert.Contains(notes[0], "line 2");
+    }
 
     [TestMethod]
     public void PreviewMarksOwnInheritedAndOverriddenValues()

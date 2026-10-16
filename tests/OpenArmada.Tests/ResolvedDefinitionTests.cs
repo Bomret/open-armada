@@ -137,12 +137,13 @@ public class ResolvedDefinitionTests
     }
 
     [TestMethod]
-    public void ParseProblemsOfAnyChainMemberAreReportedWithItsName()
+    public void UnrecognizedLinesOfAnyChainMemberAreNotedWithItsName()
     {
         var def = Resolve("b.odf", ("a.odf", "x = 1\r\ngarbage line"), ("b.odf", "#include \"a.odf\""));
-        Assert.AreEqual(1, def.Problems.Count);
-        StringAssert.Contains(def.Problems[0], "a.odf");
-        StringAssert.Contains(def.Problems[0], "line 2");
+        Assert.AreEqual(0, def.Problems.Count);
+        Assert.AreEqual(1, def.Notes.Count);
+        StringAssert.Contains(def.Notes[0], "a.odf");
+        StringAssert.Contains(def.Notes[0], "line 2");
     }
 
     [TestMethod]

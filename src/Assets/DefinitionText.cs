@@ -18,6 +18,7 @@ public static class DefinitionText
         var sb = new StringBuilder();
         sb.Append(def.Name).Append(" (").AppendJoin(" <- ", def.Chain).Append(")\n");
         foreach (var p in def.Problems) sb.Append("problem: ").Append(p).Append('\n');
+        foreach (var n in def.Notes) sb.Append("note: ").Append(n).Append('\n');
         sb.Append('\n');
         foreach (var v in def.Values)
         {

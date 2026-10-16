@@ -44,6 +44,14 @@ public class OdfTests
     }
 
     [TestMethod]
+    public void QuotedNamesOnFollowingLinesContinueTheValueEvenWithoutIndent()
+    {
+        var odf = Odf.Parse("hps = \"a\" \"b\"\r\n\"c\" \"d\"\r\n// note\r\n\"e\"\r\nnext = 1\r\n");
+        CollectionAssert.AreEqual(new[] { "a", "b", "c", "d", "e" }, odf.Entries[0].Tokens.ToArray());
+        Assert.AreEqual(0, odf.Problems.Count);
+    }
+
+    [TestMethod]
     public void EmptyValueIsAnEmptyList() =>
         Assert.AreEqual(0, Tokens("names =\r\n", "names").Length);
 

@@ -17,12 +17,13 @@ public sealed class DefinitionKind : AssetKind
     // The resolved definition.
     public override object Load(GameFileSystem files, string name) => ResolvedDefinition.Resolve(files, name);
 
-    // A definition fails when anything in its include chain is wrong (see ResolvedDefinition.Problems).
+    // A definition fails when its include chain is wrong (ResolvedDefinition.Problems); a line the
+    // reader does not recognize is a note (ResolvedDefinition.Notes).
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
-        var problems = ResolvedDefinition.Resolve(files, name).Problems;
-        if (problems.Count > 0) throw new InvalidDataException(string.Join("; ", problems));
-        return Array.Empty<string>();
+        var def = ResolvedDefinition.Resolve(files, name);
+        if (def.Problems.Count > 0) throw new InvalidDataException(string.Join("; ", def.Problems));
+        return def.Notes;
     }
 
     // Names of the files with the extension that the archives and the override layer hold. Loose files

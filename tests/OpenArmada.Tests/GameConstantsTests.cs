@@ -76,6 +76,40 @@ public class GameConstantsTests
     }
 
     [TestMethod]
+    public void ALeadingPlusIsPartOfTheLiteral()
+    {
+        var c = Read("float UP = +1.0;");
+        Assert.IsTrue(c.TryNumber("UP", out var up, out _));
+        Assert.AreEqual(1.0, up);
+        Assert.AreEqual(0, c.Notes.Count);
+    }
+
+    [TestMethod]
+    public void AnIntWhoseValueIsNotAnIntegerLiteralIsKeptAsTextWithANote()
+    {
+        var c = Read("int A = 1e3;", "int B = 1.5;", "int C = 2f;", "int D = +4;");
+        foreach (var name in new[] { "A", "B", "C" })
+        {
+            Assert.IsFalse(c.TryNumber(name, out _, out var problem));
+            StringAssert.Contains(problem, "not a literal");
+        }
+        Assert.AreEqual("1e3", c.Values[0].Text);
+        Assert.AreEqual(3, c.Notes.Count);
+        Assert.IsTrue(c.TryNumber("D", out var d, out _));
+        Assert.AreEqual(4.0, d);
+    }
+
+    [TestMethod]
+    public void AHexLiteralIsKeptAsTextWithANote()
+    {
+        var c = Read("int MASK = 0x10;");
+        Assert.AreEqual("0x10", c.Values[0].Text);
+        Assert.AreEqual(1, c.Notes.Count);
+        Assert.IsFalse(c.TryNumber("MASK", out _, out var problem));
+        StringAssert.Contains(problem, "not a literal");
+    }
+
+    [TestMethod]
     public void ADefineExpressionIsKeptAsTextWithANote()
     {
         var c = Read("#define X (1+2)");

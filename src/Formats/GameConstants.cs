@@ -6,8 +6,8 @@ using System.Text.RegularExpressions;
 
 namespace OpenArmada.Formats;
 
-// One named value of a header: a number (a literal such as -20, 4.0, 1e-3 or 0.5f, with an exponent and
-// an f or F suffix allowed) or Text. Text is the quoted string of a #define (IsString) or the unevaluated
+// One named value of a header: a number (a literal such as -20, +1.0, 4.0, 1e-3 or 0.5f, with a sign, an
+// exponent and an f or F suffix allowed; an int takes only an integer literal, as in C) or Text. Text is the quoted string of a #define (IsString) or the unevaluated
 // expression or constant name of a value that is not a literal. Type is "float", "int" or "define".
 public sealed record GameConstant(string Name, string Type, double? Number, string? Text, bool IsString, int Line);
 
@@ -22,7 +22,8 @@ public sealed class GameConstants
     static readonly Regex Include = new(@"^#include\s+""([^""]*)""$");
     static readonly Regex Define = new(@"^#define\s+(\w+)\s+(.+)$");
     static readonly Regex Declaration = new(@"^(float|int)\s+(\w+)\s*=\s*(.*?)\s*(;?)$");
-    static readonly Regex Literal = new(@"^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?[fF]?$");
+    static readonly Regex Literal = new(@"^[-+]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?[fF]?$");
+    static readonly Regex IntLiteral = new(@"^[-+]?\d+$");
     static readonly Regex Quoted = new(@"^""([^""]*)""$");
 
     readonly List<GameConstant> _values = new();
@@ -93,7 +94,7 @@ public sealed class GameConstants
         var at = $"{Name}:{line}";
         GameConstant c;
         if (Quoted.Match(value) is { Success: true } q) c = new(name, type, null, q.Groups[1].Value, true, line);
-        else if (Literal.IsMatch(value)) c = new(name, type, double.Parse(value.TrimEnd('f', 'F'), CultureInfo.InvariantCulture), null, false, line);
+        else if (Literal.IsMatch(value) && (type != "int" || IntLiteral.IsMatch(value))) c = new(name, type, double.Parse(value.TrimEnd('f', 'F'), CultureInfo.InvariantCulture), null, false, line);
         else
         {
             c = new(name, type, null, value, false, line);

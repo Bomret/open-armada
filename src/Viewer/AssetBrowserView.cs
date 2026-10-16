@@ -132,7 +132,8 @@ public partial class AssetBrowserView : Control
             var control = preview.Create(_browser.Files!, kind, name);
             ShowMessage("");
             _pane.AddChild(control);
-            control.SetAnchorsPreset(LayoutPreset.FullRect);
+            // Offsets too: a control added after layout keeps its 0x0 size under SetAnchorsPreset.
+            control.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
             _preview = control;
         }
         catch (Exception e) // a failed asset never stops the browser (INV-0002)

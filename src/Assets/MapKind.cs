@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
@@ -30,7 +31,18 @@ public sealed class MapKind : AssetKind
     public override IEnumerable<string> Enumerate(GameFileSystem files) =>
         files.Inventory().Where(f => f.StartsWith(Folder, StringComparison.OrdinalIgnoreCase) && f.EndsWith(".bzn", StringComparison.OrdinalIgnoreCase));
 
+    // Maps loaded per install, so the check, the unresolved references and the decode step read each map
+    // once. Not thread-safe: the engine loads on one thread. A map that fails is not kept.
+    static readonly ConditionalWeakTable<GameFileSystem, Dictionary<string, MapAsset>> Loaded = new();
+
     public override object Load(GameFileSystem files, string name)
+    {
+        var cache = Loaded.GetOrCreateValue(files);
+        if (!cache.TryGetValue(name, out var asset)) cache[name] = asset = Read(files, name);
+        return asset;
+    }
+
+    static MapAsset Read(GameFileSystem files, string name)
     {
         var map = Bzn.Read(files.ReadAllBytes(name));
         var stem = name[..^Path.GetExtension(name).Length];

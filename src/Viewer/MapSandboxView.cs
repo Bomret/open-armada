@@ -46,6 +46,15 @@ public partial class MapSandboxView : Node3D
         var window = GetWindow();
         window.MouseEntered += () => _mouseInWindow = true;
         window.MouseExited += () => _mouseInWindow = false;
+        // stand-in: the game ran full screen, where the screen edge holds the cursor in the scroll border; the
+        // sandbox confines the cursor to its window while the window has focus. Losing focus releases it; Esc
+        // releases it until the window gains focus again. A headless or screenshot run never confines.
+        if (DisplayServer.GetName() != "headless" && _screenshot == null)
+        {
+            window.FocusEntered += () => Input.MouseMode = Input.MouseModeEnum.Confined;
+            window.FocusExited += () => Input.MouseMode = Input.MouseModeEnum.Visible;
+            if (window.HasFocus()) Input.MouseMode = Input.MouseModeEnum.Confined;
+        }
         var files = _sandbox.Files!;
         var plan = _sandbox.Plan!;
         var team = TeamColors.Load(files);
@@ -191,7 +200,9 @@ public partial class MapSandboxView : Node3D
     public override void _Input(InputEvent e)
     {
         if (_rig == null) return;
-        if (e is InputEventMouseButton { Pressed: true } b && b.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+        if (e is InputEventKey { Pressed: true, Keycode: Key.Escape })
+            Input.MouseMode = Input.MouseModeEnum.Visible;
+        else if (e is InputEventMouseButton { Pressed: true } b && b.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
             _rig.ChangeHeight(b.ButtonIndex == MouseButton.WheelUp ? -_rig.ZoomStep : _rig.ZoomStep);
         else if (e is InputEventMouseMotion m && m.ButtonMask.HasFlag(MouseButtonMask.Middle))
             _rig.Rotate(m.Relative.X * _rig.RotationPerPixel);

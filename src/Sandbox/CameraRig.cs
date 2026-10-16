@@ -140,7 +140,8 @@ public sealed class CameraRig
             // The arrow keys count with KEYBOARD_SCROLL_RATE as their strength, the edges with 0..1.
             direction = keys.Length() > 1 ? Vector2.Normalize(keys) : keys;
             direction *= (float)_keyRate;
-            if (cursor.X >= 0 && cursor.Y >= 0 && cursor.X < size.X && cursor.Y < size.Y)
+            // The window's width and height count as inside: a cursor confined to the window reaches them.
+            if (cursor.X >= 0 && cursor.Y >= 0 && cursor.X <= size.X && cursor.Y <= size.Y)
             {
                 var edge = new Vector2(Edge(size.X - 1 - cursor.X) - Edge(cursor.X), Edge(cursor.Y) - Edge(size.Y - 1 - cursor.Y));
                 direction += edge.Length() > 1 ? Vector2.Normalize(edge) : edge;

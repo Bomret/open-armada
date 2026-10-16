@@ -182,6 +182,18 @@ public class CameraRigTests
     }
 
     [TestMethod]
+    public void AConfinedCursorOnTheRightOrBottomBoundaryScrolls()
+    {
+        // Godot's confined cursor reaches the window's width and height themselves, one past the last pixel.
+        var size = new Vector2(800, 600);
+        var right = Rig();
+        right.Scroll(new Vector2(800, 300), size, true, Vector2.Zero, 1.0);
+        var bottom = Rig();
+        bottom.Scroll(new Vector2(400, 600), size, true, Vector2.Zero, 1.0);
+        Assert.IsTrue(right.Pose.Target.X > 500 && bottom.Pose.Target.Z < 300, $"{right.Pose.Target} {bottom.Pose.Target}");
+    }
+
+    [TestMethod]
     public void ArrowKeysScrollWithTheKeyboardRateOfTheInstall()
     {
         var rig = Rig();

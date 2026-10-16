@@ -35,7 +35,7 @@ public sealed class ResolvedDefinition
     readonly List<string> _problems = new();
     readonly List<string> _notes = new();
     readonly HashSet<string> _missing = new();
-    readonly List<string> _missingOwn = new();
+    readonly List<(string Name, string IncludedBy)> _missingIncludes = new();
     readonly Dictionary<string, (int Depth, IReadOnlyList<string> Includes)> _cut = new(StringComparer.OrdinalIgnoreCase);
 
     ResolvedDefinition(string name) => Name = name;
@@ -56,8 +56,8 @@ public sealed class ResolvedDefinition
     // reference (AssetKind.Unresolved).
     public IReadOnlyList<string> Failures => _problems.Where(p => !_missing.Contains(p)).ToList();
 
-    // The includes of this definition's own file that are missing, as the file names them.
-    public IReadOnlyList<string> MissingOwnIncludes => _missingOwn;
+    // Every include of the chain that is missing, as the file names it, with the definition that includes it.
+    public IReadOnlyList<(string Name, string IncludedBy)> MissingIncludes => _missingIncludes;
 
     // "<definition>: line N: reason" per line a definition of the chain holds that the reader does not
     // recognize (the game's own files have a few). Such a line is left out of the values.
@@ -104,7 +104,7 @@ public sealed class ResolvedDefinition
                 var problem = $"include '{name}' not found (included by {path[^1]})";
                 AddProblem(problem);
                 _missing.Add(problem);
-                if (path.Count == 1) _missingOwn.Add(name);
+                _missingIncludes.Add((name, path[^1]));
             }
             else AddProblem($"include '{name}' cannot be read (included by {path[^1]}): {e.Message}");
             return false;

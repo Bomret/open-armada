@@ -72,6 +72,24 @@ public class CrossReferenceTests
     }
 
     [TestMethod]
+    public void SoundWithAFolderResolvesByItsPathWithinSounds()
+    {
+        var fs = Install(("addon/d.odf", "fireSound = \"effects/x.wav\"\r\nhitSound = \"other/x.wav\"\r\n"), ("sounds/effects/x.wav", ""));
+        CollectionAssert.AreEqual(new[] { "other/x.wav" }, new DefinitionKind().Unresolved(fs, "d.odf").ToArray());
+    }
+
+    [TestMethod]
+    public void MissingGrandparentIsListedForTheChildWhenTheParentIsOnlyAnInclude()
+    {
+        // p.odf is a loose file the index places in a folder: no archive member, so no enumerated definition.
+        var fs = Install(("addon/c.odf", "#include \"p.odf\"\r\n"), ("misc/p.odf", "#include \"gone.odf\"\r\n"),
+            ("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: misc\n----\n1 p.odf\n"));
+        Assert.IsNotNull(fs.Find("p.odf"));
+        var all = new DefinitionKind().Enumerate(fs).SelectMany(d => new DefinitionKind().Unresolved(fs, d)).ToList();
+        CollectionAssert.AreEqual(new[] { "gone.odf" }, all);
+    }
+
+    [TestMethod]
     public void MissingParentIsAnUnresolvedReferenceAndTheDefinitionStillResolves()
     {
         var root = temp.MakeInstall(("addon/c.odf", "#include \"gone.odf\"\r\nbaseName = \"nomodel\"\r\n"));

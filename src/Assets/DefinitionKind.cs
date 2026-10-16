@@ -48,14 +48,17 @@ public sealed class DefinitionKind : AssetKind
         var values = def.Values.Where(v => v.Origin != ValueOrigin.Inherited && v.Tokens.Count > 0).ToList();
         IEnumerable<string> Of(string[] keys) => values.Where(v => keys.Contains(v.Key, StringComparer.OrdinalIgnoreCase)).Select(v => v.Tokens[0]);
         bool Has(string n) => files.Find(n) != null;
-        // A bare sound name resolves through the index; one the index lacks resolves in any folder of sounds/.
-        var sounds = new Lazy<HashSet<string>>(() => new SoundKind().Enumerate(files).Select(Path.GetFileName).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase));
-        var sprites = new Lazy<HashSet<string>>(() => AssetReferences.SpriteNames(files));
-        return AssetReferences.Missing(def.MissingOwnIncludes, _ => false)
+        // A sound name resolves through the index; one the index lacks resolves in sounds/**: by its file
+        // name when it has no folder, by its path below sounds/ when it has one.
+        // A missing include is the includer's to report; when the includer is no enumerated definition (a
+        // loose file the index places in a folder), no one else would, so the definition it reaches reports it.
+        var definitions = new Lazy<HashSet<string>>(() => AssetReferences.DefinitionNames(files));
+        var ownMissing = def.MissingIncludes.Where(m => m.IncludedBy.Equals(name, StringComparison.OrdinalIgnoreCase) || !definitions.Value.Contains(m.IncludedBy)).Select(m => m.Name);
+        return AssetReferences.Missing(ownMissing, _ => false)
             .Concat(AssetReferences.Missing(Of(ModelKeys), n => Has(n.EndsWith(".sod", StringComparison.OrdinalIgnoreCase) ? n : n + ".sod")))
             .Concat(AssetReferences.Missing(Of(DefinitionKeys), Has))
-            .Concat(AssetReferences.Missing(values.Select(v => v.Tokens[0]).Where(t => t.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)), n => Has(n) || sounds.Value.Contains(n)))
-            .Concat(AssetReferences.Missing(Of(VisualKeys), n => AssetReferences.HasTexture(files, n) || sprites.Value.Contains(n)))
+            .Concat(AssetReferences.Missing(values.Select(v => v.Tokens[0]).Where(t => t.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)), n => Has(n) || AssetReferences.HasSound(files, n)))
+            .Concat(AssetReferences.Missing(Of(VisualKeys), n => AssetReferences.HasTexture(files, n) || AssetReferences.SpriteNames(files).Contains(n)))
             .ToList();
     }
 

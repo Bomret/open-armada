@@ -70,6 +70,15 @@ public class ModelCheckTests
         CollectionAssert.Contains(new ModelKind().Unresolved(files, "m.sod").ToArray(), "spin");
     }
 
+    // Two references give two identical lines; each missing animation removes its own one.
+    [TestMethod]
+    public void RepeatedReferenceToAMissingAnimationLeavesNoNote()
+    {
+        var files = Install(("SOD/m.sod", Latin1(new SodBytes(1.8f).Lighting(("lit", 1f, 1))
+            .Nodes(new NodeSpec("hull", "", Triangle())).End((4, "hull", "spin", 0f), (4, "hull", "spin", 0f)))));
+        Assert.AreEqual((0, 1), (new ModelKind().Check(files, "m.sod").Count, new ModelKind().Unresolved(files, "m.sod").Count(u => u == "spin")));
+    }
+
     [TestMethod]
     public void CheckAcceptsAnAnimationReferenceASpriteTableDefines()
     {

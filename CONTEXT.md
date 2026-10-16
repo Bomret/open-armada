@@ -26,10 +26,15 @@ The install's `addon` folder, whose files replace same-named files from the arch
 _Avoid_: patch folder, addon directory
 
 **Shadowed copy**
-A file of an install whose name another file wins in the game file system's lookup, such as a stock
-definition that the override layer replaces. The asset check reports a shadowed copy that no kind reads as
-known but not loaded.
+A file of an install whose name another file wins in the game file system's lookup. An example is a stock
+definition that the override layer replaces. The asset check reports a shadowed copy that no asset kind
+reads as known but not loaded.
 _Avoid_: duplicate, overridden file
+
+**Asset kind**
+One category of asset, such as models or textures, with its own way to list, load, and check its assets.
+The asset browser offers one category per asset kind.
+_Avoid_: asset type, loader
 
 **Asset**
 One loadable piece of game data in an install: a model, texture, sound, map, object definition, tech
@@ -74,8 +79,16 @@ _Avoid_: player color, faction color
 
 **Asset check**
 The headless run of the engine that loads every in-scope asset of an install and reports each one that
-fails, with its name and reason.
+fails, with its name and reason. It also lists the references that do not resolve and puts every file of
+the install into one file class. It fails when any asset fails or any file is unclassified.
 _Avoid_: SodCheck, validator, asset test
+
+**File class**
+The group that the asset check assigns to a file of an install. Loaded: an asset kind reads the file.
+Out of scope: the file holds no game data the engine reads. Known but not loaded: the file is recognized
+but no asset kind reads it, such as a shadowed copy. Unclassified: no rule matches the file, and the
+asset check fails.
+_Avoid_: file category, file status
 
 **Asset browser**
 The engine's interactive mode for picking any asset of an install and inspecting its preview.

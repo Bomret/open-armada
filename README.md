@@ -17,7 +17,7 @@ dotnet build OpenArmada.csproj
 godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 ```
 
-`ARMADA_DIR` can replace `--game`. Pick a category and an asset in the lists to see its preview. In a model preview, drag to orbit and use the mouse wheel to zoom. `--model <name>` opens the named model. `--screenshot out.png` renders one frame to a file and quits.
+`ARMADA_DIR` can replace `--game`. The preview shows the asset selected in the category and asset lists. In a model preview, drag to orbit and use the mouse wheel to zoom. `--model <name>` opens the named model. `--screenshot out.png` renders one frame to a file and quits.
 
 ## Layout
 
@@ -33,7 +33,7 @@ godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 godot-mono --headless --path . -- --check --game "/path/to/Star Trek - Armada"
 ```
 
-Loads every asset, prints each failure with its name and reason, classifies every file of the install, lists references that do not resolve, and exits non-zero when any asset failed or any file is unclassified. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
+Loads every asset and prints each failure with its name and reason. Classifies every file of the install and lists references that do not resolve. Exits non-zero when any asset failed or any file is unclassified. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
 
 ## SOD format notes
 

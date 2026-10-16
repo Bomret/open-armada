@@ -25,15 +25,10 @@ public sealed class TextureKind : AssetKind
 
     public override string Name => KindName;
 
-    // A bare name resolves like Find: full color wins over 8-bit. An 8-bit texture hidden behind a
-    // full-color one of the same name is listed with its folder ("Textures/Index8/x.tga"), so it is
-    // still loaded and checked.
-    public override IEnumerable<string> Enumerate(GameFileSystem files)
-    {
-        var rgb = files.List(".tga", "Textures/RGB");
-        var shadowed = files.List(".tga", "Textures/Index8").Select(n => rgb.Contains(n, StringComparer.OrdinalIgnoreCase) ? "Textures/Index8/" + n : n);
-        return rgb.Concat(shadowed);
-    }
+    // A bare name resolves like Find: the override layer first, then full color over 8-bit. A texture
+    // hidden behind another of the same name is listed with its folder ("Textures/Index8/x.tga"), so it
+    // is still loaded and checked; a texture only the override layer or an archive holds is listed too.
+    public override IEnumerable<string> Enumerate(GameFileSystem files) => Layered(files, ".tga", "Textures/RGB", "Textures/Index8");
 
     // The texture's own file only, with no mip level read. The builder uses it: a model needs the base image.
     public TextureLevel LoadBase(GameFileSystem files, string name)

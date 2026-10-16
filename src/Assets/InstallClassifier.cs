@@ -70,10 +70,24 @@ public static class InstallClassifier
         };
     }
 
-    // A member of an archive: the objective texts, and the definitions and tech trees of any archive.
+    // A member of an archive: the objective texts, and the definitions, tech trees, models and textures of
+    // any archive. Any other member of an override-layer archive is an override no kind loads.
     static (FileClass, string) Member(string archive, string member) =>
         archive == "objtxt.zfs" ? Loaded("objective texts")
-        : Path.GetExtension(member) switch { ".odf" => Loaded("definitions"), ".tt" => Loaded("tech trees"), _ => Unknown };
+        : Layer(member) is var c && (c.Item1 == FileClass.Loaded || archive.StartsWith("addon/", StringComparison.Ordinal)) ? c
+        : Unknown;
+
+    // A file of the override layer or an archive, by its extension: the kinds that list such files by
+    // bare name load it (DefinitionKind.Named, AssetKind.Layered); a file of any other kind still
+    // replaces a file of its name for the game, but no kind loads it.
+    static (FileClass, string) Layer(string name) => Path.GetExtension(name) switch
+    {
+        ".odf" => Loaded("definitions"),
+        ".tt" => Loaded("tech trees"),
+        ".sod" => Loaded("models"),
+        ".tga" => Loaded("textures"),
+        _ => Known("overrides no kind loads"),
+    };
 
     static (FileClass, string) RootFile(string name, string ext) => (name, ext) switch
     {
@@ -105,9 +119,8 @@ public static class InstallClassifier
     // The game reads addon without recursion, so a file in a subfolder is never reached.
     static (FileClass, string) Addon(string[] parts, string ext) =>
         parts.Length > 2 ? Known("addon subfolders")
-        : ext == ".odf" ? Loaded("definitions")
         : ext == ".zfs" || parts[1].Contains(".zfs", StringComparison.Ordinal) ? Loaded("archives")
-        : Unknown;
+        : Layer(parts[1]);
 
     // Full-color and 8-bit textures with their mip levels, and the palettes of the full-color folder. A
     // level counts when every level before it exists (the game stops at the first gap); the rest of the

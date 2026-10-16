@@ -37,12 +37,16 @@ public abstract class AssetKind
 
     // The files with the extension in the folders, each once: under its bare name when the bare name
     // resolves to it (GameFileSystem.Find), else under its folder name ("SOD/Software/x.sod"), so a copy
-    // that another one of the same name shadows is still listed, loaded, and checked.
+    // that another one of the same name shadows is still listed, loaded, and checked. Then the names the
+    // override layer and the archives hold (DefinitionKind.Named) that no folder file took.
     protected static IEnumerable<string> Layered(GameFileSystem files, string extension, params string[] folders)
     {
+        var bare = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var folder in folders)
             foreach (var n in files.List(extension, folder))
-                yield return files.Find(n) == files.Find(folder + "/" + n) ? n : folder + "/" + n;
+                yield return files.Find(n) == files.Find(folder + "/" + n) && bare.Add(n) ? n : folder + "/" + n;
+        foreach (var n in DefinitionKind.Named(files, extension))
+            if (bare.Add(n)) yield return n;
     }
 
     public static IReadOnlyList<AssetKind> Discover() =>

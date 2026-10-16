@@ -76,6 +76,14 @@ public class AssetCheckTests
         StringAssert.Contains(output, "models: 2 loaded, 0 unsupported, 0 failed");
     }
 
+    // A model that only the override layer holds is a model too; the game loads it by its bare name.
+    [TestMethod]
+    public void ModelOnlyTheOverrideLayerHoldsIsChecked()
+    {
+        var (_, output) = Run(Install(("addon/o.sod", Sod(1.8f))), new ModelKind());
+        StringAssert.Contains(output, "models: 1 loaded, 0 unsupported, 0 failed");
+    }
+
     [TestMethod]
     [DataRow(0f)]
     [DataRow(-1f)]

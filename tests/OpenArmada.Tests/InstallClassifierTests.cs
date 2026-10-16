@@ -33,6 +33,11 @@ public class InstallClassifierTests
     [DataRow("splash.bmp")]
     [DataRow("addon/a.odf")]
     [DataRow("addon/a.zfs")]
+    [DataRow("addon/a.sod")]
+    [DataRow("addon/a.tga")]
+    [DataRow("addon/a.tt")]
+    [DataRow("addon/b.zfs::a.sod")]
+    [DataRow("addon/b.zfs::a.tga")]
     [DataRow("startrek.zix")]
     [DataRow("assets.zfs")]
     [DataRow("assets.zfs::a.odf")]
@@ -68,6 +73,9 @@ public class InstallClassifierTests
     [DataRow("bmp/Links.bmp")]
     [DataRow("wav/Install.wav")]
     [DataRow("addon/sub/a.odf")]
+    [DataRow("addon/a.wav")]
+    [DataRow("addon/a.pal")]
+    [DataRow("addon/b.zfs::a.wav")]
     [DataRow("Textures/RGB/pspbrwse.jbf")]
     [DataRow("Textures/Index8/Xspark01")]
     public void UnknownFileGroupsAreKnownButNotLoaded(string entry) =>
@@ -98,6 +106,7 @@ public class InstallClassifierTests
                 "sounds/music/e.wav", "sounds/f.wav", "wav/g.wav",
                 "cursors/c.cur", "cursors/sub/d.cur", "misc/gui_a.cfg", "misc/other.cfg",
                 "l.map", "l.set", "l.ldl", "l.fnt", "addon/h.odf", "addon/sub/i.odf", "events.odf", "j.odf",
+                "addon/p.sod", "addon/q.tga", "addon/r.wav",
             };
             var fs = new GameFileSystem(temp.MakeInstall(files.Select(f => (f, "")).ToArray()));
             string Bare(string e) => e[(Math.Max(e.LastIndexOf('/'), e.LastIndexOf(':')) + 1)..].ToLowerInvariant();

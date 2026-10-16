@@ -51,14 +51,19 @@ public sealed class DefinitionKind : AssetKind
         bool Has(string n) => files.Find(n) != null;
         // A sound name resolves through the index; one the index lacks resolves in sounds/**: by its file
         // name when it has no folder, by its path below sounds/ when it has one.
-        // A missing include is the includer's to report (compared by its bare name, as an include may carry a
-        // folder prefix); when the includer is no enumerated definition (a
-        // loose file the index places in a folder), no one else would, so the definition it reaches reports it.
+        // A missing include is the includer's to report when the includer is an enumerated definition: the
+        // file the include reads (an include may carry a folder prefix) is the file the enumerated
+        // definition of its bare name reads. When the includer is no enumerated definition (a loose file
+        // elsewhere, even one sharing its bare name with a definition), no one else would, so the
+        // definition it reaches reports it.
         var definitions = new Lazy<HashSet<string>>(() => AssetReferences.DefinitionNames(files));
         // The bare name is the part after the last / or \ (an include may use either; Path.GetFileName
         // splits only on / outside Windows).
         static string Bare(string n) => n[(n.LastIndexOfAny(new[] { '/', '\\' }) + 1)..];
-        var ownMissing = def.MissingIncludes.Where(m => Bare(m.IncludedBy).Equals(name, StringComparison.OrdinalIgnoreCase) || !definitions.Value.Contains(Bare(m.IncludedBy))).Select(m => m.Name);
+        bool OtherDefinition(string includer) =>
+            files.Entry(includer) is var at && at != files.Entry(name)
+            && definitions.Value.Contains(Bare(includer)) && at == files.Entry(Bare(includer));
+        var ownMissing = def.MissingIncludes.Where(m => !OtherDefinition(m.IncludedBy)).Select(m => m.Name);
         return AssetReferences.Missing(ownMissing, _ => false)
             .Concat(AssetReferences.Missing(Of(ModelKeys), n => Has(n.EndsWith(".sod", StringComparison.OrdinalIgnoreCase) ? n : n + ".sod")))
             .Concat(AssetReferences.Missing(Of(DefinitionKeys), Has))

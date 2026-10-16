@@ -135,6 +135,16 @@ public class CrossReferenceTests
         CollectionAssert.AreEqual(new[] { "gone.odf" }, all);
     }
 
+    // misc/p.odf shares its bare name with the enumerated addon/p.odf, which does not hold the include.
+    [TestMethod]
+    public void MissingIncludeOfALooseParentSharingItsNameWithAnEnumeratedDefinitionIsListedForTheChild()
+    {
+        var fs = Install(("addon/p.odf", "x = 1\r\n"), ("addon/c.odf", "#include \"misc/p.odf\"\r\n"),
+            ("misc/p.odf", "#include \"gone.odf\"\r\n"));
+        var all = new[] { "c.odf", "p.odf" }.SelectMany(d => new DefinitionKind().Unresolved(fs, d).Select(u => $"{d}: {u}")).ToList();
+        CollectionAssert.AreEqual(new[] { "c.odf: gone.odf" }, all);
+    }
+
     [TestMethod]
     public void MissingIncludeOfAnEnumeratedParentInAChainIsListedForTheParentOnly()
     {

@@ -43,6 +43,13 @@ public class MapCompanionTests
     }
 
     [TestMethod]
+    public void MdfStartGivenTwiceIsReported()
+    {
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Mdf.Read("StartLocations = 2\r\nStart1 = 1 1\r\nStart1 = 2 2\r\nStart2 = 1 1\r\n"));
+        StringAssert.Contains(e.Message, "Start1");
+    }
+
+    [TestMethod]
     public void PthHoldsItsPoints()
     {
         var points = Pth.Read("2\r\n0 0 -60.0\r\n-50 0 0\r\n");

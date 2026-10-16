@@ -16,7 +16,7 @@ public static class Mdf
     public const int MaxCell = 117;
 
     // Throws InvalidDataException when the count is outside 2..8, a start is missing or outside the grid,
-    // or a line is not one of these (the game would fall back to built-in defaults; the reader reports).
+    // a line is given twice, or a line is not one of these (the game would fall back to built-in defaults; the reader reports).
     public static IReadOnlyList<StartCell> Read(string text)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -26,7 +26,8 @@ public static class Mdf
             if (line.Length == 0) continue;
             var eq = line.IndexOf('=');
             if (eq < 0) throw new InvalidDataException($"mdf line '{line}' is not 'name = values'");
-            values[line[..eq].Trim()] = line[(eq + 1)..].Trim();
+            var key = line[..eq].Trim();
+            if (!values.TryAdd(key, line[(eq + 1)..].Trim())) throw new InvalidDataException($"mdf line '{key}' is given twice");
         }
         if (!values.Remove("StartLocations", out var countText) || !int.TryParse(countText, out var count) || count is < 2 or > 8)
             throw new InvalidDataException("mdf StartLocations is missing or outside 2..8");

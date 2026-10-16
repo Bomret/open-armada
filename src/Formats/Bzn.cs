@@ -75,7 +75,7 @@ public static class Bzn
         string Line()
         {
             var end = Array.IndexOf(d, (byte)'\n', p);
-            if (end < 0) throw new InvalidDataException("not a BZN map: the text preamble is cut off");
+            if (end < 0) throw new InvalidDataException($"not a BZN map: the text preamble is cut off (offset {d.Length})");
             var s = Encoding.ASCII.GetString(d, p, end - p).TrimEnd('\r');
             p = end + 1;
             return s;
@@ -156,9 +156,10 @@ public static class Bzn
             var offset = c.Offset;
             var h = c.Sig(HeaderSig, $"object {k} header");
             var skip = 0;
-            while (skip <= MaxPrefix && !c.Matches(TailSig, skip)) skip++;
-            if (skip > MaxPrefix)
-                throw new InvalidDataException($"object {k} ({Cursor.Text(h[0].Data)}) at offset {offset}: no object tail within {MaxPrefix} tokens, an unrecognized class record");
+            // The prefix ends at the tail; the next object's header inside the prefix means this record has no tail.
+            while (skip <= MaxPrefix && !c.Matches(TailSig, skip) && !c.Matches(HeaderSig, skip)) skip++;
+            if (skip > MaxPrefix || !c.Matches(TailSig, skip))
+                throw new InvalidDataException($"object {k} ({Cursor.Text(h[0].Data)}) at offset {offset}: no object tail before the next object or within {MaxPrefix} tokens, an unrecognized class record");
             var prefix = c.Take(skip);
             var tail = c.Sig(TailSig, $"object {k} tail");
 
@@ -166,8 +167,8 @@ public static class Bzn
             var label = Cursor.Text(h[4].Data);
             var team = BitConverter.ToInt32(h[3].Data);
             var m = h[6].Data;
-            var floats = Enumerable.Range(0, 12).Select(i => BitConverter.ToSingle(m, i * 4)).Append(BitConverter.ToSingle(h[2].Data, 0)).ToList();
-            if (floats.Any(f => !float.IsFinite(f)))
+            var vectors = new[] { Vec(h[2].Data, 0), Vec(m, 0), Vec(m, 12), Vec(m, 24), Vec(m, 36) };
+            if (vectors.Any(v => !float.IsFinite(v.X) || !float.IsFinite(v.Y) || !float.IsFinite(v.Z)))
                 throw new InvalidDataException($"object {k} '{label}' ({cls}) at offset {offset} has a non-finite position or orientation");
             if (team is < 0 or >= TeamCount)
                 throw new InvalidDataException($"object {k} '{label}' ({cls}) at offset {offset} has team {team}; the game's teams are 0..{TeamCount - 1}");

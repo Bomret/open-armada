@@ -1,6 +1,7 @@
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
@@ -18,45 +19,48 @@ public partial class MapView : Control
 
     readonly MapAsset map;
     readonly ImageTexture? overview;
-    readonly float size;
     readonly bool showObjects;
 
+    // The square fills the largest square of the control's area, so the picture shrinks with its pane.
     // `overview` null draws a dark square instead; `showObjects` false draws the image alone.
-    public MapView(MapAsset map, Image? overview, float size, bool showObjects)
+    public MapView(MapAsset map, Image? overview, bool showObjects)
     {
         this.map = map;
         this.overview = overview == null ? null : ImageTexture.CreateFromImage(overview);
-        this.size = size;
         this.showObjects = showObjects;
-        CustomMinimumSize = new Vector2(size, size);
+        CustomMinimumSize = new Vector2(160, 160);
+        SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        SizeFlagsVertical = SizeFlags.ExpandFill;
         TextureFilter = TextureFilterEnum.Nearest;
     }
 
     public override void _Draw()
     {
+        var size = Mathf.Min(Size.X, Size.Y);
         var rect = new Rect2(0, 0, size, size);
         if (overview != null) DrawTextureRect(overview, rect, false);
         else DrawRect(rect, new Color(0.08f, 0.08f, 0.1f));
         if (!showObjects) return;
         foreach (var o in map.Map.Objects)
-        {
-            var (col, row) = map.Map.Bounds.ToImage(o.Position.X, o.Position.Z, size);
-            if (col < 0 || col > size || row < 0 || row > size) continue;
-            DrawCircle(new Vector2(col, row), o.Team == 0 ? 1.5f : 3f, TeamColors[o.Team]);
-        }
+            if (TryPlace(o, size, out var p)) DrawCircle(p, o.Team == 0 ? 1.5f : 3f, TeamColors[o.Team]);
         var font = ThemeDB.FallbackFont;
         foreach (var s in map.Starts)
         {
-            var (col, row) = map.Map.Bounds.ToImage(s.X, s.Z, size);
+            var (x, z) = map.Map.Bounds.FromStartCell(s.Cell);
+            var (col, row) = map.Map.Bounds.ToImage(x, z, size);
             DrawArc(new Vector2(col, row), 9, 0, Mathf.Tau, 24, Colors.White, 2f);
             DrawString(font, new Vector2(col + 11, row + 5), s.Number.ToString(), HorizontalAlignment.Left, -1, 14, Colors.White);
         }
     }
 
-    // Objects left out because they lie outside the picture's area.
-    public int Outside() => map.Map.Objects.Count(o =>
+    // Objects left out because they lie outside the picture's area (the same at every scale).
+    public int Outside() => map.Map.Objects.Count(o => !TryPlace(o, 1, out _));
+
+    // The picture point of an object in a square of `size` pixels; false when it lies outside the square.
+    bool TryPlace(MapObject o, float size, out Vector2 p)
     {
         var (col, row) = map.Map.Bounds.ToImage(o.Position.X, o.Position.Z, size);
-        return col < 0 || col > size || row < 0 || row > size;
-    });
+        p = new Vector2(col, row);
+        return col >= 0 && col <= size && row >= 0 && row <= size;
+    }
 }

@@ -11,11 +11,12 @@ namespace OpenArmada.Tests;
 internal sealed class BznBuilder
 {
     internal sealed record Obj(string Class, int Team, Vector3 Position, string Label = "obj", uint Pointer = 1,
-        byte[][]? Prefix = null, float Yaw = 0);
+        byte[][]? Prefix = null, float Yaw = 0, bool NoTail = false);
 
     internal int Version = 2051;
     internal string Description = "Test Map";
     internal float[] Bounds = { 0, 6400, -28.5f, 105.5f, 0, 6400 };
+    internal bool MissionSave = true, Rescale; // the two flags no shipped map sets differently
     internal List<Obj> Objects = new();
     internal List<(string Name, Vector3[] Points)> Paths = new();
     internal int? CountOverride; // the object count written, to build a map whose count lies
@@ -49,6 +50,7 @@ internal sealed class BznBuilder
             Name8(o.Class), Int(unchecked((int)0x80008001)), Vec(o.Position), Int(o.Team), Str(o.Label, 40), Ptr(o.Pointer), Token(11, matrix),
         };
         tokens.AddRange(o.Prefix ?? Array.Empty<byte[]>());
+        if (o.NoTail) return tokens.SelectMany(t => t).ToArray();
         tokens.AddRange(new[]
         {
             Vec(o.Position), Float(0), Float(1e30f), Vec(default), Vec(default), Vec(default), Str("Display " + o.Class, 32), Bool(false),
@@ -62,10 +64,10 @@ internal sealed class BznBuilder
         var text = $"version [1] =\r\n{Version}\r\nsaveGameDesc = {Convert.ToHexString(Encoding.Latin1.GetBytes(Description).Concat(new byte[128]).Take(128).ToArray()).ToLowerInvariant()}\r\nbinarySave [1] =\r\ntrue\r\n";
         var tokens = new List<byte[]>
         {
-            Str("test.bzn", 16), Bool(true), Str("test.bzn", 100),
+            Str("test.bzn", 16), Bool(MissionSave), Str("test.bzn", 100),
         };
         tokens.AddRange(new[] { 0, 1, 2, 3, 4, 5 }.Select(i => Float(Bounds[i])));
-        tokens.Add(Bool(false));
+        tokens.Add(Bool(Rescale));
         tokens.AddRange(new[] { Float(0), Float(0.25f), Float(0), Str("mbgstars.sod", 100), Str("tech1.tt", 128), Str("federation", 128) });
         tokens.Add(Int(CountOverride ?? Objects.Count));
         var body = tokens.SelectMany(t => t).Concat(Objects.SelectMany(ObjectTokens)).ToList();

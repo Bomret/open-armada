@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Formats;
 
@@ -102,7 +103,54 @@ public class BznTests
     {
         var bytes = Sample().Build();
         foreach (var cut in new[] { bytes.Length - 3, bytes.Length - 200, 20, 400 })
-            Assert.ThrowsExactly<InvalidDataException>(() => Bzn.Read(bytes[..cut]), $"cut at {cut}");
+        {
+            var e = Assert.ThrowsExactly<InvalidDataException>(() => Bzn.Read(bytes[..cut]), $"cut at {cut}");
+            var m = Regex.Match(e.Message, @"offset (\d+)");
+            Assert.IsTrue(m.Success, $"cut at {cut}: {e.Message}");
+            var offset = int.Parse(m.Groups[1].Value);
+            Assert.IsTrue(offset <= cut && offset >= cut - 140, $"cut at {cut} reported offset {offset}"); // 140: the largest token is 136 bytes
+        }
+    }
+
+    static int ObjectOffset(byte[] map, string cls) => map.AsSpan().IndexOf(BznBuilder.Name8(cls));
+
+    [TestMethod]
+    public void ObjectWithoutATailWithinThePrefixLimitIsReportedAtItsOffset()
+    {
+        var b = Sample();
+        b.Objects[0] = b.Objects[0] with { Prefix = Enumerable.Repeat(BznBuilder.Bool(false), 70).ToArray(), NoTail = true };
+        var bytes = b.Build();
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Bzn.Read(bytes));
+        StringAssert.Contains(e.Message, $"at offset {ObjectOffset(bytes, "fbattle")}");
+        StringAssert.Contains(e.Message, "unrecognized class record");
+    }
+
+    [TestMethod]
+    public void ObjectWithoutATailDoesNotSwallowTheNextObjectsHeader()
+    {
+        var b = Sample();
+        b.Objects[0] = b.Objects[0] with { NoTail = true };
+        b.Objects.Add(new("fcruiser", 3, new Vector3(5, 38.5f, 6), "ship2"));
+        var bytes = b.Build();
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Bzn.Read(bytes));
+        StringAssert.Contains(e.Message, $"at offset {ObjectOffset(bytes, "fbattle")}");
+        StringAssert.Contains(e.Message, "unrecognized class record");
+    }
+
+    [TestMethod]
+    public void BoundsRemapIsUnsupported()
+    {
+        var b = Sample();
+        b.Rescale = true;
+        Assert.ThrowsExactly<UnsupportedFormatException>(() => Bzn.Read(b.Build()));
+    }
+
+    [TestMethod]
+    public void SaveGameIsUnsupported()
+    {
+        var b = Sample();
+        b.MissionSave = false;
+        Assert.ThrowsExactly<UnsupportedFormatException>(() => Bzn.Read(b.Build()));
     }
 
     [TestMethod]

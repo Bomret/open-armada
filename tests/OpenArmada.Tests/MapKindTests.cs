@@ -44,7 +44,7 @@ public class MapKindTests
             ("3D_Paths/p2.pth", "1\r\n1 2 3\r\n"));
         var m = (MapAsset)new MapKind().Load(fs, "bzn/a.bzn");
         Assert.AreEqual(2, m.Starts.Count);
-        Assert.AreEqual((6400f, 0f), (m.Starts[1].X, m.Starts[1].Z));
+        Assert.AreEqual((6400f, 0f), m.Map.Bounds.FromStartCell(m.Starts[1].Cell));
         Assert.AreEqual("bzn/a.bmp", m.Overview);
         Assert.AreEqual(("p2.pth", new Vector3(1, 2, 3)), (m.ScriptedPaths.Single().Name, m.ScriptedPaths.Single().Points[0]));
     }
@@ -89,6 +89,14 @@ public class MapKindTests
         var fs = Install(("bzn/a.bzn", S(b.Build())));
         var e = Assert.ThrowsExactly<InvalidDataException>(() => new MapKind().Check(fs, "bzn/a.bzn"));
         StringAssert.Contains(e.Message, $"offset {good.Length}");
+    }
+
+    [TestMethod]
+    public void BrokenScriptedPathFailsTheMapNamingTheFile()
+    {
+        var fs = Install(("bzn/a.bzn", S(Sample().Build())), ("3D_Paths/bad.pth", "2\r\n1 2 3\r\n"));
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => new MapKind().Load(fs, "bzn/a.bzn"));
+        StringAssert.Contains(e.Message, "3D_Paths/bad.pth");
     }
 
     [TestMethod]

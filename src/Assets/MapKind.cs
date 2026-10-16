@@ -8,17 +8,15 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// A start location of a multiplayer map: its number (1..8), the .mdf cell, and the ground position the
-// cell stands for (MapBounds.FromStartCell).
-public sealed record MapStart(int Number, StartCell Cell, float X, float Z);
-
-// A scripted camera path of 3D_Paths/ (points relative to the first point).
-public sealed record ScriptedPath(string Name, IReadOnlyList<Vector3> Points);
+// A start location of a multiplayer map: its number (1..8) and the .mdf cell; the ground position is
+// MapBounds.FromStartCell.
+public sealed record MapStart(int Number, StartCell Cell);
 
 // A map and its companions. Starts is empty for a map without an .mdf (campaign maps); Overview is the
-// install name of the map's .bmp or null. ScriptedPaths are the install's 3D_Paths, the same for every map.
-public sealed record MapAsset(string Name, BznMap Map, IReadOnlyList<MapStart> Starts, string? Overview, BmpInfo? OverviewInfo,
-    IReadOnlyList<ScriptedPath> ScriptedPaths);
+// install name of the map's .bmp or null. ScriptedPaths are the install's 3D_Paths (points relative to the
+// first point), the same for every map.
+public sealed record MapAsset(string Name, BznMap Map, IReadOnlyList<MapStart> Starts, string? Overview,
+    IReadOnlyList<MapPath> ScriptedPaths);
 
 // Maps: the .bzn files of bzn/, each with its .mdf (start positions), .bmp (overview image), and the
 // scripted camera paths. Names carry their folder ("bzn/2duel.bzn").
@@ -40,19 +38,22 @@ public sealed class MapKind : AssetKind
         if (files.Find(stem + ".mdf") != null)
         {
             var cells = Mdf.Read(Windows1252.Encoding.GetString(files.ReadAllBytes(stem + ".mdf")));
-            for (var i = 0; i < cells.Count; i++)
-            {
-                var (x, z) = map.Bounds.FromStartCell(cells[i]);
-                starts.Add(new MapStart(i + 1, cells[i], x, z));
-            }
+            for (var i = 0; i < cells.Count; i++) starts.Add(new MapStart(i + 1, cells[i]));
         }
         var overview = files.Find(stem + ".bmp") != null ? stem + ".bmp" : null;
         var paths = files.Inventory()
             .Where(f => f.StartsWith(PathFolder, StringComparison.OrdinalIgnoreCase) && f.EndsWith(".pth", StringComparison.OrdinalIgnoreCase))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .Select(f => new ScriptedPath(f[PathFolder.Length..], Pth.Read(Windows1252.Encoding.GetString(files.ReadAllBytes(f)))))
+            .Select(f => new MapPath(f[PathFolder.Length..], ReadPth(files, f)))
             .ToList();
-        return new MapAsset(name, map, starts, overview, overview == null ? null : Bmp.Read(files.ReadAllBytes(overview)), paths);
+        return new MapAsset(name, map, starts, overview, paths);
+    }
+
+    // A broken .pth fails every map, so its error names the file.
+    static IReadOnlyList<Vector3> ReadPth(GameFileSystem files, string file)
+    {
+        try { return Pth.Read(Windows1252.Encoding.GetString(files.ReadAllBytes(file))); }
+        catch (InvalidDataException e) { throw new InvalidDataException($"{file}: {e.Message}", e); }
     }
 
     // An object outside the map's X/Z bounds is a note, never a failure: the shipped maps place staged

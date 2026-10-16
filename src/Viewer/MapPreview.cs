@@ -8,22 +8,20 @@ namespace OpenArmada.Viewer;
 // start positions drawn over it, so the two can be compared; a legend lists the teams and counts.
 public sealed class MapPreview : KindPreview
 {
-    const float Size = 448;
-
     public override string KindName => MapKind.KindName;
 
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var map = (MapAsset)kind.Load(files, name);
         var image = map.Overview == null ? null : GodotDecoders.Bmp(files.ReadAllBytes(map.Overview), map.Overview);
-        var over = new MapView(map, image, Size, true);
+        var over = new MapView(map, image, true);
         var outside = over.Outside();
 
         var legend = new VBoxContainer();
         legend.AddChild(new Label
         {
             Text = $"{map.Map.Description}: {map.Map.Objects.Count} objects ({outside} outside the picture), {map.Starts.Count} start position(s), "
-                + $"{map.Map.Paths.Count} path(s), overview {(map.Overview == null ? "none" : map.OverviewInfo!.Width + "x" + map.OverviewInfo.Height)}",
+                + $"{map.Map.Paths.Count} path(s), overview {(image == null ? "none" : image.GetWidth() + "x" + image.GetHeight())}",
         });
         foreach (var g in map.Map.Objects.GroupBy(o => o.Team).OrderBy(g => g.Key))
         {
@@ -33,14 +31,12 @@ public sealed class MapPreview : KindPreview
             legend.AddChild(row);
         }
 
-        var pictures = new HBoxContainer();
-        pictures.AddChild(new MapView(map, image, Size, false));
+        var pictures = new HBoxContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        pictures.AddChild(new MapView(map, image, false));
         pictures.AddChild(over);
         var box = new VBoxContainer();
         box.AddChild(legend);
         box.AddChild(pictures);
-        var scroll = new ScrollContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        scroll.AddChild(box);
-        return scroll;
+        return box;
     }
 }

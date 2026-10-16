@@ -193,6 +193,7 @@ public static class InstallClassifier
             ("texture.dat", _) => Out("copy protection"),
             ("credits.txt" or "credits2.txt", _) => Known("credits text"),
             ("armada.prf", _) => Known("display preferences"),
+            ("scrnthms" or "dcphr", _) => Known("launcher resources"),
             ("manual.pdf", _) => Out("help"),
             _ when Gog(name) => Out("GOG wrapper"),
             _ => Unknown,
@@ -204,7 +205,7 @@ public static class InstallClassifier
         name.StartsWith("goggame-", StringComparison.Ordinal)
         || name.StartsWith("ipxwrapper-", StringComparison.Ordinal)
         || name.StartsWith("directplay-", StringComparison.Ordinal)
-        || name is "firewall.cmd" or "firewall_u.cmd" or "dxcfg.ini" or "scrnthms" or "dcphr";
+        || name is "firewall.cmd" or "firewall_u.cmd" or "dxcfg.ini";
 
     static (FileClass, string) Misc(string name, string ext) =>
         name.StartsWith("gui_", StringComparison.Ordinal) && ext == ".cfg" ? Loaded("interface configurations")

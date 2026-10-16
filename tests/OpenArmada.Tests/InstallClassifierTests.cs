@@ -77,8 +77,6 @@ public class InstallClassifierTests
     [DataRow("firewall_u.cmd")]
     [DataRow("directplay-win64.reg")]
     [DataRow("dxcfg.ini")]
-    [DataRow("ScrnThms")]
-    [DataRow("Dcphr")]
     [DataRow("Manual.pdf")]
     public void GogInstallerAndWrapperFilesAreOutOfScope(string entry) =>
         Assert.AreEqual(FileClass.OutOfScope, ClassOf(entry));
@@ -96,6 +94,8 @@ public class InstallClassifierTests
     [DataRow("events.odf")]
     [DataRow("bmp/Links.bmp")]
     [DataRow("wav/Install.wav")]
+    [DataRow("ScrnThms")]
+    [DataRow("Dcphr")]
     [DataRow("addon/sub/a.odf")]
     [DataRow("addon/a.wav")]
     [DataRow("addon/a.pal")]

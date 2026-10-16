@@ -41,6 +41,7 @@ public sealed record AsteroidField(Vector3 Center, int Min, int Max, float Radiu
         {
             var model = Models[random.Next(Models.Count)];
             var direction = Unit(random);
+            // stand-in: the flatten factor 0.5 in height (the install defines none and the game's own spread is not known)
             var offset = direction * (reach * MathF.Cbrt((float)random.NextDouble())) * new Vector3(1, 0.5f, 1);
             rocks.Add(new Rock(model, Center, offset, Quaternion.Normalize(new Quaternion(Unit(random), (float)random.NextDouble() * 2 - 1)), RotationSpeed, OrbitingSpeed));
         }

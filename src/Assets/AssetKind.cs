@@ -6,7 +6,7 @@ namespace OpenArmada.Assets;
 
 // One kind of asset (models, textures, ...). A kind lives in its own file as a subclass with a
 // parameterless constructor and is picked up by Discover, so adding a kind edits no shared list.
-// A later slice adds its asset browser preview as one more member here.
+// A kind's asset browser preview is a KindPreview in the Viewer, named after the kind.
 public abstract class AssetKind
 {
     public abstract string Name { get; }

@@ -12,7 +12,7 @@ public class PreviewMatchTests
     static (string, Func<(string, string)>) Ok(string type, string kind) => (type, () => (kind, type));
 
     [TestMethod]
-    public void ValidPreviewMatchesRegisteredKindWithoutAnInstall()
+    public void ValidPreviewMatchesRegisteredKindName()
     {
         // The registered kind names do not depend on the install, so a browser with none reports no problem.
         var found = PreviewMatch.Match(new[] { Ok("ModelPreview", "models") }, new[] { "models" }, out var problems);
@@ -43,5 +43,14 @@ public class PreviewMatchTests
         var found = PreviewMatch.Match(new[] { bad }, new[] { "models" }, out var problems);
         Assert.AreEqual(0, found.Count);
         Assert.AreEqual("preview Bad cannot be created: boom", problems.Single());
+    }
+
+    [TestMethod]
+    public void MissingParameterlessConstructorIsReported()
+    {
+        var bad = ("NoCtor", (Func<(string, string)>)(() => throw new InvalidOperationException("it has no parameterless constructor")));
+        var found = PreviewMatch.Match(new[] { bad }, new[] { "models" }, out var problems);
+        Assert.AreEqual(0, found.Count);
+        Assert.AreEqual("preview NoCtor cannot be created: it has no parameterless constructor", problems.Single());
     }
 }

@@ -17,7 +17,10 @@ public static class MapName
         var hit = installMaps.FirstOrDefault(m => Bare(m).Equals(wanted, StringComparison.OrdinalIgnoreCase));
         return hit != null
             ? new MapChoice(hit, null)
-            : new MapChoice(null, $"no map '{requested}' in this install; maps: {string.Join(", ", installMaps.Select(Bare).Order(StringComparer.OrdinalIgnoreCase))}");
+            : new MapChoice(
+                null,
+                $"no map '{requested}' in this install; maps: {string.Join(", ", installMaps.Select(Bare).Order(StringComparer.OrdinalIgnoreCase))}"
+            );
     }
 
     static string Bare(string name)

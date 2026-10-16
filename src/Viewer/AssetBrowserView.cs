@@ -17,7 +17,8 @@ public partial class AssetBrowserView : Control
 {
     AssetBrowser _browser = null!;
     IReadOnlyDictionary<string, KindPreview> _previews = null!;
-    ItemList _kinds = null!, _assets = null!;
+    ItemList _kinds = null!,
+        _assets = null!;
     Control _pane = null!;
     Label _message = null!;
     Node? _preview;
@@ -34,7 +35,10 @@ public partial class AssetBrowserView : Control
         {
             // A Godot callback exception does not set the exit code, so the check owns it.
             int code;
-            try { code = AssetCheck.Run(game, AssetKind.Discover(), Console.Out, GodotDecoders.Check); }
+            try
+            {
+                code = AssetCheck.Run(game, AssetKind.Discover(), Console.Out, GodotDecoders.Check);
+            }
             catch (Exception e)
             {
                 Console.Out.WriteLine($"asset check crashed: {e}");
@@ -92,8 +96,13 @@ public partial class AssetBrowserView : Control
             GD.PrintErr(_browser.Problem);
             return;
         }
-        foreach (var kind in _browser.Kinds) _kinds.AddItem(kind.Name);
-        _kinds.ItemSelected += i => { _browser.SelectKind((int)i); FillAssets(-1); };
+        foreach (var kind in _browser.Kinds)
+            _kinds.AddItem(kind.Name);
+        _kinds.ItemSelected += i =>
+        {
+            _browser.SelectKind((int)i);
+            FillAssets(-1);
+        };
         _assets.ItemSelected += i => ShowAsset((int)i);
         if (_browser.Kind != null) // the browser selects the first kind when there is one
         {
@@ -107,7 +116,8 @@ public partial class AssetBrowserView : Control
     void FillAssets(int wanted)
     {
         _assets.Clear();
-        foreach (var name in _browser.Assets) _assets.AddItem(name);
+        foreach (var name in _browser.Assets)
+            _assets.AddItem(name);
         if (_browser.Assets.Count == 0)
         {
             ShowMessage(_browser.Notice ?? $"no {_browser.Kind!.Name} in this install");
@@ -153,7 +163,8 @@ public partial class AssetBrowserView : Control
     public override void _Process(double delta)
     {
         // Wait a few frames so textures are uploaded before capturing.
-        if (_screenshot == null || ++_frames < 5) return;
+        if (_screenshot == null || ++_frames < 5)
+            return;
         GetViewport().GetTexture().GetImage().SavePng(_screenshot);
         GetTree().Quit();
     }

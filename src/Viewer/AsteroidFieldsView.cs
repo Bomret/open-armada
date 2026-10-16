@@ -26,7 +26,8 @@ public partial class AsteroidFieldsView : Node3D
 
     public AsteroidFieldsView(GameFileSystem files, SandboxPlan plan, Action<string> gap)
     {
-        if (plan.Fields.Count == 0) return;
+        if (plan.Fields.Count == 0)
+            return;
         var builder = new SodBuilder(files);
         var parts = new Dictionary<string, List<(Mesh Mesh, Transform3D Transform)>>(StringComparer.OrdinalIgnoreCase);
         var extent = 0f;
@@ -35,14 +36,16 @@ public partial class AsteroidFieldsView : Node3D
             try
             {
                 var node = builder.Build(Sod.Read(files.ReadAllBytes(model + ".sod")));
-                foreach (var problem in builder.Problems) gap($"{model}: {problem}");
+                foreach (var problem in builder.Problems)
+                    gap($"{model}: {problem}");
                 var found = VisibleMeshes.Of(node);
                 node.Free();
                 parts[model] = found;
                 foreach (var (mesh, t) in found)
                 {
                     var box = t * mesh.GetAabb();
-                    foreach (var i in Enumerable.Range(0, 8)) extent = MathF.Max(extent, box.GetEndpoint(i).Length());
+                    foreach (var i in Enumerable.Range(0, 8))
+                        extent = MathF.Max(extent, box.GetEndpoint(i).Length());
                 }
             }
             catch (Exception e) // a model that cannot be read is a gap and its rocks are left out (INV-0002)
@@ -54,10 +57,12 @@ public partial class AsteroidFieldsView : Node3D
         foreach (var field in plan.Fields)
         {
             var models = field.Models.Where(parts.ContainsKey).ToList();
-            if (models.Count == 0) continue;
+            if (models.Count == 0)
+                continue;
             foreach (var rock in (field with { Models = models }).Rocks(extent))
             {
-                if (!byModel.TryGetValue(rock.Model, out var list)) byModel[rock.Model] = list = new List<Rock>();
+                if (!byModel.TryGetValue(rock.Model, out var list))
+                    byModel[rock.Model] = list = new List<Rock>();
                 list.Add(rock);
             }
         }
@@ -66,7 +71,10 @@ public partial class AsteroidFieldsView : Node3D
         foreach (var f in plan.Fields)
         {
             var (min, max) = f.DrawBox(extent);
-            var box = new Aabb(new Vector3(min.X, min.Y, min.Z), new Vector3(max.X - min.X, max.Y - min.Y, max.Z - min.Z));
+            var box = new Aabb(
+                new Vector3(min.X, min.Y, min.Z),
+                new Vector3(max.X - min.X, max.Y - min.Y, max.Z - min.Z)
+            );
             bounds = bounds?.Merge(box) ?? box;
         }
         foreach (var (model, rocks) in byModel)
@@ -91,13 +99,17 @@ public partial class AsteroidFieldsView : Node3D
 
     public override void _Process(double delta)
     {
-        if (_draws.Count == 0) return;
+        if (_draws.Count == 0)
+            return;
         var t = (Time.GetTicksMsec() - _start) / 1000.0;
         foreach (var group in _groups)
             for (var i = 0; i < group.Pose.Length; i++)
             {
                 var (position, q) = group.Rocks[i].Pose(t);
-                group.Pose[i] = new Transform3D(new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)), new Vector3(position.X, position.Y, position.Z));
+                group.Pose[i] = new Transform3D(
+                    new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)),
+                    new Vector3(position.X, position.Y, position.Z)
+                );
             }
         foreach (var draw in _draws)
         {
@@ -106,9 +118,18 @@ public partial class AsteroidFieldsView : Node3D
                 var m = draw.Pose[i] * draw.Part;
                 var b = draw.Buffer;
                 var o = i * 12;
-                b[o] = m.Basis.Row0.X; b[o + 1] = m.Basis.Row0.Y; b[o + 2] = m.Basis.Row0.Z; b[o + 3] = m.Origin.X;
-                b[o + 4] = m.Basis.Row1.X; b[o + 5] = m.Basis.Row1.Y; b[o + 6] = m.Basis.Row1.Z; b[o + 7] = m.Origin.Y;
-                b[o + 8] = m.Basis.Row2.X; b[o + 9] = m.Basis.Row2.Y; b[o + 10] = m.Basis.Row2.Z; b[o + 11] = m.Origin.Z;
+                b[o] = m.Basis.Row0.X;
+                b[o + 1] = m.Basis.Row0.Y;
+                b[o + 2] = m.Basis.Row0.Z;
+                b[o + 3] = m.Origin.X;
+                b[o + 4] = m.Basis.Row1.X;
+                b[o + 5] = m.Basis.Row1.Y;
+                b[o + 6] = m.Basis.Row1.Z;
+                b[o + 7] = m.Origin.Y;
+                b[o + 8] = m.Basis.Row2.X;
+                b[o + 9] = m.Basis.Row2.Y;
+                b[o + 10] = m.Basis.Row2.Z;
+                b[o + 11] = m.Origin.Z;
             }
             draw.Multi.Buffer = draw.Buffer;
         }

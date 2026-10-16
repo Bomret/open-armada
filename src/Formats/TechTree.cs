@@ -26,9 +26,12 @@ public sealed class TechTree
         {
             n++;
             var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 0) continue;
+            if (parts.Length == 0)
+                continue;
             if (parts.Length < 2 || !int.TryParse(parts[1], out var count) || count < 0 || parts.Length != 2 + count)
-                throw new InvalidDataException($"tech tree line {n}: expected 'name count' followed by that many names");
+                throw new InvalidDataException(
+                    $"tech tree line {n}: expected 'name count' followed by that many names"
+                );
             entries.Add(new TechEntry(parts[0], parts.Skip(2).ToList()));
         }
         return new TechTree(entries);

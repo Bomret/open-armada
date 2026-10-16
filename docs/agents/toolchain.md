@@ -10,11 +10,18 @@
   variable. The repository ships no game content.
 - Commands:
   - Tests — see `docs/agents/verification.md`
+  - Restore the formatter — `dotnet tool restore` (needs NuGet access the first time)
+  - Format — `dotnet csharpier format .`
+  - Check formatting — `dotnet csharpier check .`. The full verification command runs it first.
   - Build — `dotnet build OpenArmada.csproj`
   - Run the asset browser — `godot-mono --path . -- --game "$ARMADA_DIR" [--model <name>]`
   - Render one frame to a file and quit — append `--screenshot <file.png>` to the browser command
   - Unit tests — `dotnet test --project tests/OpenArmada.Tests` (MSTest on Microsoft.Testing.Platform,
     selected in `global.json`)
   - Asset check of an install — `godot-mono --headless --path . -- --check --game "$ARMADA_DIR"`
-- Not wired: no formatter, linter, or `.editorconfig` — formatting is not enforced.
+- Formatter: CSharpier `1.3.0`, a local dotnet tool pinned in `dotnet-tools.json`;
+  `.csharpierrc.json` sets `printWidth: 120` and leaves every other option at its default. CSharpier
+  reads `.gitignore`, so `.godot/`, `bin/`, `obj/`, and `.superdev/` are skipped.
+  `// csharpier-ignore` keeps a hand-laid-out fixture, such as a pixel grid, as written.
+- Not wired: no linter or `.editorconfig`.
 - Style prose: none beyond `README.md`.

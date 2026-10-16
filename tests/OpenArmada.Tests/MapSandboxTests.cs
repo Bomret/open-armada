@@ -21,8 +21,11 @@ public class MapSandboxTests
     {
         var b = new BznBuilder { Background = "" };
         b.Objects.Add(new("fbattle", 1, new Vector3(1, 2, 3)));
-        return temp.MakeInstall((mapFile, content ?? Encoding.Latin1.GetString(b.Build())), ("addon/fbattle.odf", "baseName = fdreadnought"),
-            ("SOD/fdreadnought.sod", ""));
+        return temp.MakeInstall(
+            (mapFile, content ?? Encoding.Latin1.GetString(b.Build())),
+            ("addon/fbattle.odf", "baseName = fdreadnought"),
+            ("SOD/fdreadnought.sod", "")
+        );
     }
 
     [TestMethod]

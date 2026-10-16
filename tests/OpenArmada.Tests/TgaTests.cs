@@ -15,9 +15,16 @@ public class TgaTests
         var header = new byte[18];
         header[1] = (byte)(mapped ? 1 : 0);
         header[2] = type;
-        if (mapped) { header[5] = 0; header[6] = 1; header[7] = 24; } // 256 entries, 24 bits each
-        header[12] = (byte)w; header[13] = (byte)(w >> 8);
-        header[14] = (byte)h; header[15] = (byte)(h >> 8);
+        if (mapped)
+        {
+            header[5] = 0;
+            header[6] = 1;
+            header[7] = 24;
+        } // 256 entries, 24 bits each
+        header[12] = (byte)w;
+        header[13] = (byte)(w >> 8);
+        header[14] = (byte)h;
+        header[15] = (byte)(h >> 8);
         header[16] = (byte)bpp;
         var map = mapped ? 768 : 0;
         var pixels = pixelBytes >= 0 ? pixelBytes : w * h * bpp / 8;

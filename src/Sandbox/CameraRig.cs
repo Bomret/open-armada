@@ -13,11 +13,24 @@ namespace OpenArmada.Sandbox;
 public sealed class CameraRig
 {
     readonly MapBounds _bounds;
-    readonly double _focus, _initHeight, _minHeight, _scrollCoefficient, _border, _keyRate, _acceleration, _timeScale, _maxSpeed, _initSpeed, _targetY;
-    double _height, _x, _z;
+    readonly double _focus,
+        _initHeight,
+        _minHeight,
+        _scrollCoefficient,
+        _border,
+        _keyRate,
+        _acceleration,
+        _timeScale,
+        _maxSpeed,
+        _initSpeed,
+        _targetY;
+    double _height,
+        _x,
+        _z;
 
     public IReadOnlyList<string> Problems { get; }
     public double MaxHeight { get; }
+
     // The farthest the eye gets from the look-at point: at the maximum or the minimum height (whichever lies
     // farther from the target's height), on its parabola.
     public double MaxDistance => Math.Max(DistanceAt(MaxHeight), DistanceAt(_minHeight));
@@ -27,10 +40,12 @@ public sealed class CameraRig
     public double CombatPlaneHeight => _targetY;
 
     double DistanceAt(double height) => Math.Sqrt(_focus * height + (height - _targetY) * (height - _targetY));
+
     // The height change per mouse wheel notch (ZOOM_SCROLL_COEFFICIENT) and the rotation per dragged pixel.
     public double ZoomStep { get; }
     public double RotationPerPixel { get; }
     public double Rotation { get; private set; }
+
     // The current edge/key scroll speed: INITIAL_SCROLL_SPEED while idle, ramping to MAX_SCROLL_SPEED.
     public double ScrollSpeed { get; private set; }
 
@@ -41,19 +56,25 @@ public sealed class CameraRig
         Problems = problems;
         if (bounds.MinX > bounds.MaxX || bounds.MinZ > bounds.MaxZ)
         {
-            problems.Add($"the map bounds are inverted (X {bounds.MinX} to {bounds.MaxX}, Z {bounds.MinZ} to {bounds.MaxZ}): the camera swaps each inverted pair");
+            problems.Add(
+                $"the map bounds are inverted (X {bounds.MinX} to {bounds.MaxX}, Z {bounds.MinZ} to {bounds.MaxZ}): the camera swaps each inverted pair"
+            );
             bounds = bounds with
             {
-                MinX = Math.Min(bounds.MinX, bounds.MaxX), MaxX = Math.Max(bounds.MinX, bounds.MaxX),
-                MinZ = Math.Min(bounds.MinZ, bounds.MaxZ), MaxZ = Math.Max(bounds.MinZ, bounds.MaxZ),
+                MinX = Math.Min(bounds.MinX, bounds.MaxX),
+                MaxX = Math.Max(bounds.MinX, bounds.MaxX),
+                MinZ = Math.Min(bounds.MinZ, bounds.MaxZ),
+                MaxZ = Math.Max(bounds.MinZ, bounds.MaxZ),
             };
         }
         _bounds = bounds;
-        if (constants == null) problems.Add("the game constants are unavailable: the camera uses stand-ins for every value");
+        if (constants == null)
+            problems.Add("the game constants are unavailable: the camera uses stand-ins for every value");
 
         double Get(string name, double standIn, Func<double, bool> legal, string rule)
         {
-            if (constants == null) return standIn;
+            if (constants == null)
+                return standIn;
             if (!constants.TryNumber(name, out var value, out var problem))
             {
                 problems.Add($"{problem}: the camera uses the stand-in {standIn}");
@@ -74,7 +95,9 @@ public sealed class CameraRig
         var max = Get("OVERVIEW_MAX_HEIGHT", 700, v => v > 0, "not above 0");
         if (min > max)
         {
-            problems.Add($"constant OVERVIEW_MIN_HEIGHT {min} is above OVERVIEW_MAX_HEIGHT {max}: the camera uses the stand-ins 10 and 700");
+            problems.Add(
+                $"constant OVERVIEW_MIN_HEIGHT {min} is above OVERVIEW_MAX_HEIGHT {max}: the camera uses the stand-ins 10 and 700"
+            );
             (min, max) = (10, 700);
         }
         _minHeight = min;
@@ -82,7 +105,9 @@ public sealed class CameraRig
         var init = Get("OVERVIEW_INIT_HEIGHT", 450, v => v > 0, "not above 0");
         _initHeight = Math.Clamp(init, min, max);
         if (_initHeight != init)
-            problems.Add($"constant OVERVIEW_INIT_HEIGHT {init} lies outside {min} to {max}: the camera starts at {_initHeight}");
+            problems.Add(
+                $"constant OVERVIEW_INIT_HEIGHT {init} lies outside {min} to {max}: the camera starts at {_initHeight}"
+            );
         Rotation = Wrap(Get("OVERVIEW_INIT_ROTATION", 0, _ => true, ""));
         _scrollCoefficient = Get("SCROLL_COEFFICIENT", 90000, v => v > 0, "not above 0");
         ZoomStep = Get("ZOOM_SCROLL_COEFFICIENT", 0.1, v => v > 0, "not above 0");
@@ -108,8 +133,10 @@ public sealed class CameraRig
         get
         {
             var d = Math.Sqrt(_focus * _height);
-            return (new Vector3((float)(_x - d * Math.Sin(Rotation)), (float)_height, (float)(_z - d * Math.Cos(Rotation))),
-                new Vector3((float)_x, (float)_targetY, (float)_z));
+            return (
+                new Vector3((float)(_x - d * Math.Sin(Rotation)), (float)_height, (float)(_z - d * Math.Cos(Rotation))),
+                new Vector3((float)_x, (float)_targetY, (float)_z)
+            );
         }
     }
 
@@ -121,7 +148,8 @@ public sealed class CameraRig
     // stand-in: the trackpad scales; the game had no trackpad. Godot reports a two-finger pan in trackpad points
     // times 0.03, about the wheel's line units: one unit counts as one wheel notch of height and as 1 / 0.03
     // dragged pixels of rotation.
-    const double PanNotchesPerUnit = 1, PanPixelsPerUnit = 1 / 0.03;
+    const double PanNotchesPerUnit = 1,
+        PanPixelsPerUnit = 1 / 0.03;
 
     // A two-finger trackpad pan, `delta` as Godot reports it (negative Y where the wheel turns up, negative X
     // where the fingers move right under macOS natural scrolling): the vertical part changes the height as the
@@ -136,7 +164,8 @@ public sealed class CameraRig
     // ratio is the engine's own.
     public void Pinch(double factor)
     {
-        if (factor > 0) ChangeHeight(1 / factor - 1);
+        if (factor > 0)
+            ChangeHeight(1 / factor - 1);
     }
 
     // `input` is (right, forward) on the screen; it turns with the rotation and shrinks with the distance of
@@ -164,7 +193,10 @@ public sealed class CameraRig
             // The window's width and height count as inside: a cursor confined to the window reaches them.
             if (cursor.X >= 0 && cursor.Y >= 0 && cursor.X <= size.X && cursor.Y <= size.Y)
             {
-                var edge = new Vector2(Edge(size.X - 1 - cursor.X) - Edge(cursor.X), Edge(cursor.Y) - Edge(size.Y - 1 - cursor.Y));
+                var edge = new Vector2(
+                    Edge(size.X - 1 - cursor.X) - Edge(cursor.X),
+                    Edge(cursor.Y) - Edge(size.Y - 1 - cursor.Y)
+                );
                 direction += edge.Length() > 1 ? Vector2.Normalize(edge) : edge;
             }
         }
@@ -189,7 +221,8 @@ public sealed class CameraRig
     static double Wrap(double radians)
     {
         var r = radians % (2 * Math.PI);
-        if (r < 0) r += 2 * Math.PI;
+        if (r < 0)
+            r += 2 * Math.PI;
         return r >= 2 * Math.PI ? 0 : r;
     }
 }

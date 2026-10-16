@@ -43,7 +43,10 @@ public class BoxSelectTests
 
     [TestMethod]
     public void TheNearestBoxTheRayEntersIsTheHit() =>
-        Assert.AreEqual("near", Nearest(("far", 9f, true, false, null), ("near", 3f, false, false, null), ("miss", null, true, false, null)));
+        Assert.AreEqual(
+            "near",
+            Nearest(("far", 9f, true, false, null), ("near", 3f, false, false, null), ("miss", null, true, false, null))
+        );
 
     [TestMethod]
     public void AUnitWhoseBoxHoldsTheCameraTakesNoClick() =>

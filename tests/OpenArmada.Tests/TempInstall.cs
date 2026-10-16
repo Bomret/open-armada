@@ -38,6 +38,7 @@ internal sealed class TempInstall
     // Deletes every folder this instance made.
     internal void CleanUp()
     {
-        foreach (var dir in made) Directory.Delete(dir, true);
+        foreach (var dir in made)
+            Directory.Delete(dir, true);
     }
 }

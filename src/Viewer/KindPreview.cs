@@ -30,20 +30,32 @@ public abstract class KindPreview
         };
 
     // The notes of an asset as a block ahead of its text; empty when there are none.
-    protected static string NotesBlock(IReadOnlyList<string> notes) => notes.Count == 0 ? "" : "NOTES\n" + string.Join("\n", notes) + "\n\n";
+    protected static string NotesBlock(IReadOnlyList<string> notes) =>
+        notes.Count == 0 ? "" : "NOTES\n" + string.Join("\n", notes) + "\n\n";
 
     // The previews by kind name, matched against `kindNames` (the registered kinds, AssetKind.Discover,
     // which exist with or without an install). Broken registrations are skipped and described in
     // `problems`; see PreviewMatch.
-    public static IReadOnlyDictionary<string, KindPreview> Discover(IEnumerable<string> kindNames, out IReadOnlyList<string> problems)
+    public static IReadOnlyDictionary<string, KindPreview> Discover(
+        IEnumerable<string> kindNames,
+        out IReadOnlyList<string> problems
+    )
     {
-        var candidates = typeof(KindPreview).Assembly.GetTypes()
+        var candidates = typeof(KindPreview)
+            .Assembly.GetTypes()
             .Where(t => t.IsSubclassOf(typeof(KindPreview)) && !t.IsAbstract)
-            .Select(t => (t.Name, (Func<(string, KindPreview)>)(() =>
-            {
-                var p = PreviewMatch.Create<KindPreview>(t);
-                return (p.KindName, p);
-            })));
+            .Select(t =>
+                (
+                    t.Name,
+                    (Func<(string, KindPreview)>)(
+                        () =>
+                        {
+                            var p = PreviewMatch.Create<KindPreview>(t);
+                            return (p.KindName, p);
+                        }
+                    )
+                )
+            );
         return PreviewMatch.Match(candidates, kindNames, out problems);
     }
 }

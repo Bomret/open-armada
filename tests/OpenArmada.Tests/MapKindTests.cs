@@ -40,13 +40,20 @@ public class MapKindTests
     [TestMethod]
     public void MapLoadsWithStartsOverviewAndScriptedPaths()
     {
-        var fs = Install(("bzn/a.bzn", S(Sample().Build())), ("bzn/a.mdf", Mdf), ("bzn/a.bmp", S(BmpPaletteTests.MakeBmp(128, 128, 24))),
-            ("3D_Paths/p2.pth", "1\r\n1 2 3\r\n"));
+        var fs = Install(
+            ("bzn/a.bzn", S(Sample().Build())),
+            ("bzn/a.mdf", Mdf),
+            ("bzn/a.bmp", S(BmpPaletteTests.MakeBmp(128, 128, 24))),
+            ("3D_Paths/p2.pth", "1\r\n1 2 3\r\n")
+        );
         var m = (MapAsset)new MapKind().Load(fs, "bzn/a.bzn");
         Assert.AreEqual(2, m.Starts.Count);
         Assert.AreEqual((6400f, 0f), m.Map.Bounds.FromStartCell(m.Starts[1].Cell));
         Assert.AreEqual("bzn/a.bmp", m.Overview);
-        Assert.AreEqual(("p2.pth", new Vector3(1, 2, 3)), (m.ScriptedPaths.Single().Name, m.ScriptedPaths.Single().Points[0]));
+        Assert.AreEqual(
+            ("p2.pth", new Vector3(1, 2, 3)),
+            (m.ScriptedPaths.Single().Name, m.ScriptedPaths.Single().Points[0])
+        );
     }
 
     [TestMethod]

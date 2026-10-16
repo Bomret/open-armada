@@ -20,7 +20,8 @@ public static class SurfaceMaterial
     public static ShaderMaterial Create(Surface surface, BlendState blend, Texture2D? texture, bool cull)
     {
         var mat = new ShaderMaterial { Shader = ShaderFor(surface.Model, blend, cull) };
-        if (texture != null) mat.SetShaderParameter("albedo_tex", texture);
+        if (texture != null)
+            mat.SetShaderParameter("albedo_tex", texture);
         mat.SetShaderParameter("has_tex", texture != null);
         mat.SetShaderParameter("opacity", blend.Opacity);
         mat.SetShaderParameter("uv_offset", Vector2.Zero);
@@ -42,10 +43,13 @@ public static class SurfaceMaterial
     static Shader ShaderFor(LightingModel model, BlendState blend, bool cull)
     {
         var key = $"{model}/{blend.Mode}/{blend.Nearest}/{blend.AlphaTest}/{cull}";
-        if (Shaders.TryGetValue(key, out var shader)) return shader;
+        if (Shaders.TryGetValue(key, out var shader))
+            return shader;
         var render = new List<string> { cull ? "cull_back" : "cull_disabled" };
-        if (model == LightingModel.Constant) render.Add("unshaded");
-        if (blend.Mode == BlendMode.Add) render.Add("blend_add");
+        if (model == LightingModel.Constant)
+            render.Add("unshaded");
+        if (blend.Mode == BlendMode.Add)
+            render.Add("blend_add");
         var alpha = blend.Mode switch
         {
             BlendMode.Cutout => "if (a < 128.0 / 255.0) discard;",
@@ -54,12 +58,14 @@ public static class SurfaceMaterial
             _ => "",
         };
         var emission = model == LightingModel.Constant ? "" : "EMISSION = t.rgb * ambient;";
-        var specular = model == LightingModel.Phong
-            ? "SPECULAR_LIGHT += specular * LIGHT_COLOR * ATTENUATION / PI * pow(max(dot(reflect(-LIGHT, NORMAL), VIEW), 0.0), max(power, 1.0)) * step(0.0, dot(NORMAL, LIGHT));"
-            : "";
+        var specular =
+            model == LightingModel.Phong
+                ? "SPECULAR_LIGHT += specular * LIGHT_COLOR * ATTENUATION / PI * pow(max(dot(reflect(-LIGHT, NORMAL), VIEW), 0.0), max(power, 1.0)) * step(0.0, dot(NORMAL, LIGHT));"
+                : "";
         shader = new Shader
         {
-            Code = $@"shader_type spatial;
+            Code =
+                $@"shader_type spatial;
 render_mode {string.Join(", ", render)};
 uniform sampler2D albedo_tex : source_color, {(blend.Nearest ? "filter_nearest_mipmap" : "filter_linear_mipmap")}, repeat_enable;
 uniform bool has_tex;

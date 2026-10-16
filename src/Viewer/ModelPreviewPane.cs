@@ -9,7 +9,9 @@ public partial class ModelPreviewPane : SubViewportContainer
 {
     readonly Node3D _model;
     readonly Camera3D _camera = new() { Far = 10000 };
-    float _yaw = 0.6f, _pitch = -0.35f, _distance;
+    float _yaw = 0.6f,
+        _pitch = -0.35f,
+        _distance;
 
     public ModelPreviewPane(Node3D model)
     {
@@ -23,16 +25,18 @@ public partial class ModelPreviewPane : SubViewportContainer
     {
         var view = new SubViewport { OwnWorld3D = true };
         AddChild(view);
-        view.AddChild(new WorldEnvironment
-        {
-            Environment = new Godot.Environment
+        view.AddChild(
+            new WorldEnvironment
             {
-                BackgroundMode = Godot.Environment.BGMode.Color,
-                BackgroundColor = Colors.Black,
-                AmbientLightSource = Godot.Environment.AmbientSource.Color,
-                AmbientLightColor = new Color(0.35f, 0.35f, 0.4f),
-            },
-        });
+                Environment = new Godot.Environment
+                {
+                    BackgroundMode = Godot.Environment.BGMode.Color,
+                    BackgroundColor = Colors.Black,
+                    AmbientLightSource = Godot.Environment.AmbientSource.Color,
+                    AmbientLightColor = new Color(0.35f, 0.35f, 0.4f),
+                },
+            }
+        );
         view.AddChild(new DirectionalLight3D { RotationDegrees = new Vector3(-40, -30, 0) });
         view.AddChild(_camera);
         view.AddChild(_model);
@@ -47,7 +51,8 @@ public partial class ModelPreviewPane : SubViewportContainer
         Aabb? box = null;
         foreach (var m in root.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>())
         {
-            if (!m.IsVisibleInTree()) continue;
+            if (!m.IsVisibleInTree())
+                continue;
             var b = m.GlobalTransform * m.GetAabb();
             box = box?.Merge(b) ?? b;
         }
@@ -56,7 +61,11 @@ public partial class ModelPreviewPane : SubViewportContainer
 
     void UpdateCamera()
     {
-        var dir = new Vector3(Mathf.Sin(_yaw) * Mathf.Cos(_pitch), -Mathf.Sin(_pitch), Mathf.Cos(_yaw) * Mathf.Cos(_pitch));
+        var dir = new Vector3(
+            Mathf.Sin(_yaw) * Mathf.Cos(_pitch),
+            -Mathf.Sin(_pitch),
+            Mathf.Cos(_yaw) * Mathf.Cos(_pitch)
+        );
         _camera.Position = dir * _distance;
         _camera.LookAt(Vector3.Zero);
     }

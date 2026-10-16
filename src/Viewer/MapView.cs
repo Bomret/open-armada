@@ -13,8 +13,15 @@ public partial class MapView : Control
 {
     public static readonly Color[] TeamColors =
     {
-        new(0.65f, 0.65f, 0.65f), new(1f, 0.2f, 0.2f), new(0.3f, 0.5f, 1f), new(0.2f, 0.9f, 0.3f), new(1f, 0.9f, 0.2f),
-        new(1f, 0.3f, 1f), new(0.2f, 0.95f, 0.95f), new(1f, 0.6f, 0.1f), new(1f, 1f, 1f),
+        new(0.65f, 0.65f, 0.65f),
+        new(1f, 0.2f, 0.2f),
+        new(0.3f, 0.5f, 1f),
+        new(0.2f, 0.9f, 0.3f),
+        new(1f, 0.9f, 0.2f),
+        new(1f, 0.3f, 1f),
+        new(0.2f, 0.95f, 0.95f),
+        new(1f, 0.6f, 0.1f),
+        new(1f, 1f, 1f),
     };
 
     readonly MapAsset map;
@@ -38,11 +45,15 @@ public partial class MapView : Control
     {
         var size = Mathf.Min(Size.X, Size.Y);
         var rect = new Rect2(0, 0, size, size);
-        if (overview != null) DrawTextureRect(overview, rect, false);
-        else DrawRect(rect, new Color(0.08f, 0.08f, 0.1f));
-        if (!showObjects) return;
+        if (overview != null)
+            DrawTextureRect(overview, rect, false);
+        else
+            DrawRect(rect, new Color(0.08f, 0.08f, 0.1f));
+        if (!showObjects)
+            return;
         foreach (var o in map.Map.Objects)
-            if (TryPlace(o, size, out var p)) DrawCircle(p, o.Team == 0 ? 1.5f : 3f, TeamColors[o.Team]);
+            if (TryPlace(o, size, out var p))
+                DrawCircle(p, o.Team == 0 ? 1.5f : 3f, TeamColors[o.Team]);
         var font = ThemeDB.FallbackFont;
         foreach (var s in map.Starts)
         {

@@ -73,7 +73,9 @@ public class ZfsArchiveTests
             Assert.ThrowsExactly<InvalidDataException>(() => ZfsArchive.Open(bytes));
         }
         Assert.ThrowsExactly<InvalidDataException>(() => ZfsArchive.Open(new byte[10]));
-        Assert.ThrowsExactly<InvalidDataException>(() => ZfsArchive.Open(Encoding.ASCII.GetBytes("NOPE" + new string('x', 40))));
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            ZfsArchive.Open(Encoding.ASCII.GetBytes("NOPE" + new string('x', 40)))
+        );
     }
 
     [TestMethod]

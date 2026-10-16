@@ -35,12 +35,15 @@ public sealed class Odf
         {
             n++;
             var line = StripComment(raw.TrimEnd('\r')).TrimEnd();
-            if (line.Length == 0) continue;
+            if (line.Length == 0)
+                continue;
             var trimmed = line.TrimStart();
             if (trimmed.StartsWith("#include", StringComparison.Ordinal))
             {
-                if (Tokenize(trimmed[8..], out var inc, out var why) && inc.Count == 1) odf._includes.Add(inc[0]);
-                else odf._problems.Add($"line {n}: bad include ({why ?? "expected one name"})");
+                if (Tokenize(trimmed[8..], out var inc, out var why) && inc.Count == 1)
+                    odf._includes.Add(inc[0]);
+                else
+                    odf._problems.Add($"line {n}: bad include ({why ?? "expected one name"})");
                 current = null;
             }
             else if (trimmed[0] == '[' && trimmed[^1] == ']')
@@ -51,16 +54,23 @@ public sealed class Odf
             else if (KeyLine.Match(line) is { Success: true } m)
             {
                 current = null;
-                if (!Tokenize(m.Groups[2].Value, out var tokens, out var why)) { odf._problems.Add($"line {n}: {why}"); continue; }
+                if (!Tokenize(m.Groups[2].Value, out var tokens, out var why))
+                {
+                    odf._problems.Add($"line {n}: {why}");
+                    continue;
+                }
                 odf._entries.Add(new OdfEntry(m.Groups[1].Value, tokens, section));
                 current = tokens;
             }
             else if (current != null && (char.IsWhiteSpace(line[0]) || trimmed[0] == '"')) // the game also writes quoted names flush left
             {
-                if (Tokenize(trimmed, out var more, out var why)) current.AddRange(more);
-                else odf._problems.Add($"line {n}: {why}");
+                if (Tokenize(trimmed, out var more, out var why))
+                    current.AddRange(more);
+                else
+                    odf._problems.Add($"line {n}: {why}");
             }
-            else odf._problems.Add($"line {n}: not a key = value line: {Clip(trimmed)}");
+            else
+                odf._problems.Add($"line {n}: not a key = value line: {Clip(trimmed)}");
         }
         return odf;
     }
@@ -73,8 +83,10 @@ public sealed class Odf
         var quoted = false;
         for (var i = 0; i < line.Length; i++)
         {
-            if (line[i] == '"') quoted = !quoted;
-            else if (!quoted && line[i] == '/' && i + 1 < line.Length && line[i + 1] == '/') return line[..i];
+            if (line[i] == '"')
+                quoted = !quoted;
+            else if (!quoted && line[i] == '/' && i + 1 < line.Length && line[i + 1] == '/')
+                return line[..i];
         }
         return line;
     }
@@ -87,17 +99,26 @@ public sealed class Odf
         var i = 0;
         while (i < s.Length)
         {
-            if (char.IsWhiteSpace(s[i])) { i++; continue; }
+            if (char.IsWhiteSpace(s[i]))
+            {
+                i++;
+                continue;
+            }
             if (s[i] == '"')
             {
                 var end = s.IndexOf('"', i + 1);
-                if (end < 0) { problem = "unterminated quote"; return false; }
+                if (end < 0)
+                {
+                    problem = "unterminated quote";
+                    return false;
+                }
                 tokens.Add(s[(i + 1)..end]);
                 i = end + 1;
                 continue;
             }
             var start = i;
-            while (i < s.Length && !char.IsWhiteSpace(s[i])) i++;
+            while (i < s.Length && !char.IsWhiteSpace(s[i]))
+                i++;
             tokens.Add(s[start..i]);
         }
         return true;

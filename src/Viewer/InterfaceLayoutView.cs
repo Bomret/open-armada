@@ -25,9 +25,18 @@ public partial class InterfaceLayoutView : Control
         foreach (var (e, texture, region) in _items)
         {
             var rect = new Rect2(e.X, e.Y, e.Width, e.Height);
-            if (texture != null) DrawTextureRectRegion(texture, rect, region);
+            if (texture != null)
+                DrawTextureRectRegion(texture, rect, region);
             DrawRect(rect, e.IsPanel ? Colors.Cyan : Colors.Green, false);
-            DrawString(ThemeDB.FallbackFont, rect.Position + new Vector2(1, 8), e.Name, HorizontalAlignment.Left, -1, 7, e.IsPanel ? Colors.Cyan : Colors.Yellow);
+            DrawString(
+                ThemeDB.FallbackFont,
+                rect.Position + new Vector2(1, 8),
+                e.Name,
+                HorizontalAlignment.Left,
+                -1,
+                7,
+                e.IsPanel ? Colors.Cyan : Colors.Yellow
+            );
         }
     }
 }

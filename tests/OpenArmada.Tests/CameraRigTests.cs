@@ -15,23 +15,34 @@ public class CameraRigTests
     // The 1.2 values of the camera constants; an override replaces the line of its name, null removes it.
     static readonly (string Name, string Value, bool Int)[] Defaults =
     {
-        ("OVERVIEW_PARABOLA_FOCUS", "200.0", false), ("OVERVIEW_MAX_HEIGHT", "700.0", false),
-        ("OVERVIEW_INIT_HEIGHT", "450.0", false), ("OVERVIEW_MIN_HEIGHT", "10.0", false),
-        ("OVERVIEW_INIT_ROTATION", "0.0", false), ("SCROLL_BORDER_WIDTH", "2", true),
-        ("SCROLL_COEFFICIENT", "90000.0", false), ("ZOOM_SCROLL_COEFFICIENT", "0.1", false),
-        ("ROTATION_SCROLL_COEFFICIENT", "0.01", false), ("KEYBOARD_SCROLL_RATE", "6.0", false), ("SCROLL_ACCELERATION", "2", true),
-        ("TIME_SCALE", "1", true), ("MAX_SCROLL_SPEED", "10.0", false), ("INITIAL_SCROLL_SPEED", "0.5", false),
-        ("SHIP_COMBAT_FLOOR", "10.0", false), ("SHIP_COMBAT_CEILING", "67.0", false),
+        ("OVERVIEW_PARABOLA_FOCUS", "200.0", false),
+        ("OVERVIEW_MAX_HEIGHT", "700.0", false),
+        ("OVERVIEW_INIT_HEIGHT", "450.0", false),
+        ("OVERVIEW_MIN_HEIGHT", "10.0", false),
+        ("OVERVIEW_INIT_ROTATION", "0.0", false),
+        ("SCROLL_BORDER_WIDTH", "2", true),
+        ("SCROLL_COEFFICIENT", "90000.0", false),
+        ("ZOOM_SCROLL_COEFFICIENT", "0.1", false),
+        ("ROTATION_SCROLL_COEFFICIENT", "0.01", false),
+        ("KEYBOARD_SCROLL_RATE", "6.0", false),
+        ("SCROLL_ACCELERATION", "2", true),
+        ("TIME_SCALE", "1", true),
+        ("MAX_SCROLL_SPEED", "10.0", false),
+        ("INITIAL_SCROLL_SPEED", "0.5", false),
+        ("SHIP_COMBAT_FLOOR", "10.0", false),
+        ("SHIP_COMBAT_CEILING", "67.0", false),
     };
 
     static GameConstants Constants(params (string Name, string? Value)[] edits)
     {
-        var text = string.Concat(Defaults.Select(d =>
-        {
-            var edit = edits.FirstOrDefault(e => e.Name == d.Name);
-            var value = edit.Name == null ? d.Value : edit.Value;
-            return value == null ? "" : $"{(d.Int ? "int" : "float")} {d.Name} = {value};\n";
-        }));
+        var text = string.Concat(
+            Defaults.Select(d =>
+            {
+                var edit = edits.FirstOrDefault(e => e.Name == d.Name);
+                var value = edit.Name == null ? d.Value : edit.Value;
+                return value == null ? "" : $"{(d.Int ? "int" : "float")} {d.Name} = {value};\n";
+            })
+        );
         return GameConstants.Read("RTS_CFG.h", Encoding.ASCII.GetBytes(text));
     }
 
@@ -75,9 +86,11 @@ public class CameraRigTests
     public void HeightStaysWithinMinimumAndMaximum()
     {
         var rig = Rig();
-        for (var i = 0; i < 50; i++) rig.ChangeHeight(0.1);
+        for (var i = 0; i < 50; i++)
+            rig.ChangeHeight(0.1);
         Near(700, rig.Pose.Eye.Y);
-        for (var i = 0; i < 200; i++) rig.ChangeHeight(-0.1);
+        for (var i = 0; i < 200; i++)
+            rig.ChangeHeight(-0.1);
         Near(10, rig.Pose.Eye.Y);
     }
 
@@ -177,7 +190,8 @@ public class CameraRigTests
         for (var turn = 0; turn < 8; turn++)
         {
             rig.Rotate(Math.PI / 4);
-            for (var i = 0; i < 20; i++) rig.Pan(new Vector2(1, 1));
+            for (var i = 0; i < 20; i++)
+                rig.Pan(new Vector2(1, 1));
             var t = rig.Pose.Target;
             Assert.IsTrue(t.X >= 0 && t.X <= 1000 && t.Z >= 0 && t.Z <= 600, $"{t}");
         }
@@ -192,7 +206,8 @@ public class CameraRigTests
         rig.Scroll(cursor, size, true, Vector2.Zero, 0.1);
         Near(500 + 2 * 0.5f * 0.1f * 200, rig.Pose.Target.X); // acceleration 2 * speed 0.5 * dt * 200
         Assert.AreEqual(0.6, rig.ScrollSpeed, 1e-9); // grows by the time scale times dt
-        for (var i = 0; i < 200; i++) rig.Scroll(cursor, size, true, Vector2.Zero, 0.1);
+        for (var i = 0; i < 200; i++)
+            rig.Scroll(cursor, size, true, Vector2.Zero, 0.1);
         Assert.AreEqual(10, rig.ScrollSpeed, 1e-9);
         rig.Scroll(new Vector2(400, 300), size, true, Vector2.Zero, 0.1);
         Assert.AreEqual(0.5, rig.ScrollSpeed, 1e-9);
@@ -216,7 +231,10 @@ public class CameraRigTests
         right.Scroll(new Vector2(800, 300), size, true, Vector2.Zero, 1.0);
         var bottom = Rig();
         bottom.Scroll(new Vector2(400, 600), size, true, Vector2.Zero, 1.0);
-        Assert.IsTrue(right.Pose.Target.X > 500 && bottom.Pose.Target.Z < 300, $"{right.Pose.Target} {bottom.Pose.Target}");
+        Assert.IsTrue(
+            right.Pose.Target.X > 500 && bottom.Pose.Target.Z < 300,
+            $"{right.Pose.Target} {bottom.Pose.Target}"
+        );
     }
 
     [TestMethod]
@@ -256,7 +274,10 @@ public class CameraRigTests
         foreach (var value in new[] { null, "0", "-2.0" })
         {
             var rig = Rig(("KEYBOARD_SCROLL_RATE", value));
-            Assert.IsTrue(rig.Problems.Any(p => p.Contains("KEYBOARD_SCROLL_RATE") && p.Contains("stand-in 6")), $"{value}");
+            Assert.IsTrue(
+                rig.Problems.Any(p => p.Contains("KEYBOARD_SCROLL_RATE") && p.Contains("stand-in 6")),
+                $"{value}"
+            );
             rig.Scroll(new Vector2(400, 300), new Vector2(800, 600), true, new Vector2(0, 1), 0.1);
             Near(300 + 2 * 0.5f * 0.1f * 6 * 200, rig.Pose.Target.Z);
         }
@@ -268,7 +289,13 @@ public class CameraRigTests
         // On macOS a confined cursor on the right or bottom boundary lies on the excluded edge of the view's
         // tracking rectangle, so the window reports the mouse exited while the cursor stays held inside.
         var rig = Rig();
-        rig.Scroll(CameraRig.EdgeCursor(new Vector2(800, 300), mouseInWindow: false, confined: true), new Vector2(800, 600), true, Vector2.Zero, 1.0);
+        rig.Scroll(
+            CameraRig.EdgeCursor(new Vector2(800, 300), mouseInWindow: false, confined: true),
+            new Vector2(800, 600),
+            true,
+            Vector2.Zero,
+            1.0
+        );
         Assert.IsTrue(rig.Pose.Target.X > 500, $"{rig.Pose.Target}");
     }
 
@@ -276,7 +303,13 @@ public class CameraRigTests
     public void AReleasedCursorOutsideTheWindowDoesNotScroll()
     {
         var rig = Rig();
-        rig.Scroll(CameraRig.EdgeCursor(new Vector2(799, 300), mouseInWindow: false, confined: false), new Vector2(800, 600), true, Vector2.Zero, 1.0);
+        rig.Scroll(
+            CameraRig.EdgeCursor(new Vector2(799, 300), mouseInWindow: false, confined: false),
+            new Vector2(800, 600),
+            true,
+            Vector2.Zero,
+            1.0
+        );
         Near(500, rig.Pose.Target.X);
     }
 
@@ -298,8 +331,13 @@ public class CameraRigTests
     [TestMethod]
     public void ALackingTextualWrongTypedOrIllegalConstantIsReportedAndUsesItsStandIn()
     {
-        var rig = Rig(("OVERVIEW_INIT_HEIGHT", null), ("OVERVIEW_MAX_HEIGHT", "2 * 350"), ("OVERVIEW_MIN_HEIGHT", "20"),
-            ("SCROLL_COEFFICIENT", "-1.0"), ("ZOOM_SCROLL_COEFFICIENT", "0"));
+        var rig = Rig(
+            ("OVERVIEW_INIT_HEIGHT", null),
+            ("OVERVIEW_MAX_HEIGHT", "2 * 350"),
+            ("OVERVIEW_MIN_HEIGHT", "20"),
+            ("SCROLL_COEFFICIENT", "-1.0"),
+            ("ZOOM_SCROLL_COEFFICIENT", "0")
+        );
         Near(450, rig.Pose.Eye.Y);
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("OVERVIEW_INIT_HEIGHT") && p.Contains("missing")));
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("OVERVIEW_MAX_HEIGHT")));
@@ -335,7 +373,8 @@ public class CameraRigTests
         var rig = new CameraRig(Constants(), new MapBounds(1000, 0, 0, 100, 600, 0));
         rig.Pan(new Vector2(1, 1));
         var (eye, target) = rig.Pose;
-        foreach (var v in new[] { eye.X, eye.Y, eye.Z, target.X, target.Y, target.Z }) Assert.IsTrue(float.IsFinite(v));
+        foreach (var v in new[] { eye.X, eye.Y, eye.Z, target.X, target.Y, target.Z })
+            Assert.IsTrue(float.IsFinite(v));
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("bounds")));
     }
 
@@ -361,7 +400,8 @@ public class CameraRigTests
     {
         var rig = Rig(("OVERVIEW_PARABOLA_FOCUS", "0"), ("OVERVIEW_MIN_HEIGHT", "800"));
         var (eye, target) = rig.Pose;
-        foreach (var v in new[] { eye.X, eye.Y, eye.Z, target.X, target.Y, target.Z }) Assert.IsTrue(float.IsFinite(v));
+        foreach (var v in new[] { eye.X, eye.Y, eye.Z, target.X, target.Y, target.Z })
+            Assert.IsTrue(float.IsFinite(v));
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("OVERVIEW_PARABOLA_FOCUS")));
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("OVERVIEW_MIN_HEIGHT")));
         Near(300, MathF.Sqrt((eye.X - target.X) * (eye.X - target.X) + (eye.Z - target.Z) * (eye.Z - target.Z)));

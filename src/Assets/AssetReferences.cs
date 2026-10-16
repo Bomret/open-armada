@@ -20,23 +20,34 @@ internal static class AssetReferences
 
     // The names of the sprites of every table of the install.
     internal static HashSet<string> SpriteNames(GameFileSystem files) =>
-        Sprites.GetValue(files, f => new SpriteTableKind().Tables(f).SelectMany(t => t.Sprites.Select(s => s.Name)).ToHashSet(StringComparer.OrdinalIgnoreCase));
+        Sprites.GetValue(
+            files,
+            f =>
+                new SpriteTableKind()
+                    .Tables(f)
+                    .SelectMany(t => t.Sprites.Select(s => s.Name))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+        );
 
     // The sounds found in sounds/**: each file name, and each path relative to sounds/ with forward slashes.
     internal static HashSet<string> SoundNames(GameFileSystem files) =>
-        Sounds.GetValue(files, f =>
-        {
-            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var path in new SoundKind().Enumerate(f))
+        Sounds.GetValue(
+            files,
+            f =>
             {
-                set.Add(System.IO.Path.GetFileName(path));
-                set.Add(path.StartsWith("sounds/", StringComparison.OrdinalIgnoreCase) ? path[7..] : path);
+                var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var path in new SoundKind().Enumerate(f))
+                {
+                    set.Add(System.IO.Path.GetFileName(path));
+                    set.Add(path.StartsWith("sounds/", StringComparison.OrdinalIgnoreCase) ? path[7..] : path);
+                }
+                return set;
             }
-            return set;
-        });
+        );
 
     // True when a sound value (a bare name, or a path with a folder, either separator) is in sounds/**.
-    internal static bool HasSound(GameFileSystem files, string value) => SoundNames(files).Contains(value.Replace('\\', '/'));
+    internal static bool HasSound(GameFileSystem files, string value) =>
+        SoundNames(files).Contains(value.Replace('\\', '/'));
 
     // The definitions the install enumerates (DefinitionKind.Named).
     internal static HashSet<string> DefinitionNames(GameFileSystem files) =>

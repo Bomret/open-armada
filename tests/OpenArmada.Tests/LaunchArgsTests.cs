@@ -40,4 +40,14 @@ public class LaunchArgsTests
         Assert.IsNull(args.Value("--screenshot"));
         StringAssert.Contains(args.Problems[0], "--screenshot needs a value");
     }
+
+    [TestMethod]
+    public void AMapWithATrailingScreenshotFlagHasItsValueAndTheScreenshotProblem()
+    {
+        var args = new LaunchArgs(new[] { "--map", "x", "--screenshot" });
+        Assert.AreEqual("x", args.Value("--map"));
+        Assert.IsNull(args.Value("--screenshot"));
+        Assert.AreEqual(1, args.Problems.Count);
+        StringAssert.Contains(args.Problems[0], "--screenshot needs a value");
+    }
 }

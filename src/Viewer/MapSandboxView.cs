@@ -21,6 +21,7 @@ public partial class MapSandboxView : Node3D
     readonly Dictionary<string, Sod> _sods = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<(string Model, int Slot), Node3D> _templates = new();
     readonly List<string> _gaps = new();
+    readonly HashSet<string> _unreadable = new(StringComparer.OrdinalIgnoreCase);
     Node3D? _background;
     Camera3D? _camera;
     int _frames;
@@ -46,7 +47,7 @@ public partial class MapSandboxView : Node3D
         _gaps.AddRange(plan.Reports.Select(r => r.Text));
 
         // The scene's ambient light is the map's. stand-in: the directional light (its direction and
-        // energy); the install defines none.
+        // energy), the ambient energy of 1 and the black clear color; the install defines none.
         AddChild(new WorldEnvironment
         {
             Environment = new Godot.Environment
@@ -69,7 +70,8 @@ public partial class MapSandboxView : Node3D
         }
 
         var bounds = plan.Bounds;
-        // The sandbox's reach: no camera is farther from an object than twice the map's diagonal.
+        // stand-in: the sandbox's reach, no camera farther from an object than twice the map's diagonal
+        // (the install defines no camera limit).
         var reach = 2 * MathF.Sqrt(bounds.Width * bounds.Width + bounds.Depth * bounds.Depth);
         var center = new Vector3((bounds.MinX + bounds.MaxX) / 2, (bounds.MinY + bounds.MaxY) / 2, -(bounds.MinZ + bounds.MaxZ) / 2);
         // stand-in: the fixed camera (slice of the RTS camera replaces it), its field of view and clip planes.
@@ -87,36 +89,45 @@ public partial class MapSandboxView : Node3D
     Node3D? Instance(GameFileSystem files, SodBuilder builder, TeamColors team, string model, int slot)
     {
         if (_templates.TryGetValue((model, slot), out var template)) return (Node3D)template.Duplicate();
+        if (_unreadable.Contains(model)) return null;
         try
         {
             if (!_sods.TryGetValue(model, out var sod)) _sods[model] = sod = Sod.Read(files.ReadAllBytes(model + ".sod"));
             var node = builder.Build(sod, team.Color(TeamColors.SlotNames[slot]));
-            foreach (var problem in builder.Problems.Select(p => $"{model}: {p}"))
-                if (!_gaps.Contains(problem)) _gaps.Add(problem);
+            foreach (var problem in builder.Problems) AddGap($"{model}: {problem}");
             _templates[(model, slot)] = node;
             return node;
         }
-        catch (Exception e) when (e is System.IO.IOException or UnsupportedFormatException) // a model that cannot be read is a gap (INV-0002)
+        catch (Exception e) // a model that cannot be read is a gap, whatever the reason, and is read once (INV-0002)
         {
-            var gap = $"model '{model}' cannot be read: {e.Message}";
-            if (!_gaps.Contains(gap)) _gaps.Add(gap);
+            _unreadable.Add(model);
+            AddGap($"model '{model}' cannot be read: {e.Message}");
             return null;
         }
     }
 
-    // The background model sits behind every other object: it is scaled until its smallest half extent
-    // passes the sandbox's reach, kept centered on the camera, and the far plane passes its corners, so no
-    // camera position or rotation clips it or puts an object behind it.
+    void AddGap(string gap)
+    {
+        if (!_gaps.Contains(gap)) _gaps.Add(gap);
+    }
+
+    // The background model sits behind every other object: it is scaled until its origin's nearest distance to
+    // a face of its box passes the sandbox's reach, kept with its origin on the camera, and the far plane
+    // passes its farthest corner, so no camera position or rotation clips it or puts an object behind it.
     void AddBackground(GameFileSystem files, SodBuilder builder, TeamColors team, string model, Camera3D camera, float reach)
     {
         var node = Instance(files, builder, team, model, 0);
         if (node == null) return;
         var box = Extent(node);
-        var half = box.Size / 2;
-        var scale = reach * 1.5f / MathF.Max(MathF.Min(half.X, MathF.Min(half.Y, half.Z)), 0.001f);
+        var low = -box.Position;
+        var high = box.End;
+        var nearest = MathF.Min(MathF.Min(MathF.Min(low.X, high.X), MathF.Min(low.Y, high.Y)), MathF.Min(low.Z, high.Z));
+        var farthest = new[] { low.X, high.X }.SelectMany(x => new[] { low.Y, high.Y }.SelectMany(y => new[] { low.Z, high.Z }.Select(z => new Vector3(x, y, z).Length()))).Max();
+        // stand-in: the factor 1.5 of margin past the reach and past the farthest corner.
+        var scale = reach * 1.5f / MathF.Max(nearest, 0.001f);
         node.Transform = new Transform3D(Basis.FromScale(Vector3.One * scale), Vector3.Zero);
         AddChild(node);
-        camera.Far = MathF.Max(camera.Far, half.Length() * scale * 1.5f);
+        camera.Far = MathF.Max(camera.Far, farthest * scale * 1.5f);
         _background = node;
         _camera = camera;
     }

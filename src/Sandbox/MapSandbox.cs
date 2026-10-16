@@ -18,11 +18,12 @@ public sealed record MapSandbox(GameFileSystem? Files, SandboxPlan? Plan, string
         if (browser.Problem != null) return Failed(browser.Problem);
         var files = browser.Files!;
         if (map == null) return Failed("no map given: pass --map <name>");
-        var choice = MapName.Resolve(new MapKind().Enumerate(files).ToList(), map);
+        var kind = new MapKind();
+        var choice = MapName.Resolve(kind.Enumerate(files).ToList(), map);
         if (choice.Name == null) return Failed(choice.Problem!);
         try
         {
-            var asset = (MapAsset)new MapKind().Load(files, choice.Name);
+            var asset = (MapAsset)kind.Load(files, choice.Name);
             var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(files, asset), model => files.Find(model + ".sod") != null);
             return new MapSandbox(files, plan, null);
         }

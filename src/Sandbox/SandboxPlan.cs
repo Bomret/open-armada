@@ -108,10 +108,11 @@ public sealed class SandboxPlan
     // the identity.
     static (Vector3, Vector3, Vector3) Orientation(MapObject o, Gaps gaps)
     {
-        var det = Vector3.Dot(o.Right, Vector3.Cross(o.Up, o.Front));
         var finite = new[] { o.Right, o.Up, o.Front }.All(v => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z));
-        // stand-in: a determinant under 0.001 counts as collapsed (the game's own limit is not known)
-        if (!finite || Math.Abs(det) < 0.001f)
+        // The determinant of the unit axes is 1 for orthogonal axes and 0 for collinear or coplanar axes, whatever the
+        // scale of the axes. stand-in: under 0.001 counts as collapsed (the game's own limit is not known).
+        var lengths = o.Right.Length() * o.Up.Length() * o.Front.Length();
+        if (!finite || lengths == 0 || Math.Abs(Vector3.Dot(o.Right, Vector3.Cross(o.Up, o.Front))) / lengths < 0.001f)
         {
             gaps.Add(DegenerateOrientation, $"{o.Label} ({o.Class})");
             return (Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);

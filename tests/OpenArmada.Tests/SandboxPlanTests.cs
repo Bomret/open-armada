@@ -19,10 +19,15 @@ public class SandboxPlanTests
     public void CleanUp() => temp.CleanUp();
 
     // Plans the map; each definition is "class" -> odf text, each model is a name the install holds.
-    SandboxPlan Plan(BznBuilder map, (string Class, string Odf)[] definitions, params string[] models)
+    SandboxPlan Plan(BznBuilder map, (string Class, string Odf)[] definitions, params string[] models) =>
+        Plan(map, definitions, null, models);
+
+    // `edit` changes the parsed map before planning, for values the BZN reader itself rejects.
+    SandboxPlan Plan(BznBuilder map, (string Class, string Odf)[] definitions, Func<BznMap, BznMap>? edit, params string[] models)
     {
         var install = new GameFileSystem(temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).ToArray()));
-        var asset = new MapAsset("bzn/t.bzn", Bzn.Read(map.Build()), Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+        var parsed = Bzn.Read(map.Build());
+        var asset = new MapAsset("bzn/t.bzn", edit?.Invoke(parsed) ?? parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
         return SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), models.Contains);
     }
 
@@ -89,6 +94,60 @@ public class SandboxPlanTests
         var report = plan.Reports.Single();
         StringAssert.Contains(report.Cause, "orientation");
         Assert.AreEqual(1, report.Count);
+    }
+
+    [TestMethod]
+    public void NonFiniteAxesAreReportedAndUseTheIdentity()
+    {
+        var plan = Plan(MapOf(Ship()), Fbattle, m => m with
+        {
+            Objects = m.Objects.Select(o => o with { Right = new Vector3(float.NaN, 0, 0), Front = new Vector3(0, 0, float.PositiveInfinity) }).ToList(),
+        }, "fdreadnought");
+        var o = plan.Objects.Single();
+        Assert.AreEqual((new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)), (o.AxisX, o.AxisY, o.AxisZ));
+        StringAssert.Contains(plan.Reports.Single().Cause, "orientation");
+    }
+
+    [TestMethod]
+    public void CollinearAxesAreReported()
+    {
+        var plan = Plan(MapOf(Ship(axes: new float[] { 1, 0, 0, 2, 0, 0, 0, 0, 1 })), Fbattle, "fdreadnought");
+        StringAssert.Contains(plan.Reports.Single().Cause, "orientation");
+    }
+
+    [TestMethod]
+    public void SmallButIndependentAxesAreAnOrientation()
+    {
+        var plan = Plan(MapOf(Ship(axes: new float[] { 0.05f, 0, 0, 0, 0.05f, 0, 0, 0, 0.05f })), Fbattle, "fdreadnought");
+        Assert.AreEqual(0, plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ATeamBeyondTheMapsRecordsIsReportedAndUsesItsOwnSlot()
+    {
+        var plan = Plan(MapOf(Ship(team: 8)), Fbattle, m => m with { Teams = m.Teams.Take(4).ToList() }, "fdreadnought");
+        Assert.AreEqual(8, plan.Objects.Single().Slot);
+        StringAssert.Contains(plan.Reports.Single().Names[0], "team 8 has no record");
+    }
+
+    [TestMethod]
+    public void ANegativeRecordIsReportedAndUsesTheTeamsOwnSlot()
+    {
+        var map = MapOf(Ship(team: 2));
+        map.TeamColors = new[] { 0, 0, -3, 0, 0, 0, 0, 0, 0 };
+        var plan = Plan(map, Fbattle, "fdreadnought");
+        Assert.AreEqual(2, plan.Objects.Single().Slot);
+        CollectionAssert.AreEqual(new[] { "-3" }, plan.Reports.Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void ARecordPastTheLastSlotIsReported()
+    {
+        var map = MapOf(Ship(team: 2));
+        map.TeamColors = new[] { 0, 0, TeamColors.SlotNames.Count, 0, 0, 0, 0, 0, 0 };
+        var plan = Plan(map, Fbattle, "fdreadnought");
+        Assert.AreEqual(2, plan.Objects.Single().Slot);
+        StringAssert.Contains(plan.Reports.Single().Cause, "slot");
     }
 
     [TestMethod]

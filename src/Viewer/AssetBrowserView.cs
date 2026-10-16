@@ -47,7 +47,9 @@ public partial class AssetBrowserView : Control
         if (args.Has("--map"))
         {
             var map = args.Value("--map");
+            // The sandbox saves the screenshot; the browser's own _Process must not.
             AddChild(new MapSandboxView(MapSandbox.Open(game, map, args.Problems), _screenshot));
+            _screenshot = null;
             return;
         }
         var registered = AssetKind.Discover();

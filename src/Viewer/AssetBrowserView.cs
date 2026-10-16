@@ -48,6 +48,9 @@ public partial class AssetBrowserView : Control
         {
             var map = args.Value("--map");
             // The sandbox saves the screenshot; the browser's own _Process must not.
+            // This full-window Control would stop every mouse event in the GUI pass, so the sandbox's
+            // _UnhandledInput (selection, move orders) would never see a click.
+            MouseFilter = MouseFilterEnum.Ignore;
             AddChild(new MapSandboxView(MapSandbox.Open(game, map, args.Problems), _screenshot));
             _screenshot = null;
             return;

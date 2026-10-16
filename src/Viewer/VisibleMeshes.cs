@@ -13,10 +13,14 @@ public static class VisibleMeshes
         var found = new List<(Mesh, Transform3D)>();
         void Walk(Node3D node, Transform3D transform)
         {
-            if (!node.Visible) return;
-            if (node != root) transform *= node.Transform;
-            if (node is MeshInstance3D m && m.Mesh != null) found.Add((m.Mesh, transform));
-            foreach (var child in node.GetChildren().OfType<Node3D>()) Walk(child, transform);
+            if (!node.Visible)
+                return;
+            if (node != root)
+                transform *= node.Transform;
+            if (node is MeshInstance3D m && m.Mesh != null)
+                found.Add((m.Mesh, transform));
+            foreach (var child in node.GetChildren().OfType<Node3D>())
+                Walk(child, transform);
         }
         Walk(root, Transform3D.Identity);
         return found;

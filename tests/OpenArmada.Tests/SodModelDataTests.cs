@@ -11,7 +11,9 @@ public class SodModelDataTests
     [TestMethod]
     public void TextureMaterialBeforeV17KeepsItsBlendBytes()
     {
-        var sod = Sod.Read(new SodBytes(1.6f).TextureMaterials(("fx", "fxtex", 0.25f, 5, 6, 2)).Lighting().Nodes().End());
+        var sod = Sod.Read(
+            new SodBytes(1.6f).TextureMaterials(("fx", "fxtex", 0.25f, 5, 6, 2)).Lighting().Nodes().End()
+        );
         var t = sod.TextureMaterials.Single();
         Assert.AreEqual(0.25f, t.Transparency);
         Assert.AreEqual((5, 6, 2), (t.SrcBlend, t.DstBlend, t.Filter));
@@ -35,7 +37,12 @@ public class SodModelDataTests
     [TestMethod]
     public void ParentCycleIsReportedForEveryNodeInIt()
     {
-        var sod = Sod.Read(new SodBytes(1.8f).Lighting().Nodes(new NodeSpec("a", "b"), new NodeSpec("b", "a"), new NodeSpec("c", "a")).End());
+        var sod = Sod.Read(
+            new SodBytes(1.8f)
+                .Lighting()
+                .Nodes(new NodeSpec("a", "b"), new NodeSpec("b", "a"), new NodeSpec("c", "a"))
+                .End()
+        );
         Assert.AreEqual(2, sod.Problems.Count);
         Assert.IsTrue(sod.Problems.Any(p => p.Contains("'a'") && p.Contains("cycle")));
         Assert.IsTrue(sod.Problems.Any(p => p.Contains("'b'") && p.Contains("cycle")));
@@ -68,7 +75,9 @@ public class SodModelDataTests
     [TestMethod]
     public void NodeWithUnknownParentIsReported()
     {
-        var sod = Sod.Read(new SodBytes(1.8f).Lighting().Nodes(new NodeSpec("root", ""), new NodeSpec("wing", "nowhere")).End());
+        var sod = Sod.Read(
+            new SodBytes(1.8f).Lighting().Nodes(new NodeSpec("root", ""), new NodeSpec("wing", "nowhere")).End()
+        );
         StringAssert.Contains(sod.Problems.Single(), "'wing'");
         StringAssert.Contains(sod.Problems.Single(), "'nowhere'");
     }
@@ -76,7 +85,12 @@ public class SodModelDataTests
     [TestMethod]
     public void WellFormedModelHasNoProblems()
     {
-        var sod = Sod.Read(new SodBytes(1.8f).Lighting(("lit", 1f, 1)).Nodes(new NodeSpec("root", ""), new NodeSpec("hull", "root", Triangle())).End());
+        var sod = Sod.Read(
+            new SodBytes(1.8f)
+                .Lighting(("lit", 1f, 1))
+                .Nodes(new NodeSpec("root", ""), new NodeSpec("hull", "root", Triangle()))
+                .End()
+        );
         Assert.AreEqual(0, sod.Problems.Count);
     }
 }

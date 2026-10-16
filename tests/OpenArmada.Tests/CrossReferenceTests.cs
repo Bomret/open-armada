@@ -21,12 +21,18 @@ public class CrossReferenceTests
     static string Latin1(byte[] b) => Encoding.Latin1.GetString(b);
 
     static string Model(string texture, params (byte Type, string Node, string Animation, float Offset)[] refs) =>
-        Latin1(new SodBytes(1.8f).Lighting(("lit", 1f, 1)).Nodes(new NodeSpec("hull", "", Triangle(texture: texture))).End(refs));
+        Latin1(
+            new SodBytes(1.8f)
+                .Lighting(("lit", 1f, 1))
+                .Nodes(new NodeSpec("hull", "", Triangle(texture: texture)))
+                .End(refs)
+        );
 
     static string Map(params string[] classes)
     {
         var b = new BznBuilder();
-        foreach (var c in classes) b.Objects.Add(new(c, 1, new Vector3(100, 0, 100)));
+        foreach (var c in classes)
+            b.Objects.Add(new(c, 1, new Vector3(100, 0, 100)));
         return Latin1(b.Build());
     }
 
@@ -42,18 +48,33 @@ public class CrossReferenceTests
     [TestMethod]
     public void DefinitionNamesAMissingModelPhysicsDefinitionAndSound()
     {
-        var fs = Install(("addon/d.odf", "baseName = \"nomodel\"\r\nphysicsFile = \"nophys.odf\"\r\nfireSound = \"nosound.wav\"\r\nunitName = \"nothing.sod\""),
-            ("SOD/here.sod", Model("")), ("addon/p.odf", "baseName = \"here\"\r\nphysicsFile = \"p.odf\""));
-        CollectionAssert.AreEquivalent(new[] { "nomodel", "nophys.odf", "nosound.wav" }, new DefinitionKind().Unresolved(fs, "d.odf").ToArray());
+        var fs = Install(
+            (
+                "addon/d.odf",
+                "baseName = \"nomodel\"\r\nphysicsFile = \"nophys.odf\"\r\nfireSound = \"nosound.wav\"\r\nunitName = \"nothing.sod\""
+            ),
+            ("SOD/here.sod", Model("")),
+            ("addon/p.odf", "baseName = \"here\"\r\nphysicsFile = \"p.odf\"")
+        );
+        CollectionAssert.AreEquivalent(
+            new[] { "nomodel", "nophys.odf", "nosound.wav" },
+            new DefinitionKind().Unresolved(fs, "d.odf").ToArray()
+        );
         Assert.AreEqual(0, new DefinitionKind().Unresolved(fs, "p.odf").Count);
     }
 
     [TestMethod]
     public void DefinitionNamesAMissingDbNameParticleArtAndWorkerBeeModel()
     {
-        var fs = Install(("addon/d.odf", "dbName = \"nodb\"\r\nparticleArt = \"noart\"\r\nworkerBeeName = \"nobee\"\r\n"),
-            ("addon/e.odf", "dbName = \"here\"\r\nparticleArt = \"here\"\r\nworkerBeeName = \"here\"\r\n"), ("SOD/here.sod", Model("")));
-        CollectionAssert.AreEquivalent(new[] { "nodb", "noart", "nobee" }, new DefinitionKind().Unresolved(fs, "d.odf").ToArray());
+        var fs = Install(
+            ("addon/d.odf", "dbName = \"nodb\"\r\nparticleArt = \"noart\"\r\nworkerBeeName = \"nobee\"\r\n"),
+            ("addon/e.odf", "dbName = \"here\"\r\nparticleArt = \"here\"\r\nworkerBeeName = \"here\"\r\n"),
+            ("SOD/here.sod", Model(""))
+        );
+        CollectionAssert.AreEquivalent(
+            new[] { "nodb", "noart", "nobee" },
+            new DefinitionKind().Unresolved(fs, "d.odf").ToArray()
+        );
         Assert.AreEqual(0, new DefinitionKind().Unresolved(fs, "e.odf").Count);
     }
 
@@ -67,14 +88,20 @@ public class CrossReferenceTests
     [TestMethod]
     public void SoundInASoundsSubfolderWithNoIndexEntryResolves()
     {
-        var fs = Install(("addon/d.odf", "fireSound = \"x.wav\"\r\nhitSound = \"gone.wav\"\r\n"), ("sounds/effects/x.wav", ""));
+        var fs = Install(
+            ("addon/d.odf", "fireSound = \"x.wav\"\r\nhitSound = \"gone.wav\"\r\n"),
+            ("sounds/effects/x.wav", "")
+        );
         CollectionAssert.AreEqual(new[] { "gone.wav" }, new DefinitionKind().Unresolved(fs, "d.odf").ToArray());
     }
 
     [TestMethod]
     public void SoundWithAFolderResolvesByItsPathWithinSounds()
     {
-        var fs = Install(("addon/d.odf", "fireSound = \"effects/x.wav\"\r\nhitSound = \"other/x.wav\"\r\n"), ("sounds/effects/x.wav", ""));
+        var fs = Install(
+            ("addon/d.odf", "fireSound = \"effects/x.wav\"\r\nhitSound = \"other/x.wav\"\r\n"),
+            ("sounds/effects/x.wav", "")
+        );
         CollectionAssert.AreEqual(new[] { "other/x.wav" }, new DefinitionKind().Unresolved(fs, "d.odf").ToArray());
     }
 
@@ -82,8 +109,11 @@ public class CrossReferenceTests
     public void MissingGrandparentIsListedForTheChildWhenTheParentIsOnlyAnInclude()
     {
         // p.odf is a loose file the index places in a folder: no archive member, so no enumerated definition.
-        var fs = Install(("addon/c.odf", "#include \"p.odf\"\r\n"), ("misc/p.odf", "#include \"gone.odf\"\r\n"),
-            ("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: misc\n----\n1 p.odf\n"));
+        var fs = Install(
+            ("addon/c.odf", "#include \"p.odf\"\r\n"),
+            ("misc/p.odf", "#include \"gone.odf\"\r\n"),
+            ("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: misc\n----\n1 p.odf\n")
+        );
         Assert.IsNotNull(fs.Find("p.odf"));
         var all = new DefinitionKind().Enumerate(fs).SelectMany(d => new DefinitionKind().Unresolved(fs, d)).ToList();
         CollectionAssert.AreEqual(new[] { "gone.odf" }, all);
@@ -104,7 +134,10 @@ public class CrossReferenceTests
     [TestMethod]
     public void IncludeCycleStillFailsTheDefinition()
     {
-        var root = temp.MakeInstall(("addon/a.odf", "#include \"b.odf\"\r\n"), ("addon/b.odf", "#include \"a.odf\"\r\n"));
+        var root = temp.MakeInstall(
+            ("addon/a.odf", "#include \"b.odf\"\r\n"),
+            ("addon/b.odf", "#include \"a.odf\"\r\n")
+        );
         var w = new StringWriter();
         Assert.AreEqual(1, AssetCheck.Run(root, new AssetKind[] { new DefinitionKind() }, w), w.ToString());
     }
@@ -112,8 +145,14 @@ public class CrossReferenceTests
     [TestMethod]
     public void ChildInheritingAMissingModelAndAMissingParentIsReportedOnTheParentOnly()
     {
-        var fs = Install(("addon/p.odf", "#include \"gone.odf\"\r\nbaseName = \"nomodel\"\r\n"), ("addon/c.odf", "#include \"p.odf\"\r\n"));
-        CollectionAssert.AreEquivalent(new[] { "gone.odf", "nomodel" }, new DefinitionKind().Unresolved(fs, "p.odf").ToArray());
+        var fs = Install(
+            ("addon/p.odf", "#include \"gone.odf\"\r\nbaseName = \"nomodel\"\r\n"),
+            ("addon/c.odf", "#include \"p.odf\"\r\n")
+        );
+        CollectionAssert.AreEquivalent(
+            new[] { "gone.odf", "nomodel" },
+            new DefinitionKind().Unresolved(fs, "p.odf").ToArray()
+        );
         Assert.AreEqual(0, new DefinitionKind().Unresolved(fs, "c.odf").Count);
     }
 
@@ -129,7 +168,10 @@ public class CrossReferenceTests
     [TestMethod]
     public void MissingIncludeOfAnEnumeratedParentIncludedWithABackslashFolderPrefixIsListedForTheParentOnly()
     {
-        var fs = Install(("addon/p.odf", "#include \"gone.odf\"\r\n"), ("addon/c.odf", "#include \"addon\\p.odf\"\r\n"));
+        var fs = Install(
+            ("addon/p.odf", "#include \"gone.odf\"\r\n"),
+            ("addon/c.odf", "#include \"addon\\p.odf\"\r\n")
+        );
         Assert.IsNotNull(fs.Find("addon\\p.odf"));
         var all = new[] { "c.odf", "p.odf" }.SelectMany(d => new DefinitionKind().Unresolved(fs, d)).ToList();
         CollectionAssert.AreEqual(new[] { "gone.odf" }, all);
@@ -139,17 +181,25 @@ public class CrossReferenceTests
     [TestMethod]
     public void MissingIncludeOfALooseParentSharingItsNameWithAnEnumeratedDefinitionIsListedForTheChild()
     {
-        var fs = Install(("addon/p.odf", "x = 1\r\n"), ("addon/c.odf", "#include \"misc/p.odf\"\r\n"),
-            ("misc/p.odf", "#include \"gone.odf\"\r\n"));
-        var all = new[] { "c.odf", "p.odf" }.SelectMany(d => new DefinitionKind().Unresolved(fs, d).Select(u => $"{d}: {u}")).ToList();
+        var fs = Install(
+            ("addon/p.odf", "x = 1\r\n"),
+            ("addon/c.odf", "#include \"misc/p.odf\"\r\n"),
+            ("misc/p.odf", "#include \"gone.odf\"\r\n")
+        );
+        var all = new[] { "c.odf", "p.odf" }
+            .SelectMany(d => new DefinitionKind().Unresolved(fs, d).Select(u => $"{d}: {u}"))
+            .ToList();
         CollectionAssert.AreEqual(new[] { "c.odf: gone.odf" }, all);
     }
 
     [TestMethod]
     public void MissingIncludeOfAnEnumeratedParentInAChainIsListedForTheParentOnly()
     {
-        var fs = Install(("addon/g.odf", "x = 1\r\n"), ("addon/p.odf", "#include \"g.odf\"\r\n#include \"gone.odf\"\r\n"),
-            ("addon/c.odf", "#include \"p.odf\"\r\n"));
+        var fs = Install(
+            ("addon/g.odf", "x = 1\r\n"),
+            ("addon/p.odf", "#include \"g.odf\"\r\n#include \"gone.odf\"\r\n"),
+            ("addon/c.odf", "#include \"p.odf\"\r\n")
+        );
         var all = new[] { "c.odf", "p.odf", "g.odf" }.SelectMany(d => new DefinitionKind().Unresolved(fs, d)).ToList();
         CollectionAssert.AreEqual(new[] { "gone.odf" }, all);
     }
@@ -157,8 +207,12 @@ public class CrossReferenceTests
     [TestMethod]
     public void MissingIncludeOfALooseParentIsListedForEachEnumeratedChildThatReachesIt()
     {
-        var fs = Install(("addon/a.odf", "#include \"p.odf\"\r\n"), ("addon/b.odf", "#include \"p.odf\"\r\n"),
-            ("misc/p.odf", "#include \"gone.odf\"\r\n"), ("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: misc\n----\n1 p.odf\n"));
+        var fs = Install(
+            ("addon/a.odf", "#include \"p.odf\"\r\n"),
+            ("addon/b.odf", "#include \"p.odf\"\r\n"),
+            ("misc/p.odf", "#include \"gone.odf\"\r\n"),
+            ("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: misc\n----\n1 p.odf\n")
+        );
         CollectionAssert.AreEqual(new[] { "gone.odf" }, new DefinitionKind().Unresolved(fs, "a.odf").ToArray());
         CollectionAssert.AreEqual(new[] { "gone.odf" }, new DefinitionKind().Unresolved(fs, "b.odf").ToArray());
     }
@@ -166,7 +220,10 @@ public class CrossReferenceTests
     [TestMethod]
     public void ModelMissingAnimationAndSpriteMissingTextureAreEachPrintedOnce()
     {
-        var root = temp.MakeInstall(("SOD/m.sod", Model("", (4, "hull", "spin", 0f))), ("Sprites/t.spr", "sprite_table\n@reference=128\na gone 0 0 32 32\n"));
+        var root = temp.MakeInstall(
+            ("SOD/m.sod", Model("", (4, "hull", "spin", 0f))),
+            ("Sprites/t.spr", "sprite_table\n@reference=128\na gone 0 0 32 32\n")
+        );
         var w = new StringWriter();
         AssetCheck.Run(root, new AssetKind[] { new ModelKind(), new SpriteTableKind() }, w);
         var lines = w.ToString().Split('\n');
@@ -177,8 +234,11 @@ public class CrossReferenceTests
     [TestMethod]
     public void DefinitionVisualResolvesAsATextureOrASprite()
     {
-        var fs = Install(("addon/d.odf", "smokeTexture = \"puff\"\r\ntexture = \"flash\"\r\nSprite = \"nowhere\""),
-            ("Textures/RGB/puff.tga", ""), ("Sprites/t.spr", "sprite_table\n@reference=128\nflash puff 0 0 32 32\n"));
+        var fs = Install(
+            ("addon/d.odf", "smokeTexture = \"puff\"\r\ntexture = \"flash\"\r\nSprite = \"nowhere\""),
+            ("Textures/RGB/puff.tga", ""),
+            ("Sprites/t.spr", "sprite_table\n@reference=128\nflash puff 0 0 32 32\n")
+        );
         CollectionAssert.AreEqual(new[] { "nowhere" }, new DefinitionKind().Unresolved(fs, "d.odf").ToArray());
     }
 
@@ -186,8 +246,11 @@ public class CrossReferenceTests
     [TestMethod]
     public void SpriteNameWithAByteOfTheWindows1252RangeResolvesFromADefinition()
     {
-        var fs = Install(("addon/d.odf", "Sprite = \"a\u0080\""), ("Textures/RGB/puff.tga", ""),
-            ("Sprites/t.spr", "sprite_table\n@reference=128\na\u0080 puff 0 0 32 32\n"));
+        var fs = Install(
+            ("addon/d.odf", "Sprite = \"a\u0080\""),
+            ("Textures/RGB/puff.tga", ""),
+            ("Sprites/t.spr", "sprite_table\n@reference=128\na\u0080 puff 0 0 32 32\n")
+        );
         Assert.AreEqual(0, new DefinitionKind().Unresolved(fs, "d.odf").Count);
     }
 
@@ -208,15 +271,21 @@ public class CrossReferenceTests
     [TestMethod]
     public void SpriteTableNamesAMissingTexture()
     {
-        var fs = Install(("Sprites/t.spr", "sprite_table\n@reference=128\na gone 0 0 32 32\nb here 0 0 32 32\n"), ("Textures/RGB/here.tga", ""));
+        var fs = Install(
+            ("Sprites/t.spr", "sprite_table\n@reference=128\na gone 0 0 32 32\nb here 0 0 32 32\n"),
+            ("Textures/RGB/here.tga", "")
+        );
         CollectionAssert.AreEqual(new[] { "gone" }, new SpriteTableKind().Unresolved(fs, "Sprites/t.spr").ToArray());
     }
 
     [TestMethod]
     public void CheckListsEveryUnresolvedReferenceWithBothNamesAndDoesNotFail()
     {
-        var root = temp.MakeInstall(("bzn/m.bzn", Map("ghost")), ("addon/real.odf", "baseName = \"nomodel\""),
-            ("SOD/mod.sod", Model("notex")));
+        var root = temp.MakeInstall(
+            ("bzn/m.bzn", Map("ghost")),
+            ("addon/real.odf", "baseName = \"nomodel\""),
+            ("SOD/mod.sod", Model("notex"))
+        );
         var w = new StringWriter();
         var code = AssetCheck.Run(root, new AssetKind[] { new MapKind(), new DefinitionKind(), new ModelKind() }, w);
         var output = w.ToString();

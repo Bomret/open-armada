@@ -23,8 +23,13 @@ public class TechTreeTests
     [TestMethod]
     public void ParsesNamesWithTheirRequirementsAndSkipsBlankLines()
     {
-        var tree = TechTree.Parse("fbase.odf    0\r\n\r\nfconst.odf   1 fbase.odf\r\nffreight.odf\t2 fbase.odf fmining.odf \r\n");
-        CollectionAssert.AreEqual(new[] { "fbase.odf", "fconst.odf", "ffreight.odf" }, tree.Entries.Select(e => e.Name).ToArray());
+        var tree = TechTree.Parse(
+            "fbase.odf    0\r\n\r\nfconst.odf   1 fbase.odf\r\nffreight.odf\t2 fbase.odf fmining.odf \r\n"
+        );
+        CollectionAssert.AreEqual(
+            new[] { "fbase.odf", "fconst.odf", "ffreight.odf" },
+            tree.Entries.Select(e => e.Name).ToArray()
+        );
         CollectionAssert.AreEqual(new[] { "fbase.odf", "fmining.odf" }, tree.Entries[2].Requires.ToArray());
         Assert.AreEqual(0, tree.Entries[0].Requires.Count);
     }
@@ -43,7 +48,11 @@ public class TechTreeTests
     [TestMethod]
     public void KindListsDefinitionsAndTreesAndLoadsATree()
     {
-        var install = defs.Install(new[] { ("a.odf", "x = 1"), ("one.tt", "a.odf 0\r\n") }, ("b.odf", "x = 2"), ("two.tt", "b.odf 0"));
+        var install = defs.Install(
+            new[] { ("a.odf", "x = 1"), ("one.tt", "a.odf 0\r\n") },
+            ("b.odf", "x = 2"),
+            ("two.tt", "b.odf 0")
+        );
         CollectionAssert.AreEquivalent(new[] { "a.odf", "b.odf" }, new DefinitionKind().Enumerate(install).ToArray());
         CollectionAssert.AreEquivalent(new[] { "one.tt", "two.tt" }, new TechTreeKind().Enumerate(install).ToArray());
         Assert.AreEqual("a.odf", ((TechTree)new TechTreeKind().Load(install, "one.tt")).Entries[0].Name);
@@ -61,7 +70,9 @@ public class TechTreeTests
     {
         var zfs = ZfsBuilder.Build(0, ZfsBuilder.M("zip.odf", "race = \"x\"", 2 | (10u << 8)));
         var zix = "1\n-\nDIR: assets.zfs\n-\n1 zip.odf\n";
-        var install = new GameFileSystem(temp.MakeInstall(("assets.zfs", System.Text.Encoding.Latin1.GetString(zfs)), ("startrek.zix", zix)));
+        var install = new GameFileSystem(
+            temp.MakeInstall(("assets.zfs", System.Text.Encoding.Latin1.GetString(zfs)), ("startrek.zix", zix))
+        );
         var text = DefinitionText.Format(install, TechTree.Parse("zip.odf 0\r\n"));
         StringAssert.Contains(text, "unknown race");
     }
@@ -69,21 +80,31 @@ public class TechTreeTests
     [TestMethod]
     public void PreviewShowsEachRacesBuildRequirements()
     {
-        var install = defs.Install(new[]
-        {
-            ("fbase.odf", "race = \"federation\""), ("fyard.odf", "race = \"federation\""),
-            ("kbase.odf", "race = \"klingon\""), ("odd.odf", "x = 1"),
-            ("t.tt", "fbase.odf 0\r\nfyard.odf 1 fbase.odf\r\nkbase.odf 0\r\nodd.odf 0\r\nlost.odf 0\r\n"),
-        });
+        var install = defs.Install(
+            new[]
+            {
+                ("fbase.odf", "race = \"federation\""),
+                ("fyard.odf", "race = \"federation\""),
+                ("kbase.odf", "race = \"klingon\""),
+                ("odd.odf", "x = 1"),
+                ("t.tt", "fbase.odf 0\r\nfyard.odf 1 fbase.odf\r\nkbase.odf 0\r\nodd.odf 0\r\nlost.odf 0\r\n"),
+            }
+        );
         var text = DefinitionText.Format(install, (TechTree)new TechTreeKind().Load(install, "t.tt"));
         var lines = text.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
         CollectionAssert.AreEqual(
             new[]
             {
-                "federation", "  fbase.odf: no requirements", "  fyard.odf: requires fbase.odf",
-                "klingon", "  kbase.odf: no requirements",
-                "unknown race", "  lost.odf: no requirements", "  odd.odf: no requirements",
+                "federation",
+                "  fbase.odf: no requirements",
+                "  fyard.odf: requires fbase.odf",
+                "klingon",
+                "  kbase.odf: no requirements",
+                "unknown race",
+                "  lost.odf: no requirements",
+                "  odd.odf: no requirements",
             },
-            lines.Where(l => l.Length > 0).ToArray());
+            lines.Where(l => l.Length > 0).ToArray()
+        );
     }
 }

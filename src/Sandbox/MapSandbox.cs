@@ -13,18 +13,26 @@ public sealed record MapSandbox(GameFileSystem? Files, SandboxPlan? Plan, string
     // `map` is the value of --map (null when it has none); `argProblems` are the command line's own problems.
     public static MapSandbox Open(string? game, string? map, IReadOnlyList<string> argProblems)
     {
-        if (argProblems.Count > 0) return Failed(string.Join("; ", argProblems));
+        if (argProblems.Count > 0)
+            return Failed(string.Join("; ", argProblems));
         var browser = AssetBrowser.Open(game, Array.Empty<AssetKind>());
-        if (browser.Problem != null) return Failed(browser.Problem);
+        if (browser.Problem != null)
+            return Failed(browser.Problem);
         var files = browser.Files!;
-        if (map == null) return Failed("no map given: pass --map <name>");
+        if (map == null)
+            return Failed("no map given: pass --map <name>");
         var kind = new MapKind();
         var choice = MapName.Resolve(kind.Enumerate(files).ToList(), map);
-        if (choice.Name == null) return Failed(choice.Problem!);
+        if (choice.Name == null)
+            return Failed(choice.Problem!);
         try
         {
             var asset = (MapAsset)kind.Load(files, choice.Name);
-            var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(files, asset), model => files.Find(model + ".sod") != null);
+            var plan = SandboxPlan.Build(
+                asset,
+                SandboxPlan.Definitions(files, asset),
+                model => files.Find(model + ".sod") != null
+            );
             return new MapSandbox(files, plan, null);
         }
         catch (Exception e) // a map that cannot be read is a message, whatever the reason (INV-0002)

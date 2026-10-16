@@ -32,27 +32,53 @@ public sealed class UnitPlan
         var gaps = new Gaps();
         foreach (var o in plan.Objects)
         {
-            if (!selectable(o) || !plan.Resolved.TryGetValue(o.Class, out var definition)) continue;
+            if (!selectable(o) || !plan.Resolved.TryGetValue(o.Class, out var definition))
+                continue;
             Unit? unit;
-            try { unit = UnitRules.Classify(definition); }
+            try
+            {
+                unit = UnitRules.Classify(definition);
+            }
             catch (DefinitionException)
             {
                 // a key of the definition is unreadable: report each one by its own cause and fall back
                 // to the class name and to a ship
                 var name = o.Class;
                 if (definition.Has("unitName"))
-                    try { name = definition.GetString("unitName"); }
-                    catch (DefinitionException) { gaps.Add(BadName, o.Class); }
+                    try
+                    {
+                        name = definition.GetString("unitName");
+                    }
+                    catch (DefinitionException)
+                    {
+                        gaps.Add(BadName, o.Class);
+                    }
                 var station = false;
                 if (definition.Has("is_starbase"))
-                    try { station = definition.GetInt("is_starbase") != 0; }
-                    catch (DefinitionException) { gaps.Add(BadStarbase, o.Class); }
+                    try
+                    {
+                        station = definition.GetInt("is_starbase") != 0;
+                    }
+                    catch (DefinitionException)
+                    {
+                        gaps.Add(BadStarbase, o.Class);
+                    }
                 unit = station ? new Station(name) : new Ship(name);
             }
-            if (unit == null) continue;
+            if (unit == null)
+                continue;
             bool movable;
-            try { movable = files.Find(definition.GetString("physicsFile")) != null; if (!movable) gaps.Add(MissingPhysics, o.Class); }
-            catch (DefinitionException) { movable = false; gaps.Add(BadPhysics, o.Class); }
+            try
+            {
+                movable = files.Find(definition.GetString("physicsFile")) != null;
+                if (!movable)
+                    gaps.Add(MissingPhysics, o.Class);
+            }
+            catch (DefinitionException)
+            {
+                movable = false;
+                gaps.Add(BadPhysics, o.Class);
+            }
             units.Add(new SelectableUnit(o, unit, movable));
         }
         return new UnitPlan(units, gaps.Entries);

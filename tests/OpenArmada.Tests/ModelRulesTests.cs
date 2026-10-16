@@ -9,7 +9,8 @@ namespace OpenArmada.Tests;
 [TestClass]
 public class ModelRulesTests
 {
-    static Sod.Mesh MeshOf(string textureMaterial, string texture = "tex") => new() { TextureMaterial = textureMaterial, Texture = texture };
+    static Sod.Mesh MeshOf(string textureMaterial, string texture = "tex") =>
+        new() { TextureMaterial = textureMaterial, Texture = texture };
 
     static Sod V17() => new() { Version = 1.7f };
 
@@ -41,11 +42,23 @@ public class ModelRulesTests
         StringAssert.Contains(look.Problem, "'sparkly'");
     }
 
-    static Sod Old(float transparency, byte src, byte dst, byte filter = 2) => new()
-    {
-        Version = 1.2f,
-        TextureMaterials = { new Sod.TextureMaterial { Name = "fx", Texture = "fxtex", Transparency = transparency, SrcBlend = src, DstBlend = dst, Filter = filter } },
-    };
+    static Sod Old(float transparency, byte src, byte dst, byte filter = 2) =>
+        new()
+        {
+            Version = 1.2f,
+            TextureMaterials =
+            {
+                new Sod.TextureMaterial
+                {
+                    Name = "fx",
+                    Texture = "fxtex",
+                    Transparency = transparency,
+                    SrcBlend = src,
+                    DstBlend = dst,
+                    Filter = filter,
+                },
+            },
+        };
 
     [TestMethod]
     public void OldEntryNamesTheTextureAndBlendsAdditivelyWithOneOne()
@@ -106,15 +119,16 @@ public class ModelRulesTests
         Assert.AreEqual(BlendMode.Opaque, look.Blend!.Mode);
     }
 
-    static Sod.LightingMaterial Material(string name, byte model, float power = 8f) => new()
-    {
-        Name = name,
-        Model = model,
-        Ambient = new Vector3(0.1f, 0.1f, 0.1f),
-        Diffuse = new Vector3(0.2f, 0.4f, 0.6f),
-        Specular = new Vector3(1f, 0.5f, 0f),
-        SpecularPower = power,
-    };
+    static Sod.LightingMaterial Material(string name, byte model, float power = 8f) =>
+        new()
+        {
+            Name = name,
+            Model = model,
+            Ambient = new Vector3(0.1f, 0.1f, 0.1f),
+            Diffuse = new Vector3(0.2f, 0.4f, 0.6f),
+            Specular = new Vector3(1f, 0.5f, 0f),
+            SpecularPower = power,
+        };
 
     [TestMethod]
     public void LightingMaterialKeepsItsModelColorsAndPower()

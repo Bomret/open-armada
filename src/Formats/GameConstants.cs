@@ -39,12 +39,15 @@ public sealed class GameConstants
 
     public static GameConstants Read(string name, byte[] bytes)
     {
-        if (bytes.Contains((byte)0)) throw new InvalidDataException($"{name}: not a text header (it holds NUL bytes)");
+        if (bytes.Contains((byte)0))
+            throw new InvalidDataException($"{name}: not a text header (it holds NUL bytes)");
         var text = Windows1252.Encoding.GetString(bytes);
-        if (text.Trim().Length == 0) throw new InvalidDataException($"{name}: the file is empty");
+        if (text.Trim().Length == 0)
+            throw new InvalidDataException($"{name}: the file is empty");
         var c = new GameConstants(name);
         var lines = text.Split('\n');
-        for (var i = 0; i < lines.Length; i++) c.ReadLine(StripComment(lines[i]).Trim(), i + 1);
+        for (var i = 0; i < lines.Length; i++)
+            c.ReadLine(StripComment(lines[i]).Trim(), i + 1);
         return c;
     }
 
@@ -54,11 +57,13 @@ public sealed class GameConstants
     {
         value = 0;
         var c = _values.FirstOrDefault(v => v.Name == name);
-        problem = c == null ? $"{Name}: constant {name} is missing"
+        problem =
+            c == null ? $"{Name}: constant {name} is missing"
             : c.IsString ? $"{Name}: constant {name} is text \"{c.Text}\", not a number"
             : c.Number == null ? $"{Name}: constant {name} is not a literal: {c.Text}"
             : "";
-        if (c?.Number is { } n) value = n;
+        if (c?.Number is { } n)
+            value = n;
         return problem.Length == 0;
     }
 
@@ -68,8 +73,10 @@ public sealed class GameConstants
         var quoted = false;
         for (var i = 0; i < line.Length; i++)
         {
-            if (line[i] == '"') quoted = !quoted;
-            else if (!quoted && line[i] == '/' && i + 1 < line.Length && line[i + 1] == '/') return line[..i];
+            if (line[i] == '"')
+                quoted = !quoted;
+            else if (!quoted && line[i] == '/' && i + 1 < line.Length && line[i + 1] == '/')
+                return line[..i];
         }
         return line;
     }
@@ -77,12 +84,22 @@ public sealed class GameConstants
     void ReadLine(string line, int number)
     {
         var at = $"{Name}:{number}";
-        if (line.Length == 0) return;
-        if (Include.Match(line) is { Success: true } inc) { _includes.Add(inc.Groups[1].Value); return; }
-        if (Define.Match(line) is { Success: true } def) { Add(def.Groups[1].Value, "define", def.Groups[2].Value.TrimEnd(), number); return; }
+        if (line.Length == 0)
+            return;
+        if (Include.Match(line) is { Success: true } inc)
+        {
+            _includes.Add(inc.Groups[1].Value);
+            return;
+        }
+        if (Define.Match(line) is { Success: true } def)
+        {
+            Add(def.Groups[1].Value, "define", def.Groups[2].Value.TrimEnd(), number);
+            return;
+        }
         if (Declaration.Match(line) is { Success: true } decl && decl.Groups[3].Value.Length > 0)
         {
-            if (decl.Groups[4].Value.Length == 0) _notes.Add($"{at}: {decl.Groups[2].Value} lacks the closing ';'");
+            if (decl.Groups[4].Value.Length == 0)
+                _notes.Add($"{at}: {decl.Groups[2].Value} lacks the closing ';'");
             Add(decl.Groups[2].Value, decl.Groups[1].Value, decl.Groups[3].Value, number);
             return;
         }
@@ -93,15 +110,21 @@ public sealed class GameConstants
     {
         var at = $"{Name}:{line}";
         GameConstant c;
-        if (Quoted.Match(value) is { Success: true } q) c = new(name, type, null, q.Groups[1].Value, true, line);
-        else if (Literal.IsMatch(value) && (type != "int" || IntLiteral.IsMatch(value))) c = new(name, type, double.Parse(value.TrimEnd('f', 'F'), CultureInfo.InvariantCulture), null, false, line);
+        if (Quoted.Match(value) is { Success: true } q)
+            c = new(name, type, null, q.Groups[1].Value, true, line);
+        else if (Literal.IsMatch(value) && (type != "int" || IntLiteral.IsMatch(value)))
+            c = new(name, type, double.Parse(value.TrimEnd('f', 'F'), CultureInfo.InvariantCulture), null, false, line);
         else
         {
             c = new(name, type, null, value, false, line);
             _notes.Add($"{at}: {name} is not a literal, kept as text: {value}");
         }
         var at0 = _values.FindIndex(v => v.Name == name);
-        if (at0 < 0) { _values.Add(c); return; }
+        if (at0 < 0)
+        {
+            _values.Add(c);
+            return;
+        }
         _notes.Add($"{at}: {name} is declared again (line {_values[at0].Line}); the later value wins");
         _values[at0] = c;
     }

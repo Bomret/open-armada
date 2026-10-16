@@ -34,7 +34,12 @@ public class InterfaceBinaryFormatTests
 
     [TestMethod]
     public void BinarySettingsAreUnsupportedNotCorrupt() =>
-        Assert.ThrowsExactly<UnsupportedFormatException>(() => SettingsFile.Read("shell.set", U32(0, 0, 0, 1).Concat(Encoding.ASCII.GetBytes("Player")).Concat(new byte[10]).ToArray()));
+        Assert.ThrowsExactly<UnsupportedFormatException>(() =>
+            SettingsFile.Read(
+                "shell.set",
+                U32(0, 0, 0, 1).Concat(Encoding.ASCII.GetBytes("Player")).Concat(new byte[10]).ToArray()
+            )
+        );
 
     // --- fonts ---
 
@@ -47,9 +52,15 @@ public class InterfaceBinaryFormatTests
         for (var i = 0; i < count; i++)
         {
             var offset = U32((uint)data.Count);
-            for (var k = 0; k < 4; k++) data[table + i * 4 + k] = offset[k];
-            if (i == 65) { data.AddRange(U32(3)); data.AddRange(new byte[] { 0, 255, 255, 255, 255, 0 }); }
-            else data.AddRange(U32(0));
+            for (var k = 0; k < 4; k++)
+                data[table + i * 4 + k] = offset[k];
+            if (i == 65)
+            {
+                data.AddRange(U32(3));
+                data.AddRange(new byte[] { 0, 255, 255, 255, 255, 0 });
+            }
+            else
+                data.AddRange(U32(0));
         }
         return data.Take(data.Count - truncate).ToArray();
     }
@@ -75,7 +86,9 @@ public class InterfaceBinaryFormatTests
     public void FontWithACorruptGlyphCountIsCorruptNotUnsupported()
     {
         Assert.ThrowsExactly<InvalidDataException>(() => BitmapFont.Read("f.fnt", Font(count: 0)));
-        Assert.ThrowsExactly<InvalidDataException>(() => BitmapFont.Read("f.fnt", U32(0x2e31, 0xFFFFFFF0, 2, 0xff).Concat(new byte[64]).ToArray()));
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            BitmapFont.Read("f.fnt", U32(0x2e31, 0xFFFFFFF0, 2, 0xff).Concat(new byte[64]).ToArray())
+        );
     }
 
     [TestMethod]
@@ -90,22 +103,32 @@ public class InterfaceBinaryFormatTests
 
     // A 2x2 8-bit cursor: palette 0 = red, 1 = blue; rows bottom-up "blue red" then "red red"; AND mask
     // marks the top right pixel transparent.
-    static byte[] Cursor(ushort hotX = 1, ushort hotY = 0, ushort type = 2, ushort bits = 8, uint headerSize = 40, bool twoImages = false)
+    static byte[] Cursor(
+        ushort hotX = 1,
+        ushort hotY = 0,
+        ushort type = 2,
+        ushort bits = 8,
+        uint headerSize = 40,
+        bool twoImages = false
+    )
     {
         var dib = new List<byte>(U32(headerSize, 2, 4)); // header size, width, double height (image plus mask)
         dib.AddRange(System.BitConverter.GetBytes((ushort)1));
         dib.AddRange(System.BitConverter.GetBytes(bits));
         dib.AddRange(U32(0, 0, 0, 0, 2, 0));
         dib.AddRange(new byte[] { 0, 0, 255, 0, 255, 0, 0, 0 }); // BGRA: red, blue
+        // csharpier-ignore-start
         dib.AddRange(new byte[] { 1, 0, 0, 0 });                // bottom row: blue, red (rows padded to 4)
         dib.AddRange(new byte[] { 0, 0, 0, 0 });                // top row: red, red
         dib.AddRange(new byte[] { 0x00, 0, 0, 0 });             // AND mask bottom row: opaque
         dib.AddRange(new byte[] { 0x40, 0, 0, 0 });             // AND mask top row: second pixel transparent
+        // csharpier-ignore-end
         var head = new List<byte> { 0, 0, (byte)type, (byte)(type >> 8), (byte)(twoImages ? 2 : 1), 0, 2, 2, 2, 0 };
         head.AddRange(System.BitConverter.GetBytes(hotX));
         head.AddRange(System.BitConverter.GetBytes(hotY));
         head.AddRange(U32((uint)dib.Count, twoImages ? 38u : 22u));
-        if (twoImages) head.AddRange(head.Skip(6).Take(16).ToArray()); // a second entry naming the same image
+        if (twoImages)
+            head.AddRange(head.Skip(6).Take(16).ToArray()); // a second entry naming the same image
         return head.Concat(dib).ToArray();
     }
 
@@ -114,7 +137,10 @@ public class InterfaceBinaryFormatTests
     {
         foreach (var size in new uint[] { 0xFFFFFF00, 0x7FFFFFF0, 39, 5000 })
         {
-            var e = Assert.ThrowsExactly<InvalidDataException>(() => CursorImage.Read("c.cur", Cursor(headerSize: size)), $"header size {size}");
+            var e = Assert.ThrowsExactly<InvalidDataException>(
+                () => CursorImage.Read("c.cur", Cursor(headerSize: size)),
+                $"header size {size}"
+            );
             StringAssert.Contains(e.Message, "c.cur");
         }
     }
@@ -136,6 +162,7 @@ public class InterfaceBinaryFormatTests
     {
         var c = CursorImage.Read("c.cur", Cursor());
         Assert.AreEqual((2, 2, 1, 0), (c.Width, c.Height, c.HotspotX, c.HotspotY));
+        // csharpier-ignore
         CollectionAssert.AreEqual(new byte[]
         {
             255, 0, 0, 255,  255, 0, 0, 0,   // top row: red, red but transparent

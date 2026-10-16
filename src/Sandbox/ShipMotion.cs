@@ -22,6 +22,7 @@ public sealed class ShipMotion
     // stand-in: a target nearer than this many turning circles (speed / yawRate) is reached by turning in place;
     // the install defines no such rule.
     const float Pivot = 2;
+
     // stand-in: a target more than this angle off the heading is reached by turning in place first; the install
     // defines no such rule.
     const float PivotAngle = MathF.PI / 2;
@@ -44,7 +45,8 @@ public sealed class ShipMotion
 
     public ShipPose Step(double seconds)
     {
-        if (_target is { } target && seconds > 0) Advance(target, (float)seconds);
+        if (_target is { } target && seconds > 0)
+            Advance(target, (float)seconds);
         return new ShipPose(_position, _heading, _bank);
     }
 
@@ -52,13 +54,19 @@ public sealed class ShipMotion
     {
         var offset = target - new Vector2(_position.X, _position.Z);
         var distance = offset.Length();
-        if (distance <= Reached) { Stop(target); return; }
+        if (distance <= Reached)
+        {
+            Stop(target);
+            return;
+        }
 
         // turn the shorter way, never more than yawRotationRate allows
         var error = MathF.IEEERemainder(MathF.Atan2(offset.X, offset.Y) - _heading, 2 * MathF.PI);
         var most = (float)_physics.YawRotationRate * seconds;
         var turn = MathF.Abs(error) <= most ? error : MathF.CopySign(most, error);
-        var pivot = distance < Pivot * (float)(_physics.ImpulseSpeed / _physics.YawRotationRate) || MathF.Abs(error) >= PivotAngle;
+        var pivot =
+            distance < Pivot * (float)(_physics.ImpulseSpeed / _physics.YawRotationRate)
+            || MathF.Abs(error) >= PivotAngle;
         _heading = Wrap(_heading + turn);
         error -= turn;
         _bank = _physics.MaxRoll is { } roll ? -(float)(roll * Math.PI / 180) * Math.Clamp(turn / most, -1, 1) : 0; // stand-in: no bank without maxRoll (the Borg physics definitions have none)
@@ -70,12 +78,17 @@ public sealed class ShipMotion
         var driving = seconds;
         if (pivot)
         {
-            if (error != 0) return;
+            if (error != 0)
+                return;
             driving = MathF.Max(0, driving - MathF.Abs(turn) / (float)_physics.YawRotationRate); // float rounding can leave it an ulp below 0
         }
         // never farther along the heading than the foot of the target's perpendicular, so the distance only shrinks
         var travel = MathF.Min((float)_physics.ImpulseSpeed * driving, distance * MathF.Cos(error));
-        if (travel >= distance) { Stop(target); return; }
+        if (travel >= distance)
+        {
+            Stop(target);
+            return;
+        }
         _position += new Vector3(MathF.Sin(_heading), 0, MathF.Cos(_heading)) * travel;
     }
 

@@ -16,8 +16,13 @@ public sealed class InterfaceConfigKind : AssetKind
     public override string Name => KindName;
 
     public override IEnumerable<string> Enumerate(GameFileSystem files) =>
-        files.Inventory().Where(f => f.StartsWith(Folder + "gui_", StringComparison.OrdinalIgnoreCase)
-            && f.EndsWith(".cfg", StringComparison.OrdinalIgnoreCase) && f.IndexOf('/', Folder.Length) < 0);
+        files
+            .Inventory()
+            .Where(f =>
+                f.StartsWith(Folder + "gui_", StringComparison.OrdinalIgnoreCase)
+                && f.EndsWith(".cfg", StringComparison.OrdinalIgnoreCase)
+                && f.IndexOf('/', Folder.Length) < 0
+            );
 
     public override object Load(GameFileSystem files, string name) => Read(files, name, null);
 
@@ -26,7 +31,10 @@ public sealed class InterfaceConfigKind : AssetKind
     public override IEnumerable<string> Reads(GameFileSystem files, string name)
     {
         var reads = new List<string>();
-        try { Read(files, name, reads); }
+        try
+        {
+            Read(files, name, reads);
+        }
         catch (Exception) { }
         return reads.Distinct(StringComparer.OrdinalIgnoreCase);
     }
@@ -35,16 +43,25 @@ public sealed class InterfaceConfigKind : AssetKind
     {
         string Open(string n)
         {
-            if (files.Entry(n) is { } entry) reads?.Add(entry);
+            if (files.Entry(n) is { } entry)
+                reads?.Add(entry);
             return Windows1252.Encoding.GetString(files.ReadAllBytes(n));
         }
         // The bare name resolves through the game's precedence (addon override first, then the index);
         // the misc folder is the fallback for an install whose index does not list the file.
         string? Text(string n) =>
-            (files.Find(n) is not null ? n : files.Find(Folder + n) is not null ? Folder + n : null) is { } found ? Open(found) : null;
+            (
+                files.Find(n) is not null ? n
+                : files.Find(Folder + n) is not null ? Folder + n
+                : null
+            )
+                is { } found
+                ? Open(found)
+                : null;
         var bare = name[(name.LastIndexOf('/') + 1)..];
         return InterfaceConfig.Read(bare, Text(bare) ?? Open(name), Text);
     }
 
-    public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((InterfaceConfig)Load(files, name)).Notes;
+    public override IReadOnlyList<string> Check(GameFileSystem files, string name) =>
+        ((InterfaceConfig)Load(files, name)).Notes;
 }

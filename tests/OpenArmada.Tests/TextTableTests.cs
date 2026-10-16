@@ -18,7 +18,8 @@ public class TextTableTests
     {
         var k = key ?? Key;
         var bytes = Encoding.Latin1.GetBytes(plain);
-        for (var i = 0; i < bytes.Length; i++) bytes[i] ^= k[i % k.Length];
+        for (var i = 0; i < bytes.Length; i++)
+            bytes[i] ^= k[i % k.Length];
         return bytes;
     }
 
@@ -32,10 +33,18 @@ public class TextTableTests
     [TestMethod]
     public void NestedBlocksHoldStringEntriesAddressedByBlockPathAndKey()
     {
-        var t = Read("switch {\r\n  Default {\r\n    string file \"default.ldl\"\r\n  }\r\n  string a \"b\"\r\n}\r\nplain:parent { string k \"v\" }\r\n");
-        CollectionAssert.AreEqual(new[] { "switch", "switch.Default", "plain" }, t.Blocks.Select(b => b.Path).ToArray());
+        var t = Read(
+            "switch {\r\n  Default {\r\n    string file \"default.ldl\"\r\n  }\r\n  string a \"b\"\r\n}\r\nplain:parent { string k \"v\" }\r\n"
+        );
+        CollectionAssert.AreEqual(
+            new[] { "switch", "switch.Default", "plain" },
+            t.Blocks.Select(b => b.Path).ToArray()
+        );
         Assert.AreEqual("parent", t.Blocks[2].Parent);
-        CollectionAssert.AreEqual(new[] { "switch.Default/file/default.ldl", "switch/a/b", "plain/k/v" }, t.Entries.Select(e => $"{e.Block}/{e.Key}/{e.Value}").ToArray());
+        CollectionAssert.AreEqual(
+            new[] { "switch.Default/file/default.ldl", "switch/a/b", "plain/k/v" },
+            t.Entries.Select(e => $"{e.Block}/{e.Key}/{e.Value}").ToArray()
+        );
         Assert.AreEqual(3, t.Entries[0].Line);
         Assert.AreEqual("t.ldl", t.Entries[0].File);
         Assert.AreEqual(0, t.Notes.Count);
@@ -63,7 +72,9 @@ public class TextTableTests
     [TestMethod]
     public void CommentsOutsideQuotesTemplatesAndTheDollarEndAreHandled()
     {
-        var t = Read("# head\nb { # open\n string a \"x # not a comment\" # tail\n template\n string c \"d\"\n}\n$\nb { string never \"1\" }\n");
+        var t = Read(
+            "# head\nb { # open\n string a \"x # not a comment\" # tail\n template\n string c \"d\"\n}\n$\nb { string never \"1\" }\n"
+        );
         CollectionAssert.AreEqual(new[] { "x # not a comment", "d" }, t.Entries.Select(e => e.Value).ToArray());
         Assert.AreEqual(0, t.Notes.Count);
     }
@@ -71,7 +82,9 @@ public class TextTableTests
     [TestMethod]
     public void QuotedValuesDecodeEscapesContinuationsAndSpanLines()
     {
-        var t = Read("b {\n string e \"q\\\"s\\\\t\\tn\\nz\"\n string c \"\\\r\n  long\"\n string m \"one\r\ntwo\"\n}\n");
+        var t = Read(
+            "b {\n string e \"q\\\"s\\\\t\\tn\\nz\"\n string c \"\\\r\n  long\"\n string m \"one\r\ntwo\"\n}\n"
+        );
         Assert.AreEqual("q\"s\\t\tn\nz", t.Entries[0].Value);
         Assert.AreEqual("  long", t.Entries[1].Value);
         Assert.AreEqual("one\r\ntwo", t.Entries[2].Value);
@@ -96,11 +109,17 @@ public class TextTableTests
     [TestMethod]
     public void ImportCycleTerminatesMissingImportAndImportInABlockAreNotes()
     {
-        var t = Read("import \"a.ldl\"\nimport \"nope.ldl\"\nb { import \"a.ldl\" }\n", ("a.ldl", "import \"t.ldl\"\nz { string y \"1\" }\n"));
+        var t = Read(
+            "import \"a.ldl\"\nimport \"nope.ldl\"\nb { import \"a.ldl\" }\n",
+            ("a.ldl", "import \"t.ldl\"\nz { string y \"1\" }\n")
+        );
         Assert.AreEqual(1, t.Entries.Count);
         Assert.IsTrue(t.Notes.Any(n => n.StartsWith("a.ldl:1:") && n.Contains("cycle")), string.Join("|", t.Notes));
         Assert.IsTrue(t.Notes.Any(n => n.StartsWith("t.ldl:2:") && n.Contains("nope.ldl")), string.Join("|", t.Notes));
-        Assert.IsTrue(t.Notes.Any(n => n.StartsWith("t.ldl:3:") && n.Contains("inside a block")), string.Join("|", t.Notes));
+        Assert.IsTrue(
+            t.Notes.Any(n => n.StartsWith("t.ldl:3:") && n.Contains("inside a block")),
+            string.Join("|", t.Notes)
+        );
     }
 
     [TestMethod]
@@ -119,7 +138,9 @@ public class TextTableTests
     public void TextThatDoesNotDecodeWithTheKeyIsUnsupported()
     {
         var wrong = Key.Select(b => (byte)(b * 5 + 1)).ToArray(); // 200 decoded characters: some fall below 32
-        var e = Assert.ThrowsExactly<UnsupportedFormatException>(() => TextTable.Read("t.ldl", Encode("b { string a \"" + new string('a', 200) + "\" }\n"), wrong, _ => null));
+        var e = Assert.ThrowsExactly<UnsupportedFormatException>(() =>
+            TextTable.Read("t.ldl", Encode("b { string a \"" + new string('a', 200) + "\" }\n"), wrong, _ => null)
+        );
         StringAssert.Contains(e.Message, "t.ldl");
     }
 
@@ -138,7 +159,9 @@ public class TextTableTests
     {
         foreach (var key in new[] { Array.Empty<byte>(), Key[..^1] })
         {
-            var e = Assert.ThrowsExactly<UnsupportedFormatException>(() => TextTable.Read("t.ldl", Encode("b { }"), key, _ => null));
+            var e = Assert.ThrowsExactly<UnsupportedFormatException>(() =>
+                TextTable.Read("t.ldl", Encode("b { }"), key, _ => null)
+            );
             StringAssert.Contains(e.Message, "400");
         }
     }
@@ -157,7 +180,8 @@ public class TextTableTests
         var exe = new byte[TextTable.KeyOffset + TextTable.KeyLength];
         Key.CopyTo(exe, TextTable.KeyOffset);
         var all = files.ToList();
-        if (withSplash) all.Add(("splash.exe", Latin1(exe)));
+        if (withSplash)
+            all.Add(("splash.exe", Latin1(exe)));
         return new GameFileSystem(temp.MakeInstall(all.ToArray()));
     }
 
@@ -173,18 +197,27 @@ public class TextTableTests
     [TestMethod]
     public void TextTableImportsResolveThroughTheInstall()
     {
-        var files = Install(true, ("default.ldl", Latin1(Encode("import \"string.ldl\"\n"))), ("string.ldl", Latin1(Encode("b { string p \"1\" }"))));
-        Assert.AreEqual("string.ldl", ((TextTable)new TextTableKind().Load(files, "default.ldl")).Entries.Single().File);
+        var files = Install(
+            true,
+            ("default.ldl", Latin1(Encode("import \"string.ldl\"\n"))),
+            ("string.ldl", Latin1(Encode("b { string p \"1\" }")))
+        );
+        Assert.AreEqual(
+            "string.ldl",
+            ((TextTable)new TextTableKind().Load(files, "default.ldl")).Entries.Single().File
+        );
     }
 
     [TestMethod]
     public void AnImportResolvesRelativeToTheFolderOfTheImportingFile()
     {
-        var files = Install(true,
+        var files = Install(
+            true,
             ("default.ldl", Latin1(Encode("import \"sub/a.ldl\"\n"))),
             ("sub/a.ldl", Latin1(Encode("import \"b.ldl\"\n"))),
             ("sub/b.ldl", Latin1(Encode("b { string p \"1\" }"))),
-            ("b.ldl", Latin1(Encode("b { string p \"root\" }"))));
+            ("b.ldl", Latin1(Encode("b { string p \"root\" }")))
+        );
         var t = (TextTable)new TextTableKind().Load(files, "default.ldl");
         Assert.AreEqual("1", t.Entries.Single().Value);
         Assert.AreEqual(0, t.Notes.Count, string.Join("|", t.Notes));
@@ -200,10 +233,15 @@ public class TextTableTests
             ("x.ldl", Latin1(Encode("b { string p \"escaped\" }"))),
             ("game/SOD/a.sod", ""),
             ("game/splash.exe", Latin1(exe)),
-            ("game/default.ldl", Latin1(Encode("import \"..\\x.ldl\"\nimport \"../x.ldl\"\n"))));
+            ("game/default.ldl", Latin1(Encode("import \"..\\x.ldl\"\nimport \"../x.ldl\"\n")))
+        );
         var files = new GameFileSystem(System.IO.Path.Combine(root, "game"));
         var t = (TextTable)new TextTableKind().Load(files, "default.ldl");
-        Assert.AreEqual((0, 2), (t.Entries.Count, t.Notes.Count(n => n.Contains("not found"))), string.Join("|", t.Notes));
+        Assert.AreEqual(
+            (0, 2),
+            (t.Entries.Count, t.Notes.Count(n => n.Contains("not found"))),
+            string.Join("|", t.Notes)
+        );
     }
 
     [TestMethod]
@@ -211,13 +249,15 @@ public class TextTableTests
     {
         var exe = new byte[TextTable.KeyOffset + TextTable.KeyLength];
         Key.CopyTo(exe, TextTable.KeyOffset);
-        var files = Install(true,
+        var files = Install(
+            true,
             ("default.ldl", Latin1(Encode("import \"string.ldl\"\nb { string r \"root\" }"))),
             ("string.ldl", Latin1(Encode("c { string r \"root\" }"))),
             ("addon/default.ldl", Latin1(Encode("b { string r \"addon\" }"))),
             ("addon/string.ldl", Latin1(Encode("c { string r \"addon\" }"))),
             ("addon/splash.exe", Latin1(new byte[exe.Length])),
-            ("addon/only.ldl", Latin1(Encode("b { }"))));
+            ("addon/only.ldl", Latin1(Encode("b { }")))
+        );
         var t = (TextTable)new TextTableKind().Load(files, "default.ldl");
         CollectionAssert.AreEqual(new[] { "root", "root" }, t.Entries.Select(e => e.Value).ToArray());
         Assert.AreEqual(0, t.Notes.Count, string.Join("|", t.Notes));

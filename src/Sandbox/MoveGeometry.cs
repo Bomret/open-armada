@@ -11,7 +11,8 @@ public static class MoveGeometry
     public static Vector2? PlaneTarget(Vector3 origin, Vector3 direction, float planeHeight)
     {
         var along = (planeHeight - origin.Y) / direction.Y;
-        if (!float.IsFinite(along) || along <= 0) return null;
+        if (!float.IsFinite(along) || along <= 0)
+            return null;
         var point = origin + direction * along;
         return new Vector2(point.X, point.Z);
     }
@@ -24,5 +25,7 @@ public static class MoveGeometry
     // and banks by `bank` (ShipMotion's pose). The heading turns about the world's Y; the bank rolls about the
     // ship's own bow axis, node-local -Z, and is negative in a left turn, so the left (-X) wing goes down.
     public static Quaternion Orientation(Quaternion initial, float headingChange, float bank) =>
-        Quaternion.CreateFromAxisAngle(Vector3.UnitY, headingChange) * initial * Quaternion.CreateFromAxisAngle(-Vector3.UnitZ, bank);
+        Quaternion.CreateFromAxisAngle(Vector3.UnitY, headingChange)
+        * initial
+        * Quaternion.CreateFromAxisAngle(-Vector3.UnitZ, bank);
 }

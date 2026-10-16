@@ -52,8 +52,7 @@ public class OdfTests
     }
 
     [TestMethod]
-    public void EmptyValueIsAnEmptyList() =>
-        Assert.AreEqual(0, Tokens("names =\r\n", "names").Length);
+    public void EmptyValueIsAnEmptyList() => Assert.AreEqual(0, Tokens("names =\r\n", "names").Length);
 
     [TestMethod]
     public void IncludesAreListedInOrderAndSectionsAreRecorded()

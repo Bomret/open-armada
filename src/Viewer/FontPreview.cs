@@ -23,11 +23,15 @@ public sealed class FontPreview : KindPreview
             var (ox, oy) = (code % 16 * cellW, code / 16 * cellH);
             var g = font.Glyphs[code];
             for (var y = 0; y < font.Height; y++)
-                for (var x = 0; x < g.Width; x++)
-                    if (g.Pixels[y * g.Width + x] != font.Transparent) image.SetPixel(ox + x, oy + y, new Color(0.05f, 0.05f, 0.2f));
+            for (var x = 0; x < g.Width; x++)
+                if (g.Pixels[y * g.Width + x] != font.Transparent)
+                    image.SetPixel(ox + x, oy + y, new Color(0.05f, 0.05f, 0.2f));
         }
         image.Resize(image.GetWidth() * Scale, image.GetHeight() * Scale, Image.Interpolation.Nearest);
         var drawn = System.Linq.Enumerable.Count(font.Glyphs, g => g.Width > 0);
-        return new ImagePane($"{font.Glyphs.Count} characters ({drawn} drawn), {font.Height} rows high, widest {cellW} columns", new[] { (name, image) });
+        return new ImagePane(
+            $"{font.Glyphs.Count} characters ({drawn} drawn), {font.Height} rows high, widest {cellW} columns",
+            new[] { (name, image) }
+        );
     }
 }

@@ -18,11 +18,14 @@ public sealed class MapPreview : KindPreview
         var outside = over.Outside();
 
         var legend = new VBoxContainer();
-        legend.AddChild(new Label
-        {
-            Text = $"{map.Map.Description}: {map.Map.Objects.Count} objects ({outside} outside the picture), {map.Starts.Count} start position(s), "
-                + $"{map.Map.Paths.Count} path(s), overview {(image == null ? "none" : image.GetWidth() + "x" + image.GetHeight())}",
-        });
+        legend.AddChild(
+            new Label
+            {
+                Text =
+                    $"{map.Map.Description}: {map.Map.Objects.Count} objects ({outside} outside the picture), {map.Starts.Count} start position(s), "
+                    + $"{map.Map.Paths.Count} path(s), overview {(image == null ? "none" : image.GetWidth() + "x" + image.GetHeight())}",
+            }
+        );
         foreach (var g in map.Map.Objects.GroupBy(o => o.Team).OrderBy(g => g.Key))
         {
             var row = new HBoxContainer();

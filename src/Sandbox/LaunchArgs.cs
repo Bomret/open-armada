@@ -20,10 +20,13 @@ public sealed class LaunchArgs
     public string? Value(string flag)
     {
         var i = Array.IndexOf(_args, flag);
-        if (i < 0) return null;
-        if (i + 1 < _args.Length && !_args[i + 1].StartsWith("--", StringComparison.Ordinal)) return _args[i + 1];
+        if (i < 0)
+            return null;
+        if (i + 1 < _args.Length && !_args[i + 1].StartsWith("--", StringComparison.Ordinal))
+            return _args[i + 1];
         var problem = $"{flag} needs a value";
-        if (!_problems.Contains(problem)) _problems.Add(problem);
+        if (!_problems.Contains(problem))
+            _problems.Add(problem);
         return null;
     }
 }

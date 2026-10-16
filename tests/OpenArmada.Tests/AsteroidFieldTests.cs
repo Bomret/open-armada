@@ -13,10 +13,26 @@ namespace OpenArmada.Tests;
 [TestClass]
 public class AsteroidFieldTests
 {
-    static readonly string[] Eight = { "master", "master1", "master2", "master3", "master4", "master5", "master6", "master7" };
+    static readonly string[] Eight =
+    {
+        "master",
+        "master1",
+        "master2",
+        "master3",
+        "master4",
+        "master5",
+        "master6",
+        "master7",
+    };
 
-    static AsteroidField Field(uint seed = 1, int min = 2, int max = 9, float radius = 100, float spin = 0.5f, float orbit = 0.25f) =>
-        new(new Vector3(10, 20, 30), min, max, radius, spin, orbit, seed, Eight);
+    static AsteroidField Field(
+        uint seed = 1,
+        int min = 2,
+        int max = 9,
+        float radius = 100,
+        float spin = 0.5f,
+        float orbit = 0.25f
+    ) => new(new Vector3(10, 20, 30), min, max, radius, spin, orbit, seed, Eight);
 
     [TestMethod]
     public void TheRockCountLiesInTheRangeAndReachesBothEnds()
@@ -30,14 +46,15 @@ public class AsteroidFieldTests
     [TestMethod]
     public void EveryRockLiesInsideTheFlattenedSphereAtAnyTime()
     {
-        const float extent = 10, r = 100 - extent;
+        const float extent = 10,
+            r = 100 - extent;
         foreach (var s in Enumerable.Range(0, 50))
-            foreach (var rock in Field((uint)s, 20, 30).Rocks(extent))
-                foreach (var t in new[] { 0.0, 3.7 })
-                {
-                    var d = rock.Pose(t).Position - new Vector3(10, 20, 30);
-                    Assert.IsTrue(d.X * d.X / (r * r) + d.Y * d.Y / (r * r * 0.25f) + d.Z * d.Z / (r * r) <= 1.0001f);
-                }
+        foreach (var rock in Field((uint)s, 20, 30).Rocks(extent))
+        foreach (var t in new[] { 0.0, 3.7 })
+        {
+            var d = rock.Pose(t).Position - new Vector3(10, 20, 30);
+            Assert.IsTrue(d.X * d.X / (r * r) + d.Y * d.Y / (r * r * 0.25f) + d.Z * d.Z / (r * r) <= 1.0001f);
+        }
     }
 
     [TestMethod]
@@ -56,37 +73,54 @@ public class AsteroidFieldTests
         var field = Field(5, 20, 30, 100);
         var (min, max) = field.DrawBox(extent);
         foreach (var rock in field.Rocks(extent))
-            foreach (var t in new[] { 0.0, 1.3, 7.9, 25.0 })
-            {
-                var p = rock.Pose(t).Position;
-                Assert.IsTrue(p.X >= min.X && p.Y >= min.Y && p.Z >= min.Z && p.X <= max.X && p.Y <= max.Y && p.Z <= max.Z);
-            }
+        foreach (var t in new[] { 0.0, 1.3, 7.9, 25.0 })
+        {
+            var p = rock.Pose(t).Position;
+            Assert.IsTrue(p.X >= min.X && p.Y >= min.Y && p.Z >= min.Z && p.X <= max.X && p.Y <= max.Y && p.Z <= max.Z);
+        }
     }
 
     [TestMethod]
     public void OnlyTheEightNamedModelsAreChosenAndAllAppear()
     {
-        var models = Enumerable.Range(0, 100).SelectMany(s => Field((uint)s, 20, 30).Rocks(5)).Select(r => r.Model).Distinct().ToList();
+        var models = Enumerable
+            .Range(0, 100)
+            .SelectMany(s => Field((uint)s, 20, 30).Rocks(5))
+            .Select(r => r.Model)
+            .Distinct()
+            .ToList();
         CollectionAssert.AreEquivalent(Eight, models);
     }
 
     [TestMethod]
     public void TheSameValuesAndSeedGiveTheSameRocks()
     {
-        CollectionAssert.AreEqual(Field(7).Rocks(5).Select(r => r.Pose(1)).ToList(), Field(7).Rocks(5).Select(r => r.Pose(1)).ToList());
+        CollectionAssert.AreEqual(
+            Field(7).Rocks(5).Select(r => r.Pose(1)).ToList(),
+            Field(7).Rocks(5).Select(r => r.Pose(1)).ToList()
+        );
     }
 
     [TestMethod]
     public void AnotherSeedGivesOtherRocks()
     {
-        CollectionAssert.AreNotEqual(Field(7, 20, 30).Rocks(5).Select(r => r.Pose(0).Position).ToList(), Field(8, 20, 30).Rocks(5).Select(r => r.Pose(0).Position).ToList());
+        CollectionAssert.AreNotEqual(
+            Field(7, 20, 30).Rocks(5).Select(r => r.Pose(0).Position).ToList(),
+            Field(8, 20, 30).Rocks(5).Select(r => r.Pose(0).Position).ToList()
+        );
     }
 
     [TestMethod]
     public void ThePoseAtATimeDoesNotDependOnTheFrameStep()
     {
         var rock = Field(3).Rocks(5)[0];
-        double Advance(double step) { double t = 0; for (var i = 0; i < 10 / step; i++) t += step; return t; }
+        double Advance(double step)
+        {
+            double t = 0;
+            for (var i = 0; i < 10 / step; i++)
+                t += step;
+            return t;
+        }
         var a = rock.Pose(Advance(0.5));
         var b = rock.Pose(Advance(0.125));
         Assert.AreEqual(a.Position, b.Position);
@@ -113,7 +147,10 @@ public class AsteroidFieldTests
     static BznBuilder.Obj Obj(string cls, uint handle) => new(cls, 0, new Vector3(100, 0, 200), "f" + handle, handle);
 
     static (IReadOnlyList<AsteroidField> Fields, IReadOnlyList<ReportEntry> Reports) Collect(
-        BznBuilder map, string odf, Func<string, bool>? hasModel = null)
+        BznBuilder map,
+        string odf,
+        Func<string, bool>? hasModel = null
+    )
     {
         var temp = new TempInstall();
         try
@@ -121,9 +158,16 @@ public class AsteroidFieldTests
             var install = new GameFileSystem(temp.MakeInstall(("addon/mafield.odf", odf)));
             var parsed = Bzn.Read(map.Build());
             var asset = new MapAsset("bzn/t.bzn", parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
-            return AsteroidField.Collect(parsed, SandboxPlan.Definitions(install, asset).Found, hasModel ?? (m => Eight.Contains(m)));
+            return AsteroidField.Collect(
+                parsed,
+                SandboxPlan.Definitions(install, asset).Found,
+                hasModel ?? (m => Eight.Contains(m))
+            );
         }
-        finally { temp.CleanUp(); }
+        finally
+        {
+            temp.CleanUp();
+        }
     }
 
     static BznBuilder MapOf(string description, params BznBuilder.Obj[] objects)
@@ -133,7 +177,8 @@ public class AsteroidFieldTests
         return b;
     }
 
-    const string Good = "classLabel = AsteroidField\nminAsteroids = 3\nmaxAsteroids = 8\nfieldRadius = 400\nrotationSpeed = 0.5\norbitingSpeed = 0.25";
+    const string Good =
+        "classLabel = AsteroidField\nminAsteroids = 3\nmaxAsteroids = 8\nfieldRadius = 400\nrotationSpeed = 0.5\norbitingSpeed = 0.25";
 
     [TestMethod]
     public void AFieldTakesItsValuesFromTheDefinitionAndTheMirroredPosition()
@@ -169,7 +214,10 @@ public class AsteroidFieldTests
     [TestMethod]
     public void AFieldWithAMissingKeyIsReportedOncePerKeyWithACountAndSkipped()
     {
-        var (fields, reports) = Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2)), Good.Replace("orbitingSpeed = 0.25", ""));
+        var (fields, reports) = Collect(
+            MapOf("m", Obj("mafield", 1), Obj("mafield", 2)),
+            Good.Replace("orbitingSpeed = 0.25", "")
+        );
         Assert.AreEqual(0, fields.Count);
         Assert.AreEqual(2, reports.Single().Count);
         StringAssert.Contains(reports.Single().Text, "orbitingSpeed");
@@ -187,7 +235,11 @@ public class AsteroidFieldTests
     [TestMethod]
     public void AMissingModelIsCountedOncePerFieldWhateverTheNumberOfMissingModels()
     {
-        var (_, reports) = Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2), Obj("mafield", 3)), Good, m => Eight.Contains(m) && m != "master3" && m != "master4");
+        var (_, reports) = Collect(
+            MapOf("m", Obj("mafield", 1), Obj("mafield", 2), Obj("mafield", 3)),
+            Good,
+            m => Eight.Contains(m) && m != "master3" && m != "master4"
+        );
         Assert.AreEqual(3, reports.Single().Count);
         CollectionAssert.AreEqual(new[] { "master3", "master4" }, reports.Single().Names.ToArray());
     }
@@ -222,9 +274,15 @@ public class AsteroidFieldTests
             var install = new GameFileSystem(temp.MakeInstall(("addon/mafield.odf", Good)));
             var parsed = Bzn.Read(MapOf(description, Obj("mafield", 1)).Build());
             var asset = new MapAsset(path, parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
-            return SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), m => Eight.Contains(m)).Fields.Single().Seed;
+            return SandboxPlan
+                .Build(asset, SandboxPlan.Definitions(install, asset), m => Eight.Contains(m))
+                .Fields.Single()
+                .Seed;
         }
-        finally { temp.CleanUp(); }
+        finally
+        {
+            temp.CleanUp();
+        }
     }
 
     [TestMethod]

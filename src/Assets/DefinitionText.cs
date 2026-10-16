@@ -17,8 +17,10 @@ public static class DefinitionText
     {
         var sb = new StringBuilder();
         sb.Append(def.Name).Append(" (").AppendJoin(" <- ", def.Chain).Append(")\n");
-        foreach (var p in def.Problems) sb.Append("problem: ").Append(p).Append('\n');
-        foreach (var n in def.Notes) sb.Append("note: ").Append(n).Append('\n');
+        foreach (var p in def.Problems)
+            sb.Append("problem: ").Append(p).Append('\n');
+        foreach (var n in def.Notes)
+            sb.Append("note: ").Append(n).Append('\n');
         sb.Append('\n');
         foreach (var v in def.Values)
         {
@@ -28,8 +30,12 @@ public static class DefinitionText
                 ValueOrigin.Inherited => $"inherited from {v.Source}",
                 _ => $"overridden by the override layer, {v.Source}",
             };
-            sb.Append(v.Key).Append(" = ").AppendJoin(' ', v.Tokens.Select(t => t.Any(char.IsWhiteSpace) ? $"\"{t}\"" : t))
-              .Append("    [").Append(mark).Append("]\n");
+            sb.Append(v.Key)
+                .Append(" = ")
+                .AppendJoin(' ', v.Tokens.Select(t => t.Any(char.IsWhiteSpace) ? $"\"{t}\"" : t))
+                .Append("    [")
+                .Append(mark)
+                .Append("]\n");
         }
         return sb.ToString();
     }
@@ -39,23 +45,38 @@ public static class DefinitionText
     public static string Format(GameFileSystem files, TechTree tree)
     {
         var sb = new StringBuilder();
-        var groups = tree.Entries
-            .GroupBy(e => RaceOf(files, e.Name))
-            .OrderBy(g => g.Key == Unknown).ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
+        var groups = tree
+            .Entries.GroupBy(e => RaceOf(files, e.Name))
+            .OrderBy(g => g.Key == Unknown)
+            .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
         foreach (var g in groups)
         {
             sb.Append(g.Key).Append('\n');
             foreach (var e in g.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase))
-                sb.Append("  ").Append(e.Name).Append(": ")
-                  .Append(e.Requires.Count == 0 ? "no requirements" : "requires " + string.Join(", ", e.Requires)).Append('\n');
+                sb.Append("  ")
+                    .Append(e.Name)
+                    .Append(": ")
+                    .Append(e.Requires.Count == 0 ? "no requirements" : "requires " + string.Join(", ", e.Requires))
+                    .Append('\n');
         }
         return sb.ToString();
     }
 
     static string RaceOf(GameFileSystem files, string definition)
     {
-        try { return ResolvedDefinition.Resolve(files, definition).GetString("race"); }
-        catch (Exception e) when (e is System.IO.FileNotFoundException or System.IO.InvalidDataException
-                                      or UnsupportedFormatException or DefinitionException) { return Unknown; }
+        try
+        {
+            return ResolvedDefinition.Resolve(files, definition).GetString("race");
+        }
+        catch (Exception e)
+            when (e
+                    is System.IO.FileNotFoundException
+                        or System.IO.InvalidDataException
+                        or UnsupportedFormatException
+                        or DefinitionException
+            )
+        {
+            return Unknown;
+        }
     }
 }

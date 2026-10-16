@@ -49,13 +49,16 @@ public partial class UnitSelection : Node3D
     {
         if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left } button)
         {
-            if (button.Pressed) _from = button.Position;
+            if (button.Pressed)
+                _from = button.Position;
             else if (_from is { } from)
             {
                 _from = null;
                 _box.Box = null;
-                if (BoxSelect.IsClick(ToNumerics(from), ToNumerics(button.Position))) Pick(button.Position);
-                else Box(from, button.Position);
+                if (BoxSelect.IsClick(ToNumerics(from), ToNumerics(button.Position)))
+                    Pick(button.Position);
+                else
+                    Box(from, button.Position);
             }
         }
         else if (e is InputEventMouseMotion motion && _from is { } start)
@@ -66,26 +69,41 @@ public partial class UnitSelection : Node3D
     void Pick(Vector2 at)
     {
         var camera = GetViewport().GetCamera3D();
-        if (camera == null) return;
+        if (camera == null)
+            return;
         var origin = camera.ProjectRayOrigin(at);
         var direction = camera.ProjectRayNormal(at);
         // ponytail: the box around the model's meshes is the hit shape (a non-unit object holding the camera
         // in its box uses the entry of its bounding sphere, and blocks nothing when the camera is inside the
         // sphere); a mesh-exact pick if overlaps matter
-        var hit = BoxSelect.Nearest(_nodes.Select(pair =>
-        {
-            if (Extent(pair.Value) is not { } box) return (pair.Key, (float?)null, false, false, (float?)null);
-            var radius = Math.Max(box.Size.X, Math.Max(box.Size.Y, box.Size.Z)) / 2;
-            return (pair.Key, Enters(box, origin, direction), _units.ContainsKey(pair.Key), box.HasPoint(origin),
-                BoxSelect.SphereEntry(ToNumerics(box.GetCenter()), radius, ToNumerics(origin), ToNumerics(direction)));
-        }));
+        var hit = BoxSelect.Nearest(
+            _nodes.Select(pair =>
+            {
+                if (Extent(pair.Value) is not { } box)
+                    return (pair.Key, (float?)null, false, false, (float?)null);
+                var radius = Math.Max(box.Size.X, Math.Max(box.Size.Y, box.Size.Z)) / 2;
+                return (
+                    pair.Key,
+                    Enters(box, origin, direction),
+                    _units.ContainsKey(pair.Key),
+                    box.HasPoint(origin),
+                    BoxSelect.SphereEntry(
+                        ToNumerics(box.GetCenter()),
+                        radius,
+                        ToNumerics(origin),
+                        ToNumerics(direction)
+                    )
+                );
+            })
+        );
         Select(hit != null && _units.TryGetValue(hit, out var unit) ? new[] { unit } : Array.Empty<SelectableUnit>());
     }
 
     void Box(Vector2 from, Vector2 to)
     {
         var camera = GetViewport().GetCamera3D();
-        if (camera == null) return;
+        if (camera == null)
+            return;
         var entries = _units.Values.Select(u =>
         {
             var position = _nodes[u.Object].GlobalPosition;
@@ -96,7 +114,11 @@ public partial class UnitSelection : Node3D
 
     void Select(IReadOnlyList<SelectableUnit> units)
     {
-        foreach (var (ring, name) in _marks.Values) { ring.QueueFree(); name.QueueFree(); }
+        foreach (var (ring, name) in _marks.Values)
+        {
+            ring.QueueFree();
+            name.QueueFree();
+        }
         _marks.Clear();
         foreach (var unit in units)
         {
@@ -106,7 +128,11 @@ public partial class UnitSelection : Node3D
             var ring = new MeshInstance3D
             {
                 Mesh = new TorusMesh { InnerRadius = radius, OuterRadius = radius * 1.04f },
-                MaterialOverride = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = Colors.Yellow },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    AlbedoColor = Colors.Yellow,
+                },
             };
             node.AddChild(ring);
             ring.TopLevel = true; // follows the ship's position only (see _Process), so the ring stays level when the ship banks
@@ -120,7 +146,8 @@ public partial class UnitSelection : Node3D
     public override void _Process(double delta)
     {
         var camera = GetViewport().GetCamera3D();
-        if (camera == null) return;
+        if (camera == null)
+            return;
         foreach (var (unit, (ring, name)) in _marks)
         {
             var position = _nodes[unit.Object].GlobalPosition;
@@ -134,12 +161,18 @@ public partial class UnitSelection : Node3D
     // behind the origin. The slab test: the ray is inside each axis' slab from `near` to `far`.
     static float? Enters(Aabb box, Vector3 origin, Vector3 direction)
     {
-        float near = 0, far = float.MaxValue;
+        float near = 0,
+            far = float.MaxValue;
         for (var axis = 0; axis < 3; axis++)
         {
             var from = (box.Position[axis] - origin[axis]) / direction[axis];
             var to = (box.End[axis] - origin[axis]) / direction[axis];
-            if (float.IsNaN(from) || float.IsNaN(to)) { if (origin[axis] < box.Position[axis] || origin[axis] > box.End[axis]) return null; continue; }
+            if (float.IsNaN(from) || float.IsNaN(to))
+            {
+                if (origin[axis] < box.Position[axis] || origin[axis] > box.End[axis])
+                    return null;
+                continue;
+            }
             near = Math.Max(near, Math.Min(from, to));
             far = Math.Min(far, Math.Max(from, to));
         }
@@ -163,12 +196,17 @@ public partial class SelectionBox : Control
     public Rect2? Box
     {
         get => _box;
-        set { _box = value; QueueRedraw(); }
+        set
+        {
+            _box = value;
+            QueueRedraw();
+        }
     }
 
     public override void _Draw()
     {
-        if (_box is not { } box) return;
+        if (_box is not { } box)
+            return;
         DrawRect(box, new Color(1, 1, 0, 0.15f));
         DrawRect(box, Colors.Yellow, false);
     }

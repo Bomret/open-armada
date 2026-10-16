@@ -18,34 +18,49 @@ public sealed class Sod
     public List<Node> Nodes = new();
     public List<AnimationChannel> Channels = new();
     public List<AnimationReference> References = new();
+
     // Data the file holds that cannot be drawn (a face index past the mesh, an unknown parent); the
     // reader keeps going and lists each one for the model.
     public List<string> Problems = new();
 
     public sealed class TextureMaterial
     {
-        public string Name = "", Texture = "";
+        public string Name = "",
+            Texture = "";
+
         // Before 1.7 each entry carries its own state: a transparency float, then Direct3D source and
         // destination blend values (1 zero, 2 one, 5 source alpha, 6 inverse source alpha) and a filter byte.
         public float Transparency;
-        public byte SrcBlend, DstBlend, Filter;
+        public byte SrcBlend,
+            DstBlend,
+            Filter;
     }
 
     public sealed class LightingMaterial
     {
         public string Name = "";
-        public Vector3 Ambient, Diffuse, Specular;
+        public Vector3 Ambient,
+            Diffuse,
+            Specular;
         public float SpecularPower;
         public byte Model; // 0 constant, 1 Lambert, 2 Phong; 255 when an old file stores 0
         public byte StoredModel; // the byte as the file holds it
     }
 
-    public enum NodeType : ushort { Null = 0, Mesh = 1, Sprite = 3, LodControl = 11, Emitter = 12 }
+    public enum NodeType : ushort
+    {
+        Null = 0,
+        Mesh = 1,
+        Sprite = 3,
+        LodControl = 11,
+        Emitter = 12,
+    }
 
     public sealed class Node
     {
         public NodeType Type;
-        public string Name = "", Parent = "";
+        public string Name = "",
+            Parent = "";
         public Matrix34 Transform;
         public Mesh? Mesh;
         public string Emitter = "";
@@ -53,7 +68,8 @@ public sealed class Sod
 
     public sealed class Mesh
     {
-        public string TextureMaterial = "", Texture = "";
+        public string TextureMaterial = "",
+            Texture = "";
         public Vector3[] Vertices = Array.Empty<Vector3>();
         public Vector2[] TexCoords = Array.Empty<Vector2>();
         public List<Group> Groups = new();
@@ -63,6 +79,7 @@ public sealed class Sod
     public sealed class Group
     {
         public string Material = "";
+
         // Three corners per face; each corner indexes Vertices and TexCoords separately.
         public (ushort Vertex, ushort TexCoord)[] Corners = Array.Empty<(ushort, ushort)>();
     }
@@ -77,13 +94,17 @@ public sealed class Sod
     public sealed class AnimationReference
     {
         public byte Type;
-        public string Node = "", Animation = "";
+        public string Node = "",
+            Animation = "";
         public float Offset;
     }
 
     public struct Matrix34
     {
-        public Vector3 Right, Up, Front, Position;
+        public Vector3 Right,
+            Up,
+            Front,
+            Position;
     }
 
     static readonly float[] KnownVersions = { 1.2f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f };
@@ -111,15 +132,17 @@ public sealed class Sod
             int count = r.ReadUInt16();
             for (int i = 0; i < count; i++)
             {
-                sod.TextureMaterials.Add(new TextureMaterial
-                {
-                    Name = Id(r),
-                    Texture = Id(r),
-                    Transparency = r.ReadSingle(),
-                    SrcBlend = r.ReadByte(),
-                    DstBlend = r.ReadByte(),
-                    Filter = r.ReadByte(),
-                });
+                sod.TextureMaterials.Add(
+                    new TextureMaterial
+                    {
+                        Name = Id(r),
+                        Texture = Id(r),
+                        Transparency = r.ReadSingle(),
+                        SrcBlend = r.ReadByte(),
+                        DstBlend = r.ReadByte(),
+                        Filter = r.ReadByte(),
+                    }
+                );
             }
         }
 
@@ -137,7 +160,10 @@ public sealed class Sod
             material.StoredModel = r.ReadByte();
             // Versions up to 1.4 store the model plus one (Armada.exe 0x59bd80; the installed files hold 1 to 3),
             // so a stored 0 there is no model: 255, which no lighting model matches.
-            material.Model = sod.Version < 1.45f ? (byte)(material.StoredModel == 0 ? 255 : material.StoredModel - 1) : material.StoredModel;
+            material.Model =
+                sod.Version < 1.45f
+                    ? (byte)(material.StoredModel == 0 ? 255 : material.StoredModel - 1)
+                    : material.StoredModel;
             sod.LightingMaterials.Add(material);
         }
 
@@ -153,10 +179,16 @@ public sealed class Sod
             };
             switch (node.Type)
             {
-                case NodeType.Mesh: node.Mesh = ReadMesh(r, sod.Version); break;
-                case NodeType.Emitter: node.Emitter = Id(r); break;
-                case NodeType.Null or NodeType.Sprite or NodeType.LodControl: break;
-                default: throw new InvalidDataException($"unknown node type {(ushort)node.Type} at {r.BaseStream.Position}");
+                case NodeType.Mesh:
+                    node.Mesh = ReadMesh(r, sod.Version);
+                    break;
+                case NodeType.Emitter:
+                    node.Emitter = Id(r);
+                    break;
+                case NodeType.Null or NodeType.Sprite or NodeType.LodControl:
+                    break;
+                default:
+                    throw new InvalidDataException($"unknown node type {(ushort)node.Type} at {r.BaseStream.Position}");
             }
             sod.Nodes.Add(node);
         }
@@ -170,19 +202,22 @@ public sealed class Sod
             ch.Period = r.ReadSingle();
             r.ReadUInt16(); // unused
             ch.Keyframes = new Matrix34[keys];
-            for (int k = 0; k < keys; k++) ch.Keyframes[k] = Matrix(r);
+            for (int k = 0; k < keys; k++)
+                ch.Keyframes[k] = Matrix(r);
             sod.Channels.Add(ch);
         }
 
         int refs = sod.Version >= 1.55f ? r.ReadUInt16() : 0;
         for (int i = 0; i < refs; i++)
-            sod.References.Add(new AnimationReference
-            {
-                Type = r.ReadByte(),
-                Node = Id(r),
-                Animation = Id(r),
-                Offset = sod.Version >= 1.75f ? r.ReadSingle() : 0f, // 1.8 added the time offset
-            });
+            sod.References.Add(
+                new AnimationReference
+                {
+                    Type = r.ReadByte(),
+                    Node = Id(r),
+                    Animation = Id(r),
+                    Offset = sod.Version >= 1.75f ? r.ReadSingle() : 0f, // 1.8 added the time offset
+                }
+            );
 
         if (r.BaseStream.Position != data.Length)
             throw new InvalidDataException($"{data.Length - r.BaseStream.Position} trailing bytes");
@@ -195,11 +230,13 @@ public sealed class Sod
     public bool InParentCycle(Node node)
     {
         var seen = new HashSet<Node>();
-        for (var current = node; current.Parent.Length > 0;)
+        for (var current = node; current.Parent.Length > 0; )
         {
             var parent = Nodes.FirstOrDefault(p => p.Name == current.Parent);
-            if (parent == null || !seen.Add(parent)) return false;
-            if (parent == node) return true;
+            if (parent == null || !seen.Add(parent))
+                return false;
+            if (parent == node)
+                return true;
             current = parent;
         }
         return false;
@@ -213,12 +250,25 @@ public sealed class Sod
             if (n.Parent.Length > 0 && !names.Contains(n.Parent))
                 Problems.Add($"node '{n.Name}' names the parent '{n.Parent}', which the model lacks");
             if (InParentCycle(n))
-                Problems.Add($"node '{n.Name}' is its own ancestor through its parents (a parent cycle); it hangs from the root");
-            if (n.Mesh is not { } m) continue;
+                Problems.Add(
+                    $"node '{n.Name}' is its own ancestor through its parents (a parent cycle); it hangs from the root"
+                );
+            if (n.Mesh is not { } m)
+                continue;
             foreach (var (v, t) in m.Groups.SelectMany(g => g.Corners))
             {
-                if (v >= m.Vertices.Length) { Problems.Add($"node '{n.Name}': a face corner uses vertex {v}, the mesh has {m.Vertices.Length}"); break; }
-                if (t >= m.TexCoords.Length) { Problems.Add($"node '{n.Name}': a face corner uses texture coordinate {t}, the mesh has {m.TexCoords.Length}"); break; }
+                if (v >= m.Vertices.Length)
+                {
+                    Problems.Add($"node '{n.Name}': a face corner uses vertex {v}, the mesh has {m.Vertices.Length}");
+                    break;
+                }
+                if (t >= m.TexCoords.Length)
+                {
+                    Problems.Add(
+                        $"node '{n.Name}': a face corner uses texture coordinate {t}, the mesh has {m.TexCoords.Length}"
+                    );
+                    break;
+                }
             }
         }
     }
@@ -239,17 +289,22 @@ public sealed class Sod
             mesh.Texture = Id(r); // names an entry of the texture material table
         }
 
-        int verts = r.ReadUInt16(), uvs = r.ReadUInt16(), groups = r.ReadUInt16();
+        int verts = r.ReadUInt16(),
+            uvs = r.ReadUInt16(),
+            groups = r.ReadUInt16();
         mesh.Vertices = new Vector3[verts];
-        for (int i = 0; i < verts; i++) mesh.Vertices[i] = Vec3(r);
+        for (int i = 0; i < verts; i++)
+            mesh.Vertices[i] = Vec3(r);
         mesh.TexCoords = new Vector2[uvs];
-        for (int i = 0; i < uvs; i++) mesh.TexCoords[i] = new Vector2(r.ReadSingle(), r.ReadSingle());
+        for (int i = 0; i < uvs; i++)
+            mesh.TexCoords[i] = new Vector2(r.ReadSingle(), r.ReadSingle());
 
         for (int g = 0; g < groups; g++)
         {
             int faces = r.ReadUInt16();
             var group = new Group { Material = Id(r), Corners = new (ushort, ushort)[faces * 3] };
-            for (int c = 0; c < faces * 3; c++) group.Corners[c] = (r.ReadUInt16(), r.ReadUInt16());
+            for (int c = 0; c < faces * 3; c++)
+                group.Corners[c] = (r.ReadUInt16(), r.ReadUInt16());
             mesh.Groups.Add(group);
         }
 
@@ -264,19 +319,24 @@ public sealed class Sod
     {
         mesh.Texture = Id(r);
         var group = new Group { Material = Id(r) };
-        int verts = r.ReadUInt16(), faces = r.ReadUInt16(), uvs = r.ReadUInt16();
+        int verts = r.ReadUInt16(),
+            faces = r.ReadUInt16(),
+            uvs = r.ReadUInt16();
         r.ReadSingle(); // always 1.0 so far, meaning unknown
         mesh.Vertices = new Vector3[verts];
-        for (int i = 0; i < verts; i++) mesh.Vertices[i] = Vec3(r);
+        for (int i = 0; i < verts; i++)
+            mesh.Vertices[i] = Vec3(r);
         mesh.TexCoords = new Vector2[uvs];
-        for (int i = 0; i < uvs; i++) mesh.TexCoords[i] = new Vector2(r.ReadSingle(), r.ReadSingle());
+        for (int i = 0; i < uvs; i++)
+            mesh.TexCoords[i] = new Vector2(r.ReadSingle(), r.ReadSingle());
 
         var corners = new List<(ushort, ushort)>();
         for (int f = 0; f < faces; f++)
         {
             int n = r.ReadUInt16();
             var poly = new (ushort V, ushort T)[n];
-            for (int c = 0; c < n; c++) poly[c] = (r.ReadUInt16(), r.ReadUInt16());
+            for (int c = 0; c < n; c++)
+                poly[c] = (r.ReadUInt16(), r.ReadUInt16());
             for (int c = 1; c + 1 < n; c++) // fan-triangulate
             {
                 corners.Add(poly[0]);
@@ -290,6 +350,15 @@ public sealed class Sod
     }
 
     static string Id(BinaryReader r) => Windows1252.Encoding.GetString(r.ReadBytes(r.ReadUInt16()));
+
     static Vector3 Vec3(BinaryReader r) => new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
-    static Matrix34 Matrix(BinaryReader r) => new() { Right = Vec3(r), Up = Vec3(r), Front = Vec3(r), Position = Vec3(r) };
+
+    static Matrix34 Matrix(BinaryReader r) =>
+        new()
+        {
+            Right = Vec3(r),
+            Up = Vec3(r),
+            Front = Vec3(r),
+            Position = Vec3(r),
+        };
 }

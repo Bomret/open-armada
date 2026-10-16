@@ -27,15 +27,22 @@ public class ImageSoundKindTests
     [TestMethod]
     public void TexturesListBothFoldersWithoutMipLevels()
     {
-        var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(4)), ("Textures/Index8/b.TGA", TgaTests.Make(4, 4, 8, 1)));
+        var fs = Install(
+            ("Textures/RGB/a.tga", Tga(8)),
+            ("Textures/RGB/a.1", Tga(4)),
+            ("Textures/Index8/b.TGA", TgaTests.Make(4, 4, 8, 1))
+        );
         CollectionAssert.AreEquivalent(new[] { "a.tga", "b.TGA" }, new TextureKind().Enumerate(fs).ToArray());
     }
 
     [TestMethod]
     public void EightBitTextureShadowedByFullColorOneIsListedWithItsFolder()
     {
-        var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/Index8/a.tga", TgaTests.Make(8, 8, 8, 1)),
-            ("Textures/Index8/a.1", TgaTests.Make(4, 4, 8, 1)));
+        var fs = Install(
+            ("Textures/RGB/a.tga", Tga(8)),
+            ("Textures/Index8/a.tga", TgaTests.Make(8, 8, 8, 1)),
+            ("Textures/Index8/a.1", TgaTests.Make(4, 4, 8, 1))
+        );
         var kind = new TextureKind();
         CollectionAssert.AreEquivalent(new[] { "a.tga", "Textures/Index8/a.tga" }, kind.Enumerate(fs).ToArray());
         var t = (TextureAsset)kind.Load(fs, "Textures/Index8/a.tga");
@@ -47,7 +54,11 @@ public class ImageSoundKindTests
     public void LevelThatEndsTheChainBySizeIsClassifiedKnownButNotLoaded()
     {
         var w = new StringWriter();
-        AssetCheck.Run(Dir(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(4)), ("Textures/RGB/a.2", Tga(3))), new AssetKind[] { new TextureKind() }, w);
+        AssetCheck.Run(
+            Dir(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(4)), ("Textures/RGB/a.2", Tga(3))),
+            new AssetKind[] { new TextureKind() },
+            w
+        );
         StringAssert.Contains(w.ToString(), "NOT LOADED Textures/RGB/a.2: texture extras");
     }
 
@@ -87,8 +98,9 @@ public class ImageSoundKindTests
     [TestMethod]
     public void MipLevelsStopAtTheFirstMissingSuffixUpToNine()
     {
-        var files = new[] { ("Textures/RGB/a.tga", Tga(512)) }
-            .Concat(new[] { 1, 2, 3, 4, 6 }.Select(i => ($"Textures/RGB/a.{i}", Tga(512 >> i))));
+        var files = new[] { ("Textures/RGB/a.tga", Tga(512)) }.Concat(
+            new[] { 1, 2, 3, 4, 6 }.Select(i => ($"Textures/RGB/a.{i}", Tga(512 >> i)))
+        );
         var t = (TextureAsset)new TextureKind().Load(Install(files.ToArray()), "a.tga");
         Assert.AreEqual(4, t.Mips.Count);
     }
@@ -96,8 +108,9 @@ public class ImageSoundKindTests
     [TestMethod]
     public void NineMipLevelsAreAllRead()
     {
-        var files = new[] { ("Textures/RGB/a.tga", Tga(512)) }
-            .Concat(Enumerable.Range(1, 9).Select(i => ($"Textures/RGB/a.{i}", Tga(512 >> i))));
+        var files = new[] { ("Textures/RGB/a.tga", Tga(512)) }.Concat(
+            Enumerable.Range(1, 9).Select(i => ($"Textures/RGB/a.{i}", Tga(512 >> i)))
+        );
         var t = (TextureAsset)new TextureKind().Load(Install(files.ToArray()), "a.tga");
         Assert.AreEqual(9, t.Mips.Count);
     }
@@ -106,7 +119,12 @@ public class ImageSoundKindTests
     public void MipChainEndsAtTheFirstLevelNotHalfTheSizeOfThePrevious()
     {
         // The install ships such files (a 32x32 base with a 128x128 level 1): level 1 and the ones after it are no part of the texture.
-        var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(4)), ("Textures/RGB/a.2", Tga(3)), ("Textures/RGB/a.3", Tga(1)));
+        var fs = Install(
+            ("Textures/RGB/a.tga", Tga(8)),
+            ("Textures/RGB/a.1", Tga(4)),
+            ("Textures/RGB/a.2", Tga(3)),
+            ("Textures/RGB/a.3", Tga(1))
+        );
         var t = (TextureAsset)new TextureKind().Load(fs, "a.tga");
         CollectionAssert.AreEqual(new[] { "a.1" }, t.Mips.Select(m => m.Name).ToArray());
     }
@@ -135,8 +153,12 @@ public class ImageSoundKindTests
     {
         var dir = Dir(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(3)));
         var output = new StringWriter();
-        var code = AssetCheck.Run(dir, new AssetKind[] { new TextureKind() }, output,
-            (kind, files, name) => throw new InvalidDataException("Godot cannot decode it"));
+        var code = AssetCheck.Run(
+            dir,
+            new AssetKind[] { new TextureKind() },
+            output,
+            (kind, files, name) => throw new InvalidDataException("Godot cannot decode it")
+        );
         StringAssert.Contains(output.ToString(), "NOTE textures/a.tga: level a.1 is 3x3, expected 4x4");
         StringAssert.Contains(output.ToString(), "FAIL textures/a.tga: Godot cannot decode it");
         Assert.AreEqual(1, code);
@@ -145,8 +167,12 @@ public class ImageSoundKindTests
     [TestMethod]
     public void NonSquareMipChainKeepsASideAtOneAndKeepsHalving()
     {
-        var fs = Install(("Textures/RGB/a.tga", TgaTests.Make(8, 2, 24)), ("Textures/RGB/a.1", TgaTests.Make(4, 1, 24)),
-            ("Textures/RGB/a.2", TgaTests.Make(2, 1, 24)), ("Textures/RGB/a.3", TgaTests.Make(1, 1, 24)));
+        var fs = Install(
+            ("Textures/RGB/a.tga", TgaTests.Make(8, 2, 24)),
+            ("Textures/RGB/a.1", TgaTests.Make(4, 1, 24)),
+            ("Textures/RGB/a.2", TgaTests.Make(2, 1, 24)),
+            ("Textures/RGB/a.3", TgaTests.Make(1, 1, 24))
+        );
         var t = (TextureAsset)new TextureKind().Load(fs, "a.tga");
         Assert.AreEqual(3, t.Mips.Count);
     }
@@ -156,8 +182,16 @@ public class ImageSoundKindTests
     {
         var dir = Dir(("sounds/ok.wav", WavTests.Make()), ("sounds/godot-rejects.wav", WavTests.Make()));
         var output = new StringWriter();
-        var code = AssetCheck.Run(dir, new AssetKind[] { new SoundKind() }, output,
-            (kind, files, name) => { if (name.Contains("godot-rejects")) throw new InvalidDataException("Godot cannot decode it (ErrFileCorrupt)"); });
+        var code = AssetCheck.Run(
+            dir,
+            new AssetKind[] { new SoundKind() },
+            output,
+            (kind, files, name) =>
+            {
+                if (name.Contains("godot-rejects"))
+                    throw new InvalidDataException("Godot cannot decode it (ErrFileCorrupt)");
+            }
+        );
         StringAssert.Contains(output.ToString(), "FAIL sounds/sounds/godot-rejects.wav: Godot cannot decode it");
         StringAssert.Contains(output.ToString(), "sounds: 1 loaded, 0 unsupported, 1 failed");
         Assert.AreEqual(1, code);
@@ -200,7 +234,10 @@ public class ImageSoundKindTests
     [TestMethod]
     public void MipLevelsComeFromTheFolderOfTheTexture()
     {
-        var fs = Install(("Textures/Index8/a.tga", TgaTests.Make(8, 8, 8, 1)), ("Textures/Index8/a.1", TgaTests.Make(4, 4, 8, 1)));
+        var fs = Install(
+            ("Textures/Index8/a.tga", TgaTests.Make(8, 8, 8, 1)),
+            ("Textures/Index8/a.1", TgaTests.Make(4, 4, 8, 1))
+        );
         Assert.AreEqual(1, ((TextureAsset)new TextureKind().Load(fs, "a.tga")).Mips.Count);
     }
 
@@ -208,8 +245,17 @@ public class ImageSoundKindTests
     public void BitmapsListEveryFolderBelowBitmapsAndBzn()
     {
         var bmp = BmpPaletteTests.MakeBmp(2, 2, 24);
-        var fs = Install(("bitmaps/a/x.bmp", bmp), ("bitmaps/a/deep/y.BMP", bmp), ("bzn/m.bmp", bmp), ("bmp/launcher.bmp", bmp), ("Textures/RGB/z.bmp", bmp));
-        CollectionAssert.AreEquivalent(new[] { "bitmaps/a/x.bmp", "bitmaps/a/deep/y.BMP", "bzn/m.bmp" }, new BitmapKind().Enumerate(fs).ToArray());
+        var fs = Install(
+            ("bitmaps/a/x.bmp", bmp),
+            ("bitmaps/a/deep/y.BMP", bmp),
+            ("bzn/m.bmp", bmp),
+            ("bmp/launcher.bmp", bmp),
+            ("Textures/RGB/z.bmp", bmp)
+        );
+        CollectionAssert.AreEquivalent(
+            new[] { "bitmaps/a/x.bmp", "bitmaps/a/deep/y.BMP", "bzn/m.bmp" },
+            new BitmapKind().Enumerate(fs).ToArray()
+        );
     }
 
     [TestMethod]
@@ -224,25 +270,43 @@ public class ImageSoundKindTests
     {
         var pal = new byte[768];
         var fs = Install(("Armada.pal", pal), ("Textures/RGB/StarTrek.pal", pal), ("Textures/Index8/other.pal", pal));
-        CollectionAssert.AreEquivalent(new[] { "Armada.pal", "StarTrek.pal" }, new PaletteKind().Enumerate(fs).ToArray());
-        Assert.AreEqual(256, ((System.Collections.Generic.IReadOnlyList<(byte, byte, byte)>)new PaletteKind().Load(fs, "StarTrek.pal")).Count);
+        CollectionAssert.AreEquivalent(
+            new[] { "Armada.pal", "StarTrek.pal" },
+            new PaletteKind().Enumerate(fs).ToArray()
+        );
+        Assert.AreEqual(
+            256,
+            (
+                (System.Collections.Generic.IReadOnlyList<(byte, byte, byte)>)new PaletteKind().Load(fs, "StarTrek.pal")
+            ).Count
+        );
     }
 
     [TestMethod]
     public void SoundsListEverySubfolderOfSounds()
     {
         var wav = WavTests.Make();
-        var fs = Install(("sounds/effects/a.wav", wav), ("sounds/voiceover/ingame/b.WAV", wav), ("wav/launcher.wav", wav));
-        CollectionAssert.AreEquivalent(new[] { "sounds/effects/a.wav", "sounds/voiceover/ingame/b.WAV" }, new SoundKind().Enumerate(fs).ToArray());
+        var fs = Install(
+            ("sounds/effects/a.wav", wav),
+            ("sounds/voiceover/ingame/b.WAV", wav),
+            ("wav/launcher.wav", wav)
+        );
+        CollectionAssert.AreEquivalent(
+            new[] { "sounds/effects/a.wav", "sounds/voiceover/ingame/b.WAV" },
+            new SoundKind().Enumerate(fs).ToArray()
+        );
     }
 
     [TestMethod]
     public void BrokenSoundIsReportedAloneAndTheRestLoad()
     {
-        var dir = Dir(("sounds/ok.wav", WavTests.Make()), ("sounds/cut.wav", WavTests.Make(declared: 100)),
-            ("sounds/adpcm.wav", WavTests.Make(format: 2)));
+        var dir = Dir(
+            ("sounds/ok.wav", WavTests.Make()),
+            ("sounds/cut.wav", WavTests.Make(declared: 100)),
+            ("sounds/adpcm.wav", WavTests.Make(format: 2))
+        );
         var output = new StringWriter();
-        var code = AssetCheck.Run(dir,new AssetKind[] { new SoundKind() }, output);
+        var code = AssetCheck.Run(dir, new AssetKind[] { new SoundKind() }, output);
         var text = output.ToString();
         StringAssert.Contains(text, "FAIL sounds/sounds/cut.wav");
         StringAssert.Contains(text, "UNSUPPORTED sounds/sounds/adpcm.wav");

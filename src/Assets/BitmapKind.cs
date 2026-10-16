@@ -17,8 +17,15 @@ public sealed class BitmapKind : AssetKind
     public override string Name => KindName;
 
     public override IEnumerable<string> Enumerate(GameFileSystem files) =>
-        files.Inventory().Where(f => f.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase)
-            && (Folders.Any(p => f.StartsWith(p, StringComparison.OrdinalIgnoreCase)) || f.Equals(Splash, StringComparison.OrdinalIgnoreCase)));
+        files
+            .Inventory()
+            .Where(f =>
+                f.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase)
+                && (
+                    Folders.Any(p => f.StartsWith(p, StringComparison.OrdinalIgnoreCase))
+                    || f.Equals(Splash, StringComparison.OrdinalIgnoreCase)
+                )
+            );
 
     public override object Load(GameFileSystem files, string name) => Bmp.Read(files.ReadAllBytes(name));
 }

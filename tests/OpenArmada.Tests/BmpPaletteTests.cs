@@ -14,7 +14,8 @@ public class BmpPaletteTests
         var palette = bpp == 8 ? 1024 : 0;
         var rows = (w * bpp + 31) / 32 * 4 * Math.Abs(h);
         var data = new byte[14 + 40 + palette + (pixelBytes >= 0 ? pixelBytes : rows)];
-        data[0] = (byte)'B'; data[1] = (byte)'M';
+        data[0] = (byte)'B';
+        data[1] = (byte)'M';
         BitConverter.GetBytes(data.Length).CopyTo(data, 2);
         BitConverter.GetBytes(14 + 40 + palette).CopyTo(data, 10);
         BitConverter.GetBytes(40).CopyTo(data, 14);
@@ -77,7 +78,9 @@ public class BmpPaletteTests
     public void PaletteHolds256Colors()
     {
         var bytes = new byte[768];
-        bytes[3] = 10; bytes[4] = 20; bytes[5] = 30;
+        bytes[3] = 10;
+        bytes[4] = 20;
+        bytes[5] = 30;
         var colors = Palette.Read(bytes);
         Assert.AreEqual((256, (byte)10, (byte)20, (byte)30), (colors.Count, colors[1].R, colors[1].G, colors[1].B));
     }

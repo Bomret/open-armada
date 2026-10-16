@@ -20,7 +20,10 @@ public class MapFileTests
     {
         var m = MapFile.Read("Input.map", "chat {\n\t+ keyboard\tEnter\n\t- keyboard \tControl\n}\n");
         Assert.AreEqual(2, m.Entries.Count);
-        Assert.AreEqual(("chat", "-", "keyboard", "Control"), (m.Entries[1].Section, m.Entries[1].Sign, m.Entries[1].Key, m.Entries[1].Value));
+        Assert.AreEqual(
+            ("chat", "-", "keyboard", "Control"),
+            (m.Entries[1].Section, m.Entries[1].Sign, m.Entries[1].Key, m.Entries[1].Value)
+        );
     }
 
     [TestMethod]
@@ -37,7 +40,10 @@ public class MapFileTests
         CollectionAssert.AreEqual(new[] { "k", "k2" }, m.Entries.Select(e => e.Key).ToArray());
         Assert.IsTrue(m.Notes.Any(n => n.StartsWith("x.map:3:")), string.Join("|", m.Notes));
         Assert.IsTrue(m.Notes.Any(n => n.StartsWith("x.map:5:")), string.Join("|", m.Notes));
-        Assert.IsTrue(m.Notes.Any(n => n.StartsWith("x.map:6:") && n.Contains("not closed")), string.Join("|", m.Notes));
+        Assert.IsTrue(
+            m.Notes.Any(n => n.StartsWith("x.map:6:") && n.Contains("not closed")),
+            string.Join("|", m.Notes)
+        );
     }
 
     [TestMethod]

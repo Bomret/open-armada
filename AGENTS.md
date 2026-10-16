@@ -19,10 +19,10 @@ In-repo `AGENTS.md` hierarchy, controlled writing standard, American English. Se
 Codeberg wiki of `bomret/open-armada`, staged locally and sent by `/superdev:publish-kb`. See `docs/agents/knowledge-base.md`.
 
 ### Toolchain
-.NET SDK 10 (net8.0) and Godot 4.7.2 .NET; build with `dotnet build OpenArmada.csproj`. See `docs/agents/toolchain.md`.
+.NET SDK 10 (net8.0) and Godot 4.7.2 .NET; build with `dotnet build OpenArmada.csproj`; format with CSharpier 1.3.0 (`dotnet csharpier format .`, a local tool). See `docs/agents/toolchain.md`.
 
 ### Verification
-Full: unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: unit tests. Arms the merge green-gate. See `docs/agents/verification.md`.
+Full: format check (`dotnet tool restore` needs NuGet access the first time), unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: unit tests. Arms the merge green-gate. See `docs/agents/verification.md`.
 
 ### Deployment
 Posture `manual`, no targets yet. See `docs/agents/deployment.md`.

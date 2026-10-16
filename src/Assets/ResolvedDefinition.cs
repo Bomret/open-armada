@@ -9,7 +9,12 @@ namespace OpenArmada.Assets;
 
 // Where a resolved value comes from: the definition itself, one of its includes, or a file of the
 // override layer (which wins over the archive's copy of the same definition, whichever level it is).
-public enum ValueOrigin { Own, Inherited, Overridden }
+public enum ValueOrigin
+{
+    Own,
+    Inherited,
+    Overridden,
+}
 
 // One resolved key. Source is the definition (as named in the include) that holds the winning value.
 public sealed record DefinitionValue(string Key, IReadOnlyList<string> Tokens, ValueOrigin Origin, string Source);
@@ -17,7 +22,8 @@ public sealed record DefinitionValue(string Key, IReadOnlyList<string> Tokens, V
 // A key that is missing or whose value has the wrong type. The message names the definition and the key.
 public sealed class DefinitionException : Exception
 {
-    public DefinitionException(string message) : base(message) { }
+    public DefinitionException(string message)
+        : base(message) { }
 }
 
 // An object definition with its include chain and the override layer applied: one value per key, the
@@ -36,7 +42,9 @@ public sealed class ResolvedDefinition
     readonly List<string> _notes = new();
     readonly HashSet<string> _missing = new();
     readonly List<(string Name, string IncludedBy)> _missingIncludes = new();
-    readonly Dictionary<string, (int Depth, IReadOnlyList<string> Includes)> _cut = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, (int Depth, IReadOnlyList<string> Includes)> _cut = new(
+        StringComparer.OrdinalIgnoreCase
+    );
 
     ResolvedDefinition(string name) => Name = name;
 
@@ -93,15 +101,23 @@ public sealed class ResolvedDefinition
         // only in chains deeper than 64). The depth problem stays listed after the recovery, because the
         // chain does exceed the limit; DefinitionKind.Check fails such a definition.
         if (visited.Contains(name))
-            return _cut.TryGetValue(name, out var c) && path.Count < c.Depth && WalkIncludes(files, name, c.Includes, path, visited);
+            return _cut.TryGetValue(name, out var c)
+                && path.Count < c.Depth
+                && WalkIncludes(files, name, c.Includes, path, visited);
         if (path.Count >= MaxDepth)
         {
             AddProblem($"include chain deeper than {MaxDepth} at '{name}'");
             return true;
         }
         byte[] bytes;
-        try { bytes = files.ReadAllBytes(name); }
-        catch (Exception e) when (path.Count > 0 && e is IOException or UnauthorizedAccessException or UnsupportedFormatException or InvalidDataException)
+        try
+        {
+            bytes = files.ReadAllBytes(name);
+        }
+        catch (Exception e)
+            when (path.Count > 0
+                && e is IOException or UnauthorizedAccessException or UnsupportedFormatException or InvalidDataException
+            )
         {
             if (e is FileNotFoundException)
             {
@@ -110,7 +126,8 @@ public sealed class ResolvedDefinition
                 _missing.Add(problem);
                 _missingIncludes.Add((name, path[^1]));
             }
-            else AddProblem($"include '{name}' cannot be read (included by {path[^1]}): {e.Message}");
+            else
+                AddProblem($"include '{name}' cannot be read (included by {path[^1]}): {e.Message}");
             return false;
         }
         var odf = Odf.Parse(Windows1252.Encoding.GetString(bytes));
@@ -119,13 +136,18 @@ public sealed class ResolvedDefinition
         _notes.AddRange(odf.Problems.Select(p => path.Count == 0 ? p : $"{name}: {p}"));
         _chain.Add(name);
 
-        var origin = files.Overrides(name) ? ValueOrigin.Overridden : path.Count == 0 ? ValueOrigin.Own : ValueOrigin.Inherited;
+        var origin =
+            files.Overrides(name) ? ValueOrigin.Overridden
+            : path.Count == 0 ? ValueOrigin.Own
+            : ValueOrigin.Inherited;
         var own = new Dictionary<string, OdfEntry>(StringComparer.OrdinalIgnoreCase);
         // The engine's rule, not confirmed against the game's reader: a repeated key in one file keeps
         // its last value, at the first one's place.
-        foreach (var e in odf.Entries) own[e.Key] = e;
+        foreach (var e in odf.Entries)
+            own[e.Key] = e;
         foreach (var e in own.Values)
-            if (_index.TryAdd(e.Key, _values.Count)) _values.Add(new DefinitionValue(e.Key, e.Tokens, origin, name));
+            if (_index.TryAdd(e.Key, _values.Count))
+                _values.Add(new DefinitionValue(e.Key, e.Tokens, origin, name));
 
         // The engine's rule, not confirmed against the game's reader: includes are visited depth first,
         // the last include first, so a later include (with everything it includes) beats an earlier one.
@@ -135,16 +157,27 @@ public sealed class ResolvedDefinition
     // A fault is listed once, however many walks reach it.
     void AddProblem(string problem)
     {
-        if (!_problems.Contains(problem)) _problems.Add(problem);
+        if (!_problems.Contains(problem))
+            _problems.Add(problem);
     }
 
-    bool WalkIncludes(GameFileSystem files, string name, IReadOnlyList<string> includes, List<string> path, HashSet<string> visited)
+    bool WalkIncludes(
+        GameFileSystem files,
+        string name,
+        IReadOnlyList<string> includes,
+        List<string> path,
+        HashSet<string> visited
+    )
     {
         var cut = false;
         path.Add(name);
-        for (var i = includes.Count - 1; i >= 0; i--) cut |= Visit(files, includes[i], path, visited);
+        for (var i = includes.Count - 1; i >= 0; i--)
+            cut |= Visit(files, includes[i], path, visited);
         path.RemoveAt(path.Count - 1);
-        if (cut) _cut[name] = (path.Count, includes); else _cut.Remove(name);
+        if (cut)
+            _cut[name] = (path.Count, includes);
+        else
+            _cut.Remove(name);
         return cut;
     }
 
@@ -158,10 +191,25 @@ public sealed class ResolvedDefinition
     {
         var found = new List<(int N, DefinitionValue Value)>();
         foreach (var v in _values)
-            if (v.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-                && v.Key.Length > prefix.Length && v.Key.AsSpan(prefix.Length).IndexOfAnyExceptInRange('0', '9') < 0)
+            if (
+                v.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && v.Key.Length > prefix.Length
+                && v.Key.AsSpan(prefix.Length).IndexOfAnyExceptInRange('0', '9') < 0
+            )
                 // A suffix too large for an int sorts last.
-                found.Add((int.TryParse(v.Key.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : int.MaxValue, v));
+                found.Add(
+                    (
+                        int.TryParse(
+                            v.Key.AsSpan(prefix.Length),
+                            NumberStyles.None,
+                            CultureInfo.InvariantCulture,
+                            out var n
+                        )
+                            ? n
+                            : int.MaxValue,
+                        v
+                    )
+                );
         return found.OrderBy(f => f.N).Select(f => f.Value).ToList();
     }
 
@@ -183,20 +231,27 @@ public sealed class ResolvedDefinition
     public float GetFloat(string key)
     {
         var t = Get(key).Tokens;
-        if (t.Count == 1 && TryNumber(t[0], out var f)) return f;
+        if (t.Count == 1 && TryNumber(t[0], out var f))
+            return f;
         throw Wrong(key, "a number", t);
     }
 
     static bool TryNumber(string token, out float f) =>
-        float.TryParse(token.EndsWith('f') || token.EndsWith('F') ? token[..^1] : token,
-            NumberStyles.Float, CultureInfo.InvariantCulture, out f) && float.IsFinite(f);
+        float.TryParse(
+            token.EndsWith('f') || token.EndsWith('F') ? token[..^1] : token,
+            NumberStyles.Float,
+            CultureInfo.InvariantCulture,
+            out f
+        ) && float.IsFinite(f);
 
     // One whole number: written as an integer or as a float with no fraction (1.0, 1f).
     public int GetInt(string key)
     {
         var t = Get(key).Tokens;
-        if (t.Count == 1 && int.TryParse(t[0], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var n)) return n;
-        if (t.Count == 1 && TryNumber(t[0], out var f) && f == MathF.Floor(f) && MathF.Abs(f) < int.MaxValue) return (int)f;
+        if (t.Count == 1 && int.TryParse(t[0], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var n))
+            return n;
+        if (t.Count == 1 && TryNumber(t[0], out var f) && f == MathF.Floor(f) && MathF.Abs(f) < int.MaxValue)
+            return (int)f;
         throw Wrong(key, "an integer", t);
     }
 

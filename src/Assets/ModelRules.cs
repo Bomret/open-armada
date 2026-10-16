@@ -8,20 +8,44 @@ using OpenArmada.Formats;
 namespace OpenArmada.Assets;
 
 // How a texture material blends: opaque, alpha-tested at 128/255 (cutout), blended by alpha, or added.
-public enum BlendMode { Opaque, Cutout, Alpha, Add }
+public enum BlendMode
+{
+    Opaque,
+    Cutout,
+    Alpha,
+    Add,
+}
 
 // A texture material's draw state. Opacity is 1 - transparency; Nearest is point texture filtering.
 // AlphaTest drops texels below 128/255 before an Alpha blend (Cutout always does).
-public sealed record BlendState(BlendMode Mode, float Opacity, bool Wireframe = false, bool Nearest = false, bool AlphaTest = false);
+public sealed record BlendState(
+    BlendMode Mode,
+    float Opacity,
+    bool Wireframe = false,
+    bool Nearest = false,
+    bool AlphaTest = false
+);
 
 // What a model's mesh draws with: its texture (the entry's own for versions before 1.7), the blend
 // state, or the reason the blend is not known. Exactly one of Blend and Problem is set.
 public sealed record MeshLook(string Texture, BlendState? Blend, string? Problem);
 
-public enum LightingModel { Constant, Lambert, Phong }
+public enum LightingModel
+{
+    Constant,
+    Lambert,
+    Phong,
+}
 
 // A lighting material as the surface is shaded. Team marks a material whose name starts "team".
-public sealed record Surface(LightingModel Model, Vector3 Ambient, Vector3 Diffuse, Vector3 Specular, float Power, bool Team)
+public sealed record Surface(
+    LightingModel Model,
+    Vector3 Ambient,
+    Vector3 Diffuse,
+    Vector3 Specular,
+    float Power,
+    bool Team
+)
 {
     // The game replaces a team material's ambient with black and its diffuse and specular with the team
     // color; power and model stay (Armada.exe FUN_005a5b00, see reports of the asset-layer scope).
@@ -45,7 +69,10 @@ public sealed record TextureAnimation(int Columns, int Rows, int Count, double F
 public static class ModelRules
 {
     // Direct3D blend values of old texture material entries.
-    const byte Zero = 1, One = 2, SrcAlpha = 5, InvSrcAlpha = 6;
+    const byte Zero = 1,
+        One = 2,
+        SrcAlpha = 5,
+        InvSrcAlpha = 6;
 
     // The animation reference type the installed models use: a texture flipbook.
     public const byte AnimationReferenceType = 4;
@@ -77,14 +104,23 @@ public static class ModelRules
     {
         if (sod.Version >= 1.65f)
         {
-            if (mesh.TextureMaterial.Length == 0) return new(mesh.Texture, Named["default"], null);
+            if (mesh.TextureMaterial.Length == 0)
+                return new(mesh.Texture, Named["default"], null);
             return Named.TryGetValue(mesh.TextureMaterial, out var named)
                 ? new(mesh.Texture, named, null)
-                : new(mesh.Texture, null, $"texture material '{mesh.TextureMaterial}' is not a render type the engine knows");
+                : new(
+                    mesh.Texture,
+                    null,
+                    $"texture material '{mesh.TextureMaterial}' is not a render type the engine knows"
+                );
         }
-        if (mesh.Texture.Length == 0) return new(mesh.Texture, Named["default"], null);
-        var entry = sod.TextureMaterials.FirstOrDefault(t => t.Name.Equals(mesh.Texture, StringComparison.OrdinalIgnoreCase));
-        if (entry == null) return new(mesh.Texture, null, $"texture material '{mesh.Texture}' is not in the model's table");
+        if (mesh.Texture.Length == 0)
+            return new(mesh.Texture, Named["default"], null);
+        var entry = sod.TextureMaterials.FirstOrDefault(t =>
+            t.Name.Equals(mesh.Texture, StringComparison.OrdinalIgnoreCase)
+        );
+        if (entry == null)
+            return new(mesh.Texture, null, $"texture material '{mesh.Texture}' is not in the model's table");
 
         var opacity = Math.Clamp(1f - entry.Transparency, 0f, 1f);
         // The game turns alpha test on for every entry whose blend is not one/one (FUN_0059b230).
@@ -96,11 +132,20 @@ public static class ModelRules
             _ => null,
         };
         return mode is { } m
-            ? new(entry.Texture, new BlendState(m, opacity, Nearest: entry.Filter == 1, AlphaTest: m == BlendMode.Alpha), null)
-            : new(entry.Texture, null, $"texture material '{entry.Name}' has blend {entry.SrcBlend}/{entry.DstBlend}, which the engine does not know");
+            ? new(
+                entry.Texture,
+                new BlendState(m, opacity, Nearest: entry.Filter == 1, AlphaTest: m == BlendMode.Alpha),
+                null
+            )
+            : new(
+                entry.Texture,
+                null,
+                $"texture material '{entry.Name}' has blend {entry.SrcBlend}/{entry.DstBlend}, which the engine does not know"
+            );
     }
 
-    public static bool IsTeam(string materialName) => materialName.StartsWith("team", StringComparison.OrdinalIgnoreCase);
+    public static bool IsTeam(string materialName) =>
+        materialName.StartsWith("team", StringComparison.OrdinalIgnoreCase);
 
     // Null when the material's model is not constant, Lambert or Phong.
     public static Surface? Lighting(Sod.LightingMaterial m) =>
@@ -113,10 +158,14 @@ public static class ModelRules
     public static TextureAnimation? Animation(SpriteAnimation a, float offset, out string? problem)
     {
         problem = null;
-        if (a.Field != "offset") problem = $"animation '{a.Name}' changes '{a.Field}', which the engine does not draw on models";
-        else if (a.Auto == null) problem = $"animation '{a.Name}' has explicit keyframes, which the engine does not draw on models";
-        else if (a.Count < 1) problem = $"animation '{a.Name}' has no frames";
-        if (problem != null) return null;
+        if (a.Field != "offset")
+            problem = $"animation '{a.Name}' changes '{a.Field}', which the engine does not draw on models";
+        else if (a.Auto == null)
+            problem = $"animation '{a.Name}' has explicit keyframes, which the engine does not draw on models";
+        else if (a.Count < 1)
+            problem = $"animation '{a.Name}' has no frames";
+        if (problem != null)
+            return null;
         var (columns, rows) = SpriteTable.Grid(a);
         return new TextureAnimation(columns, rows, a.Count, a.FrameSeconds, offset);
     }
@@ -127,13 +176,18 @@ public static class ModelRules
     {
         var tables = new SpriteTableKind().Tables(files).ToList();
         foreach (var t in tables)
-            if (t.Animations.TryGetValue(name, out var found)) return found;
+            if (t.Animations.TryGetValue(name, out var found))
+                return found;
         foreach (var t in tables)
         {
-            var sprite = t.Sprites.FirstOrDefault(s => s.Anim != null && s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (sprite == null) continue;
+            var sprite = t.Sprites.FirstOrDefault(s =>
+                s.Anim != null && s.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
+            );
+            if (sprite == null)
+                continue;
             foreach (var other in tables)
-                if (other.Animations.TryGetValue(sprite.Anim!, out var played)) return played;
+                if (other.Animations.TryGetValue(sprite.Anim!, out var played))
+                    return played;
         }
         return null;
     }
@@ -151,9 +205,19 @@ public static class ModelRules
         var kind = new ModelKind();
         foreach (var model in kind.Enumerate(files).Where(n => !n.Contains('/')))
         {
-            try { foreach (var m in ((Sod)kind.Load(files, model)).LightingMaterials) table.TryAdd(m.Name, m); }
+            try
+            {
+                foreach (var m in ((Sod)kind.Load(files, model)).LightingMaterials)
+                    table.TryAdd(m.Name, m);
+            }
             // A model that cannot be read adds none; its own check reports it.
-            catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException or UnsupportedFormatException or System.IO.InvalidDataException) { }
+            catch (Exception e)
+                when (e
+                        is System.IO.IOException
+                            or UnauthorizedAccessException
+                            or UnsupportedFormatException
+                            or System.IO.InvalidDataException
+                ) { }
         }
         return table;
     }
@@ -162,9 +226,10 @@ public static class ModelRules
     // defines. Null when no model defines it, and for an empty name (a group naming none; a material
     // named "" is never looked up).
     public static Sod.LightingMaterial? FindLightingMaterial(GameFileSystem files, Sod sod, string name) =>
-        name.Length == 0 ? null
-        : sod.LightingMaterials.FirstOrDefault(l => l.Name == name)
-        ?? (Global.GetValue(files, InstallLightingMaterials).TryGetValue(name, out var found) ? found : null);
+        name.Length == 0
+            ? null
+            : sod.LightingMaterials.FirstOrDefault(l => l.Name == name)
+                ?? (Global.GetValue(files, InstallLightingMaterials).TryGetValue(name, out var found) ? found : null);
 
     // What a model cannot be drawn as the data says (Problems, one line each: what the reader found,
     // texture materials, lighting materials and models it does not know, animation references it cannot
@@ -172,8 +237,11 @@ public static class ModelRules
     // the referenced name). MissingAnimations holds each animation reference no sprite table answers, with
     // the line it adds to Problems (null when the reference names no mesh node, so it adds none);
     // ModelKind lists such an animation as an unresolved reference and leaves the line out of its check.
-    public sealed record Analysis(IReadOnlyList<string> Problems, IReadOnlyList<(Sod.Node Node, TextureAnimation Flipbook)> Runs,
-        IReadOnlyList<(string Animation, string? Problem)> MissingAnimations);
+    public sealed record Analysis(
+        IReadOnlyList<string> Problems,
+        IReadOnlyList<(Sod.Node Node, TextureAnimation Flipbook)> Runs,
+        IReadOnlyList<(string Animation, string? Problem)> MissingAnimations
+    );
 
     public static Analysis Analyze(GameFileSystem files, Sod sod)
     {
@@ -184,32 +252,54 @@ public static class ModelRules
         foreach (var n in sod.Nodes.Where(n => n.Mesh != null))
         {
             var look = Look(sod, n.Mesh!);
-            if (look.Problem != null) problems.Add($"node '{n.Name}': {look.Problem}");
+            if (look.Problem != null)
+                problems.Add($"node '{n.Name}': {look.Problem}");
             unnamed += n.Mesh!.Groups.Count(g => g.Material.Length == 0);
             foreach (var g in n.Mesh!.Groups.Select(g => g.Material).Where(g => g.Length > 0).Distinct())
             {
                 var m = FindLightingMaterial(files, sod, g);
-                if (m == null) problems.Add($"node '{n.Name}': lighting material '{g}' is defined in no model; drawn Lambert white");
-                else if (Lighting(m) == null) problems.Add($"node '{n.Name}': lighting material '{g}' has model byte {m.StoredModel}, which the engine does not know");
+                if (m == null)
+                    problems.Add(
+                        $"node '{n.Name}': lighting material '{g}' is defined in no model; drawn Lambert white"
+                    );
+                else if (Lighting(m) == null)
+                    problems.Add(
+                        $"node '{n.Name}': lighting material '{g}' has model byte {m.StoredModel}, which the engine does not know"
+                    );
             }
         }
         // The game gives a group without a lighting material its default material (FUN_0058e850); its
         // values are not decoded, so the engine stands in with Lambert white.
-        if (unnamed > 0) problems.Add($"{unnamed} groups name no lighting material; drawn Lambert white as the engine's stand-in for the game's default material");
+        if (unnamed > 0)
+            problems.Add(
+                $"{unnamed} groups name no lighting material; drawn Lambert white as the engine's stand-in for the game's default material"
+            );
         foreach (var r in sod.References)
         {
-            if (r.Type != AnimationReferenceType) { problems.Add($"animation reference to '{r.Node}' has type {r.Type}, which the engine does not know"); continue; }
+            if (r.Type != AnimationReferenceType)
+            {
+                problems.Add($"animation reference to '{r.Node}' has type {r.Type}, which the engine does not know");
+                continue;
+            }
             var targets = sod.Nodes.Where(n => n.Mesh != null && n.Name == r.Node).ToList();
             var anim = FindAnimation(files, r.Animation);
             TextureAnimation? flipbook = null;
             string? why = null;
-            if (anim != null) flipbook = Animation(anim, r.Offset, out why);
+            if (anim != null)
+                flipbook = Animation(anim, r.Offset, out why);
             string? line = null;
-            if (targets.Count == 0) problems.Add($"animation '{r.Animation}' names the node '{r.Node}', which is no mesh node of the model");
-            else if (anim == null) problems.Add(line = $"animation '{r.Animation}' of node '{r.Node}' is in no sprite table");
-            else if (flipbook == null) problems.Add($"node '{r.Node}': {why}");
-            else runs.AddRange(targets.Select(t => (t, flipbook)));
-            if (anim == null) missing.Add((r.Animation, line));
+            if (targets.Count == 0)
+                problems.Add(
+                    $"animation '{r.Animation}' names the node '{r.Node}', which is no mesh node of the model"
+                );
+            else if (anim == null)
+                problems.Add(line = $"animation '{r.Animation}' of node '{r.Node}' is in no sprite table");
+            else if (flipbook == null)
+                problems.Add($"node '{r.Node}': {why}");
+            else
+                runs.AddRange(targets.Select(t => (t, flipbook)));
+            if (anim == null)
+                missing.Add((r.Animation, line));
         }
         return new Analysis(problems, runs, missing);
     }

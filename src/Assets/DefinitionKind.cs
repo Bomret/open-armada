@@ -23,7 +23,8 @@ public sealed class DefinitionKind : AssetKind
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var def = ResolvedDefinition.Resolve(files, name);
-        if (def.Failures.Count > 0) throw new InvalidDataException(string.Join("; ", def.Failures));
+        if (def.Failures.Count > 0)
+            throw new InvalidDataException(string.Join("; ", def.Failures));
         return def.Notes;
     }
 
@@ -35,8 +36,17 @@ public sealed class DefinitionKind : AssetKind
     static readonly string[] DefinitionKeys = { "physicsFile" };
     static readonly string[] VisualKeys =
     {
-        "Sprite", "texture", "AnimTexture", "particleTexture", "smokeTexture", "steamTexture", "sprayTexture",
-        "effectTexture", "explosionSprite", "mapSprite", "weldingBeamSprite",
+        "Sprite",
+        "texture",
+        "AnimTexture",
+        "particleTexture",
+        "smokeTexture",
+        "steamTexture",
+        "sprayTexture",
+        "effectTexture",
+        "explosionSprite",
+        "mapSprite",
+        "weldingBeamSprite",
     };
 
     // The models, definitions, sounds, textures and sprites the definition's own and overriding values
@@ -47,7 +57,8 @@ public sealed class DefinitionKind : AssetKind
     {
         var def = ResolvedDefinition.Resolve(files, name);
         var values = def.Values.Where(v => v.Origin != ValueOrigin.Inherited && v.Tokens.Count > 0).ToList();
-        IEnumerable<string> Of(string[] keys) => values.Where(v => keys.Contains(v.Key, StringComparer.OrdinalIgnoreCase)).Select(v => v.Tokens[0]);
+        IEnumerable<string> Of(string[] keys) =>
+            values.Where(v => keys.Contains(v.Key, StringComparer.OrdinalIgnoreCase)).Select(v => v.Tokens[0]);
         bool Has(string n) => files.Find(n) != null;
         // A sound name resolves through the index; one the index lacks resolves in sounds/**: by its file
         // name when it has no folder, by its path below sounds/ when it has one.
@@ -61,14 +72,32 @@ public sealed class DefinitionKind : AssetKind
         // splits only on / outside Windows).
         static string Bare(string n) => n[(n.LastIndexOfAny(new[] { '/', '\\' }) + 1)..];
         bool OtherDefinition(string includer) =>
-            files.Entry(includer) is var at && at != files.Entry(name)
-            && definitions.Value.Contains(Bare(includer)) && at == files.Entry(Bare(includer));
+            files.Entry(includer) is var at
+            && at != files.Entry(name)
+            && definitions.Value.Contains(Bare(includer))
+            && at == files.Entry(Bare(includer));
         var ownMissing = def.MissingIncludes.Where(m => !OtherDefinition(m.IncludedBy)).Select(m => m.Name);
-        return AssetReferences.Missing(ownMissing, _ => false)
-            .Concat(AssetReferences.Missing(Of(ModelKeys), n => Has(n.EndsWith(".sod", StringComparison.OrdinalIgnoreCase) ? n : n + ".sod")))
+        return AssetReferences
+            .Missing(ownMissing, _ => false)
+            .Concat(
+                AssetReferences.Missing(
+                    Of(ModelKeys),
+                    n => Has(n.EndsWith(".sod", StringComparison.OrdinalIgnoreCase) ? n : n + ".sod")
+                )
+            )
             .Concat(AssetReferences.Missing(Of(DefinitionKeys), Has))
-            .Concat(AssetReferences.Missing(values.Select(v => v.Tokens[0]).Where(t => t.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)), n => Has(n) || AssetReferences.HasSound(files, n)))
-            .Concat(AssetReferences.Missing(Of(VisualKeys), n => AssetReferences.HasTexture(files, n) || AssetReferences.SpriteNames(files).Contains(n)))
+            .Concat(
+                AssetReferences.Missing(
+                    values.Select(v => v.Tokens[0]).Where(t => t.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)),
+                    n => Has(n) || AssetReferences.HasSound(files, n)
+                )
+            )
+            .Concat(
+                AssetReferences.Missing(
+                    Of(VisualKeys),
+                    n => AssetReferences.HasTexture(files, n) || AssetReferences.SpriteNames(files).Contains(n)
+                )
+            )
             .ToList();
     }
 
@@ -76,8 +105,12 @@ public sealed class DefinitionKind : AssetKind
     // elsewhere in the install (events.odf is not a definition) are left out, and so are loose files in a
     // subfolder of addon (the game reads addon non-recursively, so no name reaches them).
     internal static IEnumerable<string> Named(GameFileSystem files, string extension) =>
-        files.Inventory()
-            .Where(f => f.Contains("::") || (f.StartsWith("addon/", StringComparison.OrdinalIgnoreCase) && f.IndexOf('/', 6) < 0))
+        files
+            .Inventory()
+            .Where(f =>
+                f.Contains("::")
+                || (f.StartsWith("addon/", StringComparison.OrdinalIgnoreCase) && f.IndexOf('/', 6) < 0)
+            )
             .Select(f => f[(Math.Max(f.LastIndexOf('/'), f.LastIndexOf(':')) + 1)..])
             .Where(f => f.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase);

@@ -13,14 +13,18 @@ public class AssetBrowserTests
     sealed class FakeKind(string name, params string[] assets) : AssetKind
     {
         public override string Name => name;
+
         public override IEnumerable<string> Enumerate(GameFileSystem f) => assets;
+
         public override object Load(GameFileSystem f, string n) => n;
     }
 
     sealed class ThrowingKind : AssetKind
     {
         public override string Name => "broken";
+
         public override IEnumerable<string> Enumerate(GameFileSystem f) => throw new IOException("disk gone");
+
         public override object Load(GameFileSystem f, string n) => n;
     }
 
@@ -116,6 +120,9 @@ public class AssetBrowserTests
     [TestMethod]
     public void Failure_message_names_asset_and_reason()
     {
-        Assert.AreEqual("Wviracod: bad magic", AssetBrowser.FailureMessage("Wviracod", new InvalidDataException("bad magic")));
+        Assert.AreEqual(
+            "Wviracod: bad magic",
+            AssetBrowser.FailureMessage("Wviracod", new InvalidDataException("bad magic"))
+        );
     }
 }

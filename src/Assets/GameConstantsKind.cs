@@ -17,10 +17,13 @@ public sealed class GameConstantsKind : AssetKind
     public override IEnumerable<string> Enumerate(GameFileSystem files) =>
         files.Entry(FileName) is null ? Array.Empty<string>() : new[] { FileName };
 
-    public override object Load(GameFileSystem files, string name) => GameConstants.Read(name, files.ReadAllBytes(name));
+    public override object Load(GameFileSystem files, string name) =>
+        GameConstants.Read(name, files.ReadAllBytes(name));
 
     // The install's game constants, for the camera and the movement to read by name.
-    public static GameConstants Of(GameFileSystem files) => (GameConstants)new GameConstantsKind().Load(files, FileName);
+    public static GameConstants Of(GameFileSystem files) =>
+        (GameConstants)new GameConstantsKind().Load(files, FileName);
 
-    public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((GameConstants)Load(files, name)).Notes;
+    public override IReadOnlyList<string> Check(GameFileSystem files, string name) =>
+        ((GameConstants)Load(files, name)).Notes;
 }

@@ -13,7 +13,10 @@ public sealed class TexturePreview : KindPreview
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var t = (TextureAsset)kind.Load(files, name);
-        var images = t.Mips.Prepend(t.Base).Select(l => ($"{l.Name}: {Describe(l.Info)}", GodotDecoders.Tga(l.Data, l.Name))).ToList();
+        var images = t
+            .Mips.Prepend(t.Base)
+            .Select(l => ($"{l.Name}: {Describe(l.Info)}", GodotDecoders.Tga(l.Data, l.Name)))
+            .ToList();
         return new ImagePane($"{Describe(t.Base.Info)}, {t.Mips.Count} mip level(s)", images);
     }
 

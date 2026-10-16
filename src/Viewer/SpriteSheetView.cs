@@ -15,7 +15,8 @@ public partial class SpriteSheetView : Control
         _texture = ImageTexture.CreateFromImage(image);
         CustomMinimumSize = new Vector2(image.GetWidth(), image.GetHeight());
         TextureFilter = TextureFilterEnum.Nearest;
-        foreach (var s in sprites) _regions.Add((s, Region(s, new SpriteFrame(s.U, s.V, s.W, s.H), image.GetSize())));
+        foreach (var s in sprites)
+            _regions.Add((s, Region(s, new SpriteFrame(s.U, s.V, s.W, s.H), image.GetSize())));
     }
 
     // A frame in reference pixels as a rectangle of the texture; without a reference it is in texture pixels.
@@ -32,7 +33,15 @@ public partial class SpriteSheetView : Control
         foreach (var (s, r) in _regions)
         {
             DrawRect(r, new Color(1, 0.2f, 0.2f), false);
-            DrawString(ThemeDB.FallbackFont, r.Position + new Vector2(1, 9), s.Name, HorizontalAlignment.Left, -1, 8, new Color(1, 1, 0));
+            DrawString(
+                ThemeDB.FallbackFont,
+                r.Position + new Vector2(1, 9),
+                s.Name,
+                HorizontalAlignment.Left,
+                -1,
+                8,
+                new Color(1, 1, 0)
+            );
         }
     }
 }

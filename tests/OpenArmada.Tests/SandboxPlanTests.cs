@@ -23,11 +23,24 @@ public class SandboxPlanTests
         Plan(map, definitions, null, models);
 
     // `edit` changes the parsed map before planning, for values the BZN reader itself rejects.
-    SandboxPlan Plan(BznBuilder map, (string Class, string Odf)[] definitions, Func<BznMap, BznMap>? edit, params string[] models)
+    SandboxPlan Plan(
+        BznBuilder map,
+        (string Class, string Odf)[] definitions,
+        Func<BznMap, BznMap>? edit,
+        params string[] models
+    )
     {
-        var install = new GameFileSystem(temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).ToArray()));
+        var install = new GameFileSystem(
+            temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).ToArray())
+        );
         var parsed = Bzn.Read(map.Build());
-        var asset = new MapAsset("bzn/t.bzn", edit?.Invoke(parsed) ?? parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+        var asset = new MapAsset(
+            "bzn/t.bzn",
+            edit?.Invoke(parsed) ?? parsed,
+            Array.Empty<MapStart>(),
+            null,
+            Array.Empty<MapPath>()
+        );
         return SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), models.Contains);
     }
 
@@ -38,8 +51,13 @@ public class SandboxPlanTests
         return b;
     }
 
-    static BznBuilder.Obj Ship(string cls = "fbattle", int team = 1, Vector3? at = null, float[]? axes = null, string label = "s") =>
-        new(cls, team, at ?? new Vector3(100, 38.5f, 200), label, Axes: axes);
+    static BznBuilder.Obj Ship(
+        string cls = "fbattle",
+        int team = 1,
+        Vector3? at = null,
+        float[]? axes = null,
+        string label = "s"
+    ) => new(cls, team, at ?? new Vector3(100, 38.5f, 200), label, Axes: axes);
 
     static readonly (string, string)[] Fbattle = { ("fbattle", "baseName = fdreadnought") };
 
@@ -90,7 +108,10 @@ public class SandboxPlanTests
     {
         var plan = Plan(MapOf(Ship(axes: new float[] { 0, 0, 0, 0, 1, 0, 0, 0, 1 })), Fbattle, "fdreadnought");
         var o = plan.Objects.Single();
-        Assert.AreEqual((new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)), (o.AxisX, o.AxisY, o.AxisZ));
+        Assert.AreEqual(
+            (new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)),
+            (o.AxisX, o.AxisY, o.AxisZ)
+        );
         var report = plan.Reports.Single();
         StringAssert.Contains(report.Cause, "orientation");
         Assert.AreEqual(1, report.Count);
@@ -99,12 +120,29 @@ public class SandboxPlanTests
     [TestMethod]
     public void NonFiniteAxesAreReportedAndUseTheIdentity()
     {
-        var plan = Plan(MapOf(Ship()), Fbattle, m => m with
-        {
-            Objects = m.Objects.Select(o => o with { Right = new Vector3(float.NaN, 0, 0), Front = new Vector3(0, 0, float.PositiveInfinity) }).ToList(),
-        }, "fdreadnought");
+        var plan = Plan(
+            MapOf(Ship()),
+            Fbattle,
+            m =>
+                m with
+                {
+                    Objects = m
+                        .Objects.Select(o =>
+                            o with
+                            {
+                                Right = new Vector3(float.NaN, 0, 0),
+                                Front = new Vector3(0, 0, float.PositiveInfinity),
+                            }
+                        )
+                        .ToList(),
+                },
+            "fdreadnought"
+        );
         var o = plan.Objects.Single();
-        Assert.AreEqual((new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)), (o.AxisX, o.AxisY, o.AxisZ));
+        Assert.AreEqual(
+            (new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)),
+            (o.AxisX, o.AxisY, o.AxisZ)
+        );
         StringAssert.Contains(plan.Reports.Single().Cause, "orientation");
     }
 
@@ -118,14 +156,23 @@ public class SandboxPlanTests
     [TestMethod]
     public void SmallButIndependentAxesAreAnOrientation()
     {
-        var plan = Plan(MapOf(Ship(axes: new float[] { 0.05f, 0, 0, 0, 0.05f, 0, 0, 0, 0.05f })), Fbattle, "fdreadnought");
+        var plan = Plan(
+            MapOf(Ship(axes: new float[] { 0.05f, 0, 0, 0, 0.05f, 0, 0, 0, 0.05f })),
+            Fbattle,
+            "fdreadnought"
+        );
         Assert.AreEqual(0, plan.Reports.Count);
     }
 
     [TestMethod]
     public void ATeamBeyondTheMapsRecordsIsReportedAndUsesItsOwnSlot()
     {
-        var plan = Plan(MapOf(Ship(team: 8)), Fbattle, m => m with { Teams = m.Teams.Take(4).ToList() }, "fdreadnought");
+        var plan = Plan(
+            MapOf(Ship(team: 8)),
+            Fbattle,
+            m => m with { Teams = m.Teams.Take(4).ToList() },
+            "fdreadnought"
+        );
         Assert.AreEqual(8, plan.Objects.Single().Slot);
         StringAssert.Contains(plan.Reports.Single().Names[0], "team 8 has no record");
     }
@@ -166,10 +213,20 @@ public class SandboxPlanTests
     public void ADefinitionThatCannotBeReadIsReportedOnceWithItsCountAndTheObjectsAreLeftOut()
     {
         // a compressed archive entry: the install lists ghost.odf, but reading it throws UnsupportedFormatException
-        var archive = System.Text.Encoding.Latin1.GetString(ZfsBuilder.Build(0, ZfsBuilder.M("ghost.odf", "baseName = fdreadnought", 2)));
-        var install = new GameFileSystem(temp.MakeInstall(("addon/fbattle.odf", "baseName = fdreadnought"), ("addon/x.zfs", archive)));
+        var archive = System.Text.Encoding.Latin1.GetString(
+            ZfsBuilder.Build(0, ZfsBuilder.M("ghost.odf", "baseName = fdreadnought", 2))
+        );
+        var install = new GameFileSystem(
+            temp.MakeInstall(("addon/fbattle.odf", "baseName = fdreadnought"), ("addon/x.zfs", archive))
+        );
         var map = MapOf(Ship("ghost", label: "a"), Ship("ghost", label: "b"), Ship());
-        var asset = new MapAsset("bzn/t.bzn", Bzn.Read(map.Build()), Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+        var asset = new MapAsset(
+            "bzn/t.bzn",
+            Bzn.Read(map.Build()),
+            Array.Empty<MapStart>(),
+            null,
+            Array.Empty<MapPath>()
+        );
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
         Assert.AreEqual(1, plan.Objects.Count);
         var report = plan.Reports.Single();
@@ -201,7 +258,8 @@ public class SandboxPlanTests
     [TestMethod]
     public void AnAsteroidFieldIsPlannedWithItsRocksAndItsGapsAreReported()
     {
-        const string odf = "classLabel = AsteroidField\nminAsteroids = 1\nmaxAsteroids = 2\nfieldRadius = 50\nrotationSpeed = 1\norbitingSpeed = 1";
+        const string odf =
+            "classLabel = AsteroidField\nminAsteroids = 1\nmaxAsteroids = 2\nfieldRadius = 50\nrotationSpeed = 1\norbitingSpeed = 1";
         var plan = Plan(MapOf(Ship("mafield")), new[] { ("mafield", odf) }, "master", "master1");
         Assert.AreEqual(1, plan.Fields.Count);
         Assert.AreEqual(1, plan.Reports.Count); // six of the eight models are missing
@@ -221,7 +279,10 @@ public class SandboxPlanTests
     {
         var map = MapOf(Ship(team: 3), Ship(team: 0));
         map.TeamColors = new int[9];
-        CollectionAssert.AreEqual(new[] { 3, 0 }, Plan(map, Fbattle, "fdreadnought").Objects.Select(o => o.Slot).ToArray());
+        CollectionAssert.AreEqual(
+            new[] { 3, 0 },
+            Plan(map, Fbattle, "fdreadnought").Objects.Select(o => o.Slot).ToArray()
+        );
     }
 
     [TestMethod]

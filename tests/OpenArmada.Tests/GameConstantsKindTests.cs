@@ -19,7 +19,11 @@ public class GameConstantsKindTests
     [TestMethod]
     public void TheKindIsFoundByDiscoveryAndListsOnlyRtsCfg()
     {
-        var files = Install(("RTS_CFG.h", "float A = 1.0;\n"), ("ART_CFG.h", "float B = 2.0;\n"), ("misc/aipdef.h", "x"));
+        var files = Install(
+            ("RTS_CFG.h", "float A = 1.0;\n"),
+            ("ART_CFG.h", "float B = 2.0;\n"),
+            ("misc/aipdef.h", "x")
+        );
         CollectionAssert.Contains(AssetKind.Discover().Select(k => k.Name).ToArray(), GameConstantsKind.KindName);
         CollectionAssert.AreEqual(new[] { "RTS_CFG.h" }, new GameConstantsKind().Enumerate(files).ToArray());
     }
@@ -60,7 +64,9 @@ public class GameConstantsKindTests
     public void AnEmptyFileFailsTheCheckWithTheFileName()
     {
         var files = Install(("RTS_CFG.h", ""));
-        var e = Assert.ThrowsExactly<System.IO.InvalidDataException>(() => new GameConstantsKind().Check(files, "RTS_CFG.h"));
+        var e = Assert.ThrowsExactly<System.IO.InvalidDataException>(() =>
+            new GameConstantsKind().Check(files, "RTS_CFG.h")
+        );
         StringAssert.Contains(e.Message, "RTS_CFG.h");
     }
 }

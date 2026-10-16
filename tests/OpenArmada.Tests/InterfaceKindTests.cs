@@ -18,9 +18,17 @@ public class InterfaceKindTests
     [TestMethod]
     public void InterfaceConfigurationsAreTheGuiFilesOfMiscAndIncludesResolveThere()
     {
-        var files = Install(("misc/gui_fed.cfg", "#include \"gui_glob.cfg\"\nb = \"é\"\n"), ("misc/gui_glob.cfg", "a = 1\n"), ("misc/other.cfg", "x"), ("CCA.cfg", "int x;"));
+        var files = Install(
+            ("misc/gui_fed.cfg", "#include \"gui_glob.cfg\"\nb = \"é\"\n"),
+            ("misc/gui_glob.cfg", "a = 1\n"),
+            ("misc/other.cfg", "x"),
+            ("CCA.cfg", "int x;")
+        );
         var kind = new InterfaceConfigKind();
-        CollectionAssert.AreEquivalent(new[] { "misc/gui_fed.cfg", "misc/gui_glob.cfg" }, kind.Enumerate(files).ToArray());
+        CollectionAssert.AreEquivalent(
+            new[] { "misc/gui_fed.cfg", "misc/gui_glob.cfg" },
+            kind.Enumerate(files).ToArray()
+        );
         var cfg = (InterfaceConfig)kind.Load(files, "misc/gui_fed.cfg");
         CollectionAssert.AreEqual(new[] { "a", "b" }, cfg.Entries.Select(e => e.Key).ToArray());
         Assert.AreEqual("é", cfg.Entries[1].Values[0]); // Windows-1252 byte 0xE9
@@ -29,8 +37,12 @@ public class InterfaceKindTests
     [TestMethod]
     public void AnAddonCopyOfAConfigurationOrOfItsIncludeWinsOverTheMiscCopy()
     {
-        var files = Install(("misc/gui_fed.cfg", "#include \"gui_glob.cfg\"\na = 1\n"), ("misc/gui_glob.cfg", "g = 1\n"),
-            ("addon/gui_glob.cfg", "g = 2\n"), ("addon/gui_fed.cfg", "#include \"gui_glob.cfg\"\na = 3\n"));
+        var files = Install(
+            ("misc/gui_fed.cfg", "#include \"gui_glob.cfg\"\na = 1\n"),
+            ("misc/gui_glob.cfg", "g = 1\n"),
+            ("addon/gui_glob.cfg", "g = 2\n"),
+            ("addon/gui_fed.cfg", "#include \"gui_glob.cfg\"\na = 3\n")
+        );
         var cfg = (InterfaceConfig)new InterfaceConfigKind().Load(files, "misc/gui_fed.cfg");
         CollectionAssert.AreEqual(new[] { "2", "3" }, cfg.Entries.Select(e => e.Values[0]).ToArray());
     }
@@ -45,7 +57,11 @@ public class InterfaceKindTests
     [TestMethod]
     public void MapsAreTheRootMapFilesDecodedAsWindows1252()
     {
-        var files = Install(("label.map", "m {\n + t {café}\n}\n"), ("Input.map", "a {\n + k v\n}\n"), ("misc/x.map", ""));
+        var files = Install(
+            ("label.map", "m {\n + t {café}\n}\n"),
+            ("Input.map", "a {\n + k v\n}\n"),
+            ("misc/x.map", "")
+        );
         var kind = new KeyMapKind();
         CollectionAssert.AreEquivalent(new[] { "label.map", "Input.map" }, kind.Enumerate(files).ToArray());
         Assert.AreEqual("café", ((MapFile)kind.Load(files, "label.map")).Entries.Single().Value);
@@ -85,7 +101,17 @@ public class InterfaceKindTests
     public void KindsAreFoundByDiscovery()
     {
         var names = AssetKind.Discover().Select(k => k.Name).ToArray();
-        foreach (var n in new[] { InterfaceConfigKind.KindName, SettingsKind.KindName, TextTableKind.KindName, KeyMapKind.KindName, FontKind.KindName, CursorKind.KindName })
+        foreach (
+            var n in new[]
+            {
+                InterfaceConfigKind.KindName,
+                SettingsKind.KindName,
+                TextTableKind.KindName,
+                KeyMapKind.KindName,
+                FontKind.KindName,
+                CursorKind.KindName,
+            }
+        )
             CollectionAssert.Contains(names, n);
     }
 }

@@ -54,7 +54,14 @@ public class GameFileSystemTests
     [TestMethod]
     public void ListNamesFilesAcrossFoldersOnceEach()
     {
-        var fs = new GameFileSystem(temp.MakeInstall(("SOD/B.SOD", "1"), ("SOD/Software/b.sod", "2"), ("SOD/Software/c.sod", "3"), ("SOD/x.txt", "4")));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(
+                ("SOD/B.SOD", "1"),
+                ("SOD/Software/b.sod", "2"),
+                ("SOD/Software/c.sod", "3"),
+                ("SOD/x.txt", "4")
+            )
+        );
         CollectionAssert.AreEquivalent(new[] { "B.SOD", "c.sod" }, fs.List(".sod", "SOD", "SOD/Software").ToArray());
     }
 

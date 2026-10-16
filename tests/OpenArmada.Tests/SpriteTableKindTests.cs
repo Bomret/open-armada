@@ -20,8 +20,12 @@ public class SpriteTableKindTests
 
     [TestMethod]
     public void ListsEveryTableOfTheSpritesFolderWithItsFolder() =>
-        CollectionAssert.AreEquivalent(new[] { "Sprites/a.spr", "Sprites/b.SPR" },
-            new SpriteTableKind().Enumerate(Install(("Sprites/a.spr", Head), ("Sprites/b.SPR", Head), ("Sprites/readme.txt", "x"))).ToArray());
+        CollectionAssert.AreEquivalent(
+            new[] { "Sprites/a.spr", "Sprites/b.SPR" },
+            new SpriteTableKind()
+                .Enumerate(Install(("Sprites/a.spr", Head), ("Sprites/b.SPR", Head), ("Sprites/readme.txt", "x")))
+                .ToArray()
+        );
 
     [TestMethod]
     public void LoadResolvesIncludesInTheSpritesFolder()
@@ -34,7 +38,11 @@ public class SpriteTableKindTests
     [TestMethod]
     public void CycleFailsTheTablesInvolvedAndLeavesTheOthersLoadable()
     {
-        var files = Install(("Sprites/a.spr", Head + "@include b.spr\n"), ("Sprites/b.spr", Head + "@include a.spr\n"), ("Sprites/ok.spr", Head + "s t 0 0 1 1\n"));
+        var files = Install(
+            ("Sprites/a.spr", Head + "@include b.spr\n"),
+            ("Sprites/b.spr", Head + "@include a.spr\n"),
+            ("Sprites/ok.spr", Head + "s t 0 0 1 1\n")
+        );
         var kind = new SpriteTableKind();
         Assert.ThrowsExactly<InvalidDataException>(() => kind.Load(files, "Sprites/a.spr"));
         Assert.AreEqual(1, ((SpriteTable)kind.Load(files, "Sprites/ok.spr")).Sprites.Count);
@@ -51,22 +59,30 @@ public class SpriteTableKindTests
     [TestMethod]
     public void MissingTextureIsUnresolvedOnceAndNoNote()
     {
-        var files = Install(("Sprites/a.spr", Head + "here t_ok 0 0 1 1\nlost t_gone 0 0 1 1\nlost2 t_gone 0 0 1 1\n"), ("Textures/RGB/t_ok.tga", "x"));
+        var files = Install(
+            ("Sprites/a.spr", Head + "here t_ok 0 0 1 1\nlost t_gone 0 0 1 1\nlost2 t_gone 0 0 1 1\n"),
+            ("Textures/RGB/t_ok.tga", "x")
+        );
         Assert.AreEqual(0, new SpriteTableKind().Check(files, "Sprites/a.spr").Count);
-        CollectionAssert.AreEqual(new[] { "t_gone" }, new SpriteTableKind().Unresolved(files, "Sprites/a.spr").ToArray());
+        CollectionAssert.AreEqual(
+            new[] { "t_gone" },
+            new SpriteTableKind().Unresolved(files, "Sprites/a.spr").ToArray()
+        );
     }
 
     [TestMethod]
     public void AnimationOfAnotherTableOfTheInstallAnimatesTheSprite()
     {
-        var files = Install(("Sprites/anims.spr", Head + "@animation r\noffset 2 1 step\n@auto=row\n@keyframes\n"),
-            ("Sprites/a.spr", Head + "s t 0 0 8 8 @anim=r\n"), ("Textures/RGB/t.tga", "x"));
+        var files = Install(
+            ("Sprites/anims.spr", Head + "@animation r\noffset 2 1 step\n@auto=row\n@keyframes\n"),
+            ("Sprites/a.spr", Head + "s t 0 0 8 8 @anim=r\n"),
+            ("Textures/RGB/t.tga", "x")
+        );
         var table = (SpriteTable)new SpriteTableKind().Load(files, "Sprites/a.spr");
         Assert.AreEqual(2, table.Frames(table.Sprites[0]).Count);
         Assert.AreEqual(0, new SpriteTableKind().Check(files, "Sprites/a.spr").Count);
     }
 
     [TestMethod]
-    public void IsFoundByDiscovery() =>
-        Assert.IsTrue(AssetKind.Discover().Any(k => k is SpriteTableKind));
+    public void IsFoundByDiscovery() => Assert.IsTrue(AssetKind.Discover().Any(k => k is SpriteTableKind));
 }

@@ -86,12 +86,18 @@ public sealed class GameFileSystem
     void LoadSources()
     {
         if (ResolveDir(new[] { "addon" }) is { } addon)
-            foreach (var f in Entries(addon).Values.Where(File.Exists).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            foreach (
+                var f in Entries(addon).Values.Where(File.Exists).OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+            )
                 if (Path.GetFileName(f).Contains(".zfs", StringComparison.OrdinalIgnoreCase) && OpenArchive(f) is { } a)
                     _addonArchives.Add(a);
 
-        if (Resolve(new[] { "startrek.zix" }) is not { } zixPath) return;
-        try { _index = ZixIndex.Parse(File.ReadAllText(zixPath, Windows1252.Encoding)); }
+        if (Resolve(new[] { "startrek.zix" }) is not { } zixPath)
+            return;
+        try
+        {
+            _index = ZixIndex.Parse(File.ReadAllText(zixPath, Windows1252.Encoding));
+        }
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
         {
             _faults.Add($"index/startrek.zix: {e.Message}");
@@ -107,15 +113,21 @@ public sealed class GameFileSystem
                 var parts = Parts(dir).Where(p => p != ".").ToArray(); // "." is the install root
                 if (dir.Contains(".zfs", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (Resolve(parts) is { } path) archive = OpenArchive(path);
-                    else _faults.Add($"index/{dir}: archive is missing");
+                    if (Resolve(parts) is { } path)
+                        archive = OpenArchive(path);
+                    else
+                        _faults.Add($"index/{dir}: archive is missing");
                 }
-                else if ((folder = ResolveDir(parts)) == null) _faults.Add($"index/{dir}: folder is missing");
+                else if ((folder = ResolveDir(parts)) == null)
+                    _faults.Add($"index/{dir}: folder is missing");
             }
             _sources.Add(new Source(folder, archive));
         }
         foreach (var (name, dir) in _index.Entries)
-            if ((_sources[dir - 1].Folder != null || _sources[dir - 1].Archive != null) && (FromAddon(name) ?? FromIndex(name)) == null)
+            if (
+                (_sources[dir - 1].Folder != null || _sources[dir - 1].Archive != null)
+                && (FromAddon(name) ?? FromIndex(name)) == null
+            )
                 _missing.Add($"index/{name}: not found in {_index.Dirs[dir - 1]}");
     }
 
@@ -123,7 +135,8 @@ public sealed class GameFileSystem
     Archive? OpenArchive(string path)
     {
         var rel = Path.GetRelativePath(Root, path).Replace('\\', '/');
-        if (_opened.TryGetValue(rel, out var opened)) return opened;
+        if (_opened.TryGetValue(rel, out var opened))
+            return opened;
         try
         {
             var zfs = ZfsArchive.Open(File.ReadAllBytes(path));
@@ -152,21 +165,27 @@ public sealed class GameFileSystem
 
     // The Inventory entry of the file `name` resolves to, and of the file ReadBeside reads; null when there is none.
     public string? Entry(string name) => Locate(name) is { } hit ? Entry(hit) : null;
+
     public string? EntryBeside(string name, string sibling) => Beside(name, sibling) is { } hit ? Entry(hit) : null;
 
     Hit? Beside(string name, string sibling)
     {
-        if (Locate(name) is not { } hit) return null;
+        if (Locate(name) is not { } hit)
+            return null;
         var parts = Parts(name);
         return parts.Length == 1 && FromAddon(parts[0]) != null ? FromAddon(sibling)
-            : hit.Archive is { } a ? (a.Zfs.Contains(ZixIndex.MemberKey(sibling)) ? new Hit(null, a, ZixIndex.MemberKey(sibling)) : null)
-            : Entries(Path.GetDirectoryName(hit.Loose)!).TryGetValue(sibling, out var path) && File.Exists(path) ? new Hit(path)
+            : hit.Archive is { } a
+                ? (a.Zfs.Contains(ZixIndex.MemberKey(sibling)) ? new Hit(null, a, ZixIndex.MemberKey(sibling)) : null)
+            : Entries(Path.GetDirectoryName(hit.Loose)!).TryGetValue(sibling, out var path) && File.Exists(path)
+                ? new Hit(path)
             : null;
     }
 
-    string Entry(Hit hit) => hit.Archive == null ? Path.GetRelativePath(Root, hit.Loose!).Replace('\\', '/') : hit.Display;
+    string Entry(Hit hit) =>
+        hit.Archive == null ? Path.GetRelativePath(Root, hit.Loose!).Replace('\\', '/') : hit.Display;
 
-    static byte[] Read(Hit hit) => hit is { Archive: { } a, Member: { } m } ? a.Zfs.Read(m) : File.ReadAllBytes(hit.Path);
+    static byte[] Read(Hit hit) =>
+        hit is { Archive: { } a, Member: { } m } ? a.Zfs.Read(m) : File.ReadAllBytes(hit.Path);
 
     // The loose file at the path, relative to the install root, as a program that opens it by path reads
     // it: no addon folder, archive, or index; null when there is none.
@@ -176,9 +195,12 @@ public sealed class GameFileSystem
     Hit? Locate(string name)
     {
         var parts = Parts(name);
-        if (parts.Length == 0) return null;
-        if (parts.Length > 1) return Resolve(parts) is { } p ? new Hit(p) : null;
-        if ((FromAddon(parts[0]) ?? FromIndex(parts[0])) is { } layered) return layered;
+        if (parts.Length == 0)
+            return null;
+        if (parts.Length > 1)
+            return Resolve(parts) is { } p ? new Hit(p) : null;
+        if ((FromAddon(parts[0]) ?? FromIndex(parts[0])) is { } layered)
+            return layered;
         var folders = Path.GetExtension(parts[0]).ToLowerInvariant() switch
         {
             ".tga" => TextureFolders,
@@ -188,7 +210,8 @@ public sealed class GameFileSystem
             _ => Array.Empty<string[]>(),
         };
         foreach (var folder in folders)
-            if (Resolve(folder.Append(parts[0]).ToArray()) is { } found) return new Hit(found);
+            if (Resolve(folder.Append(parts[0]).ToArray()) is { } found)
+                return new Hit(found);
         return null;
     }
 
@@ -197,26 +220,35 @@ public sealed class GameFileSystem
 
     Hit? FromAddon(string name)
     {
-        if (ResolveDir(new[] { "addon" }) is { } addon && Entries(addon).TryGetValue(name, out var loose) && File.Exists(loose))
+        if (
+            ResolveDir(new[] { "addon" }) is { } addon
+            && Entries(addon).TryGetValue(name, out var loose)
+            && File.Exists(loose)
+        )
             return new Hit(loose);
         foreach (var a in _addonArchives)
-            if (a.Zfs.Contains(ZixIndex.MemberKey(name))) return new Hit(null, a, ZixIndex.MemberKey(name));
+            if (a.Zfs.Contains(ZixIndex.MemberKey(name)))
+                return new Hit(null, a, ZixIndex.MemberKey(name));
         return null;
     }
 
     Hit? FromIndex(string name)
     {
-        if (_index == null || !_index.TryGetDir(name, out var dir)) return null;
+        if (_index == null || !_index.TryGetDir(name, out var dir))
+            return null;
         var source = _sources[dir - 1];
-        if (source.Archive is { } a) return a.Zfs.Contains(ZixIndex.MemberKey(name)) ? new Hit(null, a, ZixIndex.MemberKey(name)) : null;
-        if (source.Folder is { } folder && Entries(folder).TryGetValue(name, out var path) && File.Exists(path)) return new Hit(path);
+        if (source.Archive is { } a)
+            return a.Zfs.Contains(ZixIndex.MemberKey(name)) ? new Hit(null, a, ZixIndex.MemberKey(name)) : null;
+        if (source.Folder is { } folder && Entries(folder).TryGetValue(name, out var path) && File.Exists(path))
+            return new Hit(path);
         return null;
     }
 
     // Names of the members of the archives called `archive` (e.g. "objtxt.zfs"), wherever the
     // index or the addon folder places them. Find(name) then loads the winning copy.
     public IEnumerable<string> Members(string archive) =>
-        _opened.Values.OfType<Archive>()
+        _opened
+            .Values.OfType<Archive>()
             .Where(a => Path.GetFileName(a.Path).Equals(archive, StringComparison.OrdinalIgnoreCase))
             .SelectMany(a => a.Zfs.Names)
             .Distinct(StringComparer.OrdinalIgnoreCase);
@@ -237,17 +269,18 @@ public sealed class GameFileSystem
     // Every file of the install, as a game-style name with forward slashes, then every archive member
     // as "<archive path>::<member>" (the "::" tells a member from a loose file).
     public IEnumerable<string> Inventory() =>
-        Directory.EnumerateFiles(Root, "*", SearchOption.AllDirectories)
+        Directory
+            .EnumerateFiles(Root, "*", SearchOption.AllDirectories)
             .Select(f => Path.GetRelativePath(Root, f).Replace('\\', '/'))
-            .Concat(_opened.Values.OfType<Archive>()
-                .SelectMany(a => a.Zfs.Names.Select(n => $"{a.Rel}::{n}")));
+            .Concat(_opened.Values.OfType<Archive>().SelectMany(a => a.Zfs.Names.Select(n => $"{a.Rel}::{n}")));
 
     static string[] Parts(string name) => name.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
 
     string? Resolve(string[] parts)
     {
         var path = ResolveDir(parts[..^1]);
-        if (path == null) return null;
+        if (path == null)
+            return null;
         return Entries(path).TryGetValue(parts[^1], out var real) && File.Exists(real) ? real : null;
     }
 
@@ -256,7 +289,8 @@ public sealed class GameFileSystem
         var path = Root;
         foreach (var part in parts)
         {
-            if (!Entries(path).TryGetValue(part, out var next) || !Directory.Exists(next)) return null;
+            if (!Entries(path).TryGetValue(part, out var next) || !Directory.Exists(next))
+                return null;
             path = next;
         }
         return path;
@@ -265,7 +299,8 @@ public sealed class GameFileSystem
     // Case-insensitive name -> real path for the entries of one folder, listed once.
     Dictionary<string, string> Entries(string dir)
     {
-        if (_entries.TryGetValue(dir, out var map)) return map;
+        if (_entries.TryGetValue(dir, out var map))
+            return map;
         map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var e in Directory.EnumerateFileSystemEntries(dir))
             map.TryAdd(Path.GetFileName(e), e);

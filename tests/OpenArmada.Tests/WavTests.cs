@@ -11,17 +11,36 @@ namespace OpenArmada.Tests;
 public class WavTests
 {
     // Builds a WAV in code (INV-0001). `declared` is the data chunk size the header claims; `actual` the bytes that follow.
-    internal static byte[] Make(int rate = 22050, int channels = 1, int bits = 16, int format = 1, int declared = 8, int actual = 8,
-        int? byteRate = null, int? blockAlign = null, int fmtSize = 16)
+    internal static byte[] Make(
+        int rate = 22050,
+        int channels = 1,
+        int bits = 16,
+        int format = 1,
+        int declared = 8,
+        int actual = 8,
+        int? byteRate = null,
+        int? blockAlign = null,
+        int fmtSize = 16
+    )
     {
         var ms = new MemoryStream();
         var w = new BinaryWriter(ms, Encoding.ASCII);
-        w.Write("RIFF"u8.ToArray()); w.Write(36 + actual); w.Write("WAVE"u8.ToArray());
-        w.Write("fmt "u8.ToArray()); w.Write(fmtSize);
-        w.Write((short)format); w.Write((short)channels); w.Write(rate);
-        w.Write(byteRate ?? rate * channels * bits / 8); w.Write((short)(blockAlign ?? channels * bits / 8)); w.Write((short)bits);
-        for (var i = 16; i < fmtSize; i++) w.Write((byte)0);
-        w.Write("data"u8.ToArray()); w.Write(declared); w.Write(new byte[actual]);
+        w.Write("RIFF"u8.ToArray());
+        w.Write(36 + actual);
+        w.Write("WAVE"u8.ToArray());
+        w.Write("fmt "u8.ToArray());
+        w.Write(fmtSize);
+        w.Write((short)format);
+        w.Write((short)channels);
+        w.Write(rate);
+        w.Write(byteRate ?? rate * channels * bits / 8);
+        w.Write((short)(blockAlign ?? channels * bits / 8));
+        w.Write((short)bits);
+        for (var i = 16; i < fmtSize; i++)
+            w.Write((byte)0);
+        w.Write("data"u8.ToArray());
+        w.Write(declared);
+        w.Write(new byte[actual]);
         return ms.ToArray();
     }
 

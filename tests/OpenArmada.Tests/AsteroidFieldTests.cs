@@ -50,6 +50,20 @@ public class AsteroidFieldTests
     }
 
     [TestMethod]
+    public void TheDrawBoxHoldsEveryPlannedRockAtAnyTimeInAFieldMuchLargerThanTheLargestRock()
+    {
+        const float extent = 2;
+        var field = Field(5, 20, 30, 100);
+        var (min, max) = field.DrawBox(extent);
+        foreach (var rock in field.Rocks(extent))
+            foreach (var t in new[] { 0.0, 1.3, 7.9, 25.0 })
+            {
+                var p = rock.Pose(t).Position;
+                Assert.IsTrue(p.X >= min.X && p.Y >= min.Y && p.Z >= min.Z && p.X <= max.X && p.Y <= max.Y && p.Z <= max.Z);
+            }
+    }
+
+    [TestMethod]
     public void OnlyTheEightNamedModelsAreChosenAndAllAppear()
     {
         var models = Enumerable.Range(0, 100).SelectMany(s => Field((uint)s, 20, 30).Rocks(5)).Select(r => r.Model).Distinct().ToList();

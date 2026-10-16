@@ -2,7 +2,7 @@
 
 An open-source engine for Star Trek: Armada (2000), built on Godot 4 with C#. It ships no game content: it reads the files of an Armada install the player owns.
 
-Status: prototype. An asset browser previews the assets of an install: models, textures, sounds, maps, object definitions, tech trees, sprite tables, interface data, fonts, and cursors. A headless asset check loads every asset and reports each failure.
+Status: prototype. A map sandbox opens one map as a live 3D scene. An asset browser previews the assets of an install: models, textures, sounds, maps, object definitions, tech trees, sprite tables, interface data, fonts, and cursors. A headless asset check loads every asset and reports each failure.
 
 ## Requirements
 
@@ -19,11 +19,25 @@ godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 
 `ARMADA_DIR` can replace `--game`. The preview shows the asset selected in the category and asset lists. In a model preview, drag to orbit and use the mouse wheel to zoom. `--model <name>` opens the named model. `--screenshot out.png` renders one frame to a file and quits.
 
+## Run the map sandbox
+
+```sh
+godot-mono --path . -- --game "/path/to/Star Trek - Armada" --map 2duel
+```
+
+`--map <name>` opens a map from the install's `bzn` folder, matched without regard to case, folder, or extension. The scene holds the map's objects with their team colors, its background, and generated asteroid fields. Add `--screenshot out.png` to render one frame to a file and quit.
+
+- Camera: scroll with the arrow keys or by moving the cursor to a window edge, change the height with the mouse wheel, and rotate by dragging with the middle button. On a trackpad, a two-finger pan changes the height and rotates, and a pinch changes the height. The camera limits and rates come from the install's `RTS_CFG.h`.
+- The sandbox confines the cursor to its window while the window has focus. Esc releases it until the window gains focus again.
+- Left-click selects a unit, and a left-button drag selects the units in the box. Right-click sends the selected ships to a point. Stations do not move.
+- A map object or definition that cannot be read is reported as a gap, printed and counted on screen, and the map still opens.
+
 ## Layout
 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
 - `src/Rendering/` — converts parsed data into Godot nodes.
-- `src/Viewer/` — the asset browser scene script and one preview per asset kind.
+- `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene with its selection and move orders.
+- `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion; plain C# without Godot dependencies.
 - `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.
 

@@ -38,10 +38,17 @@ public class InterfaceConfigTests
     [TestMethod]
     public void IncludeCycleAndMissingIncludeAreNotesAndTheRestLoads()
     {
-        var c = Read("#include \"a.cfg\"\n#include \"nope.cfg\"\nz = 1\n", ("a.cfg", "#include \"gui_x.cfg\"\n#include \"a.cfg\"\ny = 2\n"), ("gui_x.cfg", "q = 9\n"));
+        var c = Read(
+            "#include \"a.cfg\"\n#include \"nope.cfg\"\nz = 1\n",
+            ("a.cfg", "#include \"gui_x.cfg\"\n#include \"a.cfg\"\ny = 2\n"),
+            ("gui_x.cfg", "q = 9\n")
+        );
         Assert.IsTrue(c.Entries.Any(e => e.Key == "z") && c.Entries.Any(e => e.Key == "y"));
         Assert.IsTrue(c.Notes.Any(n => n.StartsWith("a.cfg:2:") && n.Contains("cycle")), string.Join("|", c.Notes));
-        Assert.IsTrue(c.Notes.Any(n => n.StartsWith("gui_x.cfg:2:") && n.Contains("nope.cfg")), string.Join("|", c.Notes));
+        Assert.IsTrue(
+            c.Notes.Any(n => n.StartsWith("gui_x.cfg:2:") && n.Contains("nope.cfg")),
+            string.Join("|", c.Notes)
+        );
     }
 
     [TestMethod]
@@ -58,14 +65,16 @@ public class InterfaceConfigTests
     [TestMethod]
     public void ElementsSitAtTheirPositionsAndChildrenOffsetByTheirPanel()
     {
-        var c = Read("""
+        var c = Read(
+            """
             speedDefaultCursor = "c"
             speedPanelArea = 146 327 247 40
             speedSeparatorArea = 15 4 8 33
             speedSeparator = "speed_separator"
             otherPanelArea = 5 6 7 8
             stray = 1 2 3 4
-            """);
+            """
+        );
         var panel = c.Elements.Single(e => e.Name == "speedPanelArea");
         Assert.AreEqual((146f, 327f, 247f, 40f), (panel.X, panel.Y, panel.Width, panel.Height));
         Assert.IsTrue(panel.IsPanel);
@@ -80,15 +89,20 @@ public class InterfaceConfigTests
     [TestMethod]
     public void BackgroundPanelPiecesNameTheirSpriteAndSitInThePanel()
     {
-        var c = Read("""
+        var c = Read(
+            """
             speedDefaultCursor = "c"
             speedPanelArea = 100 200 247 40
             speedBackgroundPanel = "speed_panel"
             speedBackgroundPanelSize = 2
             speedBackgroundPanel_0 = 0 0 128 40
             speedBackgroundPanel_1 = 128 0 119 40
-            """);
-        var pieces = c.Elements.Where(e => e.Sprite != null && e.Sprite.StartsWith("speed_panel.")).OrderBy(e => e.Sprite).ToList();
+            """
+        );
+        var pieces = c
+            .Elements.Where(e => e.Sprite != null && e.Sprite.StartsWith("speed_panel."))
+            .OrderBy(e => e.Sprite)
+            .ToList();
         Assert.AreEqual(2, pieces.Count);
         Assert.AreEqual("speed_panel.1", pieces[1].Sprite);
         Assert.AreEqual((228f, 200f, 119f, 40f), (pieces[1].X, pieces[1].Y, pieces[1].Width, pieces[1].Height));
@@ -107,7 +121,9 @@ public class InterfaceConfigTests
     [TestMethod]
     public void APanelPieceWithoutFourNumbersIsANote()
     {
-        var c = Read("speedDefaultCursor = \"c\"\nspeedPanelArea = 1 2 3 4\nspeedBackgroundPanel = \"p\"\nspeedBackgroundPanel_0 = 0 0 5\n");
+        var c = Read(
+            "speedDefaultCursor = \"c\"\nspeedPanelArea = 1 2 3 4\nspeedBackgroundPanel = \"p\"\nspeedBackgroundPanel_0 = 0 0 5\n"
+        );
         Assert.IsFalse(c.Elements.Any(e => e.Sprite == "p.0"));
         StringAssert.StartsWith(c.Notes.Single(), "gui_x.cfg:4:");
     }

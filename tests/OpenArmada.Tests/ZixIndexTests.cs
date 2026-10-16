@@ -9,7 +9,8 @@ namespace OpenArmada.Tests;
 public class ZixIndexTests
 {
     // Built in code (INV-0001); same layout as startrek.zix: count, volume section, DIR section, entries.
-    const string Text = "000003\r\n0 d:\\x x 'Disc\r\n----\r\nDIR: assets.zfs\r\nDIR: sounds\\music\r\n----\r\n1 A.ODF\r\n2 song.wav\r\n";
+    const string Text =
+        "000003\r\n0 d:\\x x 'Disc\r\n----\r\nDIR: assets.zfs\r\nDIR: sounds\\music\r\n----\r\n1 A.ODF\r\n2 song.wav\r\n";
 
     [TestMethod]
     public void ParsesDirsInOrderAndEntriesAgainstThem()

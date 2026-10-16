@@ -14,15 +14,21 @@ public sealed class SoundPreview : KindPreview
         var wav = (WavInfo)kind.Load(files, name);
         var seconds = wav.Data.Length / (double)(wav.SampleRate * wav.Channels * wav.BitsPerSample / 8);
         var box = new VBoxContainer();
-        box.AddChild(new Label
-        {
-            Text = $"PCM WAV, {wav.SampleRate} Hz, {(wav.Channels == 1 ? "mono" : "stereo")}, {wav.BitsPerSample}-bit, {seconds:0.00} s",
-        });
+        box.AddChild(
+            new Label
+            {
+                Text =
+                    $"PCM WAV, {wav.SampleRate} Hz, {(wav.Channels == 1 ? "mono" : "stereo")}, {wav.BitsPerSample}-bit, {seconds:0.00} s",
+            }
+        );
         var player = new AudioStreamPlayer { Stream = GodotDecoders.Wav(files.ReadAllBytes(name), name) };
         var play = new Button { Text = "Play" };
         play.Pressed += () =>
         {
-            if (player.Playing) player.Stop(); else player.Play();
+            if (player.Playing)
+                player.Stop();
+            else
+                player.Play();
             play.Text = player.Playing ? "Stop" : "Play";
         };
         player.Finished += () => play.Text = "Play";

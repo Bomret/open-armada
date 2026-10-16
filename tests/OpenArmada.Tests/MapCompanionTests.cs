@@ -19,7 +19,9 @@ public class MapCompanionTests
     [TestMethod]
     public void MdfWithFewerStartsThanItsCountFails()
     {
-        var e = Assert.ThrowsExactly<InvalidDataException>(() => Mdf.Read("StartLocations = 3\r\nStart1 = 1 1\r\nStart2 = 2 2\r\n"));
+        var e = Assert.ThrowsExactly<InvalidDataException>(() =>
+            Mdf.Read("StartLocations = 3\r\nStart1 = 1 1\r\nStart2 = 2 2\r\n")
+        );
         StringAssert.Contains(e.Message, "Start3");
     }
 
@@ -32,20 +34,26 @@ public class MapCompanionTests
     [TestMethod]
     public void MdfCellOutsideTheGridFails()
     {
-        Assert.ThrowsExactly<InvalidDataException>(() => Mdf.Read("StartLocations = 2\r\nStart1 = 118 1\r\nStart2 = 1 1\r\n"));
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            Mdf.Read("StartLocations = 2\r\nStart1 = 118 1\r\nStart2 = 1 1\r\n")
+        );
     }
 
     [TestMethod]
     public void MdfLineItDoesNotKnowIsReported()
     {
-        var e = Assert.ThrowsExactly<InvalidDataException>(() => Mdf.Read("StartLocations = 2\r\nStart1 = 1 1\r\nStart2 = 1 1\r\nFoo = 1\r\n"));
+        var e = Assert.ThrowsExactly<InvalidDataException>(() =>
+            Mdf.Read("StartLocations = 2\r\nStart1 = 1 1\r\nStart2 = 1 1\r\nFoo = 1\r\n")
+        );
         StringAssert.Contains(e.Message, "Foo");
     }
 
     [TestMethod]
     public void MdfStartGivenTwiceIsReported()
     {
-        var e = Assert.ThrowsExactly<InvalidDataException>(() => Mdf.Read("StartLocations = 2\r\nStart1 = 1 1\r\nStart1 = 2 2\r\nStart2 = 1 1\r\n"));
+        var e = Assert.ThrowsExactly<InvalidDataException>(() =>
+            Mdf.Read("StartLocations = 2\r\nStart1 = 1 1\r\nStart1 = 2 2\r\nStart2 = 1 1\r\n")
+        );
         StringAssert.Contains(e.Message, "Start1");
     }
 

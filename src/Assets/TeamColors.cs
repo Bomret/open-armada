@@ -15,9 +15,33 @@ public sealed class TeamColors
     // The game's slot names in table order: 0 neutral, 1 to 8 the players' colors, then race colors.
     public static readonly IReadOnlyList<string> SlotNames = new[]
     {
-        "empty", "white", "red", "blue", "green", "yellow", "purple", "cyan", "brown", "orange", "pink", "magenta",
-        "gray", "black", "ferengi", "dominion", "klingon", "romulan", "borg", "federation", "cardassian", "breen",
-        "sona", "alien", "brickred", "burntsienna", "cerulean",
+        "empty",
+        "white",
+        "red",
+        "blue",
+        "green",
+        "yellow",
+        "purple",
+        "cyan",
+        "brown",
+        "orange",
+        "pink",
+        "magenta",
+        "gray",
+        "black",
+        "ferengi",
+        "dominion",
+        "klingon",
+        "romulan",
+        "borg",
+        "federation",
+        "cardassian",
+        "breen",
+        "sona",
+        "alien",
+        "brickred",
+        "burntsienna",
+        "cerulean",
     };
 
     readonly Dictionary<string, Vector3> _colors = new(StringComparer.OrdinalIgnoreCase);
@@ -27,21 +51,31 @@ public sealed class TeamColors
 
     // Throws KeyNotFoundException naming the slot when it is not one of SlotNames.
     public Vector3 Color(string slot) =>
-        _colors.TryGetValue(slot, out var color) ? color : throw new KeyNotFoundException($"unknown team-color slot '{slot}'");
+        _colors.TryGetValue(slot, out var color)
+            ? color
+            : throw new KeyNotFoundException($"unknown team-color slot '{slot}'");
 
     public static TeamColors Load(GameFileSystem files)
     {
         var team = new TeamColors();
         ResolvedDefinition? file = null;
-        try { file = ResolvedDefinition.Resolve(files, "teamcolor.odf"); }
-        catch (FileNotFoundException) { team._notes.Add("teamcolor.odf not found: every team color is black"); }
+        try
+        {
+            file = ResolvedDefinition.Resolve(files, "teamcolor.odf");
+        }
+        catch (FileNotFoundException)
+        {
+            team._notes.Add("teamcolor.odf not found: every team color is black");
+        }
         foreach (var name in SlotNames)
         {
             var tokens = file?.Find(name)?.Tokens;
             var color = Vector3.Zero;
             var valid = tokens != null && TryColor(tokens, out color);
-            if (file != null && tokens == null) team._notes.Add($"teamcolor.odf has no color '{name}': black");
-            else if (tokens != null && !valid) team._notes.Add($"teamcolor.odf: color '{name}' is not three numbers: black");
+            if (file != null && tokens == null)
+                team._notes.Add($"teamcolor.odf has no color '{name}': black");
+            else if (tokens != null && !valid)
+                team._notes.Add($"teamcolor.odf: color '{name}' is not three numbers: black");
             team._colors[name] = valid ? color : Vector3.Zero;
         }
         return team;
@@ -50,10 +84,15 @@ public sealed class TeamColors
     static bool TryColor(IReadOnlyList<string> t, out Vector3 color)
     {
         color = default;
-        if (t.Count < 3) return false;
+        if (t.Count < 3)
+            return false;
         var v = new float[3];
         for (var i = 0; i < 3; i++)
-            if (!float.TryParse(t[i].TrimEnd('f'), NumberStyles.Float, CultureInfo.InvariantCulture, out v[i]) || !float.IsFinite(v[i])) return false;
+            if (
+                !float.TryParse(t[i].TrimEnd('f'), NumberStyles.Float, CultureInfo.InvariantCulture, out v[i])
+                || !float.IsFinite(v[i])
+            )
+                return false;
         color = new Vector3(v[0], v[1], v[2]);
         return true;
     }

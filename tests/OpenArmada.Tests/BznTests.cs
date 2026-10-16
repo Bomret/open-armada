@@ -22,7 +22,10 @@ public class BznTests
     public void ReadsHeaderBoundsAndEnvironment()
     {
         var map = Bzn.Read(Sample().Build());
-        Assert.AreEqual((2051, "Test Map", "tech1.tt", "federation", "mbgstars.sod"), (map.Version, map.Description, map.TechTree, map.Race, map.BackgroundArt));
+        Assert.AreEqual(
+            (2051, "Test Map", "tech1.tt", "federation", "mbgstars.sod"),
+            (map.Version, map.Description, map.TechTree, map.Race, map.BackgroundArt)
+        );
         Assert.AreEqual(new MapBounds(0, 6400, -28.5f, 105.5f, 0, 6400), map.Bounds);
     }
 
@@ -118,7 +121,11 @@ public class BznTests
     public void ObjectWithoutATailWithinThePrefixLimitIsReportedAtItsOffset()
     {
         var b = Sample();
-        b.Objects[0] = b.Objects[0] with { Prefix = Enumerable.Repeat(BznBuilder.Bool(false), 70).ToArray(), NoTail = true };
+        b.Objects[0] = b.Objects[0] with
+        {
+            Prefix = Enumerable.Repeat(BznBuilder.Bool(false), 70).ToArray(),
+            NoTail = true,
+        };
         var bytes = b.Build();
         var e = Assert.ThrowsExactly<InvalidDataException>(() => Bzn.Read(bytes));
         StringAssert.Contains(e.Message, $"at offset {ObjectOffset(bytes, "fbattle")}");

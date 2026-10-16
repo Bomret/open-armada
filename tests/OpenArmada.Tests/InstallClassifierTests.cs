@@ -112,27 +112,81 @@ public class InstallClassifierTests
             string Tga(int size) => System.Text.Encoding.Latin1.GetString(TgaTests.Make(size, size, 24));
             string[] files =
             {
-                "SOD/a.sod", "SOD/Software/b.sod", "SOD/sub/c.sod", "SOD/readme.txt",
-                "Textures/RGB/t.tga", "Textures/Index8/u.tga", "Textures/RGB/sub/v.tga", "Textures/RGB/pal1.pal", "Armada.pal",
-                "Sprites/s.spr", "Sprites/sub/w.spr", "Sprites/x.txt",
-                "bitmaps/ms/m.bmp", "bzn/k.bzn", "bzn/n.bmp", "bzn/o.xyz", "splash.bmp", "other.bmp",
-                "sounds/music/e.wav", "sounds/f.wav", "wav/g.wav",
-                "cursors/c.cur", "cursors/sub/d.cur", "misc/gui_a.cfg", "misc/other.cfg",
-                "RTS_CFG.h", "ART_CFG.h", "addon/ART_CFG.h", "l.map", "l.set", "l.ldl", "l.fnt", "addon/h.odf", "addon/sub/i.odf", "events.odf", "j.odf",
-                "addon/p.sod", "addon/r.wav",
-                "addon/l.fnt", "addon/l.map", "addon/l.set", "addon/Armada.pal", "addon/splash.bmp", "addon/gui_a.cfg",
+                "SOD/a.sod",
+                "SOD/Software/b.sod",
+                "SOD/sub/c.sod",
+                "SOD/readme.txt",
+                "Textures/RGB/t.tga",
+                "Textures/Index8/u.tga",
+                "Textures/RGB/sub/v.tga",
+                "Textures/RGB/pal1.pal",
+                "Armada.pal",
+                "Sprites/s.spr",
+                "Sprites/sub/w.spr",
+                "Sprites/x.txt",
+                "bitmaps/ms/m.bmp",
+                "bzn/k.bzn",
+                "bzn/n.bmp",
+                "bzn/o.xyz",
+                "splash.bmp",
+                "other.bmp",
+                "sounds/music/e.wav",
+                "sounds/f.wav",
+                "wav/g.wav",
+                "cursors/c.cur",
+                "cursors/sub/d.cur",
+                "misc/gui_a.cfg",
+                "misc/other.cfg",
+                "RTS_CFG.h",
+                "ART_CFG.h",
+                "addon/ART_CFG.h",
+                "l.map",
+                "l.set",
+                "l.ldl",
+                "l.fnt",
+                "addon/h.odf",
+                "addon/sub/i.odf",
+                "events.odf",
+                "j.odf",
+                "addon/p.sod",
+                "addon/r.wav",
+                "addon/l.fnt",
+                "addon/l.map",
+                "addon/l.set",
+                "addon/Armada.pal",
+                "addon/splash.bmp",
+                "addon/gui_a.cfg",
             };
-            var root = temp.MakeInstall(files.Select(f => (f, ""))
-                .Append(("addon/q.tga", Tga(8))).Append(("addon/q.1", Tga(4)))
-                .Append(("Textures/RGB/q.tga", Tga(16))).Append(("Textures/RGB/q.1", Tga(8)))
-                .Append(("assets.zfs", System.Text.Encoding.Latin1.GetString(ZfsBuilder.Build(0,
-                    ZfsBuilder.M("a.sod", ""), ZfsBuilder.M("t.tga", ""), ZfsBuilder.M("z.odf", "")))))
-                .Append(("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: assets.zfs\n----\n1 z.odf\n"))
-                .ToArray());
+            var root = temp.MakeInstall(
+                files
+                    .Select(f => (f, ""))
+                    .Append(("addon/q.tga", Tga(8)))
+                    .Append(("addon/q.1", Tga(4)))
+                    .Append(("Textures/RGB/q.tga", Tga(16)))
+                    .Append(("Textures/RGB/q.1", Tga(8)))
+                    .Append(
+                        (
+                            "assets.zfs",
+                            System.Text.Encoding.Latin1.GetString(
+                                ZfsBuilder.Build(
+                                    0,
+                                    ZfsBuilder.M("a.sod", ""),
+                                    ZfsBuilder.M("t.tga", ""),
+                                    ZfsBuilder.M("z.odf", "")
+                                )
+                            )
+                        )
+                    )
+                    .Append(("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: assets.zfs\n----\n1 z.odf\n"))
+                    .ToArray()
+            );
             var fs = new GameFileSystem(root);
             return InstallClassifier.Classify(fs.Inventory(), fs);
         }
-        finally { temp.CleanUp(); }
+        finally
+        {
+            temp.CleanUp();
+        }
     }
 
     // The Loaded entries of the fixture are exactly the files the game reads, listed by hand: each kind's
@@ -144,15 +198,39 @@ public class InstallClassifierTests
     {
         string[] expected =
         {
-            "addon/armada.pal", "addon/gui_a.cfg", "addon/h.odf", "addon/l.fnt", "addon/l.map", "addon/l.set",
-            "addon/p.sod", "addon/q.1", "addon/q.tga", "addon/splash.bmp", "assets.zfs::z.odf",
-            "bitmaps/ms/m.bmp", "bzn/k.bzn", "bzn/n.bmp", "cursors/c.cur", "cursors/sub/d.cur", "l.ldl",
-            "rts_cfg.h", "sod/a.sod", "sod/software/b.sod", "sounds/f.wav", "sounds/music/e.wav", "sprites/s.spr",
-            "textures/index8/u.tga", "textures/rgb/pal1.pal", "textures/rgb/q.1", "textures/rgb/q.tga", "textures/rgb/t.tga",
+            "addon/armada.pal",
+            "addon/gui_a.cfg",
+            "addon/h.odf",
+            "addon/l.fnt",
+            "addon/l.map",
+            "addon/l.set",
+            "addon/p.sod",
+            "addon/q.1",
+            "addon/q.tga",
+            "addon/splash.bmp",
+            "assets.zfs::z.odf",
+            "bitmaps/ms/m.bmp",
+            "bzn/k.bzn",
+            "bzn/n.bmp",
+            "cursors/c.cur",
+            "cursors/sub/d.cur",
+            "l.ldl",
+            "rts_cfg.h",
+            "sod/a.sod",
+            "sod/software/b.sod",
+            "sounds/f.wav",
+            "sounds/music/e.wav",
+            "sprites/s.spr",
+            "textures/index8/u.tga",
+            "textures/rgb/pal1.pal",
+            "textures/rgb/q.1",
+            "textures/rgb/q.tga",
+            "textures/rgb/t.tga",
         };
         var loaded = ClassifyFixture()
             .Where(c => c.Class == FileClass.Loaded && !c.Entry.EndsWith(".zfs") && !c.Entry.EndsWith(".zix"))
-            .Select(c => c.Entry.ToLowerInvariant()).ToHashSet();
+            .Select(c => c.Entry.ToLowerInvariant())
+            .ToHashSet();
         Assert.AreEqual(string.Join(" ", expected.Order()), string.Join(" ", loaded.Order()));
     }
 
@@ -162,8 +240,10 @@ public class InstallClassifierTests
     {
         var classified = ClassifyFixture();
         Classified Of(string entry) => classified.Single(c => c.Entry == entry);
-        Assert.AreEqual((FileClass.Loaded, FileClass.KnownNotLoaded, "shadowed copies"),
-            (Of("addon/gui_a.cfg").Class, Of("misc/gui_a.cfg").Class, Of("misc/gui_a.cfg").Group));
+        Assert.AreEqual(
+            (FileClass.Loaded, FileClass.KnownNotLoaded, "shadowed copies"),
+            (Of("addon/gui_a.cfg").Class, Of("misc/gui_a.cfg").Class, Of("misc/gui_a.cfg").Group)
+        );
     }
 
     // A stock mip level the stock texture does not read, while the override texture reads a level of its
@@ -175,13 +255,20 @@ public class InstallClassifierTests
         try
         {
             string Tga(int size) => System.Text.Encoding.Latin1.GetString(TgaTests.Make(size, size, 24));
-            var root = temp.MakeInstall(("addon/q.tga", Tga(8)), ("addon/q.1", Tga(4)),
-                ("Textures/RGB/q.tga", Tga(16)), ("Textures/RGB/q.1", Tga(4)));
+            var root = temp.MakeInstall(
+                ("addon/q.tga", Tga(8)),
+                ("addon/q.1", Tga(4)),
+                ("Textures/RGB/q.tga", Tga(16)),
+                ("Textures/RGB/q.1", Tga(4))
+            );
             var fs = new GameFileSystem(root);
             var stock = InstallClassifier.Classify(fs.Inventory(), fs).Single(c => c.Entry == "Textures/RGB/q.1");
             Assert.AreEqual((FileClass.KnownNotLoaded, "shadowed copies"), (stock.Class, stock.Group));
         }
-        finally { temp.CleanUp(); }
+        finally
+        {
+            temp.CleanUp();
+        }
     }
 
     [TestMethod]

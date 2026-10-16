@@ -29,7 +29,8 @@ public sealed class TextureKind : AssetKind
     // A bare name resolves like Find: the override layer first, then full color over 8-bit. A texture
     // hidden behind another of the same name is listed with its folder ("Textures/Index8/x.tga"), so it
     // is still loaded and checked; a texture only the override layer or an archive holds is listed too.
-    public override IEnumerable<string> Enumerate(GameFileSystem files) => Layered(files, ".tga", "Textures/RGB", "Textures/Index8");
+    public override IEnumerable<string> Enumerate(GameFileSystem files) =>
+        Layered(files, ".tga", "Textures/RGB", "Textures/Index8");
 
     // The texture's own file only, with no mip level read. The builder uses it: a model needs the base image.
     public TextureLevel LoadBase(GameFileSystem files, string name)
@@ -45,7 +46,8 @@ public sealed class TextureKind : AssetKind
 
     public override object Load(GameFileSystem files, string name)
     {
-        if (_last is { } last && last.Files == files && last.Name == name) return last.Asset;
+        if (_last is { } last && last.Files == files && last.Name == name)
+            return last.Asset;
         var asset = Read(files, name);
         _last = (files, name, asset);
         return asset;
@@ -62,12 +64,23 @@ public sealed class TextureKind : AssetKind
         {
             var mipName = $"{stem}.{i}";
             // A level comes from where the base came from (GameFileSystem.ReadBeside).
-            if (files.ReadBeside(name, mipName) is not { } bytes) break;
+            if (files.ReadBeside(name, mipName) is not { } bytes)
+                break;
             TgaInfo info;
-            try { info = Tga.Read(bytes); }
-            catch (InvalidDataException e) { throw new InvalidDataException($"{mipName}: {e.Message}"); }
-            catch (UnsupportedFormatException e) { throw new UnsupportedFormatException($"{mipName}: {e.Message}"); }
-            int wantW = Math.Max(1, previous.Width / 2), wantH = Math.Max(1, previous.Height / 2);
+            try
+            {
+                info = Tga.Read(bytes);
+            }
+            catch (InvalidDataException e)
+            {
+                throw new InvalidDataException($"{mipName}: {e.Message}");
+            }
+            catch (UnsupportedFormatException e)
+            {
+                throw new UnsupportedFormatException($"{mipName}: {e.Message}");
+            }
+            int wantW = Math.Max(1, previous.Width / 2),
+                wantH = Math.Max(1, previous.Height / 2);
             if (info.Width != wantW || info.Height != wantH)
             {
                 notes.Add($"level {mipName} is {info.Width}x{info.Height}, expected {wantW}x{wantH}");
@@ -79,15 +92,22 @@ public sealed class TextureKind : AssetKind
         return new TextureAsset(baseLevel, mips, notes);
     }
 
-    public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((TextureAsset)Load(files, name)).Notes;
+    public override IReadOnlyList<string> Check(GameFileSystem files, string name) =>
+        ((TextureAsset)Load(files, name)).Notes;
 
     // The base and each level the texture holds, read beside the base; a texture with no first level is
     // not loaded to find that out, and one that fails to load reads no level.
     public override IEnumerable<string> Reads(GameFileSystem files, string name)
     {
         var reads = base.Reads(files, name).ToList();
-        if (reads.Count == 0 || files.EntryBeside(name, Path.GetFileNameWithoutExtension(name) + ".1") == null) return reads;
-        try { reads.AddRange(((TextureAsset)Load(files, name)).Mips.Select(m => files.EntryBeside(name, m.Name)).OfType<string>()); }
+        if (reads.Count == 0 || files.EntryBeside(name, Path.GetFileNameWithoutExtension(name) + ".1") == null)
+            return reads;
+        try
+        {
+            reads.AddRange(
+                ((TextureAsset)Load(files, name)).Mips.Select(m => files.EntryBeside(name, m.Name)).OfType<string>()
+            );
+        }
         catch (Exception) { }
         return reads;
     }

@@ -18,7 +18,8 @@ public sealed class GameConstantsPreview : KindPreview
         var includes = c.Includes.Count == 0 ? "" : "INCLUDES\n" + string.Join("\n", c.Includes) + "\n\n";
         var width = c.Values.Count == 0 ? 0 : c.Values.Max(v => v.Name.Length);
         var values = c.Values.Select(v =>
-            $"{v.Type,-6} {v.Name.PadRight(width)}  {(v.Number is { } n ? n.ToString(CultureInfo.InvariantCulture) : v.IsString ? $"\"{v.Text}\"" : v.Text)}");
+            $"{v.Type, -6} {v.Name.PadRight(width)}  {(v.Number is { } n ? n.ToString(CultureInfo.InvariantCulture) : v.IsString ? $"\"{v.Text}\"" : v.Text)}"
+        );
         return ReadOnlyText(NotesBlock(c.Notes) + includes + string.Join("\n", values), true);
     }
 }

@@ -25,6 +25,7 @@ public partial class MapSandboxView : Node3D
     Node3D? _background;
     Vector3 _backgroundOffset;
     Camera3D? _camera;
+
     // Null while the map shows a problem instead of the scene (_Ready returns before the rig is built).
     CameraRig? _rig;
     bool _mouseInWindow = true;
@@ -53,7 +54,8 @@ public partial class MapSandboxView : Node3D
         {
             window.FocusEntered += () => Input.MouseMode = Input.MouseModeEnum.Confined;
             window.FocusExited += () => Input.MouseMode = Input.MouseModeEnum.Visible;
-            if (window.HasFocus()) Input.MouseMode = Input.MouseModeEnum.Confined;
+            if (window.HasFocus())
+                Input.MouseMode = Input.MouseModeEnum.Confined;
         }
         var files = _sandbox.Files!;
         var plan = _sandbox.Plan!;
@@ -64,25 +66,31 @@ public partial class MapSandboxView : Node3D
 
         // The scene's ambient light is the map's. stand-in: the directional light (its direction and
         // energy), the ambient energy of 1 and the black clear color; the install defines none.
-        AddChild(new WorldEnvironment
-        {
-            Environment = new Godot.Environment
+        AddChild(
+            new WorldEnvironment
             {
-                BackgroundMode = Godot.Environment.BGMode.Color,
-                BackgroundColor = Colors.Black,
-                AmbientLightSource = Godot.Environment.AmbientSource.Color,
-                AmbientLightColor = new Color(plan.Ambient.X, plan.Ambient.Y, plan.Ambient.Z),
-                AmbientLightEnergy = 1f,
-            },
-        });
+                Environment = new Godot.Environment
+                {
+                    BackgroundMode = Godot.Environment.BGMode.Color,
+                    BackgroundColor = Colors.Black,
+                    AmbientLightSource = Godot.Environment.AmbientSource.Color,
+                    AmbientLightColor = new Color(plan.Ambient.X, plan.Ambient.Y, plan.Ambient.Z),
+                    AmbientLightEnergy = 1f,
+                },
+            }
+        );
         AddChild(new DirectionalLight3D { RotationDegrees = new Vector3(-50, -30, 0) });
 
         var nodes = new Dictionary<PlacedObject, Node3D>();
         foreach (var o in plan.Objects)
         {
             var node = Instance(files, builder, team, o.Model, o.Slot);
-            if (node == null) continue;
-            node.Transform = new Transform3D(new Basis(ToGodot(o.AxisX), ToGodot(o.AxisY), ToGodot(o.AxisZ)), ToGodot(o.Position));
+            if (node == null)
+                continue;
+            node.Transform = new Transform3D(
+                new Basis(ToGodot(o.AxisX), ToGodot(o.AxisY), ToGodot(o.AxisZ)),
+                ToGodot(o.Position)
+            );
             AddChild(node);
             nodes[o] = node;
         }
@@ -92,13 +100,17 @@ public partial class MapSandboxView : Node3D
 
         // The rig reads the game constants once per start; move orders aim at its combat plane.
         var bounds = plan.Bounds;
-        try { _rig = new CameraRig(GameConstantsKind.Of(files), bounds); }
+        try
+        {
+            _rig = new CameraRig(GameConstantsKind.Of(files), bounds);
+        }
         catch (Exception e) // no readable RTS_CFG.h: the camera uses its stand-ins (INV-0002)
         {
             AddGap($"{GameConstantsKind.FileName} cannot be read: {e.Message}");
             _rig = new CameraRig(null, bounds);
         }
-        foreach (var problem in _rig.Problems) AddGap(problem);
+        foreach (var problem in _rig.Problems)
+            AddGap(problem);
         AddChild(new MoveOrders(files, plan, selection, nodes, (float)_rig.CombatPlaneHeight, AddGap));
 
         AddChild(new AsteroidFieldsView(files, plan, AddGap));
@@ -107,11 +119,18 @@ public partial class MapSandboxView : Node3D
         // look-at point (which stays within the map) plus the map's diagonal.
         var reach = (float)_rig.MaxDistance + MathF.Sqrt(bounds.Width * bounds.Width + bounds.Depth * bounds.Depth);
         // stand-in: the camera's field of view and near plane; the far plane covers the map and the background.
-        var camera = new Camera3D { Fov = 60, Near = 1, Far = reach * 4, Current = true };
+        var camera = new Camera3D
+        {
+            Fov = 60,
+            Near = 1,
+            Far = reach * 4,
+            Current = true,
+        };
         AddChild(camera);
         _camera = camera;
         PlaceCamera();
-        if (plan.Background != null) AddBackground(files, builder, team, plan.Background, camera, reach);
+        if (plan.Background != null)
+            AddBackground(files, builder, team, plan.Background, camera, reach);
         Show(null);
     }
 
@@ -119,13 +138,17 @@ public partial class MapSandboxView : Node3D
     // ones copy it (they share its meshes and materials, so animated textures run once).
     Node3D? Instance(GameFileSystem files, SodBuilder builder, TeamColors team, string model, int slot)
     {
-        if (_templates.TryGetValue((model, slot), out var template)) return (Node3D)template.Duplicate();
-        if (_unreadable.Contains(model)) return null;
+        if (_templates.TryGetValue((model, slot), out var template))
+            return (Node3D)template.Duplicate();
+        if (_unreadable.Contains(model))
+            return null;
         try
         {
-            if (!_sods.TryGetValue(model, out var sod)) _sods[model] = sod = Sod.Read(files.ReadAllBytes(model + ".sod"));
+            if (!_sods.TryGetValue(model, out var sod))
+                _sods[model] = sod = Sod.Read(files.ReadAllBytes(model + ".sod"));
             var node = builder.Build(sod, team.Color(TeamColors.SlotNames[slot]));
-            foreach (var problem in builder.Problems) AddGap($"{model}: {problem}");
+            foreach (var problem in builder.Problems)
+                AddGap($"{model}: {problem}");
             _templates[(model, slot)] = node;
             return node;
         }
@@ -139,26 +162,52 @@ public partial class MapSandboxView : Node3D
 
     void AddGap(string gap)
     {
-        if (!_gaps.Contains(gap)) _gaps.Add(gap);
+        if (!_gaps.Contains(gap))
+            _gaps.Add(gap);
     }
 
     // The background model sits behind every other object: it is scaled until its origin's nearest distance to
     // a face of its box passes the sandbox's reach, kept with its box center (its origin when inside) on the camera, and the far plane
     // passes its farthest corner, so no camera position or rotation clips it or puts an object behind it.
     // A model whose origin lies outside its box is centered on the box first, so the camera is inside it.
-    void AddBackground(GameFileSystem files, SodBuilder builder, TeamColors team, string model, Camera3D camera, float reach)
+    void AddBackground(
+        GameFileSystem files,
+        SodBuilder builder,
+        TeamColors team,
+        string model,
+        Camera3D camera,
+        float reach
+    )
     {
         var node = Instance(files, builder, team, model, 0);
-        if (node == null) return;
+        if (node == null)
+            return;
         // The box in the model's own frame; a model without visible meshes gets a unit box.
-        var box = VisibleMeshes.Extent(VisibleMeshes.Of(node), Transform3D.Identity) ?? new Aabb(-Vector3.One, Vector3.One * 2);
-        var inside = box.Position.X < 0 && box.Position.Y < 0 && box.Position.Z < 0 && box.End.X > 0 && box.End.Y > 0 && box.End.Z > 0;
+        var box =
+            VisibleMeshes.Extent(VisibleMeshes.Of(node), Transform3D.Identity)
+            ?? new Aabb(-Vector3.One, Vector3.One * 2);
+        var inside =
+            box.Position.X < 0
+            && box.Position.Y < 0
+            && box.Position.Z < 0
+            && box.End.X > 0
+            && box.End.Y > 0
+            && box.End.Z > 0;
         var shift = inside ? Vector3.Zero : -box.GetCenter();
         box.Position += shift;
         var low = -box.Position;
         var high = box.End;
-        var nearest = MathF.Min(MathF.Min(MathF.Min(low.X, high.X), MathF.Min(low.Y, high.Y)), MathF.Min(low.Z, high.Z));
-        var farthest = new[] { low.X, high.X }.SelectMany(x => new[] { low.Y, high.Y }.SelectMany(y => new[] { low.Z, high.Z }.Select(z => new Vector3(x, y, z).Length()))).Max();
+        var nearest = MathF.Min(
+            MathF.Min(MathF.Min(low.X, high.X), MathF.Min(low.Y, high.Y)),
+            MathF.Min(low.Z, high.Z)
+        );
+        var farthest = new[] { low.X, high.X }
+            .SelectMany(x =>
+                new[] { low.Y, high.Y }.SelectMany(y =>
+                    new[] { low.Z, high.Z }.Select(z => new Vector3(x, y, z).Length())
+                )
+            )
+            .Max();
         // stand-in: the factor 1.5 of margin past the reach and past the farthest corner.
         var scale = reach * 1.5f / MathF.Max(nearest, 0.001f);
         node.Transform = new Transform3D(Basis.FromScale(Vector3.One * scale), shift * scale);
@@ -173,10 +222,19 @@ public partial class MapSandboxView : Node3D
     void Show(string? problem)
     {
         var text = problem ?? (_gaps.Count == 0 ? "" : $"{_gaps.Count} gaps:\n{string.Join("\n", _gaps)}");
-        if (text.Length > 0) GD.PrintErr(text);
+        if (text.Length > 0)
+            GD.PrintErr(text);
         var layer = new CanvasLayer();
         AddChild(layer);
-        layer.AddChild(new Label { Text = text, Position = new Vector2(8, 8), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(600, 0) });
+        layer.AddChild(
+            new Label
+            {
+                Text = text,
+                Position = new Vector2(8, 8),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                CustomMinimumSize = new Vector2(600, 0),
+            }
+        );
     }
 
     static Vector3 ToGodot(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
@@ -194,10 +252,14 @@ public partial class MapSandboxView : Node3D
     // names the scales). Esc releases the confined cursor.
     public override void _Input(InputEvent e)
     {
-        if (_rig == null) return;
+        if (_rig == null)
+            return;
         if (e is InputEventKey { Pressed: true, Keycode: Key.Escape })
             Input.MouseMode = Input.MouseModeEnum.Visible;
-        else if (e is InputEventMouseButton { Pressed: true } b && b.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+        else if (
+            e is InputEventMouseButton { Pressed: true } b
+            && b.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown
+        )
             _rig.ChangeHeight(b.ButtonIndex == MouseButton.WheelUp ? -_rig.ZoomStep : _rig.ZoomStep);
         else if (e is InputEventMouseMotion m && m.ButtonMask.HasFlag(MouseButtonMask.Middle))
             _rig.Rotate(m.Relative.X * _rig.RotationPerPixel);
@@ -216,16 +278,26 @@ public partial class MapSandboxView : Node3D
             var mouse = viewport.GetMousePosition();
             var size = viewport.GetVisibleRect().Size;
             // The view tracks the window's mouse enter and exit; CameraRig.EdgeCursor decides what the rig sees.
-            var cursor = CameraRig.EdgeCursor(new System.Numerics.Vector2(mouse.X, mouse.Y), _mouseInWindow,
-                Input.MouseMode == Input.MouseModeEnum.Confined);
-            _rig.Scroll(cursor, new System.Numerics.Vector2(size.X, size.Y),
-                GetWindow().HasFocus(), new System.Numerics.Vector2(keys.X, keys.Y), delta);
+            var cursor = CameraRig.EdgeCursor(
+                new System.Numerics.Vector2(mouse.X, mouse.Y),
+                _mouseInWindow,
+                Input.MouseMode == Input.MouseModeEnum.Confined
+            );
+            _rig.Scroll(
+                cursor,
+                new System.Numerics.Vector2(size.X, size.Y),
+                GetWindow().HasFocus(),
+                new System.Numerics.Vector2(keys.X, keys.Y),
+                delta
+            );
             PlaceCamera();
         }
         // The background keeps its centering offset from the camera and never turns with it.
-        if (_background != null && _camera != null) _background.GlobalPosition = _camera.GlobalPosition + _backgroundOffset;
+        if (_background != null && _camera != null)
+            _background.GlobalPosition = _camera.GlobalPosition + _backgroundOffset;
         // Wait a few frames so textures are uploaded before capturing.
-        if (_screenshot == null || ++_frames < 5) return;
+        if (_screenshot == null || ++_frames < 5)
+            return;
         GetViewport().GetTexture().GetImage().SavePng(_screenshot);
         GetTree().Quit();
     }

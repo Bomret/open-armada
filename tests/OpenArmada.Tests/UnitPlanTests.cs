@@ -18,15 +18,32 @@ public class UnitPlanTests
     public void CleanUp() => temp.CleanUp();
 
     // Each definition is "class" -> odf text; the install also holds the loose files given.
-    UnitPlan Plan(string[] classes, (string Class, string Odf)[] definitions, params (string Path, string Content)[] loose) =>
-        Plan(_ => true, classes, definitions, loose);
+    UnitPlan Plan(
+        string[] classes,
+        (string Class, string Odf)[] definitions,
+        params (string Path, string Content)[] loose
+    ) => Plan(_ => true, classes, definitions, loose);
 
-    UnitPlan Plan(Func<PlacedObject, bool> selectable, string[] classes, (string Class, string Odf)[] definitions, params (string Path, string Content)[] loose)
+    UnitPlan Plan(
+        Func<PlacedObject, bool> selectable,
+        string[] classes,
+        (string Class, string Odf)[] definitions,
+        params (string Path, string Content)[] loose
+    )
     {
-        var install = new GameFileSystem(temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).Concat(loose).ToArray()));
+        var install = new GameFileSystem(
+            temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).Concat(loose).ToArray())
+        );
         var map = new BznBuilder { Background = "" };
-        foreach (var c in classes) map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
-        var asset = new MapAsset("bzn/t.bzn", Bzn.Read(map.Build()), Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+        foreach (var c in classes)
+            map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
+        var asset = new MapAsset(
+            "bzn/t.bzn",
+            Bzn.Read(map.Build()),
+            Array.Empty<MapStart>(),
+            null,
+            Array.Empty<MapPath>()
+        );
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
         return UnitPlan.Build(install, plan, selectable);
     }
@@ -36,10 +53,20 @@ public class UnitPlanTests
     [TestMethod]
     public void OnlyObjectsWhoseDefinitionNamesPhysicsAreUnits()
     {
-        var plan = Plan(new[] { "ship", "base", "planet" },
-            new[] { ("ship", Physics + "unitName = \"Ship\""), ("base", Physics + "unitName = \"Base\"\r\nis_starbase = 1"), ("planet", "unitName = \"Planet\"") },
-            ("addon/p.odf", "maxRoll = 1"));
-        CollectionAssert.AreEqual(new Unit[] { new Ship("Ship"), new Station("Base") }, plan.Units.Select(u => u.Unit).ToArray());
+        var plan = Plan(
+            new[] { "ship", "base", "planet" },
+            new[]
+            {
+                ("ship", Physics + "unitName = \"Ship\""),
+                ("base", Physics + "unitName = \"Base\"\r\nis_starbase = 1"),
+                ("planet", "unitName = \"Planet\""),
+            },
+            ("addon/p.odf", "maxRoll = 1")
+        );
+        CollectionAssert.AreEqual(
+            new Unit[] { new Ship("Ship"), new Station("Base") },
+            plan.Units.Select(u => u.Unit).ToArray()
+        );
         Assert.AreEqual("base", plan.Units[1].Object.Class);
     }
 
@@ -66,7 +93,11 @@ public class UnitPlanTests
     [TestMethod]
     public void AStarbaseValueThatIsNoNumberIsReportedAndTheUnitIsAShip()
     {
-        var plan = Plan(new[] { "x" }, new[] { ("x", Physics + "unitName = \"X\"\r\nis_starbase = yes") }, ("addon/p.odf", ""));
+        var plan = Plan(
+            new[] { "x" },
+            new[] { ("x", Physics + "unitName = \"X\"\r\nis_starbase = yes") },
+            ("addon/p.odf", "")
+        );
         Assert.AreEqual(new Ship("X"), plan.Units.Single().Unit);
         StringAssert.Contains(plan.Reports.Single().Cause, "is_starbase");
     }
@@ -84,7 +115,11 @@ public class UnitPlanTests
     [TestMethod]
     public void AUnitNameAndAStarbaseValueThatAreBothBadAreReportedEachOnce()
     {
-        var plan = Plan(new[] { "x" }, new[] { ("x", Physics + "unitName = Borg Cube\r\nis_starbase = yes") }, ("addon/p.odf", ""));
+        var plan = Plan(
+            new[] { "x" },
+            new[] { ("x", Physics + "unitName = Borg Cube\r\nis_starbase = yes") },
+            ("addon/p.odf", "")
+        );
         Assert.AreEqual(new Ship("x"), plan.Units.Single().Unit);
         Assert.AreEqual(2, plan.Reports.Count);
         Assert.AreEqual(1, plan.Reports.Count(r => r.Cause.Contains("unitName")));

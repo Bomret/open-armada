@@ -15,7 +15,8 @@ public static class PreviewMatch
     public static Dictionary<string, T> Match<T>(
         IEnumerable<(string TypeName, Func<(string KindName, T Preview)> Create)> candidates,
         IEnumerable<string> kindNames,
-        out IReadOnlyList<string> problems)
+        out IReadOnlyList<string> problems
+    )
     {
         var found = new Dictionary<string, T>();
         var list = new List<string>();
@@ -24,10 +25,19 @@ public static class PreviewMatch
         {
             string kindName;
             T preview;
-            try { (kindName, preview) = create(); }
-            catch (Exception e) { list.Add($"preview {typeName} cannot be created: {(e.InnerException ?? e).Message}"); continue; }
-            if (!known.Contains(kindName)) list.Add($"preview {typeName} names kind \"{kindName}\", which no asset kind has");
-            else if (!found.TryAdd(kindName, preview)) list.Add($"preview {typeName} is a second preview for kind \"{kindName}\"");
+            try
+            {
+                (kindName, preview) = create();
+            }
+            catch (Exception e)
+            {
+                list.Add($"preview {typeName} cannot be created: {(e.InnerException ?? e).Message}");
+                continue;
+            }
+            if (!known.Contains(kindName))
+                list.Add($"preview {typeName} names kind \"{kindName}\", which no asset kind has");
+            else if (!found.TryAdd(kindName, preview))
+                list.Add($"preview {typeName} is a second preview for kind \"{kindName}\"");
         }
         problems = list;
         return found;

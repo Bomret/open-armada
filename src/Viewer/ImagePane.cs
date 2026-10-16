@@ -17,12 +17,14 @@ public partial class ImagePane : ScrollContainer
         foreach (var (caption, image) in images)
         {
             box.AddChild(new Label { Text = caption });
-            box.AddChild(new TextureRect
-            {
-                Texture = ImageTexture.CreateFromImage(image),
-                StretchMode = TextureRect.StretchModeEnum.Keep,
-                TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
-            });
+            box.AddChild(
+                new TextureRect
+                {
+                    Texture = ImageTexture.CreateFromImage(image),
+                    StretchMode = TextureRect.StretchModeEnum.Keep,
+                    TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
+                }
+            );
         }
     }
 }

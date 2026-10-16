@@ -14,8 +14,12 @@ public sealed class SoundKind : AssetKind
     public override string Name => KindName;
 
     public override IEnumerable<string> Enumerate(GameFileSystem files) =>
-        files.Inventory().Where(f => f.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
-            && f.StartsWith("sounds/", StringComparison.OrdinalIgnoreCase));
+        files
+            .Inventory()
+            .Where(f =>
+                f.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
+                && f.StartsWith("sounds/", StringComparison.OrdinalIgnoreCase)
+            );
 
     public override object Load(GameFileSystem files, string name) => Wav.Read(files.ReadAllBytes(name));
 }

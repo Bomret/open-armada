@@ -15,5 +15,6 @@ public sealed class SettingsKind : AssetKind
 
     public override object Load(GameFileSystem files, string name) => SettingsFile.Read(name, files.ReadAllBytes(name));
 
-    public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((SettingsFile)Load(files, name)).Notes;
+    public override IReadOnlyList<string> Check(GameFileSystem files, string name) =>
+        ((SettingsFile)Load(files, name)).Notes;
 }

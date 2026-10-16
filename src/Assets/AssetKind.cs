@@ -39,7 +39,11 @@ public abstract class AssetKind
 
     // The loose files of the install root with the extension (".map"), not those of a folder or an archive.
     protected static IEnumerable<string> RootFiles(GameFileSystem files, string extension) =>
-        files.Inventory().Where(f => f.EndsWith(extension, StringComparison.OrdinalIgnoreCase) && !f.Contains('/') && !f.Contains("::"));
+        files
+            .Inventory()
+            .Where(f =>
+                f.EndsWith(extension, StringComparison.OrdinalIgnoreCase) && !f.Contains('/') && !f.Contains("::")
+            );
 
     // The files with the extension in the folders, each once: under its bare name when the bare name
     // resolves to it (GameFileSystem.Find), else under its folder name ("SOD/Software/x.sod"), so a copy
@@ -49,14 +53,16 @@ public abstract class AssetKind
     {
         var bare = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var folder in folders)
-            foreach (var n in files.List(extension, folder))
-                yield return files.Find(n) == files.Find(folder + "/" + n) && bare.Add(n) ? n : folder + "/" + n;
+        foreach (var n in files.List(extension, folder))
+            yield return files.Find(n) == files.Find(folder + "/" + n) && bare.Add(n) ? n : folder + "/" + n;
         foreach (var n in DefinitionKind.Named(files, extension))
-            if (bare.Add(n)) yield return n;
+            if (bare.Add(n))
+                yield return n;
     }
 
     public static IReadOnlyList<AssetKind> Discover() =>
-        typeof(AssetKind).Assembly.GetTypes()
+        typeof(AssetKind)
+            .Assembly.GetTypes()
             .Where(t => t.IsSubclassOf(typeof(AssetKind)) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) != null)
             .Select(t => (AssetKind)Activator.CreateInstance(t)!)
             .OrderBy(k => k.Name, StringComparer.Ordinal)

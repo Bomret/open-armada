@@ -22,13 +22,18 @@ public sealed class TextTableKind : AssetKind
 
     public override object Load(GameFileSystem files, string name)
     {
-        if (files.ReadByPath(Launcher) is not { } exe) throw new UnsupportedFormatException($"{name}: the text table key is read from {Launcher}, which the install lacks");
+        if (files.ReadByPath(Launcher) is not { } exe)
+            throw new UnsupportedFormatException(
+                $"{name}: the text table key is read from {Launcher}, which the install lacks"
+            );
         var key = TextTable.KeyFrom(Launcher, exe);
-        var raw = files.ReadByPath(name) ?? throw new FileNotFoundException($"'{name}' is not in the install root", name);
+        var raw =
+            files.ReadByPath(name) ?? throw new FileNotFoundException($"'{name}' is not in the install root", name);
         return TextTable.Read(name, raw, key, files.ReadByPath);
     }
 
-    public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((TextTable)Load(files, name)).Notes;
+    public override IReadOnlyList<string> Check(GameFileSystem files, string name) =>
+        ((TextTable)Load(files, name)).Notes;
 
     // The root file itself: a text table is read by path, past any override of its name.
     public override IEnumerable<string> Reads(GameFileSystem files, string name) => new[] { name };

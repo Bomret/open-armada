@@ -16,15 +16,23 @@ public class AssetCheckTests
     {
         var b = new List<byte>(Encoding.ASCII.GetBytes("Storm3D_SW"));
         b.AddRange(BitConverter.GetBytes(version));
-        if (version >= 1.7f) b.AddRange(new byte[8]);
+        if (version >= 1.7f)
+            b.AddRange(new byte[8]);
         return Encoding.Latin1.GetString(b.ToArray());
     }
 
-    sealed class FakeKind(string name, Func<GameFileSystem, IEnumerable<string>> enumerate, Action<string> load) : AssetKind
+    sealed class FakeKind(string name, Func<GameFileSystem, IEnumerable<string>> enumerate, Action<string> load)
+        : AssetKind
     {
         public override string Name => name;
+
         public override IEnumerable<string> Enumerate(GameFileSystem f) => enumerate(f);
-        public override object Load(GameFileSystem f, string n) { load(n); return n; }
+
+        public override object Load(GameFileSystem f, string n)
+        {
+            load(n);
+            return n;
+        }
     }
 
     static (int Code, string Output) Run(string? game, params AssetKind[] kinds)
@@ -107,11 +115,16 @@ public class AssetCheckTests
     public void ThrowingReaderFailsThatAssetAndTheRestStillLoad()
     {
         var loaded = new List<string>();
-        var kind = new FakeKind("fake", _ => new[] { "a", "b", "c" }, n =>
-        {
-            if (n == "b") throw new StackOverflowGuardException();
-            loaded.Add(n);
-        });
+        var kind = new FakeKind(
+            "fake",
+            _ => new[] { "a", "b", "c" },
+            n =>
+            {
+                if (n == "b")
+                    throw new StackOverflowGuardException();
+                loaded.Add(n);
+            }
+        );
         var (code, output) = Run(Install(), kind);
         Assert.AreEqual(1, code);
         CollectionAssert.AreEqual(new[] { "a", "c" }, loaded);
@@ -134,19 +147,27 @@ public class AssetCheckTests
     [TestMethod, System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
     public void UnreadableFolderFailsTheClassificationWithItsName()
     {
-        if (OperatingSystem.IsWindows()) Assert.Inconclusive("needs POSIX file modes");
+        if (OperatingSystem.IsWindows())
+            Assert.Inconclusive("needs POSIX file modes");
         var game = Install(("SOD/a.sod", Sod(1.8f)), ("locked/x.txt", ""));
         var locked = Path.Combine(game, "locked");
         File.SetUnixFileMode(locked, UnixFileMode.None);
         try
         {
             // Root lists a folder whatever its mode (container CI), so the fault cannot be staged there.
-            try { Directory.GetFileSystemEntries(locked); Assert.Inconclusive("the folder stays readable (running as root)"); }
+            try
+            {
+                Directory.GetFileSystemEntries(locked);
+                Assert.Inconclusive("the folder stays readable (running as root)");
+            }
             catch (UnauthorizedAccessException) { }
             var (code, output) = Run(game, new ModelKind());
             Assert.AreEqual((1, true), (code, output.Contains("locked")));
         }
-        finally { File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); }
+        finally
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
     }
 
     [TestMethod]

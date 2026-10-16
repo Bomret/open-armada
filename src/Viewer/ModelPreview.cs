@@ -20,12 +20,18 @@ public sealed class ModelPreview : KindPreview
         var model = builder.Build((Sod)kind.Load(files, name));
 
         var pick = new OptionButton();
-        foreach (var slot in TeamColors.SlotNames) pick.AddItem(slot);
+        foreach (var slot in TeamColors.SlotNames)
+            pick.AddItem(slot);
         void Choose(int index) => builder.SetTeamColor(team.Color(TeamColors.SlotNames[index]));
         pick.ItemSelected += i => Choose((int)i);
         var args = OS.GetCmdlineUserArgs().ToList();
         var asked = args.IndexOf("--team");
-        var initial = asked >= 0 && asked + 1 < args.Count ? TeamColors.SlotNames.ToList().FindIndex(n => n.Equals(args[asked + 1], System.StringComparison.OrdinalIgnoreCase)) : -1;
+        var initial =
+            asked >= 0 && asked + 1 < args.Count
+                ? TeamColors
+                    .SlotNames.ToList()
+                    .FindIndex(n => n.Equals(args[asked + 1], System.StringComparison.OrdinalIgnoreCase))
+                : -1;
         pick.Select(System.Math.Max(initial, 0));
         Choose(pick.Selected);
 
@@ -33,7 +39,8 @@ public sealed class ModelPreview : KindPreview
         bar.AddChild(new Label { Text = "Team color" });
         bar.AddChild(pick);
         var problems = builder.Problems.Concat(team.Notes).ToList();
-        if (problems.Count > 0) bar.AddChild(new Label { Text = $"{problems.Count} problems: {string.Join("; ", problems)}" });
+        if (problems.Count > 0)
+            bar.AddChild(new Label { Text = $"{problems.Count} problems: {string.Join("; ", problems)}" });
 
         var box = new VBoxContainer();
         box.AddChild(bar);

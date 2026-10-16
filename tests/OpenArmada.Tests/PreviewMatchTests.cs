@@ -31,7 +31,11 @@ public class PreviewMatchTests
     [TestMethod]
     public void SecondPreviewForOneKindIsReported()
     {
-        var found = PreviewMatch.Match(new[] { Ok("A", "models"), Ok("B", "models") }, new[] { "models" }, out var problems);
+        var found = PreviewMatch.Match(
+            new[] { Ok("A", "models"), Ok("B", "models") },
+            new[] { "models" },
+            out var problems
+        );
         Assert.AreEqual("A", found["models"]);
         Assert.AreEqual("preview B is a second preview for kind \"models\"", problems.Single());
     }
@@ -45,9 +49,15 @@ public class PreviewMatchTests
         Assert.AreEqual("preview Bad cannot be created: boom", problems.Single());
     }
 
-    sealed class NoCtor { public NoCtor(int _) { } }
+    sealed class NoCtor
+    {
+        public NoCtor(int _) { }
+    }
 
-    sealed class ThrowingCtor { public ThrowingCtor() => throw new InvalidOperationException("boom"); }
+    sealed class ThrowingCtor
+    {
+        public ThrowingCtor() => throw new InvalidOperationException("boom");
+    }
 
     // A candidate the way KindPreview.Discover builds one: PreviewMatch.Create makes the instance.
     static (string, Func<(string, object)>) Built(Type t) => (t.Name, () => ("models", PreviewMatch.Create<object>(t)));

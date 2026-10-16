@@ -10,7 +10,8 @@ namespace OpenArmada.Tests;
 [TestClass]
 public class ShipMotionTests
 {
-    const double Speed = 10, Yaw = 1;
+    const double Speed = 10,
+        Yaw = 1;
 
     static ShipMotion Ship(double? maxRoll = 30, float heading = 0, float y = 5) =>
         new(new PhysicsValues(Speed, Yaw, maxRoll), new Vector3(0, y, 0), heading);
@@ -19,7 +20,8 @@ public class ShipMotionTests
     static (ShipPose Pose, float MaxBank, float MaxTurn) Run(ShipMotion ship, double seconds, double dt)
     {
         var pose = ship.Step(0);
-        float maxBank = 0, maxTurn = 0;
+        float maxBank = 0,
+            maxTurn = 0;
         for (double t = 0; t < seconds; t += dt)
         {
             var before = pose.Heading;
@@ -107,8 +109,12 @@ public class ShipMotionTests
         var ship = Ship(maxRoll: 30);
         ship.SetTarget(100, 100); // a 45 degree turn takes under one second at Yaw 1; the target is 141 away at speed 10
         var pose = ship.Step(0);
-        for (var i = 0; i < 100; i++) pose = ship.Step(0.05); // 5 seconds
-        Assert.IsTrue(new Vector2(pose.Position.X - 100, pose.Position.Z - 100).Length() > 50, "the ship has not arrived");
+        for (var i = 0; i < 100; i++)
+            pose = ship.Step(0.05); // 5 seconds
+        Assert.IsTrue(
+            new Vector2(pose.Position.X - 100, pose.Position.Z - 100).Length() > 50,
+            "the ship has not arrived"
+        );
         Assert.AreEqual(0, pose.Bank, 1e-6);
     }
 
@@ -121,9 +127,11 @@ public class ShipMotionTests
         fine.SetTarget(0, -15);
         coarse.SetTarget(0, -15);
         ShipPose pose = default;
-        for (var i = 0; i < 400; i++) pose = fine.Step(0.01);
+        for (var i = 0; i < 400; i++)
+            pose = fine.Step(0.01);
         Assert.AreEqual(-8.58, pose.Position.Z, 0.05);
-        for (var i = 0; i < 8; i++) pose = coarse.Step(0.5);
+        for (var i = 0; i < 8; i++)
+            pose = coarse.Step(0.5);
         Assert.AreEqual(-8.58, pose.Position.Z, 0.05);
     }
 

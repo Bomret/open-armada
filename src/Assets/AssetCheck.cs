@@ -14,8 +14,12 @@ public static class AssetCheck
     // its own asset (INV-0002); nothing here lets an exception escape. `decode`, when given, runs
     // the engine's own decoder on each asset the readers accepted and throws when it rejects the
     // asset (ADR 0002); the Godot-free tests pass none.
-    public static int Run(string? game, IEnumerable<AssetKind> kinds, TextWriter output,
-        Action<AssetKind, GameFileSystem, string>? decode = null)
+    public static int Run(
+        string? game,
+        IEnumerable<AssetKind> kinds,
+        TextWriter output,
+        Action<AssetKind, GameFileSystem, string>? decode = null
+    )
     {
         if (string.IsNullOrEmpty(game))
         {
@@ -23,15 +27,22 @@ public static class AssetCheck
             return 1;
         }
         GameFileSystem files;
-        try { files = new GameFileSystem(game); }
+        try
+        {
+            files = new GameFileSystem(game);
+        }
         catch (Exception e)
         {
             output.WriteLine(e.Message);
             return 1;
         }
 
-        int loadedTotal = 0, unsupportedTotal = 0, failedTotal = 0, unresolved = 0;
-        foreach (var missing in files.Missing) output.WriteLine($"MISSING {missing}");
+        int loadedTotal = 0,
+            unsupportedTotal = 0,
+            failedTotal = 0,
+            unresolved = 0;
+        foreach (var missing in files.Missing)
+            output.WriteLine($"MISSING {missing}");
         foreach (var fault in files.Faults)
         {
             output.WriteLine($"FAIL {fault}");
@@ -39,9 +50,14 @@ public static class AssetCheck
         }
         foreach (var kind in kinds)
         {
-            int loaded = 0, unsupported = 0, failed = 0;
+            int loaded = 0,
+                unsupported = 0,
+                failed = 0;
             List<string> names;
-            try { names = kind.Enumerate(files).ToList(); }
+            try
+            {
+                names = kind.Enumerate(files).ToList();
+            }
             catch (Exception e)
             {
                 output.WriteLine($"FAIL {kind.Name}: cannot list assets: {e.Message}");
@@ -54,7 +70,8 @@ public static class AssetCheck
                 {
                     var notes = kind.Check(files, name);
                     // Notes print before the decoder runs, so a decode failure does not lose them.
-                    foreach (var note in notes) output.WriteLine($"NOTE {kind.Name}/{name}: {note}");
+                    foreach (var note in notes)
+                        output.WriteLine($"NOTE {kind.Name}/{name}: {note}");
                     // The game's own decoders run after the readers accepted the file.
                     decode?.Invoke(kind, files, name);
                     // Unresolved references list apart from failures and do not fail the asset.
@@ -76,9 +93,11 @@ public static class AssetCheck
                     failed++;
                 }
             }
-            output.WriteLine(names.Count == 0
-                ? $"{kind.Name}: empty (no assets in the install)"
-                : $"{kind.Name}: {loaded} loaded, {unsupported} unsupported, {failed} failed");
+            output.WriteLine(
+                names.Count == 0
+                    ? $"{kind.Name}: empty (no assets in the install)"
+                    : $"{kind.Name}: {loaded} loaded, {unsupported} unsupported, {failed} failed"
+            );
             loadedTotal += loaded;
             unsupportedTotal += unsupported;
             failedTotal += failed;
@@ -96,19 +115,26 @@ public static class AssetCheck
     static int Classify(GameFileSystem files, TextWriter output)
     {
         IReadOnlyList<Classified> classified;
-        try { classified = InstallClassifier.Classify(files.Inventory(), files); }
+        try
+        {
+            classified = InstallClassifier.Classify(files.Inventory(), files);
+        }
         catch (Exception e)
         {
             output.WriteLine($"FAIL files: cannot classify the install: {e.Message}");
             return 1;
         }
-        foreach (var c in classified.Where(c => c.Class == FileClass.KnownNotLoaded)) output.WriteLine($"NOT LOADED {c.Entry}: {c.Group}");
+        foreach (var c in classified.Where(c => c.Class == FileClass.KnownNotLoaded))
+            output.WriteLine($"NOT LOADED {c.Entry}: {c.Group}");
         foreach (var g in classified.Where(c => c.Class == FileClass.OutOfScope).GroupBy(c => c.Group))
             output.WriteLine($"OUT OF SCOPE {g.Key}: {g.Count()} files");
         var unclassified = classified.Where(c => c.Class == FileClass.Unclassified).ToList();
-        foreach (var c in unclassified) output.WriteLine(c.Group == "" ? $"UNCLASSIFIED {c.Entry}" : $"UNCLASSIFIED {c.Entry}: {c.Group}");
+        foreach (var c in unclassified)
+            output.WriteLine(c.Group == "" ? $"UNCLASSIFIED {c.Entry}" : $"UNCLASSIFIED {c.Entry}: {c.Group}");
         int N(FileClass k) => classified.Count(c => c.Class == k);
-        output.WriteLine($"files: {N(FileClass.Loaded)} loaded, {N(FileClass.OutOfScope)} out of scope, {N(FileClass.KnownNotLoaded)} known but not loaded, {unclassified.Count} unclassified");
+        output.WriteLine(
+            $"files: {N(FileClass.Loaded)} loaded, {N(FileClass.OutOfScope)} out of scope, {N(FileClass.KnownNotLoaded)} known but not loaded, {unclassified.Count} unclassified"
+        );
         return unclassified.Count;
     }
 }

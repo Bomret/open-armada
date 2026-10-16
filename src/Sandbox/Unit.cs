@@ -17,8 +17,13 @@ public static class UnitRules
     // anything but 0; a ship does not. Throws DefinitionException for an is_starbase that is no whole number.
     public static Unit? Classify(ResolvedDefinition definition)
     {
-        if (!definition.Has("physicsFile")) return null;
-        var name = definition.Has("unitName") ? definition.GetString("unitName") : definition.Name.Replace(".odf", "", StringComparison.OrdinalIgnoreCase);
-        return definition.Has("is_starbase") && definition.GetInt("is_starbase") != 0 ? new Station(name) : new Ship(name);
+        if (!definition.Has("physicsFile"))
+            return null;
+        var name = definition.Has("unitName")
+            ? definition.GetString("unitName")
+            : definition.Name.Replace(".odf", "", StringComparison.OrdinalIgnoreCase);
+        return definition.Has("is_starbase") && definition.GetInt("is_starbase") != 0
+            ? new Station(name)
+            : new Ship(name);
     }
 }

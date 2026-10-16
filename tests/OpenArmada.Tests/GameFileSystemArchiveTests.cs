@@ -47,8 +47,9 @@ public class GameFileSystemArchiveTests
     [TestMethod]
     public void IndexDirFolderIgnoresCaseAndSeparatorOnDisk()
     {
-        var fs = new GameFileSystem(temp.MakeInstall(
-            ("Sounds/Music/s.wav", "tune"), ("startrek.zix", Zix("DIR: sounds\\music", "1 s.wav"))));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(("Sounds/Music/s.wav", "tune"), ("startrek.zix", Zix("DIR: sounds\\music", "1 s.wav")))
+        );
         Assert.AreEqual("tune", Read(fs, "S.WAV"));
     }
 
@@ -70,7 +71,10 @@ public class GameFileSystemArchiveTests
 
     [TestMethod]
     public void AddonLooseBeatsAddonArchive() =>
-        Assert.AreEqual("loose", Read(Basic(("addon/a.odf", "loose"), ("addon/x.zfs", Latin1(Build(0, M("a.odf", "zfs"))))), "a.odf"));
+        Assert.AreEqual(
+            "loose",
+            Read(Basic(("addon/a.odf", "loose"), ("addon/x.zfs", Latin1(Build(0, M("a.odf", "zfs"))))), "a.odf")
+        );
 
     [TestMethod]
     public void NameNotInIndexFallsBackToLooseFolders()
@@ -101,9 +105,13 @@ public class GameFileSystemArchiveTests
     [TestMethod]
     public void UnreadableIndexArchiveReportsOnceNotPerEntry()
     {
-        var fs = new GameFileSystem(temp.MakeInstall(
-            ("assets.zfs", "garbage garbage garbage garbage garbage"), ("misc/m.txt", "ok"),
-            ("startrek.zix", Zix("DIR: assets.zfs\nDIR: misc", "1 a.odf\n1 b.odf\n2 m.txt"))));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(
+                ("assets.zfs", "garbage garbage garbage garbage garbage"),
+                ("misc/m.txt", "ok"),
+                ("startrek.zix", Zix("DIR: assets.zfs\nDIR: misc", "1 a.odf\n1 b.odf\n2 m.txt"))
+            )
+        );
         Assert.AreEqual(1, fs.Faults.Count);
         Assert.AreEqual("ok", Read(fs, "m.txt"));
     }
@@ -113,7 +121,12 @@ public class GameFileSystemArchiveTests
     {
         var bytes = Build(0, M("a.odf", "a"), M("b.odf", "bb"));
         System.BitConverter.GetBytes((uint)bytes.Length).CopyTo(bytes, 28 + 4 + 36 + 16);
-        var fs = new GameFileSystem(temp.MakeInstall(("assets.zfs", Latin1(bytes)), ("startrek.zix", Zix("DIR: assets.zfs", "1 a.odf\n1 b.odf"))));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(
+                ("assets.zfs", Latin1(bytes)),
+                ("startrek.zix", Zix("DIR: assets.zfs", "1 a.odf\n1 b.odf"))
+            )
+        );
         Assert.AreEqual("a", Read(fs, "a.odf"));
         Assert.IsNull(fs.Find("b.odf"));
         Assert.AreEqual(1, fs.Faults.Count);
@@ -124,7 +137,9 @@ public class GameFileSystemArchiveTests
     [TestMethod]
     public void IndexEntryWhoseFileIsMissingIsReportedOnceAndOthersLoad()
     {
-        var fs = new GameFileSystem(temp.MakeInstall(("misc/m.txt", "ok"), ("startrek.zix", Zix("DIR: misc", "1 gone.txt\n1 m.txt"))));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(("misc/m.txt", "ok"), ("startrek.zix", Zix("DIR: misc", "1 gone.txt\n1 m.txt")))
+        );
         Assert.IsNull(fs.Find("gone.txt"));
         Assert.IsNull(fs.Find("gone.txt"));
         Assert.AreEqual("ok", Read(fs, "m.txt"));
@@ -136,7 +151,12 @@ public class GameFileSystemArchiveTests
     [TestMethod]
     public void IndexFolderEntryLongerThanSixteenCharactersResolvesAndIsNotMissing()
     {
-        var fs = new GameFileSystem(temp.MakeInstall(("Dynamic_Localized_Strings.h", "strings"), ("startrek.zix", Zix("DIR: .", "1 dynamic_localized_strings.h"))));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(
+                ("Dynamic_Localized_Strings.h", "strings"),
+                ("startrek.zix", Zix("DIR: .", "1 dynamic_localized_strings.h"))
+            )
+        );
         Assert.AreEqual("strings", Read(fs, "DYNAMIC_LOCALIZED_STRINGS.H"));
         Assert.AreEqual(0, fs.Missing.Count);
     }
@@ -144,8 +164,12 @@ public class GameFileSystemArchiveTests
     [TestMethod]
     public void IndexArchiveMemberKeyedBySixteenCharactersResolvesByEitherName()
     {
-        var fs = new GameFileSystem(temp.MakeInstall(
-            ("assets.zfs", Latin1(Build(0, M("testobjectives.t", "text")))), ("startrek.zix", Zix("DIR: assets.zfs", "1 testobjectives.txt"))));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(
+                ("assets.zfs", Latin1(Build(0, M("testobjectives.t", "text")))),
+                ("startrek.zix", Zix("DIR: assets.zfs", "1 testobjectives.txt"))
+            )
+        );
         Assert.AreEqual("text", Read(fs, "testobjectives.t"));
         Assert.AreEqual("text", Read(fs, "testobjectives.txt"));
         Assert.AreEqual(0, fs.Missing.Count);
@@ -154,17 +178,26 @@ public class GameFileSystemArchiveTests
     [TestMethod]
     public void AddonArchiveMemberAskedForByLongNameBeatsIndexCopy()
     {
-        var fs = new GameFileSystem(temp.MakeInstall(
-            ("assets.zfs", Latin1(Build(0, M("testobjectives.t", "index copy")))),
-            ("addon/x.zfs", Latin1(Build(0, M("testobjectives.t", "addon copy")))),
-            ("startrek.zix", Zix("DIR: assets.zfs", "1 testobjectives.txt"))));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(
+                ("assets.zfs", Latin1(Build(0, M("testobjectives.t", "index copy")))),
+                ("addon/x.zfs", Latin1(Build(0, M("testobjectives.t", "addon copy")))),
+                ("startrek.zix", Zix("DIR: assets.zfs", "1 testobjectives.txt"))
+            )
+        );
         Assert.AreEqual("addon copy", Read(fs, "testobjectives.txt"));
     }
 
     [TestMethod]
     public void IndexEntryHeldOnlyInAddonIsNotMissing()
     {
-        var fs = new GameFileSystem(temp.MakeInstall(("misc/m.txt", "ok"), ("addon/x.txt", "addon"), ("startrek.zix", Zix("DIR: misc", "1 x.txt"))));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(
+                ("misc/m.txt", "ok"),
+                ("addon/x.txt", "addon"),
+                ("startrek.zix", Zix("DIR: misc", "1 x.txt"))
+            )
+        );
         Assert.AreEqual("addon", Read(fs, "x.txt"));
         Assert.AreEqual(0, fs.Missing.Count);
     }
@@ -174,7 +207,9 @@ public class GameFileSystemArchiveTests
     {
         var bytes = Build(0, M("a.odf", "a"), M("b.odf", "bb"));
         System.BitConverter.GetBytes((uint)bytes.Length).CopyTo(bytes, 28 + 4 + 36 + 16); // b.odf past the end
-        var fs = new GameFileSystem(temp.MakeInstall(("addon/x.zfs", Latin1(bytes)), ("startrek.zix", Zix("DIR: addon\\x.zfs", "1 a.odf"))));
+        var fs = new GameFileSystem(
+            temp.MakeInstall(("addon/x.zfs", Latin1(bytes)), ("startrek.zix", Zix("DIR: addon\\x.zfs", "1 a.odf")))
+        );
         Assert.AreEqual(1, fs.Faults.Count);
         Assert.AreEqual(1, fs.Inventory().Count(i => i == "addon/x.zfs::a.odf"));
         Assert.AreEqual(1, fs.Members("x.zfs").Count());
@@ -182,7 +217,13 @@ public class GameFileSystemArchiveTests
 
     [TestMethod]
     public void AddonArchiveTextureIsReadByName() =>
-        Assert.AreEqual("tga", Read(new GameFileSystem(temp.MakeInstall(("addon/t.zfs", Latin1(Build(0, M("ship.tga", "tga")))))), "ship.tga"));
+        Assert.AreEqual(
+            "tga",
+            Read(
+                new GameFileSystem(temp.MakeInstall(("addon/t.zfs", Latin1(Build(0, M("ship.tga", "tga")))))),
+                "ship.tga"
+            )
+        );
 
     [TestMethod]
     public void IndexDirThatDoesNotExistIsReportedOnce()
@@ -229,7 +270,10 @@ public class GameFileSystemArchiveTests
     [TestMethod]
     public void FaultsSurfaceInTheAssetCheckWithoutStoppingIt()
     {
-        var game = temp.MakeInstall(("SOD/a.sod", "Storm3D_SW" + "\0\0\0\0"), ("addon/bad.zfs", "garbage garbage garbage garbage garbage garbage"));
+        var game = temp.MakeInstall(
+            ("SOD/a.sod", "Storm3D_SW" + "\0\0\0\0"),
+            ("addon/bad.zfs", "garbage garbage garbage garbage garbage garbage")
+        );
         var w = new StringWriter();
         var code = AssetCheck.Run(game, new AssetKind[] { new ModelKind() }, w);
         Assert.AreEqual(1, code);

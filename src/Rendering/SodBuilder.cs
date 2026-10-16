@@ -29,13 +29,15 @@ public sealed class SodBuilder
     public void SetTeamColor(System.Numerics.Vector3 color)
     {
         _teamColor = color;
-        foreach (var (material, surface) in _team) SurfaceMaterial.Apply(material, surface.WithTeam(color));
+        foreach (var (material, surface) in _team)
+            SurfaceMaterial.Apply(material, surface.WithTeam(color));
     }
 
     // Builds the model with its team materials in `teamColor` (the last color set when null).
     public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null)
     {
-        if (teamColor != null) _teamColor = teamColor.Value;
+        if (teamColor != null)
+            _teamColor = teamColor.Value;
         _team.Clear();
         _byNode.Clear();
         var analysis = ModelRules.Analyze(_files, sod);
@@ -50,7 +52,8 @@ public sealed class SodBuilder
         // The first node of a name is the parent; a node with no known parent, or in a parent cycle (reported
         // in Problems), hangs from the root.
         var byName = new Dictionary<string, Node3D>();
-        foreach (var (data, node) in nodes) byName.TryAdd(data.Name, node);
+        foreach (var (data, node) in nodes)
+            byName.TryAdd(data.Name, node);
         Node3D? root = null;
         foreach (var (data, node) in nodes)
         {
@@ -73,11 +76,13 @@ public sealed class SodBuilder
         {
             var levels = lod.GetChildren().OfType<Node3D>().ToList();
             var best = levels.OrderByDescending(VertexCount).FirstOrDefault();
-            foreach (var level in levels) level.Visible = level == best;
+            foreach (var level in levels)
+                level.Visible = level == best;
         }
 
         var animator = new TextureAnimator();
-        foreach (var (node, flipbook) in analysis.Runs) animator.Add(_byNode[node], flipbook);
+        foreach (var (node, flipbook) in analysis.Runs)
+            animator.Add(_byNode[node], flipbook);
         root.AddChild(animator);
         Problems = analysis.Problems;
         return root;
@@ -102,7 +107,13 @@ public sealed class SodBuilder
             for (int i = 0; i + 2 < group.Corners.Length; i += 3)
             {
                 // A face whose indices pass the mesh's data is skipped (reported by Sod.Problems).
-                if (group.Corners.Skip(i).Take(3).Any(c => c.Vertex >= mesh.Vertices.Length || c.TexCoord >= mesh.TexCoords.Length)) continue;
+                if (
+                    group
+                        .Corners.Skip(i)
+                        .Take(3)
+                        .Any(c => c.Vertex >= mesh.Vertices.Length || c.TexCoord >= mesh.TexCoords.Length)
+                )
+                    continue;
                 foreach (var c in blend.Wireframe ? new[] { 0, 1, 1, 2, 2, 0 } : new[] { 0, 2, 1 }) // reversed winding
                 {
                     var (v, t) = group.Corners[i + c];
@@ -111,11 +122,13 @@ public sealed class SodBuilder
                     st.AddVertex(new Vector3(p.X, p.Y, -p.Z));
                 }
             }
-            if (!blend.Wireframe) st.GenerateNormals();
+            if (!blend.Wireframe)
+                st.GenerateNormals();
             var surface = SurfaceOf(sod, group.Material);
             // Lines carry no normals, so a wireframe shades constant whatever the lighting material says
             // (the game keeps the material's model and shades the lines with it).
-            if (blend.Wireframe) surface = surface with { Model = LightingModel.Constant };
+            if (blend.Wireframe)
+                surface = surface with { Model = LightingModel.Constant };
             var material = SurfaceMaterial.Create(surface, blend, texture, mesh.BackfaceCull);
             if (surface.Team)
             {
@@ -137,13 +150,23 @@ public sealed class SodBuilder
     {
         var material = ModelRules.FindLightingMaterial(_files, sod, name);
         var surface = material == null ? null : ModelRules.Lighting(material);
-        return surface ?? new Surface(LightingModel.Lambert, System.Numerics.Vector3.Zero, System.Numerics.Vector3.One, System.Numerics.Vector3.Zero, 1f, ModelRules.IsTeam(name));
+        return surface
+            ?? new Surface(
+                LightingModel.Lambert,
+                System.Numerics.Vector3.Zero,
+                System.Numerics.Vector3.One,
+                System.Numerics.Vector3.Zero,
+                1f,
+                ModelRules.IsTeam(name)
+            );
     }
 
     Texture2D? Texture(string name)
     {
-        if (name.Length == 0 || name.Equals("noIcon", System.StringComparison.OrdinalIgnoreCase)) return null;
-        if (_textures.TryGetValue(name, out var cached)) return cached;
+        if (name.Length == 0 || name.Equals("noIcon", System.StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (_textures.TryGetValue(name, out var cached))
+            return cached;
         Texture2D? tex = null;
         // Textures come through the textures kind: full-color wins over 8-bit palette TGAs.
         string? why = null;
@@ -157,13 +180,21 @@ public sealed class SodBuilder
                 image.GenerateMipmaps();
                 tex = ImageTexture.CreateFromImage(image);
             }
-            else why = "not a readable TGA";
+            else
+                why = "not a readable TGA";
         }
-        catch (System.Exception e) when (e is System.IO.IOException or System.UnauthorizedAccessException or UnsupportedFormatException or System.IO.InvalidDataException)
+        catch (System.Exception e)
+            when (e
+                    is System.IO.IOException
+                        or System.UnauthorizedAccessException
+                        or UnsupportedFormatException
+                        or System.IO.InvalidDataException
+            )
         {
             why = e.Message;
         }
-        if (tex == null) GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
+        if (tex == null)
+            GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
         return _textures[name] = tex;
     }
 

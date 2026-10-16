@@ -13,6 +13,9 @@ public sealed class SettingsPreview : KindPreview
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var s = (SettingsFile)kind.Load(files, name);
-        return ReadOnlyText(NotesBlock(s.Notes) + string.Join("\n", s.Entries.Select(e => $"{e.Line,3}  {e.Text}")), true);
+        return ReadOnlyText(
+            NotesBlock(s.Notes) + string.Join("\n", s.Entries.Select(e => $"{e.Line, 3}  {e.Text}")),
+            true
+        );
     }
 }

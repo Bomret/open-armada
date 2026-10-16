@@ -30,11 +30,17 @@ public class UnitRulesTests
     [DataRow("1f")]
     [DataRow("2")]
     public void AStarbaseKeyOtherThanZeroIsAStation(string value) =>
-        Assert.AreEqual(new Station("Base"), Classify($"physicsFile = \"u_p.odf\"\r\nunitName = \"Base\"\r\nis_starbase = {value}"));
+        Assert.AreEqual(
+            new Station("Base"),
+            Classify($"physicsFile = \"u_p.odf\"\r\nunitName = \"Base\"\r\nis_starbase = {value}")
+        );
 
     [TestMethod]
     public void AStarbaseKeyOfZeroIsAShip() =>
-        Assert.AreEqual(new Ship("Ship"), Classify("physicsFile = \"u_p.odf\"\r\nunitName = \"Ship\"\r\nis_starbase = 0"));
+        Assert.AreEqual(
+            new Ship("Ship"),
+            Classify("physicsFile = \"u_p.odf\"\r\nunitName = \"Ship\"\r\nis_starbase = 0")
+        );
 
     [TestMethod]
     public void ADefinitionWithoutPhysicsIsNoUnit() =>

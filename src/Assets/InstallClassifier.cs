@@ -9,7 +9,13 @@ namespace OpenArmada.Assets;
 // What the asset check does with an install file: some asset kind loads it, it is out of scope (video,
 // help, AI plans, compiled code, install, network, copy protection), the engine knows what it is but
 // reads it with no kind, or no rule places it.
-public enum FileClass { Loaded, OutOfScope, KnownNotLoaded, Unclassified }
+public enum FileClass
+{
+    Loaded,
+    OutOfScope,
+    KnownNotLoaded,
+    Unclassified,
+}
 
 // One install file (an Inventory entry), its class, and the group that class names ("models", "video",
 // "input device maps"); for an unclassified file the reason a rule failed on it, or empty.
@@ -33,7 +39,13 @@ public static class InstallClassifier
         var entries = inventory.ToList();
         var all = new HashSet<string>(entries.Select(e => e.ToLowerInvariant()));
         var reads = files == null ? null : Reads(files);
-        return entries.Select(e => { var (c, g) = Safe(e.ToLowerInvariant(), all, reads); return new Classified(e, c, g); }).ToList();
+        return entries
+            .Select(e =>
+            {
+                var (c, g) = Safe(e.ToLowerInvariant(), all, reads);
+                return new Classified(e, c, g);
+            })
+            .ToList();
     }
 
     // The entries the kinds read, each with the name of a kind that reads it, and the bare names of those
@@ -48,11 +60,11 @@ public static class InstallClassifier
             try
             {
                 foreach (var name in kind.Enumerate(files))
-                    foreach (var entry in kind.Reads(files, name))
-                    {
-                        reads.Entries.TryAdd(entry.ToLowerInvariant(), kind.Name);
-                        reads.Names.Add(Bare(entry.ToLowerInvariant()));
-                    }
+                foreach (var entry in kind.Reads(files, name))
+                {
+                    reads.Entries.TryAdd(entry.ToLowerInvariant(), kind.Name);
+                    reads.Names.Add(Bare(entry.ToLowerInvariant()));
+                }
             }
             catch (Exception) { }
         }
@@ -62,15 +74,24 @@ public static class InstallClassifier
     // A rule that throws leaves its file unclassified, with the reason as the group, and the rest go on.
     static (FileClass, string) Safe(string entry, HashSet<string> all, KindReads? reads)
     {
-        try { return Asked(entry, Rule(entry, all), reads); }
-        catch (Exception e) { return (FileClass.Unclassified, e.Message); }
+        try
+        {
+            return Asked(entry, Rule(entry, all), reads);
+        }
+        catch (Exception e)
+        {
+            return (FileClass.Unclassified, e.Message);
+        }
     }
 
     static (FileClass, string) Asked(string entry, (FileClass, string) rule, KindReads? reads)
     {
-        if (reads == null) return rule;
-        if (reads.Entries.TryGetValue(entry, out var kind)) return rule.Item1 == FileClass.Loaded ? rule : Loaded(kind);
-        if (rule.Item1 != FileClass.Loaded) return rule;
+        if (reads == null)
+            return rule;
+        if (reads.Entries.TryGetValue(entry, out var kind))
+            return rule.Item1 == FileClass.Loaded ? rule : Loaded(kind);
+        if (rule.Item1 != FileClass.Loaded)
+            return rule;
         var name = Bare(entry);
         return reads.Names.Contains(name) ? Known("shadowed copies")
             : Numbered.IsMatch(Path.GetExtension(name)) ? Known("texture extras")
@@ -81,14 +102,18 @@ public static class InstallClassifier
     static string Bare(string entry) => entry[(Math.Max(entry.LastIndexOf('/'), entry.LastIndexOf(':')) + 1)..];
 
     static (FileClass, string) Loaded(string group) => (FileClass.Loaded, group);
+
     static (FileClass, string) Out(string group) => (FileClass.OutOfScope, group);
+
     static (FileClass, string) Known(string group) => (FileClass.KnownNotLoaded, group);
+
     static readonly (FileClass, string) Unknown = (FileClass.Unclassified, "");
 
     static (FileClass, string) Rule(string entry, HashSet<string> all)
     {
         var at = entry.IndexOf("::", StringComparison.Ordinal);
-        if (at >= 0) return Member(entry[..at], entry[(at + 2)..]);
+        if (at >= 0)
+            return Member(entry[..at], entry[(at + 2)..]);
         var parts = entry.Split('/');
         var ext = Path.GetExtension(parts[^1]);
         var depth = parts.Length;
@@ -126,7 +151,9 @@ public static class InstallClassifier
     // kind reads it (Classify).
     static (FileClass, string) Member(string archive, string member) =>
         archive == "objtxt.zfs" ? Loaded("objective texts")
-        : Layer(member) is var c && (c.Item1 == FileClass.Loaded || archive.StartsWith("addon/", StringComparison.Ordinal)) ? c
+        : Layer(member) is var c
+        && (c.Item1 == FileClass.Loaded || archive.StartsWith("addon/", StringComparison.Ordinal))
+            ? c
         : Unknown;
 
     // A file of the override layer or an archive, by its extension: the kinds that list such files by
@@ -134,41 +161,44 @@ public static class InstallClassifier
     // replaces a file of its name for the game. With the install opened, Classify marks such a file
     // loaded when a kind reads it (a font, key map, settings file, palette, interface configuration,
     // splash.bmp, or mip level that replaces the stock one), and the rest stay overrides no kind loads.
-    static (FileClass, string) Layer(string name) => Path.GetExtension(name) switch
-    {
-        ".odf" => Loaded("definitions"),
-        ".tt" => Loaded("tech trees"),
-        ".sod" => Loaded("models"),
-        ".tga" => Loaded("textures"),
-        _ => Known("overrides no kind loads"),
-    };
+    static (FileClass, string) Layer(string name) =>
+        Path.GetExtension(name) switch
+        {
+            ".odf" => Loaded("definitions"),
+            ".tt" => Loaded("tech trees"),
+            ".sod" => Loaded("models"),
+            ".tga" => Loaded("textures"),
+            _ => Known("overrides no kind loads"),
+        };
 
-    static (FileClass, string) RootFile(string name, string ext) => (name, ext) switch
-    {
-        (_, ".map") => Loaded("key maps"),
-        (_, ".set") => Loaded("settings"),
-        ("rts_cfg.h", _) => Loaded("game constants"),
-        (_, ".ldl") => Loaded("text tables"),
-        (_, ".fnt") => Loaded("fonts"),
-        (_, ".pal") => Loaded("palettes"),
-        (_, ".zfs") => Loaded("archives"),
-        (_, ".zix") => Loaded("archive index"),
-        ("splash.bmp", _) => Loaded("bitmaps"),
-        (_, ".exe" or ".dll") => Out("compiled code"),
-        ("events.odf", _) => Known("event table"),
-        (_, ".h") or ("cca.cfg" or "collision.cfg", _) => Known("configuration headers"),
-        ("logfile.cfg", _) => Out("logs"),
-        ("woncfg.cfg" or "kver.pub" or "anet.inf", _) => Out("network"),
-        ("net.ini", _) => Known("network settings, consumer unknown"),
-        ("texture.dat", _) => Out("copy protection"),
-        ("credits.txt" or "credits2.txt", _) => Known("credits text"),
-        _ => Unknown,
-    };
+    static (FileClass, string) RootFile(string name, string ext) =>
+        (name, ext) switch
+        {
+            (_, ".map") => Loaded("key maps"),
+            (_, ".set") => Loaded("settings"),
+            ("rts_cfg.h", _) => Loaded("game constants"),
+            (_, ".ldl") => Loaded("text tables"),
+            (_, ".fnt") => Loaded("fonts"),
+            (_, ".pal") => Loaded("palettes"),
+            (_, ".zfs") => Loaded("archives"),
+            (_, ".zix") => Loaded("archive index"),
+            ("splash.bmp", _) => Loaded("bitmaps"),
+            (_, ".exe" or ".dll") => Out("compiled code"),
+            ("events.odf", _) => Known("event table"),
+            (_, ".h") or ("cca.cfg" or "collision.cfg", _) => Known("configuration headers"),
+            ("logfile.cfg", _) => Out("logs"),
+            ("woncfg.cfg" or "kver.pub" or "anet.inf", _) => Out("network"),
+            ("net.ini", _) => Known("network settings, consumer unknown"),
+            ("texture.dat", _) => Out("copy protection"),
+            ("credits.txt" or "credits2.txt", _) => Known("credits text"),
+            _ => Unknown,
+        };
 
     static (FileClass, string) Misc(string name, string ext) =>
         name.StartsWith("gui_", StringComparison.Ordinal) && ext == ".cfg" ? Loaded("interface configurations")
         : ext is ".aip" or ".h" ? Out("AI plans")
-        : ext is ".trn" or ".lgt" or ".des" or ".act" or ".alb" or ".lum" or ".tbl" or ".stb" ? Known("Battlezone leftovers")
+        : ext is ".trn" or ".lgt" or ".des" or ".act" or ".alb" or ".lum" or ".tbl" or ".stb"
+            ? Known("Battlezone leftovers")
         : Unknown;
 
     // The game reads addon without recursion, so a file in a subfolder is never reached.
@@ -183,12 +213,17 @@ public static class InstallClassifier
     // wrong size). The rest of the folder is a file the game never opens.
     static (FileClass, string) Texture(string entry, string[] parts, string ext, HashSet<string> all)
     {
-        if (ext == ".tga") return Loaded("textures");
-        if (ext == ".pal" && parts[1] == "rgb") return Loaded("palettes");
-        if (ext == ".jbf") return Known("texture extras");
-        if (!Numbered.IsMatch(ext)) return parts[1] == "index8" && ext == "" ? Known("texture extras") : Unknown;
+        if (ext == ".tga")
+            return Loaded("textures");
+        if (ext == ".pal" && parts[1] == "rgb")
+            return Loaded("palettes");
+        if (ext == ".jbf")
+            return Known("texture extras");
+        if (!Numbered.IsMatch(ext))
+            return parts[1] == "index8" && ext == "" ? Known("texture extras") : Unknown;
         var stem = entry[..^ext.Length];
-        if (!int.TryParse(ext[1..], out var level) || level is < 1 or > 9) return Known("texture extras");
+        if (!int.TryParse(ext[1..], out var level) || level is < 1 or > 9)
+            return Known("texture extras");
         var chain = all.Contains(stem + ".tga") && Enumerable.Range(1, level - 1).All(i => all.Contains($"{stem}.{i}"));
         return chain ? Loaded("textures") : Known("texture extras");
     }

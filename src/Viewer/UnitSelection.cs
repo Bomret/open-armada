@@ -68,9 +68,31 @@ public partial class UnitSelection : Node3D
     // The nearest object under the cursor; a unit is selected, anything else clears the selection.
     void Pick(Vector2 at)
     {
+        if (GetViewport().GetCamera3D() == null)
+            return;
+        var unit = UnitAt(at);
+        Select(unit != null ? new[] { unit } : Array.Empty<SelectableUnit>());
+    }
+
+    // Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected.
+    public void Remove(PlacedObject unit)
+    {
+        if (_units.Remove(unit, out var selectable) && _marks.Remove(selectable, out var mark))
+        {
+            mark.Ring.QueueFree();
+            mark.Name.QueueFree();
+        }
+        if (_nodes.Remove(unit, out var node))
+            node.QueueFree();
+    }
+
+    // The unit that is the nearest object under the cursor; null when the nearest object is no unit or there is
+    // none.
+    public SelectableUnit? UnitAt(Vector2 at)
+    {
         var camera = GetViewport().GetCamera3D();
         if (camera == null)
-            return;
+            return null;
         var origin = camera.ProjectRayOrigin(at);
         var direction = camera.ProjectRayNormal(at);
         // ponytail: the box around the model's meshes is the hit shape (a non-unit object holding the camera
@@ -96,7 +118,7 @@ public partial class UnitSelection : Node3D
                 );
             })
         );
-        Select(hit != null && _units.TryGetValue(hit, out var unit) ? new[] { unit } : Array.Empty<SelectableUnit>());
+        return hit != null && _units.TryGetValue(hit, out var unit) ? unit : null;
     }
 
     void Box(Vector2 from, Vector2 to)

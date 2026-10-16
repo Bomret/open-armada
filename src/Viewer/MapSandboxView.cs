@@ -97,8 +97,9 @@ public partial class MapSandboxView : Node3D
         var selection = new UnitSelection(files, plan, nodes);
         AddChild(selection);
         _gaps.AddRange(selection.Reports.Select(r => r.Text));
-        // Every unit's combat inputs are read once, here; nothing fights yet.
-        _gaps.AddRange(CombatPlan.Build(files, plan, selection.Units).Reports.Select(r => r.Text));
+        // Every unit's combat inputs are read once, here; the orders node fights them.
+        var combat = CombatPlan.Build(files, plan, selection.Units);
+        _gaps.AddRange(combat.Reports.Select(r => r.Text));
 
         // The rig reads the game constants once per start; move orders aim at its combat plane.
         var bounds = plan.Bounds;
@@ -113,7 +114,18 @@ public partial class MapSandboxView : Node3D
         }
         foreach (var problem in _rig.Problems)
             AddGap(problem);
-        AddChild(new UnitOrders(files, plan, selection, nodes, (float)_rig.CombatPlaneHeight, bounds, AddGap));
+        var orders = new UnitOrders(
+            files,
+            plan,
+            selection,
+            nodes,
+            (float)_rig.CombatPlaneHeight,
+            bounds,
+            combat,
+            AddGap
+        );
+        AddChild(orders);
+        AddChild(new UnitReadout(selection, orders.Combat));
 
         AddChild(new AsteroidFieldsView(files, plan, AddGap));
 

@@ -25,7 +25,9 @@ public sealed class TeamColors
 
     public IReadOnlyList<string> Notes => _notes;
 
-    public Vector3 Color(string slot) => _colors[slot];
+    // Throws KeyNotFoundException naming the slot when it is not one of SlotNames.
+    public Vector3 Color(string slot) =>
+        _colors.TryGetValue(slot, out var color) ? color : throw new KeyNotFoundException($"unknown team-color slot '{slot}'");
 
     public static TeamColors Load(GameFileSystem files)
     {

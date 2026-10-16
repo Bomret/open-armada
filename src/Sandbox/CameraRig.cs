@@ -13,11 +13,13 @@ namespace OpenArmada.Sandbox;
 public sealed class CameraRig
 {
     readonly MapBounds _bounds;
-    readonly double _focus, _initHeight, _minHeight, _scrollCoefficient, _border, _acceleration, _timeScale, _maxSpeed, _initSpeed, _targetY;
+    readonly double _focus, _initHeight, _minHeight, _scrollCoefficient, _border, _keyRate, _acceleration, _timeScale, _maxSpeed, _initSpeed, _targetY;
     double _height, _x, _z;
 
     public IReadOnlyList<string> Problems { get; }
     public double MaxHeight { get; }
+    // The farthest the eye gets from the look-at point: at the maximum height, on its parabola.
+    public double MaxDistance => Math.Sqrt(_focus * MaxHeight + MaxHeight * MaxHeight);
     // The height change per mouse wheel notch (ZOOM_SCROLL_COEFFICIENT) and the rotation per dragged pixel.
     public double ZoomStep { get; }
     public double RotationPerPixel { get; }
@@ -26,13 +28,20 @@ public sealed class CameraRig
     public double ScrollSpeed { get; private set; }
 
     // `constants` is null when the install's file could not be read: every value is then a stand-in.
-    public static CameraRig Create(GameConstants? constants, MapBounds bounds) => new(constants, bounds);
-
-    CameraRig(GameConstants? constants, MapBounds bounds)
+    public CameraRig(GameConstants? constants, MapBounds bounds)
     {
-        _bounds = bounds;
         var problems = new List<string>();
         Problems = problems;
+        if (bounds.MinX > bounds.MaxX || bounds.MinZ > bounds.MaxZ)
+        {
+            problems.Add($"the map bounds are inverted (X {bounds.MinX} to {bounds.MaxX}, Z {bounds.MinZ} to {bounds.MaxZ}): the camera swaps each inverted pair");
+            bounds = bounds with
+            {
+                MinX = Math.Min(bounds.MinX, bounds.MaxX), MaxX = Math.Max(bounds.MinX, bounds.MaxX),
+                MinZ = Math.Min(bounds.MinZ, bounds.MaxZ), MaxZ = Math.Max(bounds.MinZ, bounds.MaxZ),
+            };
+        }
+        _bounds = bounds;
         if (constants == null) problems.Add("the game constants are unavailable: the camera uses stand-ins for every value");
 
         double Get(string name, double standIn, Func<double, bool> legal, string rule)
@@ -63,10 +72,14 @@ public sealed class CameraRig
         }
         _minHeight = min;
         MaxHeight = max;
-        _initHeight = Math.Clamp(Get("OVERVIEW_INIT_HEIGHT", 450, v => v > 0, "not above 0"), min, max);
+        var init = Get("OVERVIEW_INIT_HEIGHT", 450, v => v > 0, "not above 0");
+        _initHeight = Math.Clamp(init, min, max);
+        if (_initHeight != init)
+            problems.Add($"constant OVERVIEW_INIT_HEIGHT {init} lies outside {min} to {max}: the camera starts at {_initHeight}");
         Rotation = Wrap(Get("OVERVIEW_INIT_ROTATION", 0, _ => true, ""));
         _scrollCoefficient = Get("SCROLL_COEFFICIENT", 90000, v => v > 0, "not above 0");
         ZoomStep = Get("ZOOM_SCROLL_COEFFICIENT", 0.1, v => v > 0, "not above 0");
+        _keyRate = Get("KEYBOARD_SCROLL_RATE", 6, v => v > 0, "not above 0");
         RotationPerPixel = Get("ROTATION_SCROLL_COEFFICIENT", 0.01, v => v > 0, "not above 0");
         _border = Get("SCROLL_BORDER_WIDTH", 2, v => v >= 0, "below 0");
         _acceleration = Get("SCROLL_ACCELERATION", 2, v => v >= 0, "below 0");
@@ -117,12 +130,15 @@ public sealed class CameraRig
         var direction = Vector2.Zero;
         if (focused)
         {
-            // stand-in: a key counts as a full-strength edge (the game takes the keyboard rate from an options value).
-            direction = keys;
+            // The arrow keys count with KEYBOARD_SCROLL_RATE as their strength, the edges with 0..1.
+            direction = keys.Length() > 1 ? Vector2.Normalize(keys) : keys;
+            direction *= (float)_keyRate;
             if (cursor.X >= 0 && cursor.Y >= 0 && cursor.X < size.X && cursor.Y < size.Y)
-                direction += new Vector2(Edge(size.X - 1 - cursor.X) - Edge(cursor.X), Edge(cursor.Y) - Edge(size.Y - 1 - cursor.Y));
+            {
+                var edge = new Vector2(Edge(size.X - 1 - cursor.X) - Edge(cursor.X), Edge(cursor.Y) - Edge(size.Y - 1 - cursor.Y));
+                direction += edge.Length() > 1 ? Vector2.Normalize(edge) : edge;
+            }
         }
-        if (direction.Length() > 1) direction = Vector2.Normalize(direction);
         if (direction == Vector2.Zero)
         {
             ScrollSpeed = _initSpeed;

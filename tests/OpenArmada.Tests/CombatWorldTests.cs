@@ -510,7 +510,7 @@ public class CombatWorldTests
         var b = Fighter("b", 2, 100);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        Assert.IsTrue(Fired(world.Step(1), "a") >= 200);
+        Assert.AreEqual(201, Fired(world.Step(1), "a")); // shots at 0, d, 2d ... for d = 0.005 over 1 s
         Assert.IsTrue(world.State(a.Object)!.Weapons[0].Cooldown >= -1e-6);
     }
 }

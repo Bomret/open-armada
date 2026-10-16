@@ -80,8 +80,12 @@ public sealed class ResolvedDefinition
         var at = path.FindIndex(p => p.Equals(name, StringComparison.OrdinalIgnoreCase));
         if (at >= 0)
         {
-            // The line names the cycle alone, not the way in, so every path that reaches it gives the same line.
-            AddProblem($"include cycle {string.Join(" -> ", path.Skip(at).Append(name))}");
+            // The line names the cycle alone, not the way in, and starts it at its smallest member
+            // (ignoring case), so every path that reaches it, at whichever member, gives the same line.
+            var members = path.Skip(at).ToList();
+            var start = members.IndexOf(members.Min(StringComparer.OrdinalIgnoreCase)!);
+            var cycle = members.Skip(start).Concat(members.Take(start)).ToList();
+            AddProblem($"include cycle {string.Join(" -> ", cycle.Append(cycle[0]))}");
             return false;
         }
         // The engine's rule: a definition cut by the depth limit and walked again by a shallower path adds

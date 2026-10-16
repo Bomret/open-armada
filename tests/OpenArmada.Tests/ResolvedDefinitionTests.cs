@@ -230,6 +230,26 @@ public class ResolvedDefinitionTests
         Assert.AreEqual(1, def.Problems.Count(p => p.Contains("cycle")));
     }
 
+    // The long path enters the cycle at mid, the shallower re-walk at deep: one cycle, one line.
+    [TestMethod]
+    public void CycleEnteredAtTwoMembersIsListedOnce()
+    {
+        const int longChain = 61;
+        var defs = new List<(string, string)>
+        {
+            ("root.odf", "#include \"short.odf\"\r\n#include \"long0.odf\""),
+            ("short.odf", "#include \"deep.odf\""),
+            ("mid.odf", "x = 1\r\n#include \"deep.odf\""),
+            ("deep.odf", "y = 2\r\n#include \"mid.odf\"\r\n#include \"deeper.odf\""),
+            ("deeper.odf", "z = 3"),
+        };
+        for (var i = 0; i < longChain; i++)
+            defs.Add(($"long{i}.odf", $"#include \"{(i + 1 < longChain ? $"long{i + 1}" : "mid")}.odf\""));
+        var def = Resolve("root.odf", defs.ToArray());
+        CollectionAssert.AreEqual(new[] { "include cycle deep.odf -> mid.odf -> deep.odf" },
+            def.Problems.Where(p => p.Contains("cycle")).ToArray());
+    }
+
     // Windows has no POSIX file modes; MSTest reports the test as skipped there.
     [TestMethod, System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
     public void IncludeThatExistsButCannotBeReadIsReportedAndTheRestResolves()

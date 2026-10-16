@@ -67,10 +67,6 @@ public sealed class CombatPlan
 
     static (float Protection, float Bonus) ReadConstants(GameFileSystem files, Gaps gaps)
     {
-        // stand-in: no protection by the shields (the whole damage hurts the shields) and no bonus to system hit
-        // points, where the install's RTS_CFG.h gives neither.
-        float protection = 1,
-            bonus = 0;
         GameConstants? constants = null;
         try
         {
@@ -89,9 +85,9 @@ public sealed class CombatPlan
             gaps.Add($"game constant {name} missing or no number, stand-in {Text(standIn)} used", name);
             return standIn;
         }
-        protection = Constant("SHIELD_DAMAGE_PROTECTION", protection);
-        bonus = Constant("SYSTEM_HITPOINTS_BONUS", bonus);
-        return (protection, bonus);
+        // stand-ins: no protection by the shields (the whole damage hurts the shields) and no bonus to system hit
+        // points, where the install's RTS_CFG.h gives neither.
+        return (Constant("SHIELD_DAMAGE_PROTECTION", 1), Constant("SYSTEM_HITPOINTS_BONUS", 0));
     }
 
     static string Text(float f) => f.ToString(CultureInfo.InvariantCulture);
@@ -108,8 +104,15 @@ public sealed class CombatPlan
             ("Sensors", "sensors"),
         };
 
-        readonly Dictionary<string, ResolvedDefinition?> _resolved = new(StringComparer.OrdinalIgnoreCase);
+        // A middling race: no delay and repair factors, middling crew thresholds.
+        static readonly RaceValues StandInRace = new(0.5f, 0.25f, 1, 1, 1, 1, 1);
+
+        // Each definition once: the definition, or null with the cause it could not be read.
+        readonly Dictionary<string, (ResolvedDefinition? Definition, string Cause)> _resolved = new(
+            StringComparer.OrdinalIgnoreCase
+        );
         Dictionary<string, ResolvedDefinition>? _races;
+        string? _racesProblem; // set when races.odf is missing or cannot be read
 
         public CombatProfile Read(ResolvedDefinition d, List<(string Cause, string Name)> gaps)
         {
@@ -164,7 +167,18 @@ public sealed class CombatPlan
             var weapons = new List<WeaponProfile>();
             foreach (var slot in d.Indexed("weapon"))
             {
-                var n = int.Parse(slot.Key.AsSpan("weapon".Length), NumberStyles.None, CultureInfo.InvariantCulture);
+                if (
+                    !int.TryParse(
+                        slot.Key.AsSpan("weapon".Length),
+                        NumberStyles.None,
+                        CultureInfo.InvariantCulture,
+                        out var n
+                    )
+                )
+                {
+                    unit.Gap("weapon slot number too large, slot left out", slot.Key);
+                    continue;
+                }
                 var name = unit.Str(slot.Key);
                 if (name.Length == 0)
                     continue;
@@ -223,28 +237,28 @@ public sealed class CombatPlan
             return weapons;
         }
 
-        // The weapon or ordnance definition, or null with a gap when it is missing or cannot be read.
+        // The weapon or ordnance definition, or null with a gap when it is missing or cannot be read. A
+        // definition that failed is reported with the same cause on every lookup.
         ResolvedDefinition? Resolve(string name, string what, List<(string Cause, string Name)> gaps)
         {
             var file = name + ".odf";
             if (!_resolved.TryGetValue(file, out var found))
                 try
                 {
-                    _resolved[file] = found = ResolvedDefinition.Resolve(files, file);
+                    _resolved[file] = found = (ResolvedDefinition.Resolve(files, file), "");
                 }
                 catch (Exception e) // unreadable for whatever reason: reported, the weapon is left out (INV-0002)
                 {
-                    _resolved[file] = null;
-                    gaps.Add(
+                    _resolved[file] = found = (
+                        null,
                         e is FileNotFoundException
-                            ? ($"{what} definition missing, weapon left out", name)
-                            : ($"{what} definition cannot be read, weapon left out", name)
+                            ? $"{what} definition missing, weapon left out"
+                            : $"{what} definition cannot be read, weapon left out"
                     );
-                    return null;
                 }
-            if (found == null)
-                gaps.Add(($"{what} definition missing or unreadable, weapon left out", name));
-            return found;
+            if (found.Definition == null)
+                gaps.Add((found.Cause, name));
+            return found.Definition;
         }
 
         RaceValues ReadRace(ResolvedDefinition d, Values unit, List<(string Cause, string Name)> gaps)
@@ -265,26 +279,41 @@ public sealed class CombatPlan
                     r.Num("repairStrength", 1, report: true)
                 );
             }
+            else if (_racesProblem != null)
+                unit.Gap(_racesProblem, "races.odf");
             else
                 unit.Gap("race definition missing, stand-in race values used", race);
-            // stand-in: a race with no delay and repair factors and middling crew thresholds
-            return new RaceValues(0.5f, 0.25f, 1, 1, 1, 1, 1);
+            return StandInRace;
         }
 
-        // The race definition is the definition of the addon folder whose `name` is the race.
+        // The race definition is the file races.odf lists as race0, race1, ... whose `name` is the race (the
+        // files can be loose or in an archive).
         ResolvedDefinition? FindRace(string race)
         {
             if (_races == null)
             {
                 _races = new Dictionary<string, ResolvedDefinition>(StringComparer.OrdinalIgnoreCase);
-                foreach (var file in files.List(".odf", "addon"))
+                ResolvedDefinition list;
+                try
+                {
+                    list = ResolvedDefinition.Resolve(files, "races.odf");
+                }
+                catch (Exception e) // missing or unreadable for whatever reason: a gap, whatever the reason (INV-0002)
+                {
+                    _racesProblem =
+                        e is FileNotFoundException
+                            ? "races.odf missing, stand-in race values used"
+                            : "races.odf cannot be read, stand-in race values used";
+                    return null;
+                }
+                foreach (var slot in list.Indexed("race"))
                     try
                     {
-                        var def = ResolvedDefinition.Resolve(files, file);
+                        var def = ResolvedDefinition.Resolve(files, list.GetString(slot.Key));
                         if (def.Has("name"))
                             _races.TryAdd(def.GetString("name"), def);
                     }
-                    catch (Exception) // a definition that cannot be read is no race
+                    catch (Exception) // a race file that cannot be read is no race
                     { }
             }
             return _races.GetValueOrDefault(race);
@@ -298,45 +327,36 @@ public sealed class CombatPlan
 
         public void Gap(string cause, string? name = null) => gaps.Add((cause, name ?? Who));
 
-        public float Num(string key, float standIn, bool report = false)
+        // The value of a key through `get`; a missing key (reported when `report`) or an unreadable one takes the
+        // stand-in.
+        T Read<T>(string key, T standIn, float shown, bool report, Func<T> get)
         {
             if (!d.Has(key))
             {
                 if (report)
-                    Gap($"{key} missing, stand-in {Text(standIn)} used");
+                    Gap($"{key} missing, stand-in {Text(shown)} used");
                 return standIn;
             }
             try
             {
-                return d.GetFloat(key);
+                return get();
             }
             catch (DefinitionException)
             {
-                Gap($"{key} is no number, stand-in {Text(standIn)} used");
+                Gap($"{key} is no number, stand-in {Text(shown)} used");
                 return standIn;
             }
         }
 
+        public float Num(string key, float standIn, bool report = false) =>
+            Read(key, standIn, standIn, report, () => d.GetFloat(key));
+
         public TargetValue Target(string key, float standIn, bool report = false)
         {
-            if (!d.Has(key))
-            {
-                if (report)
-                    Gap($"{key} missing, stand-in {Text(standIn)} used");
-                return new TargetValue(standIn, new Dictionary<string, float>());
-            }
-            try
-            {
-                var v = d.GetTargetValue(key);
-                if (v.Problem != null)
-                    Gap("per-target override malformed, default used", $"{Who}.{key}");
-                return v;
-            }
-            catch (DefinitionException)
-            {
-                Gap($"{key} is no number, stand-in {Text(standIn)} used");
-                return new TargetValue(standIn, new Dictionary<string, float>());
-            }
+            var v = Read(key, TargetValue.Of(standIn), standIn, report, () => d.GetTargetValue(key));
+            if (v.Malformed)
+                Gap("per-target override malformed, default used", $"{Who}.{key}");
+            return v;
         }
 
         public bool Flag(string key, bool standIn)

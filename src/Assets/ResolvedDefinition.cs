@@ -245,7 +245,7 @@ public sealed class ResolvedDefinition
         ) && float.IsFinite(f);
 
     // A default followed by per-target overrides, each a name and a number. Throws DefinitionException when
-    // the default is no number; a malformed override line leaves the default alone and sets Problem.
+    // the default is no number; a malformed override line leaves the default alone and sets Malformed.
     public TargetValue GetTargetValue(string key)
     {
         var t = Get(key).Tokens;
@@ -254,11 +254,7 @@ public sealed class ResolvedDefinition
         var overrides = new Dictionary<string, float>();
         for (var i = 1; i < t.Count; i += 2)
             if (i + 1 >= t.Count || !TryNumber(t[i + 1], out var v))
-                return new TargetValue(
-                    def,
-                    new Dictionary<string, float>(),
-                    $"{Name}: key '{key}' has a malformed override at '{t[i]}'"
-                );
+                return new TargetValue(def, new Dictionary<string, float>(), Malformed: true);
             else
                 overrides[t[i]] = v;
         return new TargetValue(def, overrides);

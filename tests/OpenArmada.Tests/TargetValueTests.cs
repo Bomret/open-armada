@@ -35,7 +35,7 @@ public class TargetValueTests
         var v = Read("damageBase = 30");
         Assert.AreEqual(30f, v.Default);
         Assert.AreEqual(0, v.Overrides.Count);
-        Assert.IsNull(v.Problem);
+        Assert.IsFalse(v.Malformed);
     }
 
     [TestMethod]
@@ -43,7 +43,7 @@ public class TargetValueTests
     {
         var v = Read("damageBase = 30\r\n\t\"zmama.odf\" 2\r\n\t\"lonely.odf\"\r\n");
         Assert.AreEqual(30f, v.For("zmama.odf"));
-        StringAssert.Contains(v.Problem, "damageBase");
+        Assert.IsTrue(v.Malformed);
     }
 
     [TestMethod]
@@ -51,7 +51,7 @@ public class TargetValueTests
     {
         var v = Read("damageBase = 30\r\n\t\"zmama.odf\" lots\r\n");
         Assert.AreEqual(30f, v.For("zmama.odf"));
-        StringAssert.Contains(v.Problem, "damageBase");
+        Assert.IsTrue(v.Malformed);
     }
 
     [TestMethod]

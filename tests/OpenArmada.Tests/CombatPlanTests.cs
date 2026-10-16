@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Numerics;
+using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
@@ -33,6 +34,9 @@ public class CombatPlanTests
         + "race = \"federation\"\r\nmaxHealth = 900\r\nshieldRate = 5\r\nshieldDelay = 3\r\ncrewCost = 100\r\n"
         + "maximumCrew = 120\r\n";
 
+    // A loose-file marker (not written to the install) for a test of an install with no races.odf.
+    const string NoRaces = "no-races";
+
     // Definitions are "class" -> odf text, in addon/. The map holds one object of each class in `classes`.
     (CombatPlan Plan, SelectableUnit[] Units) Plan(
         string[] classes,
@@ -40,6 +44,9 @@ public class CombatPlanTests
         params (string Path, string Content)[] loose
     )
     {
+        // the install lists its races in races.odf; tests that do not bring their own list name fed.odf
+        if (!loose.Any(l => l.Path is "addon/races.odf" or "addon/races.zfs" or NoRaces))
+            loose = loose.Append(("addon/races.odf", "numberOfRaces = 1\r\nrace0 = \"fed.odf\"\r\n")).ToArray();
         var install = new GameFileSystem(
             temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).Concat(loose).ToArray())
         );
@@ -117,7 +124,34 @@ public class CombatPlanTests
             ("bad", Beam.Replace("beamo", "gone"))
         );
         Assert.AreEqual(2, ProfileOf(r).Weapons.Single().Slot);
-        Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.Contains("ordnance definition")));
+        var gap = r.Plan.Reports.Single(g => g.Cause.Contains("ordnance definition"));
+        CollectionAssert.AreEqual(new[] { "gone" }, gap.Names.ToArray());
+        Assert.AreEqual(1, gap.Count);
+    }
+
+    [TestMethod]
+    public void OneMissingWeaponNamedByTwoUnitClassesIsOneCauseWithBothClasses()
+    {
+        var weapon = "weapon1 = \"nope\"\r\nweaponHardpoints1 = \"a\"\r\n";
+        var r = Plan(
+            new[] { "s", "t" },
+            new[] { ("s", Ship + weapon), ("t", Ship + weapon), ("fed", Race) },
+            ("RTS_CFG.h", Constants)
+        );
+        var gap = r.Plan.Reports.Single(g => g.Cause.Contains("weapon definition"));
+        CollectionAssert.AreEqual(new[] { "nope" }, gap.Names.ToArray());
+        Assert.AreEqual(2, gap.Count);
+    }
+
+    [TestMethod]
+    public void AWeaponSlotNumberTooLargeForAnIntIsReportedAndTheMapStillOpens()
+    {
+        var r = OneShip(
+            "weapon99999999999 = \"beam\"\r\nweaponHardpoints99999999999 = \"a\"\r\n"
+                + "weapon1 = \"beam\"\r\nweaponHardpoints1 = \"b\"\r\n"
+        );
+        Assert.AreEqual(1, ProfileOf(r).Weapons.Single().Slot);
+        Assert.IsTrue(r.Plan.Reports.Any(g => g.Names.Any(n => n.Contains("weapon99999999999"))));
     }
 
     [TestMethod]
@@ -193,6 +227,43 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void ARaceDefinitionNamedOnlyByRacesOdfIsFoundByItsName()
+    {
+        // races.odf and fedx.odf are archive members: no scan of addon/*.odf reaches them
+        var (plan, units) = Plan(
+            new[] { "s" },
+            new[] { ("s", Ship), ("beam", Beam), ("beamo", BeamOrd) },
+            ("RTS_CFG.h", Constants),
+            (
+                "addon/races.zfs",
+                Encoding.Latin1.GetString(
+                    ZfsBuilder.Build(
+                        0x9466279b,
+                        ZfsBuilder.M("races.odf", "numberOfRaces = 1\r\nrace0 = \"fedx.odf\"\r\n"),
+                        ZfsBuilder.M("fedx.odf", Race)
+                    )
+                )
+            )
+        );
+        Assert.AreEqual(2.5f, plan.Profiles[units[0].Object].Race.WeaponRed);
+        Assert.AreEqual(0, plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void AMissingRacesOdfIsReportedOnce()
+    {
+        var (plan, _) = Plan(
+            new[] { "s", "s" },
+            new[] { ("s", Ship), ("fed", Race), ("beam", Beam), ("beamo", BeamOrd) },
+            ("RTS_CFG.h", Constants),
+            (NoRaces, "")
+        );
+        var gap = plan.Reports.Single(g => g.Cause.Contains("races.odf"));
+        Assert.AreEqual(2, gap.Count);
+        Assert.AreEqual(0, plan.Reports.Count(g => g.Cause.Contains("race definition missing")));
+    }
+
+    [TestMethod]
     public void AMissingGameConstantIsReportedAndTakesAStandIn()
     {
         var r = Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) }, ("RTS_CFG.h", "int OTHER = 1;\r\n"));
@@ -233,7 +304,9 @@ public class CombatPlanTests
         );
         var r = Plan(new[] { "s" }, new[] { ("s", odf), ("fed", Race) }, ("RTS_CFG.h", Constants));
         var p = ProfileOf(r);
-        Assert.IsTrue(float.IsFinite(p.MaxHealth) && float.IsFinite(p.ShieldRate) && p.CrewCost > 0);
+        Assert.AreEqual(key == "maxHealth" ? 0f : 900f, p.MaxHealth);
+        Assert.AreEqual(key == "shieldRate" ? 0f : 5f, p.ShieldRate);
+        Assert.AreEqual(key == "crewCost" ? 1f : 100f, p.CrewCost);
         Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.StartsWith(key + " missing")));
     }
 

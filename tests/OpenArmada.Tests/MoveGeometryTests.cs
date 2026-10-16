@@ -74,6 +74,22 @@ public class MoveGeometryTests
     }
 
     [TestMethod]
+    public void TheHeadingTurnsAboutWorldYAfterTheInitialOrientationAndTheBankRollsAboutTheShipsOwnBow()
+    {
+        // the initial orientation turns the bow (-Z) to +X and the left wing (-X) to -Z
+        var initial = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2);
+        var orientation = MoveGeometry.Orientation(initial, MathF.PI / 2, 0.5f);
+        var bow = Vector3.Transform(-Vector3.UnitZ, orientation);
+        Assert.AreEqual(0, bow.X, 1e-5);
+        Assert.AreEqual(0, bow.Y, 1e-5);
+        Assert.AreEqual(-1, bow.Z, 1e-5);
+        var leftWing = Vector3.Transform(-Vector3.UnitX, orientation);
+        Assert.AreEqual(-MathF.Cos(0.5f), leftWing.X, 1e-5);
+        Assert.AreEqual(MathF.Sin(0.5f), leftWing.Y, 1e-5);
+        Assert.AreEqual(0, leftWing.Z, 1e-5);
+    }
+
+    [TestMethod]
     public void AShipWithMapFrontPlusXFacesPlusXAndFliesStraightAheadWithoutTurningOrBanking()
     {
         // SandboxPlan's AxisZ for Front = (1, 0, 0) is (-1, 0, 0), so the bow points to +X

@@ -14,7 +14,8 @@ public partial class MoveOrders : Node3D
 {
     readonly UnitSelection _selection;
     readonly Dictionary<PlacedObject, Node3D> _nodes;
-    readonly Dictionary<PlacedObject, (ShipMotion Motion, System.Numerics.Quaternion Initial, float Heading)> _moving = new();
+    // Scale is the node basis's scale (negative on all axes for a mirrored basis); the rotation is rebuilt around it.
+    readonly Dictionary<PlacedObject, (ShipMotion Motion, System.Numerics.Quaternion Initial, float Heading, Vector3 Scale)> _moving = new();
     readonly MovePlan _plan;
     readonly float _planeHeight;
 
@@ -58,7 +59,7 @@ public partial class MoveOrders : Node3D
                 var initial = node.Transform.Basis.GetRotationQuaternion();
                 var heading = MoveGeometry.BowHeading(new System.Numerics.Vector3(o.AxisZ.X, o.AxisZ.Y, o.AxisZ.Z));
                 _moving[o] = state = (new ShipMotion(physics, new System.Numerics.Vector3(o.Position.X, o.Position.Y, o.Position.Z), heading),
-                    new System.Numerics.Quaternion(initial.X, initial.Y, initial.Z, initial.W), heading);
+                    new System.Numerics.Quaternion(initial.X, initial.Y, initial.Z, initial.W), heading, node.Transform.Basis.Scale);
             }
             state.Motion.SetTarget(target.X, target.Y);
         }
@@ -66,11 +67,11 @@ public partial class MoveOrders : Node3D
 
     public override void _Process(double delta)
     {
-        foreach (var (o, (motion, initial, start)) in _moving)
+        foreach (var (o, (motion, initial, start, scale)) in _moving)
         {
             var pose = motion.Step(delta);
             var q = MoveGeometry.Orientation(initial, pose.Heading - start, pose.Bank);
-            _nodes[o].Transform = new Transform3D(new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)),new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z));
+            _nodes[o].Transform = new Transform3D(new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)) * Basis.FromScale(scale), new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z));
         }
     }
 }

@@ -97,6 +97,8 @@ public partial class MapSandboxView : Node3D
         var selection = new UnitSelection(files, plan, nodes);
         AddChild(selection);
         _gaps.AddRange(selection.Reports.Select(r => r.Text));
+        // Every unit's combat inputs are read once, here; nothing fights yet.
+        _gaps.AddRange(CombatPlan.Build(files, plan, selection.Units).Reports.Select(r => r.Text));
 
         // The rig reads the game constants once per start; move orders aim at its combat plane.
         var bounds = plan.Bounds;

@@ -76,7 +76,24 @@ public class CameraRigTests
     [TestMethod]
     public void TheFarthestEyeDistanceFromTheTargetIsAtTheMaximumHeight()
     {
-        Near(MathF.Sqrt(200 * 700 + 700 * 700), (float)Rig().MaxDistance); // horizontal sqrt(focus * max), vertical max
+        // horizontal sqrt(focus * max); vertical from the target height 38.5 (middle of the combat plane) up to 700
+        Near(MathF.Sqrt(200 * 700 + 661.5f * 661.5f), (float)Rig().MaxDistance);
+    }
+
+    [TestMethod]
+    public void TheFarthestEyeDistanceCoversANegativeCombatPlane()
+    {
+        // target height -80: the vertical leg at the maximum height is 780, not 700
+        var rig = Rig(("SHIP_COMBAT_FLOOR", "-100.0"), ("SHIP_COMBAT_CEILING", "-60.0"));
+        Near(MathF.Sqrt(200 * 700 + 780 * 780), (float)rig.MaxDistance);
+    }
+
+    [TestMethod]
+    public void TheFarthestEyeDistanceCoversATargetAboveTheMaximumHeight()
+    {
+        // target height 1000: the eye is farthest at the minimum height 10 (leg 990, horizontal sqrt(200 * 10))
+        var rig = Rig(("SHIP_COMBAT_FLOOR", "990.0"), ("SHIP_COMBAT_CEILING", "1010.0"));
+        Near(MathF.Sqrt(200 * 10 + 990 * 990), (float)rig.MaxDistance);
     }
 
     [TestMethod]
@@ -166,6 +183,25 @@ public class CameraRigTests
         var slow = Rig(("KEYBOARD_SCROLL_RATE", "3.0"));
         slow.Scroll(new Vector2(400, 300), new Vector2(800, 600), true, new Vector2(0, 1), 0.1);
         Near(300 + 2 * 0.5f * 0.1f * 3 * 200, slow.Pose.Target.Z);
+    }
+
+    [TestMethod]
+    public void DiagonalArrowKeysAreNormalizedThenMultipliedByTheRate()
+    {
+        var rig = Rig();
+        rig.Scroll(new Vector2(400, 300), new Vector2(800, 600), true, new Vector2(1, 1), 0.1);
+        var step = 2 * 0.5f * 0.1f * 6 * 200 / MathF.Sqrt(2); // acceleration * speed * dt * rate 6 * 200, per axis
+        Near(500 + step, rig.Pose.Target.X);
+        Near(300 + step, rig.Pose.Target.Z);
+    }
+
+    [TestMethod]
+    public void ArrowKeysAndAnEdgeAddUp()
+    {
+        var rig = Rig();
+        // the right arrow (strength 6) and the left edge pixel (strength 1 to the left): 5 to the right
+        rig.Scroll(new Vector2(0, 300), new Vector2(800, 600), true, new Vector2(1, 0), 0.1);
+        Near(500 + 2 * 0.5f * 0.1f * 5 * 200, rig.Pose.Target.X);
     }
 
     [TestMethod]

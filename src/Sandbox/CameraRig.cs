@@ -18,8 +18,11 @@ public sealed class CameraRig
 
     public IReadOnlyList<string> Problems { get; }
     public double MaxHeight { get; }
-    // The farthest the eye gets from the look-at point: at the maximum height, on its parabola.
-    public double MaxDistance => Math.Sqrt(_focus * MaxHeight + MaxHeight * MaxHeight);
+    // The farthest the eye gets from the look-at point: at the maximum or the minimum height (whichever lies
+    // farther from the target's height), on its parabola.
+    public double MaxDistance => Math.Max(DistanceAt(MaxHeight), DistanceAt(_minHeight));
+
+    double DistanceAt(double height) => Math.Sqrt(_focus * height + (height - _targetY) * (height - _targetY));
     // The height change per mouse wheel notch (ZOOM_SCROLL_COEFFICIENT) and the rotation per dragged pixel.
     public double ZoomStep { get; }
     public double RotationPerPixel { get; }

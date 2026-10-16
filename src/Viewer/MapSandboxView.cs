@@ -202,8 +202,8 @@ public partial class MapSandboxView : Node3D
             var viewport = GetViewport();
             var mouse = viewport.GetMousePosition();
             var size = viewport.GetVisibleRect().Size;
-            // Godot keeps the last position of a cursor that left the window, so the window's exit signal marks
-            // the cursor outside (the rig counts a negative position as outside).
+            // The view tracks the window's mouse enter and exit and treats the cursor as outside while the window
+            // is exited, passing the rig a negative position (the rig counts that as outside).
             var cursor = _mouseInWindow ? new System.Numerics.Vector2(mouse.X, mouse.Y) : new System.Numerics.Vector2(-1, -1);
             _rig.Scroll(cursor, new System.Numerics.Vector2(size.X, size.Y),
                 GetWindow().HasFocus(), new System.Numerics.Vector2(keys.X, keys.Y), delta);

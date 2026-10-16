@@ -25,6 +25,9 @@ public partial class MapSandboxView : Node3D
     Node3D? _background;
     Vector3 _backgroundOffset;
     Camera3D? _camera;
+    // Null while the map shows a problem instead of the scene (_Ready returns before the rig is built).
+    CameraRig? _rig;
+    bool _mouseInWindow = true;
     int _frames;
 
     public MapSandboxView(MapSandbox sandbox, string? screenshot)
@@ -40,6 +43,9 @@ public partial class MapSandboxView : Node3D
             Show(_sandbox.Problem);
             return;
         }
+        var window = GetWindow();
+        window.MouseEntered += () => _mouseInWindow = true;
+        window.MouseExited += () => _mouseInWindow = false;
         var files = _sandbox.Files!;
         var plan = _sandbox.Plan!;
         var team = TeamColors.Load(files);
@@ -78,16 +84,21 @@ public partial class MapSandboxView : Node3D
         AddChild(new AsteroidFieldsView(files, plan, AddGap));
 
         var bounds = plan.Bounds;
-        // stand-in: the sandbox's reach, no camera farther from an object than twice the map's diagonal
-        // (the install defines no camera limit).
-        var reach = 2 * MathF.Sqrt(bounds.Width * bounds.Width + bounds.Depth * bounds.Depth);
-        var center = new Vector3((bounds.MinX + bounds.MaxX) / 2, (bounds.MinY + bounds.MaxY) / 2, -(bounds.MinZ + bounds.MaxZ) / 2);
-        // stand-in: the fixed camera (slice of the RTS camera replaces it), its field of view and clip planes.
-        var size = MathF.Max(bounds.Width, bounds.Depth);
+        try { _rig = new CameraRig(GameConstantsKind.Of(files), bounds); }
+        catch (Exception e) // no readable RTS_CFG.h: the camera uses its stand-ins (INV-0002)
+        {
+            AddGap($"{GameConstantsKind.FileName} cannot be read: {e.Message}");
+            _rig = new CameraRig(null, bounds);
+        }
+        foreach (var problem in _rig.Problems) AddGap(problem);
+        // The sandbox's reach: no camera is farther from an object than the rig's greatest eye distance from its
+        // look-at point (which stays within the map) plus the map's diagonal.
+        var reach = (float)_rig.MaxDistance + MathF.Sqrt(bounds.Width * bounds.Width + bounds.Depth * bounds.Depth);
+        // stand-in: the camera's field of view and near plane; the far plane covers the map and the background.
         var camera = new Camera3D { Fov = 60, Near = 1, Far = reach * 4, Current = true };
         AddChild(camera);
-        camera.Position = center + new Vector3(0, size * 0.8f, size * 0.6f);
-        camera.LookAt(center);
+        _camera = camera;
+        PlaceCamera();
         if (plan.Background != null) AddBackground(files, builder, team, plan.Background, camera, reach);
         Show(null);
     }
@@ -172,8 +183,39 @@ public partial class MapSandboxView : Node3D
 
     static Vector3 ToGodot(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
 
+    // The rig's pose in Godot's frame (Z mirrored).
+    void PlaceCamera()
+    {
+        var (eye, target) = _rig!.Pose;
+        _camera!.Position = new Vector3(eye.X, eye.Y, -eye.Z);
+        _camera.LookAt(new Vector3(target.X, target.Y, -target.Z));
+    }
+
+    // The wheel changes the height (stand-in: the game uses a vertical drag), a middle-button drag rotates.
+    public override void _Input(InputEvent e)
+    {
+        if (_rig == null) return;
+        if (e is InputEventMouseButton { Pressed: true } b && b.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+            _rig.ChangeHeight(b.ButtonIndex == MouseButton.WheelUp ? -_rig.ZoomStep : _rig.ZoomStep);
+        else if (e is InputEventMouseMotion m && m.ButtonMask.HasFlag(MouseButtonMask.Middle))
+            _rig.Rotate(m.Relative.X * _rig.RotationPerPixel);
+    }
+
     public override void _Process(double delta)
     {
+        if (_rig != null)
+        {
+            var keys = new Vector2(Input.GetAxis("ui_left", "ui_right"), Input.GetAxis("ui_down", "ui_up"));
+            var viewport = GetViewport();
+            var mouse = viewport.GetMousePosition();
+            var size = viewport.GetVisibleRect().Size;
+            // The view tracks the window's mouse enter and exit and treats the cursor as outside while the window
+            // is exited, passing the rig a negative position (the rig counts that as outside).
+            var cursor = _mouseInWindow ? new System.Numerics.Vector2(mouse.X, mouse.Y) : new System.Numerics.Vector2(-1, -1);
+            _rig.Scroll(cursor, new System.Numerics.Vector2(size.X, size.Y),
+                GetWindow().HasFocus(), new System.Numerics.Vector2(keys.X, keys.Y), delta);
+            PlaceCamera();
+        }
         // The background keeps its centering offset from the camera and never turns with it.
         if (_background != null && _camera != null) _background.GlobalPosition = _camera.GlobalPosition + _backgroundOffset;
         // Wait a few frames so textures are uploaded before capturing.

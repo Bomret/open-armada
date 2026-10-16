@@ -193,9 +193,17 @@ public class TextTableTests
     [TestMethod]
     public void AnImportOutOfTheInstallRootIsNotFoundAndBecomesANote()
     {
-        var files = Install(true, ("default.ldl", Latin1(Encode("import \"..\\x.ldl\"\n"))));
+        // A real x.ldl sits one folder above the install root, so an import that escapes would read it.
+        var exe = new byte[TextTable.KeyOffset + TextTable.KeyLength];
+        Key.CopyTo(exe, TextTable.KeyOffset);
+        var root = temp.MakeInstall(
+            ("x.ldl", Latin1(Encode("b { string p \"escaped\" }"))),
+            ("game/SOD/a.sod", ""),
+            ("game/splash.exe", Latin1(exe)),
+            ("game/default.ldl", Latin1(Encode("import \"..\\x.ldl\"\nimport \"../x.ldl\"\n"))));
+        var files = new GameFileSystem(System.IO.Path.Combine(root, "game"));
         var t = (TextTable)new TextTableKind().Load(files, "default.ldl");
-        Assert.IsTrue(t.Notes.Any(n => n.Contains("not found")), string.Join("|", t.Notes));
+        Assert.AreEqual((0, 2), (t.Entries.Count, t.Notes.Count(n => n.Contains("not found"))), string.Join("|", t.Notes));
     }
 
     [TestMethod]

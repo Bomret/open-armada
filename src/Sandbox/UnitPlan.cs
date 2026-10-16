@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using OpenArmada.Assets;
 
 namespace OpenArmada.Sandbox;
@@ -30,14 +29,7 @@ public sealed class UnitPlan
     public static UnitPlan Build(GameFileSystem files, SandboxPlan plan, Func<PlacedObject, bool> selectable)
     {
         var units = new List<SelectableUnit>();
-        // cause -> distinct names and object count, in order of first sight
-        var gaps = new Dictionary<string, (List<string> Names, int Count)>();
-        void Gap(string cause, string name)
-        {
-            if (!gaps.TryGetValue(cause, out var g)) gaps[cause] = g = (new List<string>(), 0);
-            if (!g.Names.Contains(name)) g.Names.Add(name);
-            gaps[cause] = (g.Names, g.Count + 1);
-        }
+        var gaps = new Gaps();
         foreach (var o in plan.Objects)
         {
             if (!selectable(o) || !plan.Resolved.TryGetValue(o.Class, out var definition)) continue;
@@ -50,19 +42,19 @@ public sealed class UnitPlan
                 var name = o.Class;
                 if (definition.Has("unitName"))
                     try { name = definition.GetString("unitName"); }
-                    catch (DefinitionException) { Gap(BadName, o.Class); }
+                    catch (DefinitionException) { gaps.Add(BadName, o.Class); }
                 var station = false;
                 if (definition.Has("is_starbase"))
                     try { station = definition.GetInt("is_starbase") != 0; }
-                    catch (DefinitionException) { Gap(BadStarbase, o.Class); }
+                    catch (DefinitionException) { gaps.Add(BadStarbase, o.Class); }
                 unit = station ? new Station(name) : new Ship(name);
             }
             if (unit == null) continue;
             bool movable;
-            try { movable = files.Find(definition.GetString("physicsFile")) != null; if (!movable) Gap(MissingPhysics, o.Class); }
-            catch (DefinitionException) { movable = false; Gap(BadPhysics, o.Class); }
+            try { movable = files.Find(definition.GetString("physicsFile")) != null; if (!movable) gaps.Add(MissingPhysics, o.Class); }
+            catch (DefinitionException) { movable = false; gaps.Add(BadPhysics, o.Class); }
             units.Add(new SelectableUnit(o, unit, movable));
         }
-        return new UnitPlan(units, gaps.Select(g => new ReportEntry(g.Key, g.Value.Names, g.Value.Count)).ToList());
+        return new UnitPlan(units, gaps.Entries);
     }
 }

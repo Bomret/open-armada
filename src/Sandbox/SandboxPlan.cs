@@ -156,20 +156,4 @@ public sealed class SandboxPlan
         }
         return record;
     }
-
-    // Gaps grouped by cause in order of first sight, each with its distinct names and its object count.
-    sealed class Gaps
-    {
-        readonly List<string> _causes = new();
-        readonly Dictionary<string, (List<string> Names, int Count)> _byCause = new();
-
-        public void Add(string cause, string name)
-        {
-            if (!_byCause.TryGetValue(cause, out var gap)) { _causes.Add(cause); gap = (new List<string>(), 0); }
-            if (!gap.Names.Contains(name)) gap.Names.Add(name);
-            _byCause[cause] = (gap.Names, gap.Count + 1);
-        }
-
-        public IReadOnlyList<ReportEntry> Entries => _causes.Select(c => new ReportEntry(c, _byCause[c].Names, _byCause[c].Count)).ToList();
-    }
 }

@@ -83,7 +83,7 @@ public sealed record AsteroidField(Vector3 Center, int Min, int Max, float Radiu
     public static (IReadOnlyList<AsteroidField> Fields, IReadOnlyList<ReportEntry> Reports) Collect(
         BznMap map, IReadOnlyDictionary<string, ResolvedDefinition> definitions, Func<string, bool> hasModel)
     {
-        var gaps = new List<(string Cause, string Name, MapObject Field)>();
+        var gaps = new Gaps();
         var present = ModelNames.Where(hasModel).ToList();
         var fields = new List<AsteroidField>();
         foreach (var o in map.Objects)
@@ -94,7 +94,7 @@ public sealed record AsteroidField(Vector3 Center, int Min, int Max, float Radiu
             T Read<T>(string key, Func<string, T> get)
             {
                 try { return get(key); }
-                catch (DefinitionException) { gaps.Add((MissingKey, $"{o.Class}: {key}", o)); bad = true; return default!; }
+                catch (DefinitionException) { gaps.Add(MissingKey, $"{o.Class}: {key}", o); bad = true; return default!; }
             }
             var min = Read("minAsteroids", d.GetInt);
             var max = Read("maxAsteroids", d.GetInt);
@@ -102,16 +102,14 @@ public sealed record AsteroidField(Vector3 Center, int Min, int Max, float Radiu
             var spin = Read("rotationSpeed", d.GetFloat);
             var orbit = Read("orbitingSpeed", d.GetFloat);
             if (bad) continue;
-            if (min < 0 || max < 0 || max > MaxRocksPerField) { gaps.Add((BadCount, o.Class, o)); continue; }
-            if (min > max) { gaps.Add((MinAboveMax, o.Class, o)); continue; }
-            if (!(radius > 0)) { gaps.Add((BadRadius, o.Class, o)); continue; }
-            foreach (var missing in ModelNames.Except(present)) gaps.Add((MissingModel, missing, o));
-            if (present.Count == 0) { gaps.Add((NoModel, o.Class, o)); continue; }
+            if (min < 0 || max < 0 || max > MaxRocksPerField) { gaps.Add(BadCount, o.Class, o); continue; }
+            if (min > max) { gaps.Add(MinAboveMax, o.Class, o); continue; }
+            if (!(radius > 0)) { gaps.Add(BadRadius, o.Class, o); continue; }
+            foreach (var missing in ModelNames.Except(present)) gaps.Add(MissingModel, missing, o);
+            if (present.Count == 0) { gaps.Add(NoModel, o.Class, o); continue; }
             fields.Add(new AsteroidField(new Vector3(o.Position.X, o.Position.Y, -o.Position.Z), min, max, radius, spin, orbit, SeedOf(map, o), present));
         }
-        var reports = gaps.GroupBy(g => g.Cause)
-            .Select(g => new ReportEntry(g.Key, g.Select(x => x.Name).Distinct().ToList(), g.Select(x => x.Field).Distinct().Count())).ToList();
-        return (fields, reports);
+        return (fields, gaps.Entries);
     }
 
     // The seed of a field: FNV-1a over the map's own content (its description, mission file, terrain name, and

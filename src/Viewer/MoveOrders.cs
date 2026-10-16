@@ -65,6 +65,8 @@ public partial class MoveOrders : Node3D
             is not { } hit
         )
             return;
+        // stand-in: an order outside the map goes to the nearest point of its edge; how the game handles such a click
+        // is not known.
         var target = MoveGeometry.ClampToMap(hit, _bounds);
         foreach (var unit in _selection.Selected)
         {

@@ -25,8 +25,10 @@ internal sealed class BznBuilder
     internal int Version = 2051;
     internal string Description = "Test Map";
     internal float[] Bounds = { 0, 6400, -28.5f, 105.5f, 0, 6400 };
+
+    // the two flags no shipped map sets differently
     internal bool MissionSave = true,
-        Rescale; // the two flags no shipped map sets differently
+        Rescale;
     internal float[] Ambient = { 0, 0.25f, 0 };
     internal string Background = "mbgstars.sod";
     internal int[]? TeamColors; // the color slot of each of the 9 team records; team i's own number when null

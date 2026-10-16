@@ -8,5 +8,6 @@
     <!-- The Godot-free engine code is compiled in directly, so the tests run without Godot. -->
     <Compile Include="../../src/Formats/**/*.cs" />
     <Compile Include="../../src/Assets/**/*.cs" />
+    <Compile Include="../../src/Sandbox/**/*.cs" />
   </ItemGroup>
 </Project>

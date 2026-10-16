@@ -130,14 +130,19 @@ public class AssetCheckTests
     }
 
     // A folder the check cannot list fails the check with its name and the reason; the check still ends.
-    [TestMethod]
+    // Windows has no POSIX file modes; MSTest reports the test as skipped there.
+    [TestMethod, System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
     public void UnreadableFolderFailsTheClassificationWithItsName()
     {
+        if (OperatingSystem.IsWindows()) Assert.Inconclusive("needs POSIX file modes");
         var game = Install(("SOD/a.sod", Sod(1.8f)), ("locked/x.txt", ""));
         var locked = Path.Combine(game, "locked");
         File.SetUnixFileMode(locked, UnixFileMode.None);
         try
         {
+            // Root lists a folder whatever its mode (container CI), so the fault cannot be staged there.
+            try { Directory.GetFileSystemEntries(locked); Assert.Inconclusive("the folder stays readable (running as root)"); }
+            catch (UnauthorizedAccessException) { }
             var (code, output) = Run(game, new ModelKind());
             Assert.AreEqual((1, true), (code, output.Contains("locked")));
         }

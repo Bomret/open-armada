@@ -230,12 +230,17 @@ public class ResolvedDefinitionTests
         Assert.AreEqual(1, def.Problems.Count(p => p.Contains("cycle")));
     }
 
-    [TestMethod]
+    // Windows has no POSIX file modes; MSTest reports the test as skipped there.
+    [TestMethod, System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
     public void IncludeThatExistsButCannotBeReadIsReportedAndTheRestResolves()
     {
         if (System.OperatingSystem.IsWindows()) Assert.Inconclusive("needs POSIX file modes");
         var root = temp.MakeInstall(("addon/a.odf", "#include \"x.odf\"\r\nx = 1"), ("addon/x.odf", "y = 2"));
-        System.IO.File.SetUnixFileMode(System.IO.Path.Combine(root, "addon", "x.odf"), System.IO.UnixFileMode.None);
+        var locked = System.IO.Path.Combine(root, "addon", "x.odf");
+        System.IO.File.SetUnixFileMode(locked, System.IO.UnixFileMode.None);
+        // Root reads a file whatever its mode (container CI), so the fault cannot be staged there.
+        try { System.IO.File.ReadAllBytes(locked); Assert.Inconclusive("the file stays readable (running as root)"); }
+        catch (System.UnauthorizedAccessException) { }
         var def = ResolvedDefinition.Resolve(new GameFileSystem(root), "a.odf");
         Assert.AreEqual(1, def.Problems.Count);
         StringAssert.Contains(def.Problems[0], "x.odf");

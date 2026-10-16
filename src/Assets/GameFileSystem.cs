@@ -12,9 +12,9 @@ namespace OpenArmada.Assets;
 // A bare name (no folder) is searched only in the folders that hold its kind, by extension, first
 // match wins: ".tga" in the full-color texture folder before the 8-bit one, ".sod" in the main
 // model folder before its software-renderer copies, ".pal" in the install root before the texture
-// folder, ".bmp" in the install root (splash.bmp), and ".map", ".set", ".ldl", ".fnt" and ".exe" in the
-// install root (the key and label maps, settings files, text tables, fonts and the launcher splash.exe,
-// whose bytes decode the text tables). Any other bare name is not found. ReadByPath reads a root file
+// folder, ".bmp" in the install root (splash.bmp), and ".map", ".set", ".ldl", ".fnt", ".exe" and ".h" in
+// the install root (the key and label maps, settings files, text tables, fonts, the launcher splash.exe,
+// whose bytes decode the text tables, and the RTS_CFG.h header). Any other bare name is not found. ReadByPath reads a root file
 // by path with no layers; the text tables and splash.exe load that way, as the launcher opens them.
 //
 // A bare name is looked up the way Armada.exe does (REA report of Armada.exe: FUN_004b8eb0 builds the
@@ -184,7 +184,7 @@ public sealed class GameFileSystem
             ".tga" => TextureFolders,
             ".sod" => ModelFolders,
             ".pal" => PaletteFolders,
-            ".bmp" or ".map" or ".set" or ".ldl" or ".fnt" or ".exe" => RootFolder,
+            ".bmp" or ".map" or ".set" or ".ldl" or ".fnt" or ".exe" or ".h" => RootFolder,
             _ => Array.Empty<string[]>(),
         };
         foreach (var folder in folders)

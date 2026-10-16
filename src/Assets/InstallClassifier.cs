@@ -147,6 +147,7 @@ public static class InstallClassifier
     {
         (_, ".map") => Loaded("key maps"),
         (_, ".set") => Loaded("settings"),
+        ("rts_cfg.h", _) => Loaded("game constants"),
         (_, ".ldl") => Loaded("text tables"),
         (_, ".fnt") => Loaded("fonts"),
         (_, ".pal") => Loaded("palettes"),

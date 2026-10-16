@@ -78,7 +78,7 @@ public sealed class SpriteTable
         return table;
     }
 
-    static (int Columns, int Rows) Grid(SpriteAnimation a)
+    internal static (int Columns, int Rows) Grid(SpriteAnimation a)
     {
         var columns = a.Auto switch { "row" => a.Count, "column" => 1, _ => (int)Math.Ceiling(Math.Sqrt(a.Count)) };
         return (columns, (a.Count + columns - 1) / columns);

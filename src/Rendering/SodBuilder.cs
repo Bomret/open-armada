@@ -8,25 +8,50 @@ using OpenArmada.Formats;
 namespace OpenArmada.Rendering;
 
 // Turns a parsed SOD into a Godot node tree. Storm3D is left-handed (Direct3D);
-// Godot is right-handed, so Z is mirrored and triangle winding reversed.
+// Godot is right-handed, so Z is mirrored and triangle winding reversed. Surfaces follow ModelRules:
+// the texture material's blend, the lighting material's model and colors, the animation references.
+// Whatever the data holds that cannot be drawn as it says is listed in Problems, never hidden.
 public sealed class SodBuilder
 {
     readonly GameFileSystem _files;
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
+    readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
+    readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
+    System.Numerics.Vector3 _teamColor = new(0.5f, 0.5f, 0.5f);
 
     public SodBuilder(GameFileSystem files) => _files = files;
 
+    // What the last Build could not draw as the data says (ModelRules.Check), one line each.
+    public IReadOnlyList<string> Problems { get; private set; } = new List<string>();
+
+    // The color of the team materials, now and for the models built after.
+    public void SetTeamColor(System.Numerics.Vector3 color)
+    {
+        _teamColor = color;
+        foreach (var (material, surface) in _team) SurfaceMaterial.Apply(material, surface.WithTeam(color));
+    }
+
     public Node3D Build(Sod sod)
     {
-        var byName = new Dictionary<string, Node3D>();
-        Node3D? root = null;
+        _team.Clear();
+        _byNode.Clear();
+        var analysis = ModelRules.Analyze(_files, sod);
+        var nodes = new List<(Sod.Node Data, Node3D Node)>();
         foreach (var n in sod.Nodes)
         {
-            Node3D node = n.Mesh != null ? BuildMesh(sod, n.Mesh) : new Node3D();
+            Node3D node = n.Mesh != null ? BuildMesh(sod, n) : new Node3D();
             node.Name = n.Name.Length > 0 ? n.Name : "node";
             node.Transform = ToGodot(n.Transform);
-            byName[n.Name] = node;
-            if (n.Parent.Length > 0 && byName.TryGetValue(n.Parent, out var parent))
+            nodes.Add((n, node));
+        }
+        // The first node of a name is the parent; a node with no known parent, or in a parent cycle (reported
+        // in Problems), hangs from the root.
+        var byName = new Dictionary<string, Node3D>();
+        foreach (var (data, node) in nodes) byName.TryAdd(data.Name, node);
+        Node3D? root = null;
+        foreach (var (data, node) in nodes)
+        {
+            if (data.Parent.Length > 0 && byName.TryGetValue(data.Parent, out var parent) && !sod.InParentCycle(data))
                 parent.AddChild(node);
             else if (root == null)
                 root = node;
@@ -47,64 +72,69 @@ public sealed class SodBuilder
             var best = levels.OrderByDescending(VertexCount).FirstOrDefault();
             foreach (var level in levels) level.Visible = level == best;
         }
+
+        var animator = new TextureAnimator();
+        foreach (var (node, flipbook) in analysis.Runs) animator.Add(_byNode[node], flipbook);
+        root.AddChild(animator);
+        Problems = analysis.Problems;
         return root;
     }
 
     static int VertexCount(Node node) =>
         (node is MeshInstance3D m ? m.Mesh.GetFaces().Length : 0) + node.GetChildren().Sum(VertexCount);
 
-    MeshInstance3D BuildMesh(Sod sod, Sod.Mesh mesh)
+    MeshInstance3D BuildMesh(Sod sod, Sod.Node data)
     {
-        var textureName = mesh.Texture;
-        var blend = mesh.TextureMaterial;
-        // Before 1.7 the mesh names an entry of the file's texture material table.
-        var entry = sod.TextureMaterials.FirstOrDefault(t => t.Name.Equals(mesh.Texture, System.StringComparison.OrdinalIgnoreCase));
-        if (entry != null) textureName = entry.Texture;
-
+        var mesh = data.Mesh!;
+        var look = ModelRules.Look(sod, mesh);
+        // A blend the engine does not know is listed in Problems (ModelRules.Check) and drawn opaque.
+        var blend = look.Blend ?? new BlendState(BlendMode.Opaque, 1f);
+        var texture = Texture(look.Texture);
+        var materials = new List<ShaderMaterial>();
         var array = new ArrayMesh();
         foreach (var group in mesh.Groups)
         {
             var st = new SurfaceTool();
-            st.Begin(Mesh.PrimitiveType.Triangles);
-            for (int i = 0; i < group.Corners.Length; i += 3)
-                foreach (var c in new[] { 0, 2, 1 }) // reversed winding
+            st.Begin(blend.Wireframe ? Mesh.PrimitiveType.Lines : Mesh.PrimitiveType.Triangles);
+            for (int i = 0; i + 2 < group.Corners.Length; i += 3)
+            {
+                // A face whose indices pass the mesh's data is skipped (reported by Sod.Problems).
+                if (group.Corners.Skip(i).Take(3).Any(c => c.Vertex >= mesh.Vertices.Length || c.TexCoord >= mesh.TexCoords.Length)) continue;
+                foreach (var c in blend.Wireframe ? new[] { 0, 1, 1, 2, 2, 0 } : new[] { 0, 2, 1 }) // reversed winding
                 {
                     var (v, t) = group.Corners[i + c];
-                    if (t < mesh.TexCoords.Length)
-                        st.SetUV(new Vector2(mesh.TexCoords[t].X, mesh.TexCoords[t].Y));
+                    st.SetUV(new Vector2(mesh.TexCoords[t].X, mesh.TexCoords[t].Y));
                     var p = mesh.Vertices[v];
                     st.AddVertex(new Vector3(p.X, p.Y, -p.Z));
                 }
-            st.GenerateNormals();
-            st.SetMaterial(BuildMaterial(sod, group.Material, textureName, blend, mesh.BackfaceCull));
+            }
+            if (!blend.Wireframe) st.GenerateNormals();
+            var surface = SurfaceOf(sod, group.Material);
+            // Lines carry no normals, so a wireframe shades constant whatever the lighting material says
+            // (the game keeps the material's model and shades the lines with it).
+            if (blend.Wireframe) surface = surface with { Model = LightingModel.Constant };
+            var material = SurfaceMaterial.Create(surface, blend, texture, mesh.BackfaceCull);
+            if (surface.Team)
+            {
+                _team.Add((material, surface));
+                SurfaceMaterial.Apply(material, surface.WithTeam(_teamColor));
+            }
+            materials.Add(material);
+            st.SetMaterial(material);
             st.Commit(array);
         }
+        _byNode[data] = materials;
         return new MeshInstance3D { Mesh = array };
     }
 
-    Material BuildMaterial(Sod sod, string lighting, string textureName, string blend, bool cull)
+    // A group names its lighting material, found in the model or any model of the install. One no model
+    // defines, no name at all, or of a model the engine does not know, is reported in Problems (ModelRules.Analyze) and
+    // shades with a stand-in: Lambert, white diffuse. The stand-in's values are the engine's, not the game's.
+    Surface SurfaceOf(Sod sod, string name)
     {
-        var mat = new StandardMaterial3D
-        {
-            AlbedoTexture = Texture(textureName),
-            CullMode = cull ? BaseMaterial3D.CullModeEnum.Back : BaseMaterial3D.CullModeEnum.Disabled,
-        };
-        var light = sod.LightingMaterials.FirstOrDefault(m => m.Name == lighting);
-        if (light?.Model == 0) mat.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
-        switch (blend.ToLowerInvariant())
-        {
-            case "additive":
-                mat.BlendMode = BaseMaterial3D.BlendModeEnum.Add;
-                mat.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
-                break;
-            case "alphathreshold":
-                mat.Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor;
-                break;
-            case "alpha" or "translucent":
-                mat.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
-                break;
-        }
-        return mat;
+        var material = ModelRules.FindLightingMaterial(_files, sod, name);
+        var surface = material == null ? null : ModelRules.Lighting(material);
+        return surface ?? new Surface(LightingModel.Lambert, System.Numerics.Vector3.Zero, System.Numerics.Vector3.One, System.Numerics.Vector3.Zero, 1f, ModelRules.IsTeam(name));
     }
 
     Texture2D? Texture(string name)

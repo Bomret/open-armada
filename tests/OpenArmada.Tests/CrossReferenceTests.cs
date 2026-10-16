@@ -163,6 +163,15 @@ public class CrossReferenceTests
         CollectionAssert.AreEqual(new[] { "nowhere" }, new DefinitionKind().Unresolved(fs, "d.odf").ToArray());
     }
 
+    // Sprite tables and definitions decode the same Windows-1252 bytes the same way (0x80 is the euro sign).
+    [TestMethod]
+    public void SpriteNameWithAByteOfTheWindows1252RangeResolvesFromADefinition()
+    {
+        var fs = Install(("addon/d.odf", "Sprite = \"a\u0080\""), ("Textures/RGB/puff.tga", ""),
+            ("Sprites/t.spr", "sprite_table\n@reference=128\na\u0080 puff 0 0 32 32\n"));
+        Assert.AreEqual(0, new DefinitionKind().Unresolved(fs, "d.odf").Count);
+    }
+
     [TestMethod]
     public void ModelNamesAMissingTextureAndAMissingAnimation()
     {

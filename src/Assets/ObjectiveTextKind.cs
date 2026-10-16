@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using System.Text;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
@@ -14,5 +14,5 @@ public sealed class ObjectiveTextKind : AssetKind
 
     // The text of one objective.
     public override object Load(GameFileSystem files, string name) =>
-        CodePagesEncodingProvider.Instance.GetEncoding(1252)!.GetString(files.ReadAllBytes(name));
+        Windows1252.Encoding.GetString(files.ReadAllBytes(name));
 }

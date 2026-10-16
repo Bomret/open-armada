@@ -20,7 +20,7 @@ public sealed class SpriteTableKind : AssetKind
     public override object Load(GameFileSystem files, string name) => Read(files, Path.GetFileName(name), Tables(files, name));
 
     static SpriteTable Read(GameFileSystem files, string bare, IEnumerable<SpriteTable> ambient) =>
-        SpriteTable.Read(bare, n => files.Find(Folder + n) is null ? null : System.Text.Encoding.Latin1.GetString(files.ReadAllBytes(Folder + n)), ambient);
+        SpriteTable.Read(bare, n => files.Find(Folder + n) is null ? null : Windows1252.Encoding.GetString(files.ReadAllBytes(Folder + n)), ambient);
 
     // Tables read for their animations, per install (null: it failed to load). Not thread-safe: the
     // engine loads on one thread.

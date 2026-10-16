@@ -14,7 +14,7 @@ public sealed class KeyMapKind : AssetKind
     public override IEnumerable<string> Enumerate(GameFileSystem files) => RootFiles(files, ".map");
 
     public override object Load(GameFileSystem files, string name) =>
-        MapFile.Read(name, InterfaceConfigKind.Windows1252.GetString(files.ReadAllBytes(name)));
+        MapFile.Read(name, Windows1252.Encoding.GetString(files.ReadAllBytes(name)));
 
     public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((MapFile)Load(files, name)).Notes;
 }

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace OpenArmada.Formats;
 
@@ -26,7 +25,7 @@ public sealed class SettingsFile
             throw new UnsupportedFormatException($"{name}: a binary settings record ({data.Length} bytes); its layout is not established");
         var entries = new List<SettingsEntry>();
         var notes = new List<string>();
-        var lines = Encoding.Latin1.GetString(data).Split('\n');
+        var lines = Windows1252.Encoding.GetString(data).Split('\n');
         for (var i = 0; i < lines.Length; i++)
         {
             var text = lines[i].Trim();

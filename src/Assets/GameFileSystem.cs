@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
@@ -92,7 +91,7 @@ public sealed class GameFileSystem
                     _addonArchives.Add(a);
 
         if (Resolve(new[] { "startrek.zix" }) is not { } zixPath) return;
-        try { _index = ZixIndex.Parse(File.ReadAllText(zixPath, Encoding.Latin1)); }
+        try { _index = ZixIndex.Parse(File.ReadAllText(zixPath, Windows1252.Encoding)); }
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
         {
             _faults.Add($"index/startrek.zix: {e.Message}");

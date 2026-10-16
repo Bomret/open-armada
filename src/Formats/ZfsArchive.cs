@@ -64,7 +64,7 @@ public sealed class ZfsArchive
             var e = block + 4 + i * EntrySize;
             if (_data[e] == 0) return; // the game stops at the first unnamed entry
             var nameLength = Array.IndexOf(_data, (byte)0, e, 16) is var z and >= 0 ? z - e : 16;
-            var name = Encoding.Latin1.GetString(_data, e, nameLength);
+            var name = Windows1252.Encoding.GetString(_data, e, nameLength);
             uint offset = BitConverter.ToUInt32(_data, e + 16), size = BitConverter.ToUInt32(_data, e + 24), flags = BitConverter.ToUInt32(_data, e + 32);
             if ((flags & 1) != 0) continue; // deleted
             var compressed = (flags & 6) != 0;

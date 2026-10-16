@@ -47,10 +47,14 @@ public sealed class SpriteTable
     SpriteTable(string name) => Name = name;
 
     // `open` returns the text of a table by name (an include's name as written), null when there is none.
-    public static SpriteTable Read(string name, Func<string, string?> open)
+    // `ambient` are other tables of the install: the game loads them all into one namespace, so a
+    // sprite may use an animation one of them defines (the table's own definitions win).
+    public static SpriteTable Read(string name, Func<string, string?> open, IEnumerable<SpriteTable>? ambient = null)
     {
         var table = new SpriteTable(name);
         table.Parse(name, open, new List<string>());
+        foreach (var a in ambient ?? Array.Empty<SpriteTable>())
+            foreach (var (key, anim) in a._animations) table._animations.TryAdd(key, anim);
         foreach (var s in table._sprites)
             if (s.Anim != null && !table._animations.ContainsKey(s.Anim))
                 table._notes.Add($"{s.Table}:{s.Line}: sprite '{s.Name}' uses animation '{s.Anim}', which no table read defines");
@@ -162,6 +166,7 @@ public sealed class SpriteTable
                     throw Bad(table, n, $"animation '{anim.Name}': expected '<offset|colour|draw|width> <count> <seconds> <step|linear>', got '{string.Join(" ", t)}'");
                 var ok = double.TryParse(t[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var length);
                 _animations[anim.Name] = anim = anim with { Field = t[0], Count = Int(table, n, t[1], "keyframe count"), Length = ok ? length : throw Bad(table, n, $"length '{t[2]}' is not a number"), Method = t[3] };
+                inKeyframes = true; // the game takes keyframe lines without the @keyframes directive too
                 continue;
             }
             if (t.Length < 6) throw Bad(table, n, $"a sprite row needs Name Texture U V W H, got '{string.Join(" ", t)}'");

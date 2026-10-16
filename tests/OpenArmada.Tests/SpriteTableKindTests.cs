@@ -58,6 +58,16 @@ public class SpriteTableKindTests
     }
 
     [TestMethod]
+    public void AnimationOfAnotherTableOfTheInstallAnimatesTheSprite()
+    {
+        var files = Install(("Sprites/anims.spr", Head + "@animation r\noffset 2 1 step\n@auto=row\n@keyframes\n"),
+            ("Sprites/a.spr", Head + "s t 0 0 8 8 @anim=r\n"), ("Textures/RGB/t.tga", "x"));
+        var table = (SpriteTable)new SpriteTableKind().Load(files, "Sprites/a.spr");
+        Assert.AreEqual(2, table.Frames(table.Sprites[0]).Count);
+        Assert.AreEqual(0, new SpriteTableKind().Check(files, "Sprites/a.spr").Count);
+    }
+
+    [TestMethod]
     public void IsFoundByDiscovery() =>
         Assert.IsTrue(AssetKind.Discover().Any(k => k is SpriteTableKind));
 }

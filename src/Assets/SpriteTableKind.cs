@@ -16,8 +16,22 @@ public sealed class SpriteTableKind : AssetKind
 
     public override IEnumerable<string> Enumerate(GameFileSystem files) => files.List(".spr", "Sprites").Select(n => Folder + n);
 
-    public override object Load(GameFileSystem files, string name) =>
-        SpriteTable.Read(Path.GetFileName(name), n => files.Find(Folder + n) is null ? null : System.Text.Encoding.Latin1.GetString(files.ReadAllBytes(Folder + n)));
+    public override object Load(GameFileSystem files, string name) => Read(files, Path.GetFileName(name), Other(files, name));
+
+    static SpriteTable Read(GameFileSystem files, string bare, IEnumerable<SpriteTable> ambient) =>
+        SpriteTable.Read(bare, n => files.Find(Folder + n) is null ? null : System.Text.Encoding.Latin1.GetString(files.ReadAllBytes(Folder + n)), ambient);
+
+    // The other tables of the install, for the animations they define; a table that fails to load adds none.
+    IEnumerable<SpriteTable> Other(GameFileSystem files, string name)
+    {
+        foreach (var other in Enumerate(files).Where(n => !n.Equals(name, System.StringComparison.OrdinalIgnoreCase)))
+        {
+            SpriteTable? t = null;
+            try { t = Read(files, Path.GetFileName(other), System.Array.Empty<SpriteTable>()); }
+            catch (InvalidDataException) { }
+            if (t != null) yield return t;
+        }
+    }
 
     // One note per sprite whose texture (a .tga) the install lacks, then the table's own notes.
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)

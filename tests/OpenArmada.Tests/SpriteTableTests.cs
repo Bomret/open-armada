@@ -145,6 +145,23 @@ public class SpriteTableTests
     }
 
     [TestMethod]
+    public void KeyframesMayFollowTheFieldLineWithoutTheDirective()
+    {
+        var t = Read("a.spr", ("a.spr", Head + "@animation f\ncolour 2 1.0 linear\n0.0 (1,0,0)\n1.0 (0,0,0)\ns t 0 0 8 8\n"));
+        Assert.AreEqual(2, t.Animations["f"].Keyframes.Count);
+        Assert.AreEqual(1, t.Sprites.Count);
+    }
+
+    [TestMethod]
+    public void AnimationsOfAmbientTablesServeSpritesAndSilenceTheNote()
+    {
+        var other = Read("o.spr", ("o.spr", Head + "@animation r\noffset 2 1 step\n@auto=row\n@keyframes\n"));
+        var t = SpriteTable.Read("a.spr", n => n == "a.spr" ? Head + "s t 0 0 8 8 @anim=r\n" : null, new[] { other });
+        Assert.AreEqual(2, t.Frames(t.Sprites[0]).Count);
+        Assert.AreEqual(0, t.Notes.Count);
+    }
+
+    [TestMethod]
     public void UndefinedAnimationIsANoteAndTheSpriteKeepsItsRegion()
     {
         var t = Read("a.spr", ("a.spr", Head + "s t 0 0 8 8 @anim=nope\n"));

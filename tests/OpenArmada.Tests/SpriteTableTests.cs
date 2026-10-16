@@ -82,7 +82,77 @@ public class SpriteTableTests
     {
         var t = Read("a.spr", ("a.spr", Head + "@include b.spr\n@include c.spr\n"),
             ("b.spr", Head + "@include d.spr\n"), ("c.spr", Head + "@include d.spr\n"), ("d.spr", Head + "x t 0 0 1 1\n"));
-        Assert.AreEqual(2, t.Sprites.Count);
+        Assert.AreEqual(1, t.Sprites.Count);
+    }
+
+    [TestMethod]
+    [Timeout(10000)]
+    public void ChainOfIncludeDiamondsReadsPromptly()
+    {
+        var tables = Enumerable.Range(0, 30).Select(i => ($"t{i}.spr", Head + $"@include t{i + 1}.spr\n@include t{i + 1}.spr\n"))
+            .Append(("t30.spr", Head + "x t 0 0 1 1\n")).ToArray();
+        Assert.AreEqual(1, Read("t0.spr", tables).Sprites.Count);
+    }
+
+    [TestMethod]
+    public void HugeFlipbookCountIsReportedAtItsLine()
+    {
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr",
+            ("a.spr", Head + "@animation a\noffset 2147483647 1 step\n@auto=square\ns t 0 0 8 8 @anim=a\n")));
+        StringAssert.Contains(e.Message, "a.spr:4");
+    }
+
+    [TestMethod]
+    public void FlipbookLeavingTheReferenceAreaIsReportedAtTheSprite()
+    {
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr",
+            ("a.spr", Head + "@animation a\noffset 4 1 step\n@auto=square\n@reference=32\ns t 0 0 32 32 @anim=a\n")));
+        StringAssert.Contains(e.Message, "a.spr:7");
+    }
+
+    [TestMethod]
+    public void FlipbookWhoseCellsOverflowIntegersIsReported() =>
+        Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr",
+            ("a.spr", Head + "@animation a\noffset 4 1 step\n@auto=square\ns t 0 0 2000000000 8 @anim=a\n")));
+
+    [TestMethod]
+    public void UnterminatedEmitterIsReportedAtItsLine()
+    {
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr", ("a.spr", Head + "@emitter rift\ntype=spray\nx t 0 0 1 1\n")));
+        StringAssert.Contains(e.Message, "a.spr:3");
+    }
+
+    [TestMethod]
+    public void ShortRowAfterKeyframesIsReportedNotSwallowed()
+    {
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr",
+            ("a.spr", Head + "@animation f\ncolour 2 1 linear\n@keyframes\n0 (1,0,0)\n1 (0,0,0)\nx t 0 0 1\n")));
+        StringAssert.Contains(e.Message, "a.spr:8");
+    }
+
+    [TestMethod]
+    public void KeyframeCountOtherThanTheAnimationsCountIsReported()
+    {
+        // The game's own font tables declare one keyframe more than they hold, so too few is a note.
+        var few = Read("a.spr", ("a.spr", Head + "@animation f\ncolour 3 1 linear\n@keyframes\n0 (1,0,0)\n1 (0,0,0)\n"));
+        StringAssert.Contains(few.Notes.Single(), "a.spr:3");
+        var many = Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr", ("a.spr", Head + "@animation f\ncolour 1 1 linear\n@keyframes\n0 (1,0,0)\n1 (0,0,0)\ns t 0 0 1 1\n")));
+        StringAssert.Contains(many.Message, "a.spr:3");
+    }
+
+    [TestMethod]
+    public void KeyframeLinesOfOneOrTwoNumbersAreKept()
+    {
+        var t = Read("a.spr", ("a.spr", Head + "@animation w\nwidth 2 0.0 step\n@keyframes\n3\t\n5\n@animation o\noffset 2 0.0 step\n@keyframes\n0\t0\n4 0 #c\n"));
+        Assert.AreEqual(2, t.Animations["w"].Keyframes.Count);
+        Assert.AreEqual(2, t.Animations["o"].Keyframes.Count);
+    }
+
+    [TestMethod]
+    public void AnimationWithoutFieldLineIsReported()
+    {
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr", ("a.spr", Head + "@animation f\n")));
+        StringAssert.Contains(e.Message, "a.spr:3");
     }
 
     [TestMethod]
@@ -189,8 +259,10 @@ public class SpriteTableTests
     public void EmitterBlocksAndSpriteNodesAreKept()
     {
         var t = Read("a.spr", ("a.spr", Head + "@emitter rift\ntype=spray\nvelocity=12\n@end_emitter\n@sprite_node n s const (1,1) (1,1,1) billboard\nx t 0 0 1 1\n"));
-        CollectionAssert.AreEqual(new[] { "rift" }, t.Emitters.ToArray());
-        CollectionAssert.AreEqual(new[] { "n" }, t.SpriteNodes.ToArray());
+        Assert.AreEqual("rift", t.Emitters.Single().Name);
+        CollectionAssert.AreEqual(new[] { "type=spray", "velocity=12" }, t.Emitters.Single().Body.ToArray());
+        Assert.AreEqual("n", t.SpriteNodes.Single().Name);
+        CollectionAssert.AreEqual(new[] { "s", "const", "(1,1)", "(1,1,1)", "billboard" }, t.SpriteNodes.Single().Arguments.ToArray());
         Assert.AreEqual(1, t.Sprites.Count);
     }
 }

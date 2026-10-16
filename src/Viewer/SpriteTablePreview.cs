@@ -15,14 +15,13 @@ public sealed class SpriteTablePreview : KindPreview
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var table = (SpriteTable)kind.Load(files, name);
-        var textures = new TextureKind();
         var loaded = new Dictionary<string, (Image Image, ImageTexture Texture)?>(System.StringComparer.OrdinalIgnoreCase);
         foreach (var sprite in table.Sprites)
             if (!loaded.ContainsKey(sprite.Texture))
             {
                 try
                 {
-                    var image = GodotDecoders.Tga(textures.LoadBase(files, sprite.Texture + ".tga").Data, sprite.Texture);
+                    var image = GodotDecoders.Tga(new TextureKind().LoadBase(files, sprite.Texture + ".tga").Data, sprite.Texture);
                     loaded[sprite.Texture] = (image, ImageTexture.CreateFromImage(image));
                 }
                 catch (System.Exception e) when (e is System.IO.IOException or System.IO.InvalidDataException or UnsupportedFormatException)
@@ -32,14 +31,16 @@ public sealed class SpriteTablePreview : KindPreview
             }
 
         var box = new VBoxContainer();
-        var animated = table.Sprites.Where(s => loaded[s.Texture] != null && table.Frames(s).Count > 1).ToList();
+        var animated = table.Sprites.Where(s => loaded[s.Texture] != null)
+            .Select(s => (Sprite: s, Frames: table.Frames(s))).Where(a => a.Frames.Count > 1).ToList();
         box.AddChild(new Label { Text = $"{table.Sprites.Count} sprites, {animated.Count} animated, {loaded.Count} textures" });
         var flow = new HFlowContainer();
-        foreach (var s in animated)
+        foreach (var (s, frames) in animated)
         {
-            var frames = table.Frames(s);
+            var texture = loaded[s.Texture]!.Value.Texture;
+            var size = new Vector2I(texture.GetWidth(), texture.GetHeight());
             var cell = new VBoxContainer();
-            cell.AddChild(new AnimatedSpriteView(s, frames, table.Animations[s.Anim!].FrameSeconds, loaded[s.Texture]!.Value.Texture));
+            cell.AddChild(new AnimatedSpriteView(frames.Select(f => SpriteSheetView.Region(s, f, size)).ToArray(), table.Animations[s.Anim!].FrameSeconds, texture));
             cell.AddChild(new Label { Text = $"{s.Name} ({frames.Count} frames)" });
             flow.AddChild(cell);
         }

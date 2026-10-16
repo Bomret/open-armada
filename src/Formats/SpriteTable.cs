@@ -22,10 +22,20 @@ public sealed record SpriteAnimation(string Name, string Field, int Count, doubl
     public double FrameSeconds => Count > 0 ? Length / Count : 0;
 }
 
+// An @emitter block: its name and its lines up to @end_emitter, kept as written (comments removed,
+// blanks collapsed) and not interpreted.
+public sealed record SpriteEmitter(string Name, IReadOnlyList<string> Body);
+
+// A @sprite_node line: its name and the remaining tokens, kept as written and not interpreted.
+public sealed record SpriteNode(string Name, IReadOnlyList<string> Arguments);
+
 // A sprite table (.spr): "sprite_table" on the first line, '#' comments, @include of other tables,
 // directives and rows "Name Texture U V W H" with trailing directives. An include's sprites and
-// animations come where the @include stands. Anything not recognized, an include cycle, and a missing
-// table throw InvalidDataException naming the table and line (INV-0002).
+// animations come where the @include stands; a table included again (by any path) adds nothing the
+// second time. Anything not recognized, an include cycle, a missing table, an unterminated @emitter,
+// an animation without its field line or with more keyframes than its count (fewer is a note), and a flipbook
+// larger than its table's text or leaving its @reference area throw InvalidDataException naming the
+// table and line (INV-0002).
 public sealed class SpriteTable
 {
     static readonly string[] Fields = { "offset", "colour", "draw", "width" };
@@ -34,13 +44,15 @@ public sealed class SpriteTable
 
     readonly List<Sprite> _sprites = new();
     readonly Dictionary<string, SpriteAnimation> _animations = new(StringComparer.OrdinalIgnoreCase);
-    readonly List<string> _emitters = new(), _nodes = new(), _notes = new();
+    readonly List<SpriteEmitter> _emitters = new();
+    readonly List<SpriteNode> _nodes = new();
+    readonly List<string> _notes = new();
 
     public string Name { get; }
     public IReadOnlyList<Sprite> Sprites => _sprites;
     public IReadOnlyDictionary<string, SpriteAnimation> Animations => _animations;
-    public IReadOnlyList<string> Emitters => _emitters;
-    public IReadOnlyList<string> SpriteNodes => _nodes;
+    public IReadOnlyList<SpriteEmitter> Emitters => _emitters;
+    public IReadOnlyList<SpriteNode> SpriteNodes => _nodes;
     // What does not fail the table: a sprite naming an animation no read table defines.
     public IReadOnlyList<string> Notes => _notes;
 
@@ -52,13 +64,34 @@ public sealed class SpriteTable
     public static SpriteTable Read(string name, Func<string, string?> open, IEnumerable<SpriteTable>? ambient = null)
     {
         var table = new SpriteTable(name);
-        table.Parse(name, open, new List<string>());
+        var text = open(name) ?? throw new InvalidDataException($"{name}: sprite table not found");
+        table.Parse(name, text, open, new List<string>(), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         foreach (var a in ambient ?? Array.Empty<SpriteTable>())
             foreach (var (key, anim) in a._animations) table._animations.TryAdd(key, anim);
         foreach (var s in table._sprites)
-            if (s.Anim != null && !table._animations.ContainsKey(s.Anim))
+        {
+            if (s.Anim == null) continue;
+            if (!table._animations.TryGetValue(s.Anim, out var a))
                 table._notes.Add($"{s.Table}:{s.Line}: sprite '{s.Name}' uses animation '{s.Anim}', which no table read defines");
+            else if (a.Auto != null && a.Count > 0) CheckFlipbook(s, a);
+        }
         return table;
+    }
+
+    static (int Columns, int Rows) Grid(SpriteAnimation a)
+    {
+        var columns = a.Auto switch { "row" => a.Count, "column" => 1, _ => (int)Math.Ceiling(Math.Sqrt(a.Count)) };
+        return (columns, (a.Count + columns - 1) / columns);
+    }
+
+    // A flipbook's cells must lie inside the @reference area (any int when there is none), so no cell overflows.
+    static void CheckFlipbook(Sprite s, SpriteAnimation a)
+    {
+        var (columns, rows) = Grid(a);
+        var width = s.ReferenceWidth > 0 ? s.ReferenceWidth : int.MaxValue;
+        var height = s.ReferenceHeight > 0 ? s.ReferenceHeight : int.MaxValue;
+        if (s.U + (long)columns * s.W > width || s.V + (long)rows * s.H > height)
+            throw Bad(s.Table, s.Line, $"sprite '{s.Name}': the {columns}x{rows} cells of animation '{a.Name}' leave the reference area {width}x{height}");
     }
 
     // The frames of a sprite in play order: the cells of its flipbook animation, else its own region.
@@ -66,7 +99,7 @@ public sealed class SpriteTable
     {
         var own = new SpriteFrame(s.U, s.V, s.W, s.H);
         if (s.Anim == null || !_animations.TryGetValue(s.Anim, out var a) || a.Auto == null || a.Count < 1) return new[] { own };
-        var columns = a.Auto switch { "row" => a.Count, "column" => 1, _ => (int)Math.Ceiling(Math.Sqrt(a.Count)) };
+        var columns = Grid(a).Columns; // the cells lie inside the reference area: Read checked
         return Enumerable.Range(0, a.Count).Select(i => own with { U = s.U + i % columns * s.W, V = s.V + i / columns * s.H }).ToList();
     }
 
@@ -91,17 +124,39 @@ public sealed class SpriteTable
     static int Int(string table, int line, string s, string what) =>
         int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) && v >= 0 ? v : throw Bad(table, line, $"{what} '{s}' is not a whole number");
 
-    void Parse(string table, Func<string, string?> open, List<string> stack)
+    // A keyframe line starts with a number ("time value", "u v", or a lone width) and is never as long as
+    // a sprite row; the field's line gives the count the lines are checked against.
+    static bool IsKeyframe(string[] t) =>
+        t.Length < 6 && double.TryParse(t[0], NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+
+    // `done` holds the tables already read: a table included again adds nothing, so a chain of includes
+    // of the same table stays linear.
+    void Parse(string table, string text, Func<string, string?> open, List<string> stack, HashSet<string> done)
     {
-        var text = open(table) ?? throw new InvalidDataException($"{table}: sprite table not found");
         stack.Add(table);
+        done.Add(table);
         var lines = text.Replace("\r", "").Split('\n');
         var header = false;
         int refW = 0, refH = 0;
         string? material = null, skip = null;
         SpriteAnimation? anim = null;
+        var animLine = 0;
         var inKeyframes = false;
-        var inEmitter = false;
+        string? emitter = null;
+        var emitterLine = 0;
+        var emitterBody = new List<string>();
+
+        // An animation is complete when the next one starts or the table ends.
+        void CloseAnimation()
+        {
+            if (anim == null) return;
+            if (anim.Field.Length == 0) throw Bad(table, animLine, $"animation '{anim.Name}' has no '<field> <count> <seconds> <method>' line");
+            if (anim.Auto != null || anim.Keyframes.Count == anim.Count) return;
+            var what = $"{table}:{animLine}: animation '{anim.Name}' says {anim.Count} keyframes and has {anim.Keyframes.Count}";
+            // The shipped font tables hold one keyframe fewer than they declare, so a shortfall is a note.
+            if (anim.Keyframes.Count > anim.Count) throw new InvalidDataException(what);
+            _notes.Add(what);
+        }
 
         for (var n = 1; n <= lines.Length; n++)
         {
@@ -113,9 +168,15 @@ public sealed class SpriteTable
                 header = true;
                 continue;
             }
-            if (inEmitter)
+            if (emitter != null)
             {
-                inEmitter = t[0] != "@end_emitter";
+                if (t[0] == "@end_emitter")
+                {
+                    _emitters.Add(new SpriteEmitter(emitter, emitterBody.ToArray()));
+                    emitter = null;
+                    emitterBody.Clear();
+                }
+                else emitterBody.Add(string.Join(" ", t));
                 continue;
             }
             if (t[0][0] == '@')
@@ -128,8 +189,8 @@ public sealed class SpriteTable
                         if (value.Length == 0) throw Bad(table, n, "@include names no table");
                         if (stack.Contains(value, StringComparer.OrdinalIgnoreCase))
                             throw Bad(table, n, $"include cycle: {string.Join(" -> ", stack.Append(value))}");
-                        if (open(value) == null) throw Bad(table, n, $"included table '{value}' not found");
-                        Parse(value, open, stack);
+                        if (done.Contains(value)) break;
+                        Parse(value, open(value) ?? throw Bad(table, n, $"included table '{value}' not found"), open, stack, done);
                         break;
                     case "@reference": refW = refH = Int(table, n, value, "@reference"); break;
                     case "@referenceWidth": refW = Int(table, n, value, "@referenceWidth"); break;
@@ -138,6 +199,8 @@ public sealed class SpriteTable
                     case "@skip": skip = value; break;
                     case "@animation":
                         if (value.Length == 0) throw Bad(table, n, "@animation names no animation");
+                        CloseAnimation();
+                        animLine = n;
                         anim = new SpriteAnimation(value, "", 0, 0, "", null, new List<string[]>());
                         break;
                     case "@auto":
@@ -148,13 +211,13 @@ public sealed class SpriteTable
                         if (anim == null) throw Bad(table, n, "@keyframes outside an @animation");
                         inKeyframes = true;
                         break;
-                    case "@emitter": _emitters.Add(value); inEmitter = true; break;
-                    case "@sprite_node": _nodes.Add(t.Length > 1 ? t[1] : throw Bad(table, n, "@sprite_node names no node")); break;
+                    case "@emitter": emitter = value; emitterLine = n; break;
+                    case "@sprite_node": _nodes.Add(t.Length > 1 ? new SpriteNode(t[1], t[2..]) : throw Bad(table, n, "@sprite_node names no node")); break;
                     default: throw Bad(table, n, $"unrecognized directive {name}");
                 }
                 continue;
             }
-            if (inKeyframes && t.Length < 6)
+            if (inKeyframes && IsKeyframe(t))
             {
                 ((List<string[]>)anim!.Keyframes).Add(t);
                 continue;
@@ -165,7 +228,9 @@ public sealed class SpriteTable
                 if (t.Length != 4 || !Fields.Contains(t[0]) || !Methods.Contains(t[3]))
                     throw Bad(table, n, $"animation '{anim.Name}': expected '<offset|colour|draw|width> <count> <seconds> <step|linear>', got '{string.Join(" ", t)}'");
                 var ok = double.TryParse(t[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var length);
-                _animations[anim.Name] = anim = anim with { Field = t[0], Count = Int(table, n, t[1], "keyframe count"), Length = ok ? length : throw Bad(table, n, $"length '{t[2]}' is not a number"), Method = t[3] };
+                var count = Int(table, n, t[1], "keyframe count");
+                if (count > text.Length) throw Bad(table, n, $"animation '{anim.Name}': keyframe count {count} is more than the table has text for");
+                _animations[anim.Name] = anim = anim with { Field = t[0], Count = count, Length = ok ? length : throw Bad(table, n, $"length '{t[2]}' is not a number"), Method = t[3] };
                 inKeyframes = true; // the game takes keyframe lines without the @keyframes directive too
                 continue;
             }
@@ -191,6 +256,8 @@ public sealed class SpriteTable
                 refW, refH, material, skip, spriteAnim, cursor, origin, table, n));
         }
         if (!header) throw new InvalidDataException($"{table}: the first line must be 'sprite_table'");
+        if (emitter != null) throw Bad(table, emitterLine, $"@emitter '{emitter}' has no @end_emitter");
+        CloseAnimation();
         stack.RemoveAt(stack.Count - 1);
     }
 }

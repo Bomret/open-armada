@@ -41,6 +41,14 @@ public class SpriteTableKindTests
     }
 
     [TestMethod]
+    public void MissingIncludeFailsTheTableNamingTheInclude()
+    {
+        var files = Install(("Sprites/a.spr", Head + "@include gone.spr\n"));
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => new SpriteTableKind().Load(files, "Sprites/a.spr"));
+        StringAssert.Contains(e.Message, "gone.spr");
+    }
+
+    [TestMethod]
     public void MissingTextureIsANoteNamingTheSprite()
     {
         var files = Install(("Sprites/a.spr", Head + "here t_ok 0 0 1 1\nlost t_gone 0 0 1 1\n"), ("Textures/RGB/t_ok.tga", "x"));

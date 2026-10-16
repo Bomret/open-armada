@@ -28,6 +28,7 @@ public static class AssetCheck
         }
 
         int loadedTotal = 0, unsupportedTotal = 0, failedTotal = 0;
+        foreach (var missing in files.Missing) output.WriteLine($"MISSING {missing}");
         foreach (var fault in files.Faults)
         {
             output.WriteLine($"FAIL {fault}");

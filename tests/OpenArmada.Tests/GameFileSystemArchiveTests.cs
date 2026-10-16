@@ -53,6 +53,14 @@ public class GameFileSystemArchiveTests
     }
 
     [TestMethod]
+    public void IndexDirDotIsTheInstallRoot()
+    {
+        var fs = new GameFileSystem(temp.MakeInstall(("root.txt", "r"), ("startrek.zix", Zix("DIR: .", "1 root.txt"))));
+        Assert.AreEqual("r", Read(fs, "ROOT.TXT"));
+        Assert.AreEqual(0, fs.Faults.Count);
+    }
+
+    [TestMethod]
     public void AddonLooseFileBeatsArchiveCopy() =>
         Assert.AreEqual("addon loose", Read(Basic(("Addon/A.odf", "addon loose")), "a.odf"));
 
@@ -108,8 +116,9 @@ public class GameFileSystemArchiveTests
         var fs = new GameFileSystem(temp.MakeInstall(("assets.zfs", Latin1(bytes)), ("startrek.zix", Zix("DIR: assets.zfs", "1 a.odf\n1 b.odf"))));
         Assert.AreEqual("a", Read(fs, "a.odf"));
         Assert.IsNull(fs.Find("b.odf"));
-        Assert.AreEqual(2, fs.Faults.Count); // the entry, and the index line that names it
-        Assert.IsTrue(fs.Faults.Any(f => f.Contains("b.odf") && f.Contains("assets.zfs")));
+        Assert.AreEqual(1, fs.Faults.Count);
+        StringAssert.Contains(fs.Faults[0], "b.odf");
+        Assert.AreEqual(1, fs.Missing.Count); // the index line that names it
     }
 
     [TestMethod]
@@ -119,8 +128,9 @@ public class GameFileSystemArchiveTests
         Assert.IsNull(fs.Find("gone.txt"));
         Assert.IsNull(fs.Find("gone.txt"));
         Assert.AreEqual("ok", Read(fs, "m.txt"));
-        Assert.AreEqual(1, fs.Faults.Count);
-        StringAssert.Contains(fs.Faults[0], "gone.txt");
+        Assert.AreEqual(1, fs.Missing.Count);
+        StringAssert.Contains(fs.Missing[0], "gone.txt");
+        Assert.AreEqual(0, fs.Faults.Count);
     }
 
     [TestMethod]
@@ -153,6 +163,16 @@ public class GameFileSystemArchiveTests
         var fs = Basic();
         CollectionAssert.AreEqual(new[] { "a.odf" }, fs.Members("ASSETS.ZFS").ToArray());
         Assert.AreEqual(0, fs.Members("nothere.zfs").Count());
+    }
+
+    [TestMethod]
+    public void MissingIndexFileIsListedInTheAssetCheckAndDoesNotFailIt()
+    {
+        // The stock install's index names build tools that the install does not hold.
+        var game = temp.MakeInstall(("misc/m.txt", "ok"), ("startrek.zix", Zix("DIR: misc", "1 gone.txt")));
+        var w = new StringWriter();
+        Assert.AreEqual(0, AssetCheck.Run(game, new AssetKind[] { new ModelKind() }, w));
+        StringAssert.Contains(w.ToString(), "MISSING index/gone.txt");
     }
 
     [TestMethod]

@@ -23,8 +23,8 @@ namespace OpenArmada.Assets;
 // to the loose-folder lookup above for a name the index does not list (the game loads e.g. bitmaps by
 // a direct relative path). A name with a folder resolves directly and skips the layers.
 //
-// Faults (an unreadable archive or index, an entry past the end of its archive, an index entry whose
-// file is missing) are collected once, when the install is opened, in Faults; every other file loads.
+// Faults (an unreadable archive or index, an entry past the end of its archive) and index entries whose
+// file is missing (Missing) are collected once, when the install is opened; every other file loads.
 public sealed class GameFileSystem
 {
     static readonly string[][] TextureFolders = { new[] { "Textures", "RGB" }, new[] { "Textures", "Index8" } };
@@ -42,6 +42,7 @@ public sealed class GameFileSystem
     readonly string Root;
     readonly Dictionary<string, Dictionary<string, string>> _entries = new(StringComparer.Ordinal);
     readonly List<string> _faults = new();
+    readonly List<string> _missing = new();
     readonly List<Archive> _addonArchives = new();
     readonly List<string?> _indexFolders = new();   // per dir index - 1: a loose folder, or null
     readonly List<Archive?> _indexArchives = new(); // per dir index - 1: an archive, or null
@@ -61,6 +62,11 @@ public sealed class GameFileSystem
     // One line per fault, "archive/<name>: reason", "archive/<name>/<entry>: reason" or
     // "index/<name>: reason". The asset check prints each as a failure.
     public IReadOnlyList<string> Faults => _faults;
+
+    // One line per index entry whose file exists nowhere ("index/<name>: not found in <dir>"). The
+    // stock install's index names build tools that the install does not hold, so the asset check
+    // lists these without failing.
+    public IReadOnlyList<string> Missing => _missing;
 
     // Opens the addon archives and the index and checks each index entry once.
     void LoadSources()
@@ -84,7 +90,7 @@ public sealed class GameFileSystem
             Archive? archive = null;
             if (dir != null)
             {
-                var parts = Parts(dir);
+                var parts = Parts(dir).Where(p => p != ".").ToArray(); // "." is the install root
                 if (dir.Contains(".zfs", StringComparison.OrdinalIgnoreCase))
                 {
                     if (Resolve(parts) is { } path) archive = OpenArchive(path);
@@ -97,7 +103,7 @@ public sealed class GameFileSystem
         }
         foreach (var (name, dir) in _index.Entries)
             if ((_indexFolders[dir - 1] != null || _indexArchives[dir - 1] != null) && FromIndex(name) == null)
-                _faults.Add($"index/{name}: not found in {_index.Dirs[dir - 1]}");
+                _missing.Add($"index/{name}: not found in {_index.Dirs[dir - 1]}");
     }
 
     Archive? OpenArchive(string path)

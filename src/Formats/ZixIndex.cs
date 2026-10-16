@@ -55,10 +55,15 @@ public sealed class ZixIndex
             var parts = lines.Current.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length != 2 || !int.TryParse(parts[0], out var dir))
                 faults.Add($"index line '{lines.Current}' is not '<dir index> <file name>'");
-            else if (dir < 1 || dir > dirs.Count)
-                faults.Add($"{parts[1].Trim()}: dir index {dir} is outside the {dirs.Count} listed dirs");
             else
-                entries.TryAdd(parts[1].Trim(), dir);
+            {
+                // The game keys names by 16 bytes (FUN_004b8eb0 copies with strncpy(.., 16)); the stock
+                // index has a name that runs past them, and the 16 bytes are the archive's entry name.
+                var name = parts[1].Trim();
+                name = name[..Math.Min(16, name.Length)];
+                if (dir < 1 || dir > dirs.Count) faults.Add($"{name}: dir index {dir} is outside the {dirs.Count} listed dirs");
+                else entries.TryAdd(name, dir);
+            }
         }
         return new ZixIndex(dirs, entries, faults);
     }

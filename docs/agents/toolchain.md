@@ -12,7 +12,7 @@
   - Tests — see `docs/agents/verification.md`
   - Restore the formatter — `dotnet tool restore` (needs NuGet access the first time)
   - Format — `dotnet csharpier format .`
-  - Check formatting — `dotnet csharpier check .` (the full verification command runs it first)
+  - Check formatting — `dotnet csharpier check .`. The full verification command runs it first.
   - Build — `dotnet build OpenArmada.csproj`
   - Run the asset browser — `godot-mono --path . -- --game "$ARMADA_DIR" [--model <name>]`
   - Render one frame to a file and quit — append `--screenshot <file.png>` to the browser command

@@ -77,7 +77,7 @@ _Avoid_: player color, faction color
 
 **Team-color slot**
 One of the 27 named entries of the game's team-color table, such as `red` or `cerulean`. Each takes its
-color from `teamcolor.odf`; a slot the file does not give is black.
+color from `teamcolor.odf`. A slot the file gives no valid color is black.
 _Avoid_: team index, color index
 
 **Physics definition**

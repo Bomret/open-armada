@@ -19,9 +19,9 @@
   - Unit tests — `dotnet test --project tests/OpenArmada.Tests` (MSTest on Microsoft.Testing.Platform,
     selected in `global.json`)
   - Asset check of an install — `godot-mono --headless --path . -- --check --game "$ARMADA_DIR"`
-- Formatter: CSharpier `1.3.0`, a local dotnet tool pinned in `dotnet-tools.json`; `.csharpierrc.json`
-  sets `printWidth: 120` and leaves every other option at its default. CSharpier reads `.gitignore`, so
-  `.godot/`, `bin/`, `obj/`, and `.superdev/` are skipped. `// csharpier-ignore` keeps a hand-laid-out
-  fixture, such as a pixel grid, as written.
+- Formatter: CSharpier `1.3.0`, a local dotnet tool pinned in `dotnet-tools.json`;
+  `.csharpierrc.json` sets `printWidth: 120` and leaves every other option at its default. CSharpier
+  reads `.gitignore`, so `.godot/`, `bin/`, `obj/`, and `.superdev/` are skipped.
+  `// csharpier-ignore` keeps a hand-laid-out fixture, such as a pixel grid, as written.
 - Not wired: no linter or `.editorconfig`.
 - Style prose: none beyond `README.md`.

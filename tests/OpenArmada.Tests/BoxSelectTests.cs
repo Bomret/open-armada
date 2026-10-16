@@ -39,23 +39,42 @@ public class BoxSelectTests
         Assert.IsFalse(BoxSelect.IsClick(new Vector2(10, 10), new Vector2(30, 10)));
     }
 
-    static string? Nearest(params (string, float?, bool, bool, bool)[] entries) => BoxSelect.Nearest(entries);
+    static string? Nearest(params (string, float?, bool, bool, float?)[] entries) => BoxSelect.Nearest(entries);
 
     [TestMethod]
     public void TheNearestBoxTheRayEntersIsTheHit() =>
-        Assert.AreEqual("near", Nearest(("far", 9f, true, false, false), ("near", 3f, false, false, false), ("miss", null, true, false, false)));
+        Assert.AreEqual("near", Nearest(("far", 9f, true, false, null), ("near", 3f, false, false, null), ("miss", null, true, false, null)));
 
     [TestMethod]
     public void AUnitWhoseBoxHoldsTheCameraTakesNoClick() =>
-        Assert.AreEqual("behind", Nearest(("unit", 0f, true, true, true), ("behind", 5f, true, false, false)));
+        Assert.AreEqual("behind", Nearest(("unit", 0f, true, true, 1f), ("behind", 5f, true, false, null)));
 
     [TestMethod]
-    public void APlanetWhoseBoxHoldsTheCameraAndWhoseShapeTheRayHitsBlocksTheUnitBehindIt() =>
-        Assert.AreEqual("planet", Nearest(("planet", 0f, false, true, true), ("behind", 5f, true, false, false)));
+    public void APlanetWhoseBoxHoldsTheCameraAndWhoseSphereTheRayEntersBlocksTheUnitBehindIt() =>
+        Assert.AreEqual("planet", Nearest(("planet", 0f, false, true, 2f), ("behind", 5f, true, false, null)));
 
     [TestMethod]
-    public void APlanetWhoseBoxHoldsTheCameraAndWhoseShapeTheRayMissesBlocksNothing() =>
-        Assert.AreEqual("behind", Nearest(("planet", 0f, false, true, false), ("behind", 5f, true, false, false)));
+    public void AUnitBetweenTheCameraAndThePlanetSurfaceIsPicked() =>
+        Assert.AreEqual("unit", Nearest(("planet", 0f, false, true, 8f), ("unit", 3f, true, false, null)));
+
+    [TestMethod]
+    public void APlanetWhoseBoxHoldsTheCameraAndWhoseSphereTheRayMissesBlocksNothing() =>
+        Assert.AreEqual("behind", Nearest(("planet", 0f, false, true, null), ("behind", 5f, true, false, null)));
+
+    [TestMethod]
+    public void ASphereHoldingTheCameraHasNoEntryDistanceSoItBlocksNothing() =>
+        Assert.IsNull(BoxSelect.SphereEntry(Vector3.Zero, 10f, new Vector3(1, 0, 0), Vector3.UnitX));
+
+    [TestMethod]
+    public void ASphereAheadOfTheCameraIsEnteredAtItsNearSurface() =>
+        Assert.AreEqual(8f, BoxSelect.SphereEntry(new Vector3(10, 0, 0), 2f, Vector3.Zero, Vector3.UnitX));
+
+    [TestMethod]
+    public void ASphereBehindTheCameraOrOffTheRayIsNotEntered()
+    {
+        Assert.IsNull(BoxSelect.SphereEntry(new Vector3(-10, 0, 0), 2f, Vector3.Zero, Vector3.UnitX));
+        Assert.IsNull(BoxSelect.SphereEntry(new Vector3(10, 5, 0), 2f, Vector3.Zero, Vector3.UnitX));
+    }
 
     [TestMethod]
     public void ADragOfThreePixelsIsAClickAndOneOfFourIsABox()

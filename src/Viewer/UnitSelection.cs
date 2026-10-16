@@ -66,12 +66,14 @@ public partial class UnitSelection : Node3D
         var origin = camera.ProjectRayOrigin(at);
         var direction = camera.ProjectRayNormal(at);
         // ponytail: the box around the model's meshes is the hit shape (a non-unit object holding the camera
-        // in its box uses its bounding sphere); a mesh-exact pick if overlaps matter
+        // in its box uses the entry of its bounding sphere, and blocks nothing when the camera is inside the
+        // sphere); a mesh-exact pick if overlaps matter
         var hit = BoxSelect.Nearest(_nodes.Select(pair =>
         {
-            if (Extent(pair.Value) is not { } box) return (pair.Key, (float?)null, false, false, false);
+            if (Extent(pair.Value) is not { } box) return (pair.Key, (float?)null, false, false, (float?)null);
             var radius = Math.Max(box.Size.X, Math.Max(box.Size.Y, box.Size.Z)) / 2;
-            return (pair.Key, Enters(box, origin, direction), _units.ContainsKey(pair.Key), box.HasPoint(origin), HitsSphere(box.GetCenter(), radius, origin, direction));
+            return (pair.Key, Enters(box, origin, direction), _units.ContainsKey(pair.Key), box.HasPoint(origin),
+                BoxSelect.SphereEntry(ToNumerics(box.GetCenter()), radius, ToNumerics(origin), ToNumerics(direction)));
         }));
         Select(hit != null && _units.TryGetValue(hit, out var unit) ? new[] { unit } : Array.Empty<SelectableUnit>());
     }
@@ -137,13 +139,6 @@ public partial class UnitSelection : Node3D
         return near <= far ? near : null;
     }
 
-    // Whether the ray passes within `radius` of `center` ahead of the origin; `direction` is a unit vector.
-    static bool HitsSphere(Vector3 center, float radius, Vector3 origin, Vector3 direction)
-    {
-        var along = (center - origin).Dot(direction);
-        return along >= 0 && (origin + direction * along).DistanceTo(center) <= radius;
-    }
-
     // The box around the object's visible meshes in world space; null when it has none.
     static Aabb? Extent(Node3D node)
     {
@@ -157,6 +152,8 @@ public partial class UnitSelection : Node3D
     }
 
     static System.Numerics.Vector2 ToNumerics(Vector2 v) => new(v.X, v.Y);
+
+    static System.Numerics.Vector3 ToNumerics(Vector3 v) => new(v.X, v.Y, v.Z);
 }
 
 // The rubber band of a drag.

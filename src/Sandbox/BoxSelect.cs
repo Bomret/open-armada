@@ -15,17 +15,31 @@ public static class BoxSelect
 
     // The item a click ray hits first: the one with the smallest entry distance (null: the ray misses it). A
     // box that holds the camera has no entry distance: a unit's box takes no click, but a non-unit object
-    // (a planet) whose shape the ray hits blocks at distance 0, because its box is bigger than its shape.
-    public static T? Nearest<T>(IEnumerable<(T Item, float? Distance, bool IsUnit, bool CameraInside, bool OnShape)> entries)
+    // (a planet) blocks at the entry distance of its bounding sphere (ShapeDistance, see SphereEntry), because
+    // its box is bigger than its shape. A sphere that misses the ray or holds the camera blocks nothing.
+    public static T? Nearest<T>(IEnumerable<(T Item, float? Distance, bool IsUnit, bool CameraInside, float? ShapeDistance)> entries)
     {
         T? hit = default;
         var nearest = float.MaxValue;
-        foreach (var (item, distance, isUnit, cameraInside, onShape) in entries)
+        foreach (var (item, distance, isUnit, cameraInside, shapeDistance) in entries)
         {
-            float? at = cameraInside ? (!isUnit && onShape ? 0f : null) : distance;
+            var at = cameraInside ? (isUnit ? null : shapeDistance) : distance;
             if (at is { } d && d < nearest) { nearest = d; hit = item; }
         }
         return hit;
+    }
+
+    // The distance along the ray (`direction` a unit vector) at which it enters the sphere; null when it
+    // misses the sphere, the sphere lies behind the origin, or the origin is inside the sphere.
+    public static float? SphereEntry(Vector3 center, float radius, Vector3 origin, Vector3 direction)
+    {
+        var toCenter = center - origin;
+        var along = Vector3.Dot(toCenter, direction);
+        var offAxis = toCenter.LengthSquared() - along * along;
+        var half = radius * radius - offAxis;
+        if (half < 0 || toCenter.LengthSquared() <= radius * radius) return null;
+        var entry = along - MathF.Sqrt(half);
+        return entry >= 0 ? entry : null;
     }
 
     // The items whose point lies in the box between the two corners, whichever way the drag went. An item

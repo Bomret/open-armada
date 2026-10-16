@@ -166,6 +166,9 @@ public sealed class GameFileSystem
         return null;
     }
 
+    // True when a file of the override layer replaces an archive or index copy of the same name.
+    public bool Overrides(string name) => FromAddon(name) != null && FromIndex(name) != null;
+
     Hit? FromAddon(string name)
     {
         if (ResolveDir(new[] { "addon" }) is { } addon && Entries(addon).TryGetValue(name, out var loose) && File.Exists(loose))

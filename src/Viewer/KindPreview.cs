@@ -18,6 +18,17 @@ public abstract class KindPreview
     // asset's name and the reason in its place.
     public abstract Control Create(GameFileSystem files, AssetKind kind, string name);
 
+    // A non-editable text box that fills the preview area; `wrap` breaks long lines at the box's edge.
+    protected static TextEdit ReadOnlyText(string text, bool wrap = false) =>
+        new()
+        {
+            Text = text,
+            Editable = false,
+            WrapMode = wrap ? TextEdit.LineWrappingMode.Boundary : TextEdit.LineWrappingMode.None,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+        };
+
     // The previews by kind name, matched against `kindNames` (the registered kinds, AssetKind.Discover,
     // which exist with or without an install). Broken registrations are skipped and described in
     // `problems`; see PreviewMatch.

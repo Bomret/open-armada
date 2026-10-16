@@ -233,7 +233,7 @@ public sealed class Sod
         return mesh;
     }
 
-    static string Id(BinaryReader r) => Encoding.ASCII.GetString(r.ReadBytes(r.ReadUInt16()));
+    static string Id(BinaryReader r) => Windows1252.Encoding.GetString(r.ReadBytes(r.ReadUInt16()));
     static Vector3 Vec3(BinaryReader r) => new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
     static Matrix34 Matrix(BinaryReader r) => new() { Right = Vec3(r), Up = Vec3(r), Front = Vec3(r), Position = Vec3(r) };
 }

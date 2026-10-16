@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -177,6 +178,45 @@ public class ResolvedDefinitionTests
         var def = Resolve("d0.odf", defs.ToArray());
         Assert.AreEqual(depth + 1, def.Chain.Count);
         Assert.AreEqual(1, def.GetInt("x"));
+    }
+
+    [TestMethod]
+    public void IncludeWithUnreadableArchiveMemberIsReportedAndTheRestResolves()
+    {
+        var zix = "1\n-\nDIR: assets.zfs\n-\n1 a.odf\n1 b.odf\n";
+        var zfs = Build(0, M("a.odf", "#include \"b.odf\"\r\nx = 1"), M("b.odf", "y = 2", 2));
+        var files = new GameFileSystem(temp.MakeInstall(
+            ("assets.zfs", Encoding.Latin1.GetString(zfs)), ("startrek.zix", zix)));
+        var def = ResolvedDefinition.Resolve(files, "a.odf");
+        Assert.AreEqual(1, def.Problems.Count);
+        StringAssert.Contains(def.Problems[0], "b.odf");
+        Assert.AreEqual(1, def.GetInt("x"));
+    }
+
+    [TestMethod]
+    public void DefinitionFirstReachedAtTheDepthLimitStillResolvesItsIncludesViaAShallowerPath()
+    {
+        const int longChain = 62;
+        var defs = new List<(string, string)>
+        {
+            ("root.odf", "#include \"short.odf\"\r\n#include \"long0.odf\""),
+            ("short.odf", "#include \"mid.odf\""),
+            ("mid.odf", "x = 1\r\n#include \"deep.odf\""),
+            ("deep.odf", "y = 2"),
+        };
+        for (var i = 0; i < longChain; i++)
+            defs.Add(($"long{i}.odf", $"#include \"{(i + 1 < longChain ? $"long{i + 1}" : "mid")}.odf\""));
+        var def = Resolve("root.odf", defs.ToArray());
+        Assert.AreEqual(2, def.GetInt("y"));
+        Assert.AreEqual(1, def.Chain.Count(c => c == "mid.odf"));
+    }
+
+    [TestMethod]
+    public void IndexedKeyWithOverflowingSuffixIsListedLast()
+    {
+        var def = Resolve("a.odf", ("a.odf", "weapon99999999999999 = c\r\nweapon2 = b\r\nweapon1 = a"));
+        CollectionAssert.AreEqual(new[] { "weapon1", "weapon2", "weapon99999999999999" },
+            def.Indexed("weapon").Select(v => v.Key).ToArray());
     }
 
     [TestMethod]

@@ -22,7 +22,7 @@ public sealed class DefinitionException : Exception
 
 // An object definition with its include chain and the override layer applied: one value per key, the
 // definition's own values over its includes', a later include over an earlier one. Keys and include
-// names match regardless of case. A fault of the chain (missing include, cycle) is listed in Problems,
+// names match regardless of case. A fault of the chain (missing or unreadable include, cycle) is listed in Problems,
 // a line the reader does not recognize in Notes, and the rest still resolves; a lookup of a missing
 // key or of the wrong type throws DefinitionException for that key alone.
 public sealed class ResolvedDefinition
@@ -34,6 +34,7 @@ public sealed class ResolvedDefinition
     readonly List<string> _chain = new();
     readonly List<string> _problems = new();
     readonly List<string> _notes = new();
+    readonly Dictionary<string, (int Depth, IReadOnlyList<string> Includes)> _cut = new(StringComparer.OrdinalIgnoreCase);
 
     ResolvedDefinition(string name) => Name = name;
 
@@ -45,7 +46,8 @@ public sealed class ResolvedDefinition
     // Every key once: the definition's own keys in file order, then the inherited ones.
     public IReadOnlyList<DefinitionValue> Values => _values;
 
-    // One line per fault of the chain: a missing include, an include cycle, a chain too deep.
+    // One line per fault of the chain: an include that is missing or cannot be read, an include cycle,
+    // a chain too deep.
     public IReadOnlyList<string> Problems => _problems;
 
     // "<definition>: line N: reason" per line a definition of the chain holds that the reader does not
@@ -62,25 +64,31 @@ public sealed class ResolvedDefinition
 
     // `visited` holds every definition read so far: one reached again (a diamond, a repeated include)
     // has already lost all its keys to the first visit, so it is skipped, not parsed again.
-    void Visit(GameFileSystem files, string name, List<string> path, HashSet<string> visited)
+    // Returns true when the depth limit cut an include of this subtree. A definition so cut is walked
+    // again, includes only, when a shallower path reaches it, so the keys below the cut are not lost.
+    bool Visit(GameFileSystem files, string name, List<string> path, HashSet<string> visited)
     {
         if (path.Any(p => p.Equals(name, StringComparison.OrdinalIgnoreCase)))
         {
             _problems.Add($"include cycle {string.Join(" -> ", path.Append(name))}");
-            return;
+            return false;
         }
-        if (visited.Contains(name)) return;
+        if (visited.Contains(name))
+            return _cut.TryGetValue(name, out var c) && path.Count < c.Depth && WalkIncludes(files, name, c.Includes, path, visited);
         if (path.Count >= MaxDepth)
         {
-            _problems.Add($"include chain deeper than {MaxDepth} at '{name}'");
-            return;
+            var problem = $"include chain deeper than {MaxDepth} at '{name}'";
+            if (!_problems.Contains(problem)) _problems.Add(problem);
+            return true;
         }
         byte[] bytes;
         try { bytes = files.ReadAllBytes(name); }
-        catch (FileNotFoundException) when (path.Count > 0)
+        catch (Exception e) when (path.Count > 0 && e is FileNotFoundException or UnsupportedFormatException or InvalidDataException)
         {
-            _problems.Add($"include '{name}' not found (included by {path[^1]})");
-            return;
+            _problems.Add(e is FileNotFoundException
+                ? $"include '{name}' not found (included by {path[^1]})"
+                : $"include '{name}' cannot be read (included by {path[^1]}): {e.Message}");
+            return false;
         }
         var odf = Odf.Parse(Windows1252.Encoding.GetString(bytes));
         visited.Add(name);
@@ -98,23 +106,33 @@ public sealed class ResolvedDefinition
 
         // The engine's rule, not confirmed against the game's reader: includes are visited depth first,
         // the last include first, so a later include (with everything it includes) beats an earlier one.
+        return WalkIncludes(files, name, odf.Includes, path, visited);
+    }
+
+    bool WalkIncludes(GameFileSystem files, string name, IReadOnlyList<string> includes, List<string> path, HashSet<string> visited)
+    {
+        var cut = false;
         path.Add(name);
-        for (var i = odf.Includes.Count - 1; i >= 0; i--) Visit(files, odf.Includes[i], path, visited);
+        for (var i = includes.Count - 1; i >= 0; i--) cut |= Visit(files, includes[i], path, visited);
         path.RemoveAt(path.Count - 1);
+        if (cut) _cut[name] = (path.Count, includes); else _cut.Remove(name);
+        return cut;
     }
 
     public bool Has(string key) => _index.ContainsKey(key);
 
     public DefinitionValue? Find(string key) => _index.TryGetValue(key, out var i) ? _values[i] : null;
 
-    // The values of keys `prefix` + digits (weapon1, weapon2, ...), in numeric order.
+    // The values of keys `prefix` + digits (weapon1, weapon2, ...), in numeric order; a number too
+    // large for an int sorts last.
     public IReadOnlyList<DefinitionValue> Indexed(string prefix)
     {
         var found = new List<(int N, DefinitionValue Value)>();
         foreach (var v in _values)
             if (v.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-                && int.TryParse(v.Key.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var n))
-                found.Add((n, v));
+                && v.Key.Length > prefix.Length && v.Key.AsSpan(prefix.Length).IndexOfAnyExceptInRange('0', '9') < 0)
+                // A suffix too large for an int sorts last.
+                found.Add((int.TryParse(v.Key.AsSpan(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : int.MaxValue, v));
         return found.OrderBy(f => f.N).Select(f => f.Value).ToList();
     }
 

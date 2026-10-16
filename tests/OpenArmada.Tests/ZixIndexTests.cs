@@ -39,12 +39,17 @@ public class ZixIndexTests
     }
 
     [TestMethod]
-    public void NamesAreCutAtTheGamesSixteenCharacterKey()
+    public void LongNameIsKeptWhole()
     {
-        // The stock index has a line whose name runs on past the 16 characters of the archive entry.
+        // The stock index has a line whose name runs on past the 16 characters of an archive entry.
         var zix = ZixIndex.Parse(Text + "1 testobjectives.tôJ\n");
-        Assert.AreEqual(1, zix.Entries["testobjectives.t"]);
+        Assert.AreEqual(1, zix.Entries["testobjectives.tôJ"]);
+        Assert.AreEqual("testobjectives.t", ZixIndex.MemberKey("testobjectives.tôJ"));
     }
+
+    [TestMethod]
+    public void HeaderWithoutCountLineIsUnreadable() =>
+        Assert.ThrowsExactly<InvalidDataException>(() => ZixIndex.Parse("-\nDIR: d\n-\n1 a.odf\n"));
 
     [TestMethod]
     public void NonDirPathLineIsReportedAndKeepsItsSlot()

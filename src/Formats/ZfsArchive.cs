@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace OpenArmada.Formats;
@@ -84,8 +85,8 @@ public sealed class ZfsArchive
         if ((e.Flags & 6) != 0) throw new UnsupportedFormatException($"{name}: compressed archive entry");
         var bytes = _data.AsSpan(e.Offset, e.Size).ToArray();
         if (_key != 0)
-            for (var i = 0; i + 4 <= bytes.Length; i += 4) // whole words only; the trailing remainder is plain
-                BitConverter.GetBytes(BitConverter.ToUInt32(bytes, i) ^ _key).CopyTo(bytes, i);
+            foreach (ref var word in MemoryMarshal.Cast<byte, uint>(bytes)) // whole words only; the trailing remainder is plain
+                word ^= _key; // little-endian host, as the archive's words are
         return bytes;
     }
 }

@@ -21,7 +21,12 @@ namespace OpenArmada.Assets;
 //   3. the folder or archive that startrek.zix assigns the name to.
 // The game's index is authoritative and a name it lacks is not found. This engine instead falls back
 // to the loose-folder lookup above for a name the index does not list (the game loads e.g. bitmaps by
-// a direct relative path). A name with a folder resolves directly and skips the layers.
+// a direct relative path), and for a name the index lists but cannot resolve (it never hides a file
+// the install has). A name with a folder resolves directly and skips the layers.
+//
+// An index name is matched whole against a folder, and by its first 16 characters against an archive
+// (the game's key, and the length of an archive entry name). Each archive file is opened once, however
+// many sources name it.
 //
 // Faults (an unreadable archive or index, an entry past the end of its archive) and index entries whose
 // file is missing (Missing) are collected once, when the install is opened; every other file loads.
@@ -34,18 +39,22 @@ public sealed class GameFileSystem
     sealed record Archive(string Rel, string Path, ZfsArchive Zfs);
 
     // A resolved file: a loose file, or a member of Archive.
-    sealed record Hit(string Path, Archive? Archive = null, string? Member = null)
+    sealed record Hit(string? Loose = null, Archive? Archive = null, string? Member = null)
     {
+        public string Path => Archive?.Path ?? Loose!;
         public string Display => Archive == null ? Path : $"{Archive.Rel}::{Member}";
     }
+
+    // Where an index dir is read from: a loose folder or an archive (both null when it did not resolve).
+    sealed record Source(string? Folder, Archive? Archive);
 
     readonly string Root;
     readonly Dictionary<string, Dictionary<string, string>> _entries = new(StringComparer.Ordinal);
     readonly List<string> _faults = new();
     readonly List<string> _missing = new();
     readonly List<Archive> _addonArchives = new();
-    readonly List<string?> _indexFolders = new();   // per dir index - 1: a loose folder, or null
-    readonly List<Archive?> _indexArchives = new(); // per dir index - 1: an archive, or null
+    readonly Dictionary<string, Archive?> _opened = new(StringComparer.OrdinalIgnoreCase); // by Rel; null = unreadable
+    readonly List<Source> _sources = new(); // per dir index - 1
     ZixIndex? _index;
 
     // Throws DirectoryNotFoundException when root holds no install (no SOD folder).
@@ -98,27 +107,28 @@ public sealed class GameFileSystem
                 }
                 else if ((folder = ResolveDir(parts)) == null) _faults.Add($"index/{dir}: folder is missing");
             }
-            _indexFolders.Add(folder);
-            _indexArchives.Add(archive);
+            _sources.Add(new Source(folder, archive));
         }
         foreach (var (name, dir) in _index.Entries)
-            if ((_indexFolders[dir - 1] != null || _indexArchives[dir - 1] != null) && FromIndex(name) == null)
+            if ((_sources[dir - 1].Folder != null || _sources[dir - 1].Archive != null) && (FromAddon(name) ?? FromIndex(name)) == null)
                 _missing.Add($"index/{name}: not found in {_index.Dirs[dir - 1]}");
     }
 
+    // Opens the archive file once; a later call returns the same result and reports no fault again.
     Archive? OpenArchive(string path)
     {
         var rel = Path.GetRelativePath(Root, path).Replace('\\', '/');
+        if (_opened.TryGetValue(rel, out var opened)) return opened;
         try
         {
             var zfs = ZfsArchive.Open(File.ReadAllBytes(path));
             _faults.AddRange(zfs.Faults.Select(f => $"archive/{rel}/{f}"));
-            return new Archive(rel, path, zfs);
+            return _opened[rel] = new Archive(rel, path, zfs);
         }
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
         {
             _faults.Add($"archive/{rel}: {e.Message}");
-            return null;
+            return _opened[rel] = null;
         }
     }
 
@@ -156,26 +166,26 @@ public sealed class GameFileSystem
         if (ResolveDir(new[] { "addon" }) is { } addon && Entries(addon).TryGetValue(name, out var loose) && File.Exists(loose))
             return new Hit(loose);
         foreach (var a in _addonArchives)
-            if (a.Zfs.Contains(name)) return new Hit(a.Path, a, name);
+            if (a.Zfs.Contains(name)) return new Hit(null, a, name);
         return null;
     }
 
     Hit? FromIndex(string name)
     {
-        if (_index == null || !_index.Entries.TryGetValue(name, out var dir)) return null;
-        if (_indexArchives[dir - 1] is { } a) return a.Zfs.Contains(name) ? new Hit(a.Path, a, name) : null;
-        if (_indexFolders[dir - 1] is { } folder && Entries(folder).TryGetValue(name, out var path) && File.Exists(path)) return new Hit(path);
+        if (_index == null || !_index.TryGetDir(name, out var dir)) return null;
+        var source = _sources[dir - 1];
+        if (source.Archive is { } a) return a.Zfs.Contains(ZixIndex.MemberKey(name)) ? new Hit(null, a, ZixIndex.MemberKey(name)) : null;
+        if (source.Folder is { } folder && Entries(folder).TryGetValue(name, out var path) && File.Exists(path)) return new Hit(path);
         return null;
     }
 
     // Names of the members of the archives called `archive` (e.g. "objtxt.zfs"), wherever the
     // index or the addon folder places them. Find(name) then loads the winning copy.
     public IEnumerable<string> Members(string archive) =>
-        _addonArchives.Concat(_indexArchives.OfType<Archive>())
+        _opened.Values.OfType<Archive>()
             .Where(a => Path.GetFileName(a.Path).Equals(archive, StringComparison.OrdinalIgnoreCase))
             .SelectMany(a => a.Zfs.Names)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .Distinct(StringComparer.OrdinalIgnoreCase);
 
     // Bare file names with the extension (e.g. ".sod") across the given folders, each name once,
     // in the order of the folders. Find(name) then loads the winning copy.
@@ -195,7 +205,7 @@ public sealed class GameFileSystem
     public IEnumerable<string> Inventory() =>
         Directory.EnumerateFiles(Root, "*", SearchOption.AllDirectories)
             .Select(f => Path.GetRelativePath(Root, f).Replace('\\', '/'))
-            .Concat(_addonArchives.Concat(_indexArchives.OfType<Archive>()).Distinct()
+            .Concat(_opened.Values.OfType<Archive>()
                 .SelectMany(a => a.Zfs.Names.Select(n => $"{a.Rel}::{n}")));
 
     static string[] Parts(string name) => name.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);

@@ -92,6 +92,41 @@ public class ZfsArchiveTests
     }
 
     [TestMethod]
+    public void ChainEndingBeforeTheHeaderCountIsUnreadable()
+    {
+        var bytes = Build(0, Enumerable.Range(0, 150).Select(i => M($"f{i}", "a")).ToArray());
+        BitConverter.GetBytes(0u).CopyTo(bytes, 28); // first block says "last", header counts two
+        Assert.ThrowsExactly<InvalidDataException>(() => ZfsArchive.Open(bytes));
+    }
+
+    [TestMethod]
+    public void ChainContinuingPastTheHeaderCountIsUnreadable()
+    {
+        var bytes = Build(0, Enumerable.Range(0, 150).Select(i => M($"f{i}", "a")).ToArray());
+        BitConverter.GetBytes(99u).CopyTo(bytes, 16); // header counts one block, the chain has two
+        Assert.ThrowsExactly<InvalidDataException>(() => ZfsArchive.Open(bytes));
+    }
+
+    [TestMethod]
+    public void FirstBlockInsideTheHeaderIsUnreadable()
+    {
+        var bytes = Build(0, M("a.txt", "a"));
+        BitConverter.GetBytes(4u).CopyTo(bytes, 24);
+        Assert.ThrowsExactly<InvalidDataException>(() => ZfsArchive.Open(bytes));
+    }
+
+    [TestMethod]
+    public void SelfPointingBlockWithHugeFileCountIsUnreadablePromptly()
+    {
+        var bytes = Build(0, M("a.txt", "a"));
+        BitConverter.GetBytes(uint.MaxValue - 1).CopyTo(bytes, 16);
+        BitConverter.GetBytes(28u).CopyTo(bytes, 28);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        Assert.ThrowsExactly<InvalidDataException>(() => ZfsArchive.Open(bytes));
+        Assert.IsTrue(clock.ElapsedMilliseconds < 1000);
+    }
+
+    [TestMethod]
     public void HugeFileCountDoesNotAllocate()
     {
         var bytes = Build(0, M("a.txt", "a"));

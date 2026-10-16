@@ -113,10 +113,10 @@ public sealed class SodBuilder
         if (_textures.TryGetValue(name, out var cached)) return cached;
         Texture2D? tex = null;
         // The file system prefers full-color textures; some ship only as 8-bit palette TGAs.
-        if (_files.Find(name + ".tga") is { } path)
+        if (_files.Find(name + ".tga") != null)
         {
             var image = new Image();
-            if (image.LoadTgaFromBuffer(File.ReadAllBytes(path)) == Error.Ok)
+            if (image.LoadTgaFromBuffer(_files.ReadAllBytes(name + ".tga")) == Error.Ok)
             {
                 image.GenerateMipmaps();
                 tex = ImageTexture.CreateFromImage(image);

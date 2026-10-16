@@ -127,7 +127,7 @@ public sealed class SodBuilder
         return new MeshInstance3D { Mesh = array };
     }
 
-    // A group names its lighting material, found in the model or any model of the install. One no model
+    // A group names its lighting material, found in the model or any model the game loads. One no model
     // defines, no name at all, or of a model the engine does not know, is reported in Problems (ModelRules.Analyze) and
     // shades with a stand-in: Lambert, white diffuse. The stand-in's values are the engine's, not the game's.
     Surface SurfaceOf(Sod sod, string name)

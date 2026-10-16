@@ -140,14 +140,16 @@ public static class ModelRules
 
     // Lighting materials are global by name in the game: the first SOD loaded that defines a name supplies
     // it to every model (Armada.exe FUN_0059bbe0; REA report of the asset-layer scope). The table of the
-    // install's models, built once per install in enumeration order.
+    // models the game loads, built once per install in enumeration order: each bare name, as its lookup
+    // resolves it (the override copy first). A copy listed with its folder (a software-renderer copy or a
+    // stock model an override replaces) is one the game never loads and supplies no material.
     static readonly ConditionalWeakTable<GameFileSystem, Dictionary<string, Sod.LightingMaterial>> Global = new();
 
     static Dictionary<string, Sod.LightingMaterial> InstallLightingMaterials(GameFileSystem files)
     {
         var table = new Dictionary<string, Sod.LightingMaterial>();
         var kind = new ModelKind();
-        foreach (var model in kind.Enumerate(files))
+        foreach (var model in kind.Enumerate(files).Where(n => !n.Contains('/')))
         {
             try { foreach (var m in ((Sod)kind.Load(files, model)).LightingMaterials) table.TryAdd(m.Name, m); }
             // A model that cannot be read adds none; its own check reports it.
@@ -156,7 +158,7 @@ public static class ModelRules
         return table;
     }
 
-    // The lighting material a group names: the model's own, else the one another model of the install
+    // The lighting material a group names: the model's own, else the one another model the game loads
     // defines. Null when no model defines it, and for an empty name (a group naming none; a material
     // named "" is never looked up).
     public static Sod.LightingMaterial? FindLightingMaterial(GameFileSystem files, Sod sod, string name) =>

@@ -107,6 +107,32 @@ public class ModelCheckTests
         Assert.AreEqual(0, new ModelKind().Check(files, "b.sod").Count);
     }
 
+    // The game loads the override copy of a model, never the stock copy it replaces, so the override's
+    // material is the one other models find.
+    [TestMethod]
+    public void LightingMaterialOfAnOverrideModelWinsOverTheStockCopy()
+    {
+        var files = Install(
+            ("SOD/a.sod", Latin1(new SodBytes(1.8f).Lighting(("shared", 1f, 1)).Nodes().End())),
+            ("addon/a.sod", Latin1(new SodBytes(1.8f).Lighting(("shared", 1f, 2)).Nodes().End())),
+            ("SOD/b.sod", Latin1(Model(new NodeSpec("hull", "", Triangle(lighting: "shared"))))));
+        var b = (Sod)new ModelKind().Load(files, "b.sod");
+        Assert.AreEqual(2, ModelRules.FindLightingMaterial(files, b, "shared")!.Model);
+    }
+
+    // A software-renderer copy behind a main model of its name is never loaded by the game, so a material
+    // only that copy defines is defined nowhere.
+    [TestMethod]
+    public void LightingMaterialOnlyAShadowedSoftwareCopyDefinesIsNotFound()
+    {
+        var files = Install(
+            ("SOD/a.sod", Latin1(Model())),
+            ("SOD/Software/a.sod", Latin1(new SodBytes(1.8f).Lighting(("soft", 1f, 2)).Nodes().End())),
+            ("SOD/b.sod", Latin1(Model(new NodeSpec("hull", "", Triangle(lighting: "soft"))))));
+        var b = (Sod)new ModelKind().Load(files, "b.sod");
+        Assert.IsNull(ModelRules.FindLightingMaterial(files, b, "soft"));
+    }
+
     [TestMethod]
     public void EmptyLightingMaterialNameIsNoMaterialEvenWhenTheModelDefinesOneNamedThat()
     {

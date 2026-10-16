@@ -24,6 +24,8 @@ public sealed class ZfsArchive
     // Names of the readable members (deleted and faulty entries are left out).
     public IEnumerable<string> Names => _entries.Keys;
 
+    public bool Contains(string name) => _entries.ContainsKey(name);
+
     // One line per entry that was skipped, naming the entry and the reason.
     public IReadOnlyList<string> Faults => _faults;
 

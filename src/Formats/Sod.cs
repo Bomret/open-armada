@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 
@@ -17,10 +18,17 @@ public sealed class Sod
     public List<Node> Nodes = new();
     public List<AnimationChannel> Channels = new();
     public List<AnimationReference> References = new();
+    // Data the file holds that cannot be drawn (a face index past the mesh, an unknown parent); the
+    // reader keeps going and lists each one for the model.
+    public List<string> Problems = new();
 
     public sealed class TextureMaterial
     {
         public string Name = "", Texture = "";
+        // Before 1.7 each entry carries its own state: a transparency float, then Direct3D source and
+        // destination blend values (1 zero, 2 one, 5 source alpha, 6 inverse source alpha) and a filter byte.
+        public float Transparency;
+        public byte SrcBlend, DstBlend, Filter;
     }
 
     public sealed class LightingMaterial
@@ -102,8 +110,15 @@ public sealed class Sod
             int count = r.ReadUInt16();
             for (int i = 0; i < count; i++)
             {
-                sod.TextureMaterials.Add(new TextureMaterial { Name = Id(r), Texture = Id(r) });
-                r.ReadBytes(7); // float + 3 bytes, meaning unknown
+                sod.TextureMaterials.Add(new TextureMaterial
+                {
+                    Name = Id(r),
+                    Texture = Id(r),
+                    Transparency = r.ReadSingle(),
+                    SrcBlend = r.ReadByte(),
+                    DstBlend = r.ReadByte(),
+                    Filter = r.ReadByte(),
+                });
             }
         }
 
@@ -116,7 +131,8 @@ public sealed class Sod
                 Diffuse = Vec3(r),
                 Specular = Vec3(r),
                 SpecularPower = r.ReadSingle(),
-                Model = r.ReadByte(),
+                // Versions up to 1.4 store the model plus one (Armada.exe 0x59bd80; the installed files hold 1 to 3).
+                Model = (byte)(r.ReadByte() - (sod.Version < 1.45f ? 1 : 0)),
             });
 
         int nodes = r.ReadUInt16();
@@ -164,7 +180,24 @@ public sealed class Sod
 
         if (r.BaseStream.Position != data.Length)
             throw new InvalidDataException($"{data.Length - r.BaseStream.Position} trailing bytes");
+        sod.FindProblems();
         return sod;
+    }
+
+    void FindProblems()
+    {
+        var names = Nodes.Select(n => n.Name).ToHashSet();
+        foreach (var n in Nodes)
+        {
+            if (n.Parent.Length > 0 && !names.Contains(n.Parent))
+                Problems.Add($"node '{n.Name}' names the parent '{n.Parent}', which the model lacks");
+            if (n.Mesh is not { } m) continue;
+            foreach (var (v, t) in m.Groups.SelectMany(g => g.Corners))
+            {
+                if (v >= m.Vertices.Length) { Problems.Add($"node '{n.Name}': a face corner uses vertex {v}, the mesh has {m.Vertices.Length}"); break; }
+                if (t >= m.TexCoords.Length) { Problems.Add($"node '{n.Name}': a face corner uses texture coordinate {t}, the mesh has {m.TexCoords.Length}"); break; }
+            }
+        }
     }
 
     static Mesh ReadMesh(BinaryReader r, float version)

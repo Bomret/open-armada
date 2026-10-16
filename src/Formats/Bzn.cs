@@ -94,8 +94,9 @@ public sealed record BznMap(
 // for a branch of the format no shipped map uses.
 public static class Bzn
 {
+    // the versions the shipped maps carry
     const int FirstVersion = 2050,
-        LastVersion = 2052; // the versions the shipped maps carry
+        LastVersion = 2052;
     const int MaxPrefix = 64;
     public const int TeamCount = 9; // teams 0..8
 

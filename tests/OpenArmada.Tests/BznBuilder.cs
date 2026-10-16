@@ -11,12 +11,15 @@ namespace OpenArmada.Tests;
 internal sealed class BznBuilder
 {
     internal sealed record Obj(string Class, int Team, Vector3 Position, string Label = "obj", uint Pointer = 1,
-        byte[][]? Prefix = null, float Yaw = 0, bool NoTail = false);
+        byte[][]? Prefix = null, float Yaw = 0, bool NoTail = false, float[]? Axes = null);
 
     internal int Version = 2051;
     internal string Description = "Test Map";
     internal float[] Bounds = { 0, 6400, -28.5f, 105.5f, 0, 6400 };
     internal bool MissionSave = true, Rescale; // the two flags no shipped map sets differently
+    internal float[] Ambient = { 0, 0.25f, 0 };
+    internal string Background = "mbgstars.sod";
+    internal int[]? TeamColors; // the color slot of each of the 9 team records; team i's own number when null
     internal List<Obj> Objects = new();
     internal List<(string Name, Vector3[] Points)> Paths = new();
     internal int? CountOverride; // the object count written, to build a map whose count lies
@@ -44,7 +47,8 @@ internal sealed class BznBuilder
     static byte[] ObjectTokens(Obj o)
     {
         var (s, c) = MathF.SinCos(o.Yaw);
-        var matrix = Floats(c, 0, -s, 0, 1, 0, s, 0, c, o.Position.X, o.Position.Y, o.Position.Z);
+        var axes = o.Axes ?? new[] { c, 0, -s, 0, 1, 0, s, 0, c }; // Right, Up, Front
+        var matrix = Floats(axes.Concat(new[] { o.Position.X, o.Position.Y, o.Position.Z }).ToArray());
         var tokens = new List<byte[]>
         {
             Name8(o.Class), Int(unchecked((int)0x80008001)), Vec(o.Position), Int(o.Team), Str(o.Label, 40), Ptr(o.Pointer), Token(11, matrix),
@@ -68,11 +72,11 @@ internal sealed class BznBuilder
         };
         tokens.AddRange(new[] { 0, 1, 2, 3, 4, 5 }.Select(i => Float(Bounds[i])));
         tokens.Add(Bool(Rescale));
-        tokens.AddRange(new[] { Float(0), Float(0.25f), Float(0), Str("mbgstars.sod", 100), Str("tech1.tt", 128), Str("federation", 128) });
+        tokens.AddRange(new[] { Float(Ambient[0]), Float(Ambient[1]), Float(Ambient[2]), Str(Background, 100), Str("tech1.tt", 128), Str("federation", 128) });
         tokens.Add(Int(CountOverride ?? Objects.Count));
         var body = tokens.SelectMany(t => t).Concat(Objects.SelectMany(ObjectTokens)).ToList();
         for (var i = 0; i < 9; i++) // one team record each
-            body.AddRange(new[] { Float(0), Float(3500), Int(0), Float(0), Float(4000), Int(i), Int(i) }.SelectMany(t => t));
+            body.AddRange(new[] { Float(0), Float(3500), Int(0), Float(0), Float(4000), Int(TeamColors?[i] ?? i), Int(i) }.SelectMany(t => t));
         body.AddRange(new[] { Str("EmptyMission", 40), Ptr(7), Str("", 64), Str("", 64), Token(0, new byte[64]), Int(0), Int(Paths.Count) }.SelectMany(t => t));
         foreach (var (name, points) in Paths)
         {

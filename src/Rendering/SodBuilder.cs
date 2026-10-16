@@ -24,15 +24,18 @@ public sealed class SodBuilder
     // What the last Build could not draw as the data says (ModelRules.Check), one line each.
     public IReadOnlyList<string> Problems { get; private set; } = new List<string>();
 
-    // The color of the team materials, now and for the models built after.
+    // Recolors the team materials of the model built last. Each Build makes its own materials, so a model
+    // built earlier keeps its color; Build(sod, color) colors a model as it is built.
     public void SetTeamColor(System.Numerics.Vector3 color)
     {
         _teamColor = color;
         foreach (var (material, surface) in _team) SurfaceMaterial.Apply(material, surface.WithTeam(color));
     }
 
-    public Node3D Build(Sod sod)
+    // Builds the model with its team materials in `teamColor` (the last color set when null).
+    public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null)
     {
+        if (teamColor != null) _teamColor = teamColor.Value;
         _team.Clear();
         _byNode.Clear();
         var analysis = ModelRules.Analyze(_files, sod);

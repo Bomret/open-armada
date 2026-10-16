@@ -114,18 +114,22 @@ public partial class MapSandboxView : Node3D
     // The background model sits behind every other object: it is scaled until its origin's nearest distance to
     // a face of its box passes the sandbox's reach, kept with its origin on the camera, and the far plane
     // passes its farthest corner, so no camera position or rotation clips it or puts an object behind it.
+    // A model whose origin lies outside its box is centered on the box first, so the camera is inside it.
     void AddBackground(GameFileSystem files, SodBuilder builder, TeamColors team, string model, Camera3D camera, float reach)
     {
         var node = Instance(files, builder, team, model, 0);
         if (node == null) return;
         var box = Extent(node);
+        var inside = box.Position.X < 0 && box.Position.Y < 0 && box.Position.Z < 0 && box.End.X > 0 && box.End.Y > 0 && box.End.Z > 0;
+        var shift = inside ? Vector3.Zero : -box.GetCenter();
+        box.Position += shift;
         var low = -box.Position;
         var high = box.End;
         var nearest = MathF.Min(MathF.Min(MathF.Min(low.X, high.X), MathF.Min(low.Y, high.Y)), MathF.Min(low.Z, high.Z));
         var farthest = new[] { low.X, high.X }.SelectMany(x => new[] { low.Y, high.Y }.SelectMany(y => new[] { low.Z, high.Z }.Select(z => new Vector3(x, y, z).Length()))).Max();
         // stand-in: the factor 1.5 of margin past the reach and past the farthest corner.
         var scale = reach * 1.5f / MathF.Max(nearest, 0.001f);
-        node.Transform = new Transform3D(Basis.FromScale(Vector3.One * scale), Vector3.Zero);
+        node.Transform = new Transform3D(Basis.FromScale(Vector3.One * scale), shift * scale);
         AddChild(node);
         camera.Far = MathF.Max(camera.Far, farthest * scale * 1.5f);
         _background = node;

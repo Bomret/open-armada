@@ -32,6 +32,17 @@ public class ImageSoundKindTests
     }
 
     [TestMethod]
+    public void EightBitTextureShadowedByFullColorOneIsListedWithItsFolder()
+    {
+        var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/Index8/a.tga", TgaTests.Make(8, 8, 8, 1)),
+            ("Textures/Index8/a.1", TgaTests.Make(4, 4, 8, 1)));
+        var kind = new TextureKind();
+        CollectionAssert.AreEquivalent(new[] { "a.tga", "Textures/Index8/a.tga" }, kind.Enumerate(fs).ToArray());
+        var t = (TextureAsset)kind.Load(fs, "Textures/Index8/a.tga");
+        Assert.AreEqual((true, 1), (t.Info.Indexed, t.Mips.Count));
+    }
+
+    [TestMethod]
     public void TextureHoldsItsMipLevelsInOrder()
     {
         var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(4)), ("Textures/RGB/a.2", Tga(2)));

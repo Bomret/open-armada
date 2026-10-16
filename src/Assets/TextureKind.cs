@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
@@ -21,14 +22,22 @@ public sealed class TextureKind : AssetKind
 
     public override string Name => KindName;
 
-    public override IEnumerable<string> Enumerate(GameFileSystem files) => files.List(".tga", "Textures/RGB", "Textures/Index8");
+    // A bare name resolves like Find: full color wins over 8-bit. An 8-bit texture hidden behind a
+    // full-color one of the same name is listed with its folder ("Textures/Index8/x.tga"), so it is
+    // still loaded and checked.
+    public override IEnumerable<string> Enumerate(GameFileSystem files)
+    {
+        var rgb = files.List(".tga", "Textures/RGB");
+        var shadowed = files.List(".tga", "Textures/Index8").Select(n => rgb.Contains(n, StringComparer.OrdinalIgnoreCase) ? "Textures/Index8/" + n : n);
+        return rgb.Concat(shadowed);
+    }
 
     public override object Load(GameFileSystem files, string name)
     {
         var data = files.ReadAllBytes(name);
         var info = Tga.Read(data);
-        // Same folder rule as Find: full color wins over 8-bit.
-        var folder = files.Find("Textures/RGB/" + name) != null ? "Textures/RGB/" : "Textures/Index8/";
+        var cut = name.LastIndexOfAny(new[] { '/', '\\' });
+        var folder = cut >= 0 ? name[..(cut + 1)] : files.Find("Textures/RGB/" + name) != null ? "Textures/RGB/" : "Textures/Index8/";
         var stem = Path.GetFileNameWithoutExtension(name);
         var mips = new List<TextureLevel>();
         var previous = info;

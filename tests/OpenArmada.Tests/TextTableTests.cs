@@ -178,6 +178,27 @@ public class TextTableTests
     }
 
     [TestMethod]
+    public void AnImportResolvesRelativeToTheFolderOfTheImportingFile()
+    {
+        var files = Install(true,
+            ("default.ldl", Latin1(Encode("import \"sub/a.ldl\"\n"))),
+            ("sub/a.ldl", Latin1(Encode("import \"b.ldl\"\n"))),
+            ("sub/b.ldl", Latin1(Encode("b { string p \"1\" }"))),
+            ("b.ldl", Latin1(Encode("b { string p \"root\" }"))));
+        var t = (TextTable)new TextTableKind().Load(files, "default.ldl");
+        Assert.AreEqual("1", t.Entries.Single().Value);
+        Assert.AreEqual(0, t.Notes.Count, string.Join("|", t.Notes));
+    }
+
+    [TestMethod]
+    public void AnImportOutOfTheInstallRootIsNotFoundAndBecomesANote()
+    {
+        var files = Install(true, ("default.ldl", Latin1(Encode("import \"..\\x.ldl\"\n"))));
+        var t = (TextTable)new TextTableKind().Load(files, "default.ldl");
+        Assert.IsTrue(t.Notes.Any(n => n.Contains("not found")), string.Join("|", t.Notes));
+    }
+
+    [TestMethod]
     public void TextTablesSplashExeAndImportsAreReadFromTheInstallRootByPathNotThroughTheAddonLayer()
     {
         var exe = new byte[TextTable.KeyOffset + TextTable.KeyLength];

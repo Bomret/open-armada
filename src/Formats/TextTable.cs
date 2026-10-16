@@ -31,8 +31,8 @@ public sealed record TextTableEntry(string Block, string Key, string Value, stri
 //
 // Not established by the REA report, so not interpreted here: what Name:Parent inherits, which of two
 // entries with one block path and key wins (both are kept, in reading order), and how splash.exe matches a
-// `switch` child to the system language. `open` receives an import's name as written; the install's files
-// all sit in its root, so the caller resolves it from there.
+// `switch` child to the system language. `open` receives an import's name joined to the folder of the
+// importing file (as the launcher resolves it), relative to the root the caller reads from.
 public sealed class TextTable
 {
     public const int KeyOffset = 0x2ee40, KeyLength = 400;
@@ -54,7 +54,7 @@ public sealed class TextTable
             ? exe[KeyOffset..(KeyOffset + KeyLength)]
             : throw new UnsupportedFormatException($"{name} is too short ({exe.Length} bytes) to hold the text table key at offset 0x{KeyOffset:x}");
 
-    // `open` returns the encoded bytes of an imported file by the name written after `import`, or null.
+    // `open` returns the encoded bytes of an imported file by the name written after `import` joined to the importing file's folder, or null.
     // Throws UnsupportedFormatException when `key` is not KeyLength bytes or `file` does not decode to text with it.
     public static TextTable Read(string name, byte[] file, byte[] key, Func<string, byte[]?> open)
     {
@@ -96,7 +96,7 @@ public sealed class TextTable
                 var target = k + 1 < tokens.Count ? Unquote(tokens[++k].Text) : null;
                 if (target == null) _notes.Add($"{At(line)}: import needs a quoted file name");
                 else if (blocks.Count > 0) _notes.Add($"{At(line)}: import '{target}' inside a block is ignored");
-                else Import(At(line), target, key, open, stack);
+                else Import(At(line), FolderOf(file) + target, key, open, stack);
             }
             else if (tok == "string")
             {
@@ -121,6 +121,9 @@ public sealed class TextTable
         }
         foreach (var (path, line) in blocks) _notes.Add($"{At(line)}: block '{path}' is not closed");
     }
+
+    // The folder of a file name, with its trailing separator ("" for a file in the root).
+    static string FolderOf(string file) => file[..(file.LastIndexOfAny(new[] { '/', '\\' }) + 1)];
 
     void Import(string at, string target, byte[] key, Func<string, byte[]?> open, List<string> stack)
     {

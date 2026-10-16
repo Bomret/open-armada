@@ -8,8 +8,9 @@ namespace OpenArmada.Assets;
 // (splash.exe) configuration script. Each is XOR-encoded with a key that Load reads at run time from the
 // install's own splash.exe; a missing or short splash.exe, or text that does not decode with the key,
 // throws UnsupportedFormatException with that reason. Load returns a TextTable with its imports read in.
-// splash.exe, the .ldl file, and its imports are read from the install root by path, as the launcher opens
-// them: a copy in addon\, an archive, or the index does not replace them.
+// splash.exe, the .ldl file, and its imports are read from the install by path, as the launcher opens
+// them: a copy in addon\, an archive, or the index does not replace them. An import resolves relative to
+// the folder of the importing file; ReadByPath finds nothing outside the root.
 public sealed class TextTableKind : AssetKind
 {
     public const string KindName = "texttables";

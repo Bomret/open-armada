@@ -75,6 +75,11 @@ _Avoid_: SPR, sprite sheet definition
 The color that marks which player owns an object, applied to a model's team-colored materials.
 _Avoid_: player color, faction color
 
+**Team-color slot**
+One of the 27 named entries of the game's team-color table, such as `red` or `cerulean`. Each takes its
+color from `teamcolor.odf`; a slot the file does not give is black.
+_Avoid_: team index, color index
+
 **Physics definition**
 The object definition (`*phys.odf`) that an object definition names in its `physicsFile` key. It holds the
 movement values of a class, such as its speed and turn rate.

@@ -41,6 +41,15 @@ public class AsteroidFieldTests
     }
 
     [TestMethod]
+    public void TheDrawBoxHoldsARockAtTheCenterOfAFieldSmallerThanTheLargestRock()
+    {
+        const float extent = 10;
+        var (min, max) = Field(1, 2, 9, 3).DrawBox(extent);
+        Assert.IsTrue(min.X <= 10 - extent && min.Y <= 20 - extent && min.Z <= 30 - extent);
+        Assert.IsTrue(max.X >= 10 + extent && max.Y >= 20 + extent && max.Z >= 30 + extent);
+    }
+
+    [TestMethod]
     public void OnlyTheEightNamedModelsAreChosenAndAllAppear()
     {
         var models = Enumerable.Range(0, 100).SelectMany(s => Field((uint)s, 20, 30).Rocks(5)).Select(r => r.Model).Distinct().ToList();

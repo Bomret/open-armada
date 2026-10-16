@@ -47,6 +47,14 @@ public sealed record AsteroidField(Vector3 Center, int Min, int Max, float Radiu
         return rocks;
     }
 
+    // The box that holds every rock of the field at any time: the field's sphere grown by `largestExtent`, so a rock at
+    // the center of a field smaller than the largest rock still fits (the height is included).
+    public (Vector3 Min, Vector3 Max) DrawBox(float largestExtent)
+    {
+        var reach = Vector3.One * (Radius + largestExtent);
+        return (Center - reach, Center + reach);
+    }
+
     // A uniformly random unit-length direction (rejection sampling in the unit ball).
     static Vector3 Unit(Random random)
     {

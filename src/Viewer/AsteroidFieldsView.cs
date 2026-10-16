@@ -62,11 +62,12 @@ public partial class AsteroidFieldsView : Node3D
                 list.Add(rock);
             }
         }
-        // Rocks move within their field's sphere, so the box of every draw is the union of the fields' spheres (the height included).
+        // Rocks move within their field's sphere and reach past it by their extent, so the box of every draw is the union of the fields' draw boxes.
         Aabb? bounds = null;
         foreach (var f in plan.Fields)
         {
-            var box = new Aabb(new Vector3(f.Center.X, f.Center.Y, f.Center.Z) - Vector3.One * f.Radius, Vector3.One * (2 * f.Radius));
+            var (min, max) = f.DrawBox(extent);
+            var box = new Aabb(new Vector3(min.X, min.Y, min.Z), new Vector3(max.X - min.X, max.Y - min.Y, max.Z - min.Z));
             bounds = bounds?.Merge(box) ?? box;
         }
         foreach (var (model, rocks) in byModel)

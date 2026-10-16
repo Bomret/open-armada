@@ -23,7 +23,7 @@ public static class GodotDecoders
     public static AudioStreamWav Wav(byte[] data, string name) =>
         AudioStreamWav.LoadFromBuffer(data) ?? throw new InvalidDataException($"{name}: Godot cannot decode it");
 
-    // The decode step of the asset check: textures (base and every mip level), bitmaps and sounds.
+    // The decode step of the asset check: textures (base and every mip level), bitmaps, map overview images, and sounds.
     public static void Check(AssetKind kind, GameFileSystem files, string name)
     {
         switch (kind.Name)
@@ -35,6 +35,9 @@ public static class GodotDecoders
                 break;
             case BitmapKind.KindName:
                 Bmp(files.ReadAllBytes(name), name);
+                break;
+            case MapKind.KindName:
+                if (((MapAsset)kind.Load(files, name)).Overview is { } overview) Bmp(files.ReadAllBytes(overview), overview);
                 break;
             case SoundKind.KindName:
                 Wav(files.ReadAllBytes(name), name);

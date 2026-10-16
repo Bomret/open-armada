@@ -253,6 +253,18 @@ public class ShipMotionTests
     }
 
     [TestMethod]
+    public void AnOrderChangeLeavesTheBankOfTheLastStepUntilTheNextStepTurnsTheShip()
+    {
+        var ship = Ship();
+        ship.SetTarget(100, 0);
+        var banked = ship.Step(0.5);
+        Assert.AreNotEqual(0f, banked.Bank);
+        ship.Face(MathF.Sin(banked.Heading) * 100, MathF.Cos(banked.Heading) * 100); // dead ahead: no turn to make
+        Assert.AreEqual(banked.Bank, ship.Step(0).Bank, "a zero step makes no turn, so the bank does not jump");
+        Assert.AreNotEqual(banked.Bank, ship.Step(0.1).Bank, "the next step banks as the face turn asks");
+    }
+
+    [TestMethod]
     public void AShipToldToFaceAPointStraightAheadIsUnchanged()
     {
         var ship = Ship(heading: 0);

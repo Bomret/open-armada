@@ -57,7 +57,8 @@ public sealed class ShipMotion
     }
 
     // Replaces the previous order; the ship turns in place to face the point, the shorter way at yawRotationRate,
-    // and never travels. A point at the ship's own position gives no heading to turn to.
+    // and never travels. A point at the ship's own position gives no heading to turn to. The bank follows the
+    // turns made, so Pose keeps the last step's bank until the next positive Step turns the ship.
     public void Face(float x, float z)
     {
         _target = null;
@@ -95,13 +96,16 @@ public sealed class ShipMotion
     // banks as the turn asks. Returns the turn made and the error left.
     (float Turn, float Error) Turn(Vector2 offset, float seconds)
     {
-        var error = MathF.IEEERemainder(MathF.Atan2(offset.X, offset.Y) - _heading, 2 * MathF.PI);
+        var error = BearingError(offset);
         var most = (float)_physics.YawRotationRate * seconds;
         var turn = MathF.Abs(error) <= most ? error : MathF.CopySign(most, error);
         _heading = Wrap(_heading + turn);
         _bank = _physics.MaxRoll is { } roll ? -(float)(roll * Math.PI / 180) * Math.Clamp(turn / most, -1, 1) : 0; // stand-in: no bank without maxRoll (the Borg physics definitions have none)
         return (turn, error - turn);
     }
+
+    // The angle from the heading to the offset's bearing, the shorter way.
+    float BearingError(Vector2 offset) => MathF.IEEERemainder(MathF.Atan2(offset.X, offset.Y) - _heading, 2 * MathF.PI);
 
     void Advance(Vector2 target, float seconds)
     {
@@ -114,7 +118,7 @@ public sealed class ShipMotion
         }
 
         // the pivot decision reads the error before this step's turn
-        var before = MathF.IEEERemainder(MathF.Atan2(offset.X, offset.Y) - _heading, 2 * MathF.PI);
+        var before = BearingError(offset);
         var pivot =
             distance < Pivot * (float)(_physics.ImpulseSpeed / _physics.YawRotationRate)
             || MathF.Abs(before) >= PivotAngle;

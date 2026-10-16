@@ -121,7 +121,7 @@ public class AsteroidFieldTests
             var install = new GameFileSystem(temp.MakeInstall(("addon/mafield.odf", odf)));
             var parsed = Bzn.Read(map.Build());
             var asset = new MapAsset("bzn/t.bzn", parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
-            return AsteroidField.Collect(parsed, SandboxPlan.Definitions(install, asset), hasModel ?? (m => Eight.Contains(m)));
+            return AsteroidField.Collect(parsed, SandboxPlan.Definitions(install, asset).Found, hasModel ?? (m => Eight.Contains(m)));
         }
         finally { temp.CleanUp(); }
     }

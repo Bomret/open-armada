@@ -27,6 +27,7 @@ public sealed class SandboxPlan
 {
     const string AsteroidFieldLabel = "asteroidfield"; // a definition's classLabel; the rocks are generated, not placed from a model
     const string MissingDefinition = "object definition missing, objects left out";
+    const string UnreadableDefinition = "object definition cannot be read, objects left out";
     const string MissingModel = "model missing, objects left out";
     const string DegenerateOrientation = "degenerate orientation, identity used";
     const string BadSlot = "team-color slot not usable, the team's own slot used";
@@ -55,28 +56,33 @@ public sealed class SandboxPlan
         Bounds = bounds;
     }
 
-    // The resolved definition of each object class of the map, by class name without regard to case. A
-    // class the install has no definition for is absent.
-    public static IReadOnlyDictionary<string, ResolvedDefinition> Definitions(GameFileSystem files, MapAsset map)
+    // The resolved definition of each object class of the map, by class name without regard to case, and the
+    // classes whose definition the install holds but that cannot be read, whatever the reason. A class the
+    // install has no definition for is in neither.
+    public static (IReadOnlyDictionary<string, ResolvedDefinition> Found, IReadOnlySet<string> Unreadable) Definitions(GameFileSystem files, MapAsset map)
     {
         var found = new Dictionary<string, ResolvedDefinition>(StringComparer.OrdinalIgnoreCase);
+        var unreadable = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var cls in map.Map.Objects.Select(o => o.Class).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             try { found[cls] = ResolvedDefinition.Resolve(files, cls + ".odf"); }
             catch (FileNotFoundException) { }
+            catch (Exception) { unreadable.Add(cls); } // INV-0002: a gap of its objects, the map still opens
         }
-        return found;
+        return (found, unreadable);
     }
 
     // `hasModel` tells whether the install holds a model of the name (given without ".sod").
-    public static SandboxPlan Build(MapAsset asset, IReadOnlyDictionary<string, ResolvedDefinition> definitions, Func<string, bool> hasModel)
+    public static SandboxPlan Build(MapAsset asset, (IReadOnlyDictionary<string, ResolvedDefinition> Found, IReadOnlySet<string> Unreadable) definitions,
+        Func<string, bool> hasModel)
     {
         var map = asset.Map;
         var gaps = new Gaps();
         var placed = new List<PlacedObject>();
         foreach (var o in map.Objects)
         {
-            if (!definitions.TryGetValue(o.Class, out var definition)) { gaps.Add(MissingDefinition, o.Class); continue; }
+            if (definitions.Unreadable.Contains(o.Class)) { gaps.Add(UnreadableDefinition, o.Class); continue; }
+            if (!definitions.Found.TryGetValue(o.Class, out var definition)) { gaps.Add(MissingDefinition, o.Class); continue; }
             if (definition.Find("classLabel")?.Tokens.FirstOrDefault()?.Equals(AsteroidFieldLabel, StringComparison.OrdinalIgnoreCase) == true) continue;
             var model = ModelOf(o.Class, definition, hasModel, gaps);
             if (model == null) continue;
@@ -85,8 +91,8 @@ public sealed class SandboxPlan
                 new Vector3(o.Position.X, o.Position.Y, -o.Position.Z), x, y, z));
         }
         var background = BackgroundOf(map, hasModel, gaps);
-        var (fields, fieldReports) = AsteroidField.Collect(map, definitions, hasModel);
-        return new SandboxPlan(placed, gaps.Entries.Concat(fieldReports).ToList(), map.Ambient, background, map.Bounds, fields, definitions);
+        var (fields, fieldReports) = AsteroidField.Collect(map, definitions.Found, hasModel);
+        return new SandboxPlan(placed, gaps.Entries.Concat(fieldReports).ToList(), map.Ambient, background, map.Bounds, fields, definitions.Found);
     }
 
     // The definition's baseName, else the model named like the class; null when there is none (a baseName

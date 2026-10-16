@@ -163,6 +163,22 @@ public class SandboxPlanTests
     }
 
     [TestMethod]
+    public void ADefinitionThatCannotBeReadIsReportedOnceWithItsCountAndTheObjectsAreLeftOut()
+    {
+        // a compressed archive entry: the install lists ghost.odf, but reading it throws UnsupportedFormatException
+        var archive = System.Text.Encoding.Latin1.GetString(ZfsBuilder.Build(0, ZfsBuilder.M("ghost.odf", "baseName = fdreadnought", 2)));
+        var install = new GameFileSystem(temp.MakeInstall(("addon/fbattle.odf", "baseName = fdreadnought"), ("addon/x.zfs", archive)));
+        var map = MapOf(Ship("ghost", label: "a"), Ship("ghost", label: "b"), Ship());
+        var asset = new MapAsset("bzn/t.bzn", Bzn.Read(map.Build()), Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+        var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
+        Assert.AreEqual(1, plan.Objects.Count);
+        var report = plan.Reports.Single();
+        CollectionAssert.AreEqual(new[] { "ghost" }, report.Names.ToArray());
+        Assert.AreEqual(2, report.Count);
+        StringAssert.Contains(report.Text, "object definition cannot be read");
+    }
+
+    [TestMethod]
     public void ABaseNameOfAMissingModelIsReportedWithoutAFallback()
     {
         var plan = Plan(MapOf(Ship(), Ship()), Fbattle, "fbattle");

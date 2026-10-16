@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// Game constants: the install's RTS_CFG.h, a loose root file whose override copy wins like any asset's.
+// Game constants: the install's RTS_CFG.h, found as GameFileSystem finds it: the root file, or an override
+// copy in addon\ that wins like any asset's.
 // The other root headers are configuration headers no kind reads. Load returns GameConstants.
 public sealed class GameConstantsKind : AssetKind
 {
@@ -15,7 +15,7 @@ public sealed class GameConstantsKind : AssetKind
     public override string Name => KindName;
 
     public override IEnumerable<string> Enumerate(GameFileSystem files) =>
-        RootFiles(files, ".h").Where(f => f.Equals(FileName, StringComparison.OrdinalIgnoreCase));
+        files.Entry(FileName) is null ? Array.Empty<string>() : new[] { FileName };
 
     public override object Load(GameFileSystem files, string name) => GameConstants.Read(name, files.ReadAllBytes(name));
 

@@ -43,9 +43,49 @@ public class GameConstantsTests
         Assert.AreEqual("6 * ANCHOR_RADIUS", c.Values[1].Text);
         Assert.AreEqual("IMPASSABLE_TERRAIN", c.Values[2].Text);
         Assert.AreEqual(3, c.Notes.Count);
+        StringAssert.Contains(c.Notes[0], "ANGLE");
         StringAssert.Contains(c.Notes[1], "CUT");
-        Assert.IsFalse(c.TryNumber("CUT", out _, out var problem));
+        StringAssert.Contains(c.Notes[2], "COST");
+        foreach (var name in new[] { "ANGLE", "CUT", "COST" })
+        {
+            Assert.IsFalse(c.TryNumber(name, out _, out var problem));
+            StringAssert.Contains(problem, "not a literal");
+        }
+    }
+
+    [TestMethod]
+    public void AnUppercaseFloatSuffixIsPartOfTheLiteral()
+    {
+        var c = Read("float RATE = 1.0F;");
+        Assert.IsTrue(c.TryNumber("RATE", out var r, out _));
+        Assert.AreEqual(1.0, r);
+        Assert.AreEqual(0, c.Notes.Count);
+    }
+
+    [TestMethod]
+    public void ADefineExpressionIsKeptAsTextWithANote()
+    {
+        var c = Read("#define X (1+2)");
+        Assert.AreEqual("(1+2)", c.Values[0].Text);
+        Assert.IsFalse(c.TryNumber("X", out _, out var problem));
         StringAssert.Contains(problem, "not a literal");
+        StringAssert.Contains(c.Notes.Single(), "RTS_CFG.h:1");
+    }
+
+    [TestMethod]
+    public void ADefineWithoutAValueIsAnUnrecognizedLine()
+    {
+        var c = Read("#define FLAG");
+        Assert.AreEqual(0, c.Values.Count);
+        StringAssert.Contains(c.Notes.Single(), "RTS_CFG.h:1");
+    }
+
+    [TestMethod]
+    public void AQuotedDefineMayHoldTwoSlashes()
+    {
+        var c = Read("#define URL \"http://x\"");
+        Assert.AreEqual("http://x", c.Values[0].Text);
+        Assert.AreEqual(0, c.Notes.Count);
     }
 
     [TestMethod]
@@ -68,6 +108,7 @@ public class GameConstantsTests
         StringAssert.Contains(c.Notes[1], "RTS_CFG.h:3");
         StringAssert.Contains(c.Notes[1], "';'");
         StringAssert.Contains(c.Notes[2], "RTS_CFG.h:4");
+        StringAssert.Contains(c.Notes[2], "declared again");
         Assert.IsTrue(c.TryNumber("A", out var a, out _));
         Assert.AreEqual(3.0, a);
         Assert.IsTrue(c.TryNumber("B", out var b, out _));

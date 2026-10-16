@@ -33,6 +33,13 @@ public class GameConstantsKindTests
     }
 
     [TestMethod]
+    public void AnOverrideCopyAloneIsListed()
+    {
+        var files = Install(("addon/RTS_CFG.h", "float A = 5.0;\n"));
+        CollectionAssert.AreEqual(new[] { "RTS_CFG.h" }, new GameConstantsKind().Enumerate(files).ToArray());
+    }
+
+    [TestMethod]
     public void CheckReturnsTheNotes()
     {
         var files = Install(("RTS_CFG.h", "junk\n"));

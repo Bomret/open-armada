@@ -48,6 +48,9 @@ public partial class MapView : Control
         {
             var (x, z) = map.Map.Bounds.FromStartCell(s.Cell);
             var (col, row) = map.Map.Bounds.ToImage(x, z, size);
+            // The ring (radius 9, line 2 wide, so 10 px out) is moved in to stay whole inside the square.
+            col = Mathf.Clamp(col, 10, size - 10);
+            row = Mathf.Clamp(row, 10, size - 10);
             DrawArc(new Vector2(col, row), 9, 0, Mathf.Tau, 24, Colors.White, 2f);
             var number = s.Number.ToString();
             var width = font.GetStringSize(number, HorizontalAlignment.Left, -1, 14).X;

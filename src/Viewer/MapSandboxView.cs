@@ -23,6 +23,7 @@ public partial class MapSandboxView : Node3D
     readonly List<string> _gaps = new();
     readonly HashSet<string> _unreadable = new(StringComparer.OrdinalIgnoreCase);
     Node3D? _background;
+    Vector3 _backgroundOffset;
     Camera3D? _camera;
     int _frames;
 
@@ -112,7 +113,7 @@ public partial class MapSandboxView : Node3D
     }
 
     // The background model sits behind every other object: it is scaled until its origin's nearest distance to
-    // a face of its box passes the sandbox's reach, kept with its origin on the camera, and the far plane
+    // a face of its box passes the sandbox's reach, kept with its box center (its origin when inside) on the camera, and the far plane
     // passes its farthest corner, so no camera position or rotation clips it or puts an object behind it.
     // A model whose origin lies outside its box is centered on the box first, so the camera is inside it.
     void AddBackground(GameFileSystem files, SodBuilder builder, TeamColors team, string model, Camera3D camera, float reach)
@@ -133,6 +134,7 @@ public partial class MapSandboxView : Node3D
         AddChild(node);
         camera.Far = MathF.Max(camera.Far, farthest * scale * 1.5f);
         _background = node;
+        _backgroundOffset = shift * scale;
         _camera = camera;
     }
 
@@ -165,8 +167,8 @@ public partial class MapSandboxView : Node3D
 
     public override void _Process(double delta)
     {
-        // The background stays centered on the camera and never turns with it.
-        if (_background != null && _camera != null) _background.GlobalPosition = _camera.GlobalPosition;
+        // The background keeps its centering offset from the camera and never turns with it.
+        if (_background != null && _camera != null) _background.GlobalPosition = _camera.GlobalPosition + _backgroundOffset;
         // Wait a few frames so textures are uploaded before capturing.
         if (_screenshot == null || ++_frames < 5) return;
         GetViewport().GetTexture().GetImage().SavePng(_screenshot);

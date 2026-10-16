@@ -40,10 +40,14 @@ public sealed class SandboxPlan
     // The asteroid fields to fill with rocks (a field with a missing or illegal value is reported and absent).
     public IReadOnlyList<AsteroidField> Fields { get; }
 
+    // The resolved definitions the plan was built from, by class name without regard to case.
+    public IReadOnlyDictionary<string, ResolvedDefinition> Resolved { get; }
+
     SandboxPlan(IReadOnlyList<PlacedObject> objects, IReadOnlyList<ReportEntry> reports, Vector3 ambient, string? background, MapBounds bounds,
-        IReadOnlyList<AsteroidField> fields)
+        IReadOnlyList<AsteroidField> fields, IReadOnlyDictionary<string, ResolvedDefinition> resolved)
     {
         Fields = fields;
+        Resolved = resolved;
         Objects = objects;
         Reports = reports;
         Ambient = ambient;
@@ -82,7 +86,7 @@ public sealed class SandboxPlan
         }
         var background = BackgroundOf(map, hasModel, gaps);
         var (fields, fieldReports) = AsteroidField.Collect(map, definitions, hasModel);
-        return new SandboxPlan(placed, gaps.Entries.Concat(fieldReports).ToList(), map.Ambient, background, map.Bounds, fields);
+        return new SandboxPlan(placed, gaps.Entries.Concat(fieldReports).ToList(), map.Ambient, background, map.Bounds, fields, definitions);
     }
 
     // The definition's baseName, else the model named like the class; null when there is none (a baseName

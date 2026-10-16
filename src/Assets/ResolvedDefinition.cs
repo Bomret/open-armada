@@ -183,15 +183,20 @@ public sealed class ResolvedDefinition
     public float GetFloat(string key)
     {
         var t = Get(key).Tokens;
-        if (t.Count == 1 && float.TryParse(t[0].EndsWith('f') || t[0].EndsWith('F') ? t[0][..^1] : t[0],
-                NumberStyles.Float, CultureInfo.InvariantCulture, out var f) && float.IsFinite(f)) return f;
+        if (t.Count == 1 && TryNumber(t[0], out var f)) return f;
         throw Wrong(key, "a number", t);
     }
 
+    static bool TryNumber(string token, out float f) =>
+        float.TryParse(token.EndsWith('f') || token.EndsWith('F') ? token[..^1] : token,
+            NumberStyles.Float, CultureInfo.InvariantCulture, out f) && float.IsFinite(f);
+
+    // One whole number: written as an integer or as a float with no fraction (1.0, 1f).
     public int GetInt(string key)
     {
         var t = Get(key).Tokens;
         if (t.Count == 1 && int.TryParse(t[0], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var n)) return n;
+        if (t.Count == 1 && TryNumber(t[0], out var f) && f == MathF.Floor(f) && MathF.Abs(f) < int.MaxValue) return (int)f;
         throw Wrong(key, "an integer", t);
     }
 

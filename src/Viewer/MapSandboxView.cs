@@ -62,13 +62,18 @@ public partial class MapSandboxView : Node3D
         });
         AddChild(new DirectionalLight3D { RotationDegrees = new Vector3(-50, -30, 0) });
 
+        var nodes = new Dictionary<PlacedObject, Node3D>();
         foreach (var o in plan.Objects)
         {
             var node = Instance(files, builder, team, o.Model, o.Slot);
             if (node == null) continue;
             node.Transform = new Transform3D(new Basis(ToGodot(o.AxisX), ToGodot(o.AxisY), ToGodot(o.AxisZ)), ToGodot(o.Position));
             AddChild(node);
+            nodes[o] = node;
         }
+        var selection = new UnitSelection(files, plan, nodes);
+        AddChild(selection);
+        _gaps.AddRange(selection.Reports.Select(r => r.Text));
 
         AddChild(new AsteroidFieldsView(files, plan, AddGap));
 

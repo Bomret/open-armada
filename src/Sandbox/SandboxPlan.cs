@@ -38,10 +38,12 @@ public sealed class SandboxPlan
     // The map's bounds in the map's own frame (Z not mirrored).
     public MapBounds Bounds { get; }
     // The asteroid fields to fill with rocks (a field with a missing or illegal value is reported and absent).
-    public IReadOnlyList<AsteroidField> Fields { get; private init; } = Array.Empty<AsteroidField>();
+    public IReadOnlyList<AsteroidField> Fields { get; }
 
-    SandboxPlan(IReadOnlyList<PlacedObject> objects, IReadOnlyList<ReportEntry> reports, Vector3 ambient, string? background, MapBounds bounds)
+    SandboxPlan(IReadOnlyList<PlacedObject> objects, IReadOnlyList<ReportEntry> reports, Vector3 ambient, string? background, MapBounds bounds,
+        IReadOnlyList<AsteroidField> fields)
     {
+        Fields = fields;
         Objects = objects;
         Reports = reports;
         Ambient = ambient;
@@ -80,7 +82,7 @@ public sealed class SandboxPlan
         }
         var background = BackgroundOf(map, hasModel, gaps);
         var (fields, fieldReports) = AsteroidField.Collect(map, definitions, hasModel);
-        return new SandboxPlan(placed, gaps.Entries.Concat(fieldReports).ToList(), map.Ambient, background, map.Bounds) { Fields = fields };
+        return new SandboxPlan(placed, gaps.Entries.Concat(fieldReports).ToList(), map.Ambient, background, map.Bounds, fields);
     }
 
     // The definition's baseName, else the model named like the class; null when there is none (a baseName

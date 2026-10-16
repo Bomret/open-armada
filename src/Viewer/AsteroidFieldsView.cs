@@ -15,9 +15,13 @@ namespace OpenArmada.Viewer;
 public partial class AsteroidFieldsView : Node3D
 {
     // One draw: a mesh of a model, the rocks that show it, and the buffer of their transforms.
-    sealed record Draw(MultiMesh Multi, Transform3D Part, List<Rock> Rocks, float[] Buffer);
+    sealed record Draw(MultiMesh Multi, Transform3D Part, Transform3D[] Pose, float[] Buffer);
+
+    // The rocks of one model and their poses at the current time; every draw of the model reads the poses.
+    sealed record Group(List<Rock> Rocks, Transform3D[] Pose);
 
     readonly List<Draw> _draws = new();
+    readonly List<Group> _groups = new();
     ulong _start;
 
     public AsteroidFieldsView(GameFileSystem files, SandboxPlan plan, Action<string> gap)
@@ -58,7 +62,17 @@ public partial class AsteroidFieldsView : Node3D
                 list.Add(rock);
             }
         }
+        // Rocks move within their field's sphere, so the box of every draw is the union of the fields' spheres (the height included).
+        Aabb? bounds = null;
+        foreach (var f in plan.Fields)
+        {
+            var box = new Aabb(new Vector3(f.Center.X, f.Center.Y, f.Center.Z) - Vector3.One * f.Radius, Vector3.One * (2 * f.Radius));
+            bounds = bounds?.Merge(box) ?? box;
+        }
         foreach (var (model, rocks) in byModel)
+        {
+            var group = new Group(rocks, new Transform3D[rocks.Count]);
+            _groups.Add(group);
             foreach (var (mesh, transform) in parts[model])
             {
                 var multi = new MultiMesh
@@ -66,12 +80,14 @@ public partial class AsteroidFieldsView : Node3D
                     TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
                     Mesh = mesh,
                     InstanceCount = rocks.Count,
-                    CustomAabb = new Aabb(new Vector3(-1e5f, -1e5f, -1e5f), new Vector3(2e5f, 2e5f, 2e5f)), // rocks move, so never culled by a stale box
+                    CustomAabb = bounds!.Value,
                 };
                 AddChild(new MultiMeshInstance3D { Multimesh = multi });
-                _draws.Add(new Draw(multi, transform, rocks, new float[rocks.Count * 12]));
+                _draws.Add(new Draw(multi, transform, group.Pose, new float[rocks.Count * 12]));
             }
-        _start = Time.GetTicksMsec();    }
+        }
+        _start = Time.GetTicksMsec();
+    }
 
     // The visible meshes of the model with their transforms in the root's frame.
     static void Collect(Node3D root, Node3D node, Transform3D transform, List<(Mesh, Transform3D)> into)
@@ -86,22 +102,17 @@ public partial class AsteroidFieldsView : Node3D
     {
         if (_draws.Count == 0) return;
         var t = (Time.GetTicksMsec() - _start) / 1000.0;
-        var poses = new Dictionary<List<Rock>, Transform3D[]>();
+        foreach (var group in _groups)
+            for (var i = 0; i < group.Pose.Length; i++)
+            {
+                var (position, q) = group.Rocks[i].Pose(t);
+                group.Pose[i] = new Transform3D(new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)), new Vector3(position.X, position.Y, position.Z));
+            }
         foreach (var draw in _draws)
         {
-            if (!poses.TryGetValue(draw.Rocks, out var pose))
+            for (var i = 0; i < draw.Pose.Length; i++)
             {
-                pose = new Transform3D[draw.Rocks.Count];
-                for (var i = 0; i < pose.Length; i++)
-                {
-                    var (position, q) = draw.Rocks[i].Pose(t);
-                    pose[i] = new Transform3D(new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)), new Vector3(position.X, position.Y, position.Z));
-                }
-                poses[draw.Rocks] = pose;
-            }
-            for (var i = 0; i < pose.Length; i++)
-            {
-                var m = pose[i] * draw.Part;
+                var m = draw.Pose[i] * draw.Part;
                 var b = draw.Buffer;
                 var o = i * 12;
                 b[o] = m.Basis.Row0.X; b[o + 1] = m.Basis.Row0.Y; b[o + 2] = m.Basis.Row0.Z; b[o + 3] = m.Origin.X;

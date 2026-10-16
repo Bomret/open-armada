@@ -142,6 +142,26 @@ public class MoveGeometryTests
         Assert.AreEqual(clampedZ, target.Y, 1e-3);
     }
 
+    // The same map with each pair inverted; the camera swaps an inverted pair, so the clamp does too.
+    static readonly MapBounds InvertedMap = new(6400, 0, -28.5f, 105.5f, 3200, 0);
+
+    [TestMethod]
+    [DataRow(7000f, -1000f, 6400f, -1000f)] // beyond the east edge
+    [DataRow(100f, -4000f, 100f, -3200f)] // beyond the north edge
+    [DataRow(-1e7f, 1e7f, 0f, 0f)] // the south-west corner
+    [DataRow(1234f, -567f, 1234f, -567f)] // inside: unchanged
+    public void AMapWithInvertedBoundsClampsOntoTheSameEdgeAsTheUninvertedMap(
+        float x,
+        float z,
+        float clampedX,
+        float clampedZ
+    )
+    {
+        var target = MoveGeometry.ClampToMap(new Vector2(x, z), InvertedMap);
+        Assert.AreEqual(clampedX, target.X, 1e-3);
+        Assert.AreEqual(clampedZ, target.Y, 1e-3);
+    }
+
     [TestMethod]
     [DataRow(1234f, -567f)] // inside
     [DataRow(6400f, -3200f)] // on the north-east corner

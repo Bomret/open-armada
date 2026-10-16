@@ -40,8 +40,9 @@ public sealed class DefinitionKind : AssetKind
     };
 
     // The models, definitions, sounds, textures and sprites the definition's own and overriding values
-    // name that the install lacks, and the parents (includes) of its own file that the install lacks. A
-    // value or a missing parent it inherits is the parent's to report.
+    // name that the install lacks, and the includes the install lacks that its own file names, or that a
+    // parent names when that parent is no enumerated definition. A value or a missing include it inherits
+    // from an enumerated parent is the parent's to report.
     public override IReadOnlyList<string> Unresolved(GameFileSystem files, string name)
     {
         var def = ResolvedDefinition.Resolve(files, name);

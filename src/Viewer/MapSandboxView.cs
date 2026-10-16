@@ -111,7 +111,7 @@ public partial class MapSandboxView : Node3D
         }
         foreach (var problem in _rig.Problems)
             AddGap(problem);
-        AddChild(new MoveOrders(files, plan, selection, nodes, (float)_rig.CombatPlaneHeight, bounds, AddGap));
+        AddChild(new UnitOrders(files, plan, selection, nodes, (float)_rig.CombatPlaneHeight, bounds, AddGap));
 
         AddChild(new AsteroidFieldsView(files, plan, AddGap));
 

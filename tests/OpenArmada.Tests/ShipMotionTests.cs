@@ -209,4 +209,86 @@ public class ShipMotionTests
         ship.SetTarget(0, 100);
         AssertAt(new Vector3(0, 5, 0), ship.Step(-1).Position);
     }
+
+    [TestMethod]
+    public void AShipThatIsNotOrderedReadsItsStartingPose()
+    {
+        var ship = Ship(heading: 0.5f);
+        Assert.AreEqual(new ShipPose(new Vector3(0, 5, 0), 0.5f, 0), ship.Pose);
+    }
+
+    [TestMethod]
+    public void AMovingShipToldToStopStaysWhereItIsAtItsHeightAndKeepsItsHeading()
+    {
+        var ship = Ship(y: 7);
+        ship.SetTarget(100, 0);
+        var moving = Run(ship, 3, 0.125).Pose;
+        ship.Stop();
+        var stopped = Run(ship, 30, 0.125).Pose;
+        Assert.AreEqual(moving.Position, stopped.Position);
+        Assert.AreEqual(moving.Heading, stopped.Heading);
+        Assert.AreEqual(0f, stopped.Bank);
+    }
+
+    [TestMethod]
+    public void AShipToldToFaceAPointTurnsTheShorterWayAtItsYawRateWithoutTravelling()
+    {
+        var ship = Ship(heading: 3);
+        ship.Face(-100, -1); // from heading 3 the shorter way is through pi, not back through 0
+        var (pose, _, maxTurn) = Run(ship, 20, 0.125);
+        AssertAt(new Vector3(0, 5, 0), pose.Position);
+        Assert.AreEqual(MathF.Atan2(-100, -1), pose.Heading, 1e-3);
+        Assert.AreEqual(Yaw, maxTurn, 1e-3);
+        Assert.AreEqual(0f, pose.Bank);
+    }
+
+    [TestMethod]
+    public void AShortestWayTurnIsMadeAtTheYawRateAndBanks()
+    {
+        var ship = Ship(heading: 3);
+        ship.Face(-100, -1);
+        var pose = ship.Step(0.5);
+        Assert.AreEqual(3.5f - 2 * MathF.PI, pose.Heading, 1e-3); // wrapped past pi
+        Assert.AreNotEqual(0f, pose.Bank);
+    }
+
+    [TestMethod]
+    public void AnOrderChangeLeavesTheBankOfTheLastStepUntilTheNextStepTurnsTheShip()
+    {
+        var ship = Ship();
+        ship.SetTarget(100, 0);
+        var banked = ship.Step(0.5);
+        Assert.AreNotEqual(0f, banked.Bank);
+        ship.Face(MathF.Sin(banked.Heading) * 100, MathF.Cos(banked.Heading) * 100); // dead ahead: no turn to make
+        Assert.AreEqual(banked.Bank, ship.Step(0).Bank, "a zero step makes no turn, so the bank does not jump");
+        Assert.AreNotEqual(banked.Bank, ship.Step(0.1).Bank, "the next step banks as the face turn asks");
+    }
+
+    [TestMethod]
+    public void AShipToldToFaceAPointStraightAheadIsUnchanged()
+    {
+        var ship = Ship(heading: 0);
+        ship.Face(0, 50);
+        Assert.AreEqual(new ShipPose(new Vector3(0, 5, 0), 0, 0), ship.Step(1));
+    }
+
+    [TestMethod]
+    public void AShipToldToFaceItsOwnPositionDoesNotTurn()
+    {
+        var ship = Ship(heading: 0.5f);
+        ship.Face(0, 0);
+        Assert.AreEqual(new ShipPose(new Vector3(0, 5, 0), 0.5f, 0), ship.Step(1));
+    }
+
+    [TestMethod]
+    public void AFaceOrderReplacesAMoveOrderAndAMoveOrderReplacesAFaceOrder()
+    {
+        var ship = Ship();
+        ship.SetTarget(0, 100);
+        ship.Face(100, 0);
+        AssertAt(new Vector3(0, 5, 0), Run(ship, 20, 0.125).Pose.Position);
+        ship.Face(-100, 0);
+        ship.SetTarget(0, 20);
+        AssertAt(new Vector3(0, 5, 20), Run(ship, 60, 0.125).Pose.Position);
+    }
 }

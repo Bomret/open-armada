@@ -32,6 +32,7 @@ public sealed class ShipMotion
     float _heading;
     float _bank;
     Vector2? _target; // X, Z
+    Vector2? _facing; // X, Z of the point a ship turns to face in place; never set together with _target
 
     public ShipMotion(PhysicsValues physics, Vector3 position, float heading)
     {
@@ -41,14 +42,70 @@ public sealed class ShipMotion
     }
 
     // Replaces the previous order; the ship keeps its own height.
-    public void SetTarget(float x, float z) => _target = new Vector2(x, z);
+    public void SetTarget(float x, float z)
+    {
+        _facing = null;
+        _target = new Vector2(x, z);
+    }
+
+    // Replaces the previous order; the ship stays where it is, at its own height, and keeps its heading.
+    public void Stop()
+    {
+        _target = null;
+        _facing = null;
+        _bank = 0;
+    }
+
+    // Replaces the previous order; the ship turns in place to face the point, the shorter way at yawRotationRate,
+    // and never travels. A point at the ship's own position gives no heading to turn to. The bank follows the
+    // turns made, so Pose keeps the last step's bank until the next positive Step turns the ship.
+    public void Face(float x, float z)
+    {
+        _target = null;
+        _facing = new Vector2(x, z);
+    }
+
+    public ShipPose Pose => new(_position, _heading, _bank);
 
     public ShipPose Step(double seconds)
     {
-        if (_target is { } target && seconds > 0)
-            Advance(target, (float)seconds);
-        return new ShipPose(_position, _heading, _bank);
+        if (seconds > 0)
+        {
+            if (_target is { } target)
+                Advance(target, (float)seconds);
+            else if (_facing is { } facing)
+                TurnToFace(facing, (float)seconds);
+        }
+        return Pose;
     }
+
+    void TurnToFace(Vector2 facing, float seconds)
+    {
+        var offset = facing - new Vector2(_position.X, _position.Z);
+        if (offset.Length() <= Reached)
+        {
+            Stop();
+            return;
+        }
+        var (_, error) = Turn(offset, seconds);
+        if (error == 0)
+            Stop();
+    }
+
+    // Turns toward the offset's bearing, the shorter way, never more than yawRotationRate allows in `seconds`, and
+    // banks as the turn asks. Returns the turn made and the error left.
+    (float Turn, float Error) Turn(Vector2 offset, float seconds)
+    {
+        var error = BearingError(offset);
+        var most = (float)_physics.YawRotationRate * seconds;
+        var turn = MathF.Abs(error) <= most ? error : MathF.CopySign(most, error);
+        _heading = Wrap(_heading + turn);
+        _bank = _physics.MaxRoll is { } roll ? -(float)(roll * Math.PI / 180) * Math.Clamp(turn / most, -1, 1) : 0; // stand-in: no bank without maxRoll (the Borg physics definitions have none)
+        return (turn, error - turn);
+    }
+
+    // The angle from the heading to the offset's bearing, the shorter way.
+    float BearingError(Vector2 offset) => MathF.IEEERemainder(MathF.Atan2(offset.X, offset.Y) - _heading, 2 * MathF.PI);
 
     void Advance(Vector2 target, float seconds)
     {
@@ -56,20 +113,16 @@ public sealed class ShipMotion
         var distance = offset.Length();
         if (distance <= Reached)
         {
-            Stop(target);
+            Arrive(target);
             return;
         }
 
-        // turn the shorter way, never more than yawRotationRate allows
-        var error = MathF.IEEERemainder(MathF.Atan2(offset.X, offset.Y) - _heading, 2 * MathF.PI);
-        var most = (float)_physics.YawRotationRate * seconds;
-        var turn = MathF.Abs(error) <= most ? error : MathF.CopySign(most, error);
+        // the pivot decision reads the error before this step's turn
+        var before = BearingError(offset);
         var pivot =
             distance < Pivot * (float)(_physics.ImpulseSpeed / _physics.YawRotationRate)
-            || MathF.Abs(error) >= PivotAngle;
-        _heading = Wrap(_heading + turn);
-        error -= turn;
-        _bank = _physics.MaxRoll is { } roll ? -(float)(roll * Math.PI / 180) * Math.Clamp(turn / most, -1, 1) : 0; // stand-in: no bank without maxRoll (the Borg physics definitions have none)
+            || MathF.Abs(before) >= PivotAngle;
+        var (turn, error) = Turn(offset, seconds);
 
         // ponytail: a target inside two turning circles (2 * speed / yawRate) is reached by turning in place and
         // then driving straight; a ship never orbits it. Farther away it drives while turning. The ship drives
@@ -86,7 +139,7 @@ public sealed class ShipMotion
         var travel = MathF.Min((float)_physics.ImpulseSpeed * driving, distance * MathF.Cos(error));
         if (travel >= distance)
         {
-            Stop(target);
+            Arrive(target);
             return;
         }
         _position += new Vector3(MathF.Sin(_heading), 0, MathF.Cos(_heading)) * travel;
@@ -99,7 +152,7 @@ public sealed class ShipMotion
         return wrapped <= -MathF.PI ? wrapped + 2 * MathF.PI : wrapped;
     }
 
-    void Stop(Vector2 target)
+    void Arrive(Vector2 target)
     {
         _position = new Vector3(target.X, _position.Y, target.Y);
         _target = null;

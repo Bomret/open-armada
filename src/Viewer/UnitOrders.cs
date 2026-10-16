@@ -8,10 +8,12 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// Move orders of the map sandbox: a right-click sends the selected ships to where its ray meets the middle of the
-// combat plane, clamped to the map's bounds; a ray that misses the plane is ignored. Each ship moves at its own
-// height by its ShipMotion, fed by its physics definition. Stations and all other objects never move.
-public partial class MoveOrders : Node3D
+// The orders of the map sandbox and the pose of every unit. A right-click sends the selected ships to where its
+// ray meets the middle of the combat plane, clamped to the map's bounds; a ray that misses the plane is ignored.
+// Each ship moves at its own height by its ShipMotion, fed by its physics definition. Stations and all other
+// objects never move. Pose reads the current pose of any unit, from the moment the map opens: the placed pose
+// until the unit moves.
+public partial class UnitOrders : Node3D
 {
     readonly UnitSelection _selection;
     readonly Dictionary<PlacedObject, Node3D> _nodes;
@@ -21,6 +23,7 @@ public partial class MoveOrders : Node3D
         PlacedObject,
         (ShipMotion Motion, System.Numerics.Quaternion Initial, float Heading, Vector3 Scale)
     > _moving = new();
+    readonly UnitPoses _poses;
     readonly MovePlan _plan;
     readonly float _planeHeight;
     readonly MapBounds _bounds;
@@ -28,7 +31,7 @@ public partial class MoveOrders : Node3D
     // `planeHeight` is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
     // stand-ins), so orders aim at the plane the camera looks at; `bounds` are the ones the rig clamps its look-at
     // point to.
-    public MoveOrders(
+    public UnitOrders(
         GameFileSystem files,
         SandboxPlan plan,
         UnitSelection selection,
@@ -42,10 +45,14 @@ public partial class MoveOrders : Node3D
         _nodes = nodes;
         _planeHeight = planeHeight;
         _bounds = bounds;
+        _poses = new UnitPoses(selection.Units.Select(u => u.Object));
         _plan = MovePlan.Build(plan, selection.Units, files);
         foreach (var report in _plan.Reports)
             gap(report.Text);
     }
+
+    // The current pose of a unit of the map; throws KeyNotFoundException for an object that is no unit.
+    public ShipPose Pose(PlacedObject unit) => _poses.Pose(unit);
 
     public override void _UnhandledInput(InputEvent e)
     {
@@ -100,7 +107,7 @@ public partial class MoveOrders : Node3D
     {
         foreach (var (o, (motion, initial, start, scale)) in _moving)
         {
-            var pose = motion.Step(delta);
+            var pose = _poses.Advance(o, motion, delta);
             var q = MoveGeometry.Orientation(initial, pose.Heading - start, pose.Bank);
             _nodes[o].Transform = new Transform3D(
                 new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)) * Basis.FromScale(scale),

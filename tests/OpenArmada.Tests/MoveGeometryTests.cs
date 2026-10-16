@@ -1,6 +1,7 @@
 using System;
 using System.Numerics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 
 namespace OpenArmada.Tests;
@@ -107,4 +108,45 @@ public class MoveGeometryTests
         Assert.AreEqual(0, pose.Bank, 1e-6);
         Assert.AreEqual(10, pose.Position.X, 1e-3);
     }
+
+    // A map twice as wide as deep, not centred on zero, so a swapped axis or a missing Z mirror shows. In Godot's
+    // frame its X runs 0..6400 and its Z runs -3200 (north) to 0 (south).
+    static readonly MapBounds Map = new(0, 6400, -28.5f, 105.5f, 0, 3200);
+
+    [TestMethod]
+    public void AClickFromAHighCameraThatHitsThePlaneBeyondTheMapIsClampedOntoItsEdge()
+    {
+        var hit = MoveGeometry.PlaneTarget(
+            new Vector3(3200, 700, -1600),
+            Vector3.Normalize(new Vector3(0, -0.05f, -1)),
+            38.5f
+        );
+        Assert.IsNotNull(hit);
+        Assert.IsTrue(hit.Value.Y < -3200); // the plane hit lies beyond the north edge
+        var target = MoveGeometry.ClampToMap(hit.Value, Map);
+        Assert.AreEqual(3200, target.X, 1e-3);
+        Assert.AreEqual(-3200, target.Y, 1e-3);
+    }
+
+    [TestMethod]
+    [DataRow(7000f, -1000f, 6400f, -1000f)] // beyond the east edge: X only
+    [DataRow(-50f, -1000f, 0f, -1000f)] // beyond the west edge
+    [DataRow(100f, -4000f, 100f, -3200f)] // beyond the north edge: Z only
+    [DataRow(100f, 500f, 100f, 0f)] // beyond the south edge
+    [DataRow(9000f, 900f, 6400f, 0f)] // beyond both: the nearest (south-east) corner
+    [DataRow(-1e7f, -1e7f, 0f, -3200f)] // however far away: the north-west corner
+    public void AHitOutsideTheMapIsClampedOnEachAxisOnItsOwn(float x, float z, float clampedX, float clampedZ)
+    {
+        var target = MoveGeometry.ClampToMap(new Vector2(x, z), Map);
+        Assert.AreEqual(clampedX, target.X, 1e-3);
+        Assert.AreEqual(clampedZ, target.Y, 1e-3);
+    }
+
+    [TestMethod]
+    [DataRow(1234f, -567f)] // inside
+    [DataRow(6400f, -3200f)] // on the north-east corner
+    [DataRow(0f, 0f)] // on the south-west corner
+    [DataRow(0f, -1500f)] // on the west edge
+    public void AHitInsideTheMapOrOnItsEdgeIsUnchanged(float x, float z) =>
+        Assert.AreEqual(new Vector2(x, z), MoveGeometry.ClampToMap(new Vector2(x, z), Map));
 }

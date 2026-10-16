@@ -33,14 +33,15 @@ public sealed class MovePlan
             var speed = Positive(definition, "impulseSpeed", o.Class, gaps);
             var yaw = Positive(definition, "yawRotationRate", o.Class, gaps);
             if (speed == null || yaw == null) continue;
-            // stand-in: no bank without maxRoll (the Borg physics definitions have none); a maxRoll that is no number
-            // above 0 is the same, and a gap says so (a negative one would bank the ship out of the turn)
+            // stand-in: no bank without maxRoll (the Borg physics definitions have none); a maxRoll of 0 is no bank
+            // too. A maxRoll that is no number or is negative is the same, and a gap says so (a negative one would
+            // bank the ship out of the turn)
             double? roll = null;
             if (definition.Has("maxRoll"))
             {
-                try { if (definition.GetFloat("maxRoll") is var value and > 0) roll = value; }
+                try { if (definition.GetFloat("maxRoll") is var value and >= 0) roll = value; }
                 catch (DefinitionException) { }
-                if (roll == null) gaps.Add(("physics definition's maxRoll is no number above 0, ships do not bank", o.Class));
+                if (roll == null) gaps.Add(("physics definition's maxRoll is no number of 0 or more, ships do not bank", o.Class));
             }
             physics[o] = new PhysicsValues(speed.Value, yaw.Value, roll);
         }

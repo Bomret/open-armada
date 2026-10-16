@@ -34,7 +34,7 @@ public class CombatPlanTests
         + "race = \"federation\"\r\nmaxHealth = 900\r\nshieldRate = 5\r\nshieldDelay = 3\r\ncrewCost = 100\r\n"
         + "maximumCrew = 120\r\n";
 
-    // A loose-file marker (not written to the install) for a test of an install with no races.odf.
+    // A loose-file marker (an empty file in the install, no races.odf) for a test of an install with no races.odf.
     const string NoRaces = "no-races";
 
     // Definitions are "class" -> odf text, in addon/. The map holds one object of each class in `classes`.
@@ -151,7 +151,7 @@ public class CombatPlanTests
                 + "weapon1 = \"beam\"\r\nweaponHardpoints1 = \"b\"\r\n"
         );
         Assert.AreEqual(1, ProfileOf(r).Weapons.Single().Slot);
-        Assert.IsTrue(r.Plan.Reports.Any(g => g.Names.Any(n => n.Contains("weapon99999999999"))));
+        Assert.IsTrue(r.Plan.Reports.Any(g => g.Names.Any(n => n.Contains("s.weapon99999999999"))));
     }
 
     [TestMethod]
@@ -247,6 +247,22 @@ public class CombatPlanTests
         );
         Assert.AreEqual(2.5f, plan.Profiles[units[0].Object].Race.WeaponRed);
         Assert.AreEqual(0, plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ARaceFileThatCannotBeReadIsReportedAsUnreadableNotMissing()
+    {
+        // fed.odf is an archive member stored compressed: races.odf lists it, but reading it throws
+        var archive = Encoding.Latin1.GetString(ZfsBuilder.Build(0, ZfsBuilder.M("fed.odf", Race, 2)));
+        var (plan, _) = Plan(
+            new[] { "s" },
+            new[] { ("s", Ship), ("beam", Beam), ("beamo", BeamOrd) },
+            ("RTS_CFG.h", Constants),
+            ("addon/x.zfs", archive)
+        );
+        Assert.AreEqual(0, plan.Reports.Count(g => g.Cause.Contains("race definition missing")));
+        var gap = plan.Reports.Single(g => g.Cause.Contains("race definition cannot be read"));
+        CollectionAssert.AreEqual(new[] { "federation" }, gap.Names.ToArray());
     }
 
     [TestMethod]

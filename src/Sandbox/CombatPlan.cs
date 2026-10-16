@@ -85,7 +85,7 @@ public sealed class CombatPlan
             gaps.Add($"game constant {name} missing or no number, stand-in {Text(standIn)} used", name);
             return standIn;
         }
-        // stand-ins: no protection by the shields (the whole damage hurts the shields) and no bonus to system hit
+        // stand-in: no protection by the shields (the whole damage hurts the shields) and no bonus to system hit
         // points, where the install's RTS_CFG.h gives neither.
         return (Constant("SHIELD_DAMAGE_PROTECTION", 1), Constant("SYSTEM_HITPOINTS_BONUS", 0));
     }
@@ -104,7 +104,8 @@ public sealed class CombatPlan
             ("Sensors", "sensors"),
         };
 
-        // A middling race: no delay and repair factors, middling crew thresholds.
+        // stand-in: a middling race for a race definition the install lacks: no delay and repair factors,
+        // middling crew thresholds.
         static readonly RaceValues StandInRace = new(0.5f, 0.25f, 1, 1, 1, 1, 1);
 
         // Each definition once: the definition, or null with the cause it could not be read.
@@ -112,6 +113,7 @@ public sealed class CombatPlan
             StringComparer.OrdinalIgnoreCase
         );
         Dictionary<string, ResolvedDefinition>? _races;
+        bool _raceFileUnreadable; // set when a race file races.odf lists exists but cannot be read
         string? _racesProblem; // set when races.odf is missing or cannot be read
 
         public CombatProfile Read(ResolvedDefinition d, List<(string Cause, string Name)> gaps)
@@ -176,7 +178,7 @@ public sealed class CombatPlan
                     )
                 )
                 {
-                    unit.Gap("weapon slot number too large, slot left out", slot.Key);
+                    unit.Gap("weapon slot number too large, slot left out", $"{unit.Who}.{slot.Key}");
                     continue;
                 }
                 var name = unit.Str(slot.Key);
@@ -269,6 +271,8 @@ public sealed class CombatPlan
             else if (FindRace(race) is { } def)
             {
                 var r = new Values(def, gaps);
+                // The unit-level weaponYellow and weaponRed are not read: docs/combat-rules.md names the race as
+                // the source of the delay factors.
                 return new RaceValues(
                     r.Num("crewYellowStatus", 0.5f, report: true), // stand-in: crew thresholds of a middling race
                     r.Num("crewRedStatus", 0.25f, report: true),
@@ -282,7 +286,12 @@ public sealed class CombatPlan
             else if (_racesProblem != null)
                 unit.Gap(_racesProblem, "races.odf");
             else
-                unit.Gap("race definition missing, stand-in race values used", race);
+                unit.Gap(
+                    _raceFileUnreadable
+                        ? "race definition cannot be read, stand-in race values used"
+                        : "race definition missing, stand-in race values used",
+                    race
+                );
             return StandInRace;
         }
 
@@ -313,8 +322,10 @@ public sealed class CombatPlan
                         if (def.Has("name"))
                             _races.TryAdd(def.GetString("name"), def);
                     }
-                    catch (Exception) // a race file that cannot be read is no race
-                    { }
+                    catch (Exception e) // a race file that cannot be read is no race: its race is reported as unreadable
+                    {
+                        _raceFileUnreadable |= e is not FileNotFoundException;
+                    }
             }
             return _races.GetValueOrDefault(race);
         }

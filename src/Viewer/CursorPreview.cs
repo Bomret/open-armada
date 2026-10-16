@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
@@ -23,10 +24,10 @@ public sealed class CursorPreview : KindPreview
                 if (cursor.Rgba[o + 3] == 0) continue;
                 image.FillRect(new Rect2I(x * Scale, y * Scale, Scale, Scale), Color.Color8(cursor.Rgba[o], cursor.Rgba[o + 1], cursor.Rgba[o + 2]));
             }
-        var hot = new Rect2I(cursor.HotspotX * Scale, cursor.HotspotY * Scale, Scale, Scale);
-        for (var i = 0; i < Scale; i++)
-            foreach (var (x, y) in new[] { (hot.Position.X + i, hot.Position.Y), (hot.Position.X + i, hot.End.Y - 1), (hot.Position.X, hot.Position.Y + i), (hot.End.X - 1, hot.Position.Y + i) })
-                image.SetPixel(x, y, Colors.Cyan);
-        return new ImagePane($"{cursor.Width}x{cursor.Height}, hotspot at ({cursor.HotspotX}, {cursor.HotspotY})", new[] { (name, image) });
+        // A hotspot outside the image (a note) is drawn at the nearest edge pixel.
+        var (hx, hy) = (System.Math.Clamp(cursor.HotspotX, 0, cursor.Width - 1) * Scale, System.Math.Clamp(cursor.HotspotY, 0, cursor.Height - 1) * Scale);
+        foreach (var edge in new[] { new Rect2I(hx, hy, Scale, 1), new Rect2I(hx, hy + Scale - 1, Scale, 1), new Rect2I(hx, hy, 1, Scale), new Rect2I(hx + Scale - 1, hy, 1, Scale) })
+            image.FillRect(edge, Colors.Cyan);
+        return new ImagePane($"{cursor.Width}x{cursor.Height}, hotspot at ({cursor.HotspotX}, {cursor.HotspotY}){string.Concat(cursor.Notes.Select(n => " - " + n))}", new[] { (name, image) });
     }
 }

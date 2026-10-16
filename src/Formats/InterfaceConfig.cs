@@ -59,7 +59,7 @@ public sealed class InterfaceConfig
                 if (!inc.Success) { _notes.Add($"{at}: unrecognized line '{line}'"); continue; }
                 var target = inc.Groups[1].Value;
                 if (stack.Contains(target, StringComparer.OrdinalIgnoreCase)) { _notes.Add($"{at}: include cycle through '{target}'"); continue; }
-                if (!seen.Add(target)) continue; // read already: adds nothing the second time
+                if (!seen.Add(target)) { _notes.Add($"{at}: include '{target}' already read; skipped"); continue; } // adds nothing the second time
                 var body = open(target);
                 if (body == null) { _notes.Add($"{at}: include '{target}' not found"); continue; }
                 stack.Add(target);
@@ -79,7 +79,7 @@ public sealed class InterfaceConfig
                 continue;
             }
             var tokens = value.Split("//")[0].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (tokens.Length == 0 || tokens.Any(t => !double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out _)))
+            if (tokens.Length == 0 || tokens.Any(t => !double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) || !double.IsFinite(v)))
                 _notes.Add($"{at}: value of '{key}' is neither text nor numbers: '{value}'");
             else _entries.Add(new ConfigEntry(key, tokens, false, file, i + 1));
         }
@@ -95,30 +95,26 @@ public sealed class InterfaceConfig
         string? Text(string key) => byKey.TryGetValue(key, out var e) && e.IsText ? e.Values[0] : null;
 
         // A panel group "g" has gDefaultCursor and gPanelArea.
-        var panels = byKey.Keys.Where(k => k.EndsWith("PanelArea") && byKey.ContainsKey(k[..^9] + "DefaultCursor") && Numbers(byKey[k]) != null)
-            .Select(k => k[..^9]).ToList();
-        (float X, float Y) Origin(string key, out bool isPanel)
-        {
-            isPanel = panels.Contains(key[..Math.Max(0, key.Length - 9)]) && key.EndsWith("PanelArea");
-            if (isPanel) return (0, 0);
-            var g = panels.Where(p => key.StartsWith(p)).OrderByDescending(p => p.Length).FirstOrDefault();
-            if (g == null) return (0, 0);
-            var n = Numbers(byKey[g + "PanelArea"])!;
-            return (n[0], n[1]);
-        }
+        var origins = new Dictionary<string, (float X, float Y)>();
+        foreach (var (k, e) in byKey)
+            if (k.EndsWith("PanelArea") && byKey.ContainsKey(k[..^9] + "DefaultCursor") && Numbers(e) is { } n) origins[k[..^9]] = (n[0], n[1]);
+        (float X, float Y) Origin(string key) =>
+            origins.Where(o => key.StartsWith(o.Key)).OrderByDescending(o => o.Key.Length).Select(o => o.Value).FirstOrDefault();
 
         foreach (var e in byKey.Values.OrderBy(e => e.Line).ThenBy(e => e.File))
         {
             if (e.Key.EndsWith("Area"))
             {
                 if (Numbers(e) is not { } n) { _notes.Add($"{e.File}:{e.Line}: '{e.Key}' is not four numbers (x y width height)"); continue; }
-                var o = Origin(e.Key, out var isPanel);
+                var isPanel = e.Key.EndsWith("PanelArea") && origins.ContainsKey(e.Key[..^9]);
+                var o = isPanel ? (X: 0f, Y: 0f) : Origin(e.Key);
                 var stem = e.Key[..^4];
                 _elements.Add(new LayoutElement(e.Key, n[0] + o.X, n[1] + o.Y, n[2], n[3], Text(stem) ?? Text(stem + "Image"), isPanel));
             }
-            else if (Piece.Match(e.Key) is { Success: true } p && Numbers(e) is { } r && Text(p.Groups[1].Value) is { } sprite)
+            else if (Piece.Match(e.Key) is { Success: true } p && Text(p.Groups[1].Value) is { } sprite)
             {
-                var o = Origin(e.Key, out _);
+                if (Numbers(e) is not { } r) { _notes.Add($"{e.File}:{e.Line}: '{e.Key}' is not four numbers (x y width height)"); continue; }
+                var o = Origin(e.Key);
                 _elements.Add(new LayoutElement(e.Key, r[0] + o.X, r[1] + o.Y, r[2], r[3], $"{sprite}.{p.Groups[2].Value}", false));
             }
         }

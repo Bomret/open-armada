@@ -16,4 +16,6 @@ public sealed class CursorKind : AssetKind
         files.Inventory().Where(f => f.StartsWith("cursors/", StringComparison.OrdinalIgnoreCase) && f.EndsWith(".cur", StringComparison.OrdinalIgnoreCase));
 
     public override object Load(GameFileSystem files, string name) => CursorImage.Read(name, files.ReadAllBytes(name));
+
+    public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((CursorImage)Load(files, name)).Notes;
 }

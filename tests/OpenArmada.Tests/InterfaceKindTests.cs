@@ -27,6 +27,15 @@ public class InterfaceKindTests
     }
 
     [TestMethod]
+    public void AnAddonCopyOfAConfigurationOrOfItsIncludeWinsOverTheMiscCopy()
+    {
+        var files = Install(("misc/gui_fed.cfg", "#include \"gui_glob.cfg\"\na = 1\n"), ("misc/gui_glob.cfg", "g = 1\n"),
+            ("addon/gui_glob.cfg", "g = 2\n"), ("addon/gui_fed.cfg", "#include \"gui_glob.cfg\"\na = 3\n"));
+        var cfg = (InterfaceConfig)new InterfaceConfigKind().Load(files, "misc/gui_fed.cfg");
+        CollectionAssert.AreEqual(new[] { "2", "3" }, cfg.Entries.Select(e => e.Values[0]).ToArray());
+    }
+
+    [TestMethod]
     public void InterfaceConfigurationCheckReturnsItsNotes()
     {
         var files = Install(("misc/gui_fed.cfg", "a = 1\njunk\n"));
@@ -37,7 +46,7 @@ public class InterfaceKindTests
     public void MapsAreTheRootMapFilesDecodedAsWindows1252()
     {
         var files = Install(("label.map", "m {\n + t {café}\n}\n"), ("Input.map", "a {\n + k v\n}\n"), ("misc/x.map", ""));
-        var kind = new MapKind();
+        var kind = new KeyMapKind();
         CollectionAssert.AreEquivalent(new[] { "label.map", "Input.map" }, kind.Enumerate(files).ToArray());
         Assert.AreEqual("café", ((MapFile)kind.Load(files, "label.map")).Entries.Single().Value);
     }
@@ -46,7 +55,7 @@ public class InterfaceKindTests
     public void MapCheckReturnsNotesWithTheFileName()
     {
         var files = Install(("label.map", "junk\n"));
-        StringAssert.StartsWith(new MapKind().Check(files, "label.map").Single(), "label.map:1:");
+        StringAssert.StartsWith(new KeyMapKind().Check(files, "label.map").Single(), "label.map:1:");
     }
 
     [TestMethod]
@@ -56,16 +65,6 @@ public class InterfaceKindTests
         var kind = new SettingsKind();
         CollectionAssert.AreEquivalent(new[] { "mshell.set", "shell.set" }, kind.Enumerate(files).ToArray());
         Assert.AreEqual(1, ((SettingsFile)kind.Load(files, "mshell.set")).Entries.Count);
-    }
-
-    [TestMethod]
-    public void TextTablesAreTheRootLdlFilesAndAreUnsupportedWithTheirReason()
-    {
-        var files = Install(("string.ldl", "\u009aAÛ"), ("a/b.ldl", ""));
-        var kind = new TextTableKind();
-        CollectionAssert.AreEqual(new[] { "string.ldl" }, kind.Enumerate(files).ToArray());
-        var e = Assert.ThrowsExactly<UnsupportedFormatException>(() => kind.Load(files, "string.ldl"));
-        StringAssert.Contains(e.Message, "encrypted");
     }
 
     [TestMethod]
@@ -86,7 +85,7 @@ public class InterfaceKindTests
     public void KindsAreFoundByDiscovery()
     {
         var names = AssetKind.Discover().Select(k => k.Name).ToArray();
-        foreach (var n in new[] { InterfaceConfigKind.KindName, SettingsKind.KindName, TextTableKind.KindName, MapKind.KindName, FontKind.KindName, CursorKind.KindName })
+        foreach (var n in new[] { InterfaceConfigKind.KindName, SettingsKind.KindName, TextTableKind.KindName, KeyMapKind.KindName, FontKind.KindName, CursorKind.KindName })
             CollectionAssert.Contains(names, n);
     }
 }

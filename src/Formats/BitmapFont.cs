@@ -28,15 +28,17 @@ public sealed class BitmapFont
         if (data.Length < HeaderSize || BitConverter.ToUInt32(data, 0) != 0x2e31) throw new InvalidDataException($"{name}: not a font (no '1.' header)");
         var count = BitConverter.ToUInt32(data, 4);
         var height = BitConverter.ToUInt32(data, 8);
+        if (count == 0 || height is 0 or > MaxHeight) throw new InvalidDataException($"{name}: {count} glyphs of {height} rows");
+        if (data.Length < HeaderSize + (long)count * 4) throw new InvalidDataException($"{name}: glyph table is cut off");
+        for (var i = 0; i < count; i++)
+            if ((long)BitConverter.ToUInt32(data, HeaderSize + i * 4) + 4 > data.Length) throw new InvalidDataException($"{name}: glyph {i} starts past the end of the file");
+        // Only a well-formed font of another glyph count is unsupported, so the checks above come first.
         if (count != CodeCount)
             throw new UnsupportedFormatException($"{name}: {count} glyphs of {height} rows; only 256-glyph fonts are decoded (a multi-byte encoding)");
-        if (height is 0 or > MaxHeight) throw new InvalidDataException($"{name}: glyph height {height}");
-        if (data.Length < HeaderSize + count * 4) throw new InvalidDataException($"{name}: glyph table is cut off");
         var glyphs = new List<FontGlyph>();
         for (var i = 0; i < count; i++)
         {
             var at = (long)BitConverter.ToUInt32(data, HeaderSize + i * 4);
-            if (at + 4 > data.Length) throw new InvalidDataException($"{name}: glyph {i} starts past the end of the file");
             var width = BitConverter.ToUInt32(data, (int)at);
             if (width > MaxWidth || at + 4 + width * height > data.Length) throw new InvalidDataException($"{name}: glyph {i} (width {width}) runs past the end of the file");
             glyphs.Add(new FontGlyph((int)width, data[(int)(at + 4)..(int)(at + 4 + width * height)]));

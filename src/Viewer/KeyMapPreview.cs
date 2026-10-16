@@ -6,14 +6,13 @@ using OpenArmada.Formats;
 namespace OpenArmada.Viewer;
 
 // Key and label map preview: each binding as "section  sign key  value", notes first.
-public sealed class MapPreview : KindPreview
+public sealed class KeyMapPreview : KindPreview
 {
-    public override string KindName => MapKind.KindName;
+    public override string KindName => KeyMapKind.KindName;
 
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var map = (MapFile)kind.Load(files, name);
-        var notes = map.Notes.Count == 0 ? "" : "NOTES\n" + string.Join("\n", map.Notes) + "\n\n";
-        return TextPane.Create(notes + string.Join("\n", map.Entries.Select(e => $"{e.Section,-28} {e.Sign} {e.Key,-14} {e.Value}")));
+        return ReadOnlyText(NotesBlock(map.Notes) + string.Join("\n", map.Entries.Select(e => $"{e.Section,-28} {e.Sign} {e.Key,-14} {e.Value}")), true);
     }
 }

@@ -13,7 +13,6 @@ public sealed class SettingsPreview : KindPreview
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var s = (SettingsFile)kind.Load(files, name);
-        var notes = s.Notes.Count == 0 ? "" : "NOTES\n" + string.Join("\n", s.Notes) + "\n\n";
-        return TextPane.Create(notes + string.Join("\n", s.Entries.Select(e => $"{e.Line,3}  {e.Text}")));
+        return ReadOnlyText(NotesBlock(s.Notes) + string.Join("\n", s.Entries.Select(e => $"{e.Line,3}  {e.Text}")), true);
     }
 }

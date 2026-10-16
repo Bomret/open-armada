@@ -26,6 +26,10 @@ public abstract class AssetKind
         return Array.Empty<string>();
     }
 
+    // The loose files of the install root with the extension (".map"), not those of a folder or an archive.
+    protected static IEnumerable<string> RootFiles(GameFileSystem files, string extension) =>
+        files.Inventory().Where(f => f.EndsWith(extension, StringComparison.OrdinalIgnoreCase) && !f.Contains('/') && !f.Contains("::"));
+
     public static IReadOnlyList<AssetKind> Discover() =>
         typeof(AssetKind).Assembly.GetTypes()
             .Where(t => t.IsSubclassOf(typeof(AssetKind)) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) != null)

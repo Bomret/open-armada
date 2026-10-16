@@ -95,6 +95,32 @@ public class InterfaceConfigTests
     }
 
     [TestMethod]
+    public void IncludeOfAFileAlreadyReadIsANoteNotACycle()
+    {
+        var c = Read("#include \"g.cfg\"\n#include \"g.cfg\"\n", ("g.cfg", "b = 2\n"));
+        Assert.AreEqual(1, c.Entries.Count);
+        var note = c.Notes.Single();
+        StringAssert.StartsWith(note, "gui_x.cfg:2:");
+        StringAssert.Contains(note, "already read");
+    }
+
+    [TestMethod]
+    public void APanelPieceWithoutFourNumbersIsANote()
+    {
+        var c = Read("speedDefaultCursor = \"c\"\nspeedPanelArea = 1 2 3 4\nspeedBackgroundPanel = \"p\"\nspeedBackgroundPanel_0 = 0 0 5\n");
+        Assert.IsFalse(c.Elements.Any(e => e.Sprite == "p.0"));
+        StringAssert.StartsWith(c.Notes.Single(), "gui_x.cfg:4:");
+    }
+
+    [TestMethod]
+    public void NonFiniteNumbersAreNotNumbers()
+    {
+        var c = Read("a = NaN\nb = Infinity 1\nc = 2\n");
+        CollectionAssert.AreEqual(new[] { "c" }, c.Entries.Select(e => e.Key).ToArray());
+        Assert.AreEqual(2, c.Notes.Count);
+    }
+
+    [TestMethod]
     public void AnAreaWithoutFourNumbersIsANote()
     {
         var c = Read("aArea = 1 2 3\n");

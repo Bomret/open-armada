@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
@@ -13,8 +11,7 @@ public sealed class SettingsKind : AssetKind
 
     public override string Name => KindName;
 
-    public override IEnumerable<string> Enumerate(GameFileSystem files) =>
-        files.Inventory().Where(f => f.EndsWith(".set", StringComparison.OrdinalIgnoreCase) && !f.Contains('/') && !f.Contains("::"));
+    public override IEnumerable<string> Enumerate(GameFileSystem files) => RootFiles(files, ".set");
 
     public override object Load(GameFileSystem files, string name) => SettingsFile.Read(name, files.ReadAllBytes(name));
 

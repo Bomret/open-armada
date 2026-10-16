@@ -22,9 +22,13 @@ public sealed class InterfaceConfigKind : AssetKind
 
     public override object Load(GameFileSystem files, string name)
     {
-        string? Text(string n) => files.Find(Folder + n) is null ? null : Windows1252.GetString(files.ReadAllBytes(Folder + n));
+        // The bare name resolves through the game's precedence (addon override first, then the index);
+        // the misc folder is the fallback for an install whose index does not list the file.
+        string? Text(string n) =>
+            (files.Find(n) is not null ? n : files.Find(Folder + n) is not null ? Folder + n : null) is { } found
+                ? Windows1252.GetString(files.ReadAllBytes(found)) : null;
         var bare = name[(name.LastIndexOf('/') + 1)..];
-        return InterfaceConfig.Read(bare, Windows1252.GetString(files.ReadAllBytes(name)), Text);
+        return InterfaceConfig.Read(bare, Text(bare) ?? Windows1252.GetString(files.ReadAllBytes(name)), Text);
     }
 
     public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((InterfaceConfig)Load(files, name)).Notes;

@@ -117,6 +117,40 @@ A value or behavior that the engine supplies itself because the install defines 
 game's own behavior is not known. Each stand-in is documented as such where it is used.
 _Avoid_: default, fallback, placeholder
 
+## Combat
+
+**Combat rules**
+The game's rules that turn a weapon's fire into hits, shield loss, crew loss, system damage, and
+destruction, recovered from the game's program and restated in our own words.
+_Avoid_: damage model, combat formulas
+
+**Hostile**
+A unit of another team than the unit judging it, team 0 excepted. Team 0 is neutral and hostile to no one.
+_Avoid_: enemy unit, opponent
+
+**Weapon**
+A definition a unit names in a `weaponN` key, which fires ordnance from the unit's hardpoints at a delay
+and within a range. A beam weapon has class label `cannon`; a torpedo launcher has `launcher`.
+_Avoid_: gun, turret, hardpoint
+
+**Ordnance**
+The definition a weapon names in its `ordName` key: what one shot does on a hit and how it is drawn.
+_Avoid_: projectile, shot definition, ammo
+
+**Ship system**
+One of the five parts of a unit that can be destroyed apart from the unit: engines, life support, weapons,
+shield generator, and sensors. Each has hit points and repairs itself over time.
+_Avoid_: subsystem, component
+
+**Derelict**
+A unit whose crew has fallen below one. All its systems are offline and its shields are down, and it
+stays on the map until it is destroyed.
+_Avoid_: dead ship, disabled ship, wreck
+
+**Critical hit**
+A hit that lands on no ship system and not on the hull. It destroys the unit.
+_Avoid_: core breach, instant kill
+
 ## Tools
 
 **Asset check**

@@ -22,7 +22,7 @@ Codeberg wiki of `bomret/open-armada`, staged locally and sent by `/superdev:pub
 .NET SDK 10 (net8.0) and Godot 4.7.2 .NET; build with `dotnet build OpenArmada.csproj`. See `docs/agents/toolchain.md`.
 
 ### Verification
-Build plus `SodCheck` over `$ARMADA_DIR/SOD`, the same command in both slots. Arms the merge green-gate. See `docs/agents/verification.md`.
+Full: unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: unit tests. Arms the merge green-gate. See `docs/agents/verification.md`.
 
 ### Deployment
 Posture `manual`, no targets yet. See `docs/agents/deployment.md`.

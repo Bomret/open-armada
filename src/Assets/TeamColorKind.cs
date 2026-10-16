@@ -2,8 +2,8 @@ using System.Collections.Generic;
 
 namespace OpenArmada.Assets;
 
-// The team colors: teamcolor.odf, read once as one asset. The check lists a missing file, a slot without
-// a line, and a line that is not three numbers (each such slot is black), once for the install.
+// The team colors: teamcolor.odf, read once as one asset. The check lists a missing file and a slot whose
+// first matching key is not three numbers (each such slot is black), once for the install.
 public sealed class TeamColorKind : AssetKind
 {
     public const string KindName = "teamcolors";

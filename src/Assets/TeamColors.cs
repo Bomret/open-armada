@@ -2,14 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 
 namespace OpenArmada.Assets;
 
 // The team colors of the game: teamcolor.odf (in assets.zfs, or addon/) holds `name = r g b` for each
 // of 27 named slots (Armada.exe FUN_00448aa0 reads the file into the table at 0x633ac8). A model's
-// `team*` materials take one of these colors. A slot the file does not give is black, as in the game;
-// each such slot and a line that is not three numbers is a note.
+// `team*` materials take one of these colors. As in the game's getter (0x554320, `_strnicmp` over the
+// file's lines), a slot takes the first key that starts with its name, regardless of case. A slot no key
+// matches is black and is no note, as the game copies a zero vector (0x68bb00) without a report. A first
+// match that is not three numbers is black and a note; the scan does not go on to a later key.
 public sealed class TeamColors
 {
     // The game's slot names in table order: 0 neutral, 1 to 8 the players' colors, then race colors.
@@ -37,11 +40,10 @@ public sealed class TeamColors
         catch (FileNotFoundException) { team._notes.Add("teamcolor.odf not found: every team color is black"); }
         foreach (var name in SlotNames)
         {
-            var tokens = file?.Find(name)?.Tokens;
+            var match = file?.Values.FirstOrDefault(v => v.Key.StartsWith(name, StringComparison.OrdinalIgnoreCase));
             var color = Vector3.Zero;
-            var valid = tokens != null && TryColor(tokens, out color);
-            if (file != null && tokens == null) team._notes.Add($"teamcolor.odf has no color '{name}': black");
-            else if (tokens != null && !valid) team._notes.Add($"teamcolor.odf: color '{name}' is not three numbers: black");
+            var valid = match != null && TryColor(match.Tokens, out color);
+            if (match != null && !valid) team._notes.Add($"teamcolor.odf: color '{name}' (key '{match.Key}') is not three numbers: black");
             team._colors[name] = valid ? color : Vector3.Zero;
         }
         return team;

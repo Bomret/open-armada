@@ -243,6 +243,45 @@ public class ModelCheckTests
     }
 
     [TestMethod]
+    public void SlotTakesTheFirstKeyThatStartsWithItsName()
+    {
+        var team = TeamColors.Load(Install(("addon/teamcolor.odf", "redish = 1 0 0\nred = 0 1 0\nBLUEgreen = 0 0 1\n")));
+        Assert.AreEqual(new Vector3(1f, 0f, 0f), team.Color("red"));
+        Assert.AreEqual(new Vector3(0f, 0f, 1f), team.Color("blue"));
+    }
+
+    [TestMethod]
+    public void SlotIgnoresAShorterKeyAndAKeyThatOnlyEndsInItsName()
+    {
+        var team = TeamColors.Load(Install(("addon/teamcolor.odf", "re = 1 0 0\nbrickred = 0 1 0\n")));
+        Assert.AreEqual(Vector3.Zero, team.Color("red"));
+        Assert.AreEqual(new Vector3(0f, 1f, 0f), team.Color("brickred"));
+    }
+
+    [TestMethod]
+    public void StockShapedFileGivesNoNoteAndBlackForItsThreeMissingSlots()
+    {
+        // The stock file's shape, built from the slot names (INV-0001): every slot but these three, plus `entity`.
+        string[] missing = { "alien", "burntsienna", "cerulean" };
+        var given = TeamColors.SlotNames.Where(n => !missing.Contains(n)).ToList();
+        var odf = string.Concat(given.Select((n, i) => System.FormattableString.Invariant($"{n} = {i / 100f:0.00} 0.5 1\n"))) + "entity = 0.8 0.8 0.8\n";
+        var team = TeamColors.Load(Install(("addon/teamcolor.odf", odf)));
+        Assert.AreEqual(0, team.Notes.Count);
+        foreach (var n in missing) Assert.AreEqual(Vector3.Zero, team.Color(n));
+        for (var i = 0; i < given.Count; i++) Assert.AreEqual(new Vector3(i / 100f, 0.5f, 1f), team.Color(given[i]), given[i]);
+    }
+
+    [TestMethod]
+    public void MalformedFirstMatchIsBlackAndNotedWithItsKey()
+    {
+        var team = TeamColors.Load(Install(("addon/teamcolor.odf", "redish = 1 0\nred = 0 1 0\n")));
+        Assert.AreEqual(Vector3.Zero, team.Color("red"));
+        var note = team.Notes.Single();
+        StringAssert.Contains(note, "'red'");
+        StringAssert.Contains(note, "'redish'");
+    }
+
+    [TestMethod]
     public void TeamColorOfAnUnknownSlotFailsNamingTheSlot()
     {
         var team = TeamColors.Load(Install(("addon/teamcolor.odf", "red = 1 0 0\n")));
@@ -259,19 +298,27 @@ public class ModelCheckTests
     }
 
     [TestMethod]
-    public void SlotWithoutALineIsBlackAndNoted()
+    public void SlotWithoutALineIsBlackAndNotNoted()
     {
         var team = TeamColors.Load(Install(("addon/teamcolor.odf", "red = 1 0 0\n")));
         Assert.AreEqual(Vector3.Zero, team.Color("green"));
-        Assert.IsTrue(team.Notes.Any(n => n.Contains("'green'")));
+        Assert.AreEqual(0, team.Notes.Count);
+    }
+
+    [TestMethod]
+    public void AssetCheckDoesNotReportASlotWithoutALine()
+    {
+        var files = Install(("addon/teamcolor.odf", "red = 1 0 0\n"));
+        var kind = new TeamColorKind();
+        Assert.AreEqual(0, kind.Check(files, kind.Enumerate(files).Single()).Count);
     }
 
     [TestMethod]
     public void MissingTeamColorFileIsNotedAndEverySlotIsBlack()
     {
         var team = TeamColors.Load(Install());
-        Assert.AreEqual(Vector3.Zero, team.Color("red"));
-        Assert.IsTrue(team.Notes.Any(n => n.Contains("teamcolor.odf")));
+        foreach (var n in TeamColors.SlotNames) Assert.AreEqual(Vector3.Zero, team.Color(n));
+        StringAssert.Contains(team.Notes.Single(), "teamcolor.odf");
     }
 
     [TestMethod]

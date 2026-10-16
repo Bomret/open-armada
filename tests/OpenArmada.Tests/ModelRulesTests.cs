@@ -64,6 +64,13 @@ public class ModelRulesTests
     }
 
     [TestMethod]
+    public void OldEntryWithSourceAlphaAndHighTransparencyKeepsItsOpacityAndAlphaTests()
+    {
+        var look = ModelRules.Look(Old(0.75f, 5, 6), MeshOf("", "fx"));
+        Assert.AreEqual(new BlendState(BlendMode.Alpha, 0.25f, AlphaTest: true), look.Blend);
+    }
+
+    [TestMethod]
     public void OldEntryWithOneZeroAlphaTests()
     {
         // The game turns alpha test on for every entry whose blend is not one/one (FUN_0059b230).

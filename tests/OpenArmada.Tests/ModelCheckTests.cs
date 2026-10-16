@@ -107,6 +107,16 @@ public class ModelCheckTests
     }
 
     [TestMethod]
+    public void EmptyLightingMaterialNameIsNoMaterialEvenWhenTheModelDefinesOneNamedThat()
+    {
+        var files = Install(("SOD/m.sod", Latin1(new SodBytes(1.8f).Lighting(("", 1f, 2))
+            .Nodes(new NodeSpec("hull", "", Triangle(lighting: ""))).End())));
+        var sod = (Sod)new ModelKind().Load(files, "m.sod");
+        Assert.IsNull(ModelRules.FindLightingMaterial(files, sod, ""));
+        StringAssert.Contains(string.Join("\n", ModelRules.Analyze(files, sod).Problems), "name no lighting material");
+    }
+
+    [TestMethod]
     public void LightingMaterialNoModelDefinesIsReportedWithNodeAndName()
     {
         var files = Install(("SOD/m.sod", Latin1(Model(new NodeSpec("hull", "", Triangle(lighting: "ghost"))))));

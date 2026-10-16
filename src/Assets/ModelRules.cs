@@ -157,9 +157,11 @@ public static class ModelRules
     }
 
     // The lighting material a group names: the model's own, else the one another model of the install
-    // defines. Null when no model defines it.
+    // defines. Null when no model defines it, and for an empty name (a group naming none; a material
+    // named "" is never looked up).
     public static Sod.LightingMaterial? FindLightingMaterial(GameFileSystem files, Sod sod, string name) =>
-        sod.LightingMaterials.FirstOrDefault(l => l.Name == name)
+        name.Length == 0 ? null
+        : sod.LightingMaterials.FirstOrDefault(l => l.Name == name)
         ?? (Global.GetValue(files, InstallLightingMaterials).TryGetValue(name, out var found) ? found : null);
 
     // What a model cannot be drawn as the data says (Problems, one line each: what the reader found,

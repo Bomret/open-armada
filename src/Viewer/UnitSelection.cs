@@ -26,7 +26,11 @@ public partial class UnitSelection : Node3D
         Reports = unitPlan.Reports;
         _nodes = nodes;
         _units = unitPlan.Units.ToDictionary(u => u.Object);
+        Units = unitPlan.Units;
     }
+
+    // Every unit of the scene, selected or not.
+    public IReadOnlyList<SelectableUnit> Units { get; }
 
     // The gaps found while telling units apart.
     public IReadOnlyList<ReportEntry> Reports { get; }
@@ -105,6 +109,8 @@ public partial class UnitSelection : Node3D
                 MaterialOverride = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = Colors.Yellow },
             };
             node.AddChild(ring);
+            ring.TopLevel = true; // follows the ship's position only (see _Process), so the ring stays level when the ship banks
+            ring.GlobalPosition = node.GlobalPosition;
             var name = new Label { Text = unit.Unit.Name };
             _layer.AddChild(name);
             _marks[unit] = (ring, name);
@@ -115,9 +121,10 @@ public partial class UnitSelection : Node3D
     {
         var camera = GetViewport().GetCamera3D();
         if (camera == null) return;
-        foreach (var (unit, (_, name)) in _marks)
+        foreach (var (unit, (ring, name)) in _marks)
         {
             var position = _nodes[unit.Object].GlobalPosition;
+            ring.GlobalPosition = position;
             name.Visible = !camera.IsPositionBehind(position);
             name.Position = camera.UnprojectPosition(position) + new Vector2(8, 8);
         }

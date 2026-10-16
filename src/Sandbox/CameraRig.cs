@@ -177,6 +177,12 @@ public sealed class CameraRig
         ScrollSpeed = Math.Min(_maxSpeed, ScrollSpeed + _timeScale * dt);
     }
 
+    // The cursor the view passes to Scroll: the mouse position while the window holds the mouse or confines the
+    // cursor, else a negative position (outside). A confined cursor is inside even when the window reports the
+    // mouse exited: on macOS the right and bottom boundaries it reaches lie outside the view's tracking area.
+    public static Vector2 EdgeCursor(Vector2 mouse, bool mouseInWindow, bool confined) =>
+        mouseInWindow || confined ? mouse : new Vector2(-1, -1);
+
     // Strength 0..1 of a cursor `distance` pixels from an edge: 1 on the edge pixel, 0 at the border width.
     float Edge(float distance) => _border > 0 ? (float)Math.Clamp((_border - distance) / _border, 0, 1) : 0;
 

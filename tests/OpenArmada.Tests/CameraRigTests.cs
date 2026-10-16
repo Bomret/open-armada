@@ -263,6 +263,24 @@ public class CameraRigTests
     }
 
     [TestMethod]
+    public void AConfinedCursorScrollsAfterTheWindowReportsTheMouseExited()
+    {
+        // On macOS a confined cursor on the right or bottom boundary lies on the excluded edge of the view's
+        // tracking rectangle, so the window reports the mouse exited while the cursor stays held inside.
+        var rig = Rig();
+        rig.Scroll(CameraRig.EdgeCursor(new Vector2(800, 300), mouseInWindow: false, confined: true), new Vector2(800, 600), true, Vector2.Zero, 1.0);
+        Assert.IsTrue(rig.Pose.Target.X > 500, $"{rig.Pose.Target}");
+    }
+
+    [TestMethod]
+    public void AReleasedCursorOutsideTheWindowDoesNotScroll()
+    {
+        var rig = Rig();
+        rig.Scroll(CameraRig.EdgeCursor(new Vector2(799, 300), mouseInWindow: false, confined: false), new Vector2(800, 600), true, Vector2.Zero, 1.0);
+        Near(500, rig.Pose.Target.X);
+    }
+
+    [TestMethod]
     public void NothingScrollsWithoutFocusAndEdgeScrollNeedsTheCursorInside()
     {
         var rig = Rig();

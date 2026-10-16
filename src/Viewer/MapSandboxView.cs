@@ -222,9 +222,9 @@ public partial class MapSandboxView : Node3D
             var viewport = GetViewport();
             var mouse = viewport.GetMousePosition();
             var size = viewport.GetVisibleRect().Size;
-            // The view tracks the window's mouse enter and exit and treats the cursor as outside while the window
-            // is exited, passing the rig a negative position (the rig counts that as outside).
-            var cursor = _mouseInWindow ? new System.Numerics.Vector2(mouse.X, mouse.Y) : new System.Numerics.Vector2(-1, -1);
+            // The view tracks the window's mouse enter and exit; CameraRig.EdgeCursor decides what the rig sees.
+            var cursor = CameraRig.EdgeCursor(new System.Numerics.Vector2(mouse.X, mouse.Y), _mouseInWindow,
+                Input.MouseMode == Input.MouseModeEnum.Confined);
             _rig.Scroll(cursor, new System.Numerics.Vector2(size.X, size.Y),
                 GetWindow().HasFocus(), new System.Numerics.Vector2(keys.X, keys.Y), delta);
             PlaceCamera();

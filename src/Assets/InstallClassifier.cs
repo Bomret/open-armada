@@ -12,7 +12,7 @@ namespace OpenArmada.Assets;
 public enum FileClass { Loaded, OutOfScope, KnownNotLoaded, Unclassified }
 
 // One install file (an Inventory entry), its class, and the group that class names ("models", "video",
-// "input device maps").
+// "input device maps"); for an unclassified file the reason a rule failed on it, or empty.
 public sealed record Classified(string Entry, FileClass Class, string Group);
 
 // The classification rules: the one place that says which install file belongs to which class. Godot-free.

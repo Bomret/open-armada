@@ -8,9 +8,9 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// Move orders of the map sandbox: a right-click sends the selected ships to the point where the click's ray
-// meets the middle of the combat plane, clamped to the map's bounds. Each ship moves by its ShipMotion, fed by its physics definition, at its
-// own height; stations and every other object never move. A click whose ray misses the plane is ignored.
+// Move orders of the map sandbox: a right-click sends the selected ships to where its ray meets the middle of the
+// combat plane, clamped to the map's bounds; a ray that misses the plane is ignored. Each ship moves at its own
+// height by its ShipMotion, fed by its physics definition. Stations and all other objects never move.
 public partial class MoveOrders : Node3D
 {
     readonly UnitSelection _selection;

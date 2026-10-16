@@ -220,10 +220,10 @@ public class GameFileSystemArchiveTests
     public void MissingIndexFileIsListedInTheAssetCheckAndDoesNotFailIt()
     {
         // The stock install's index names build tools that the install does not hold.
-        var game = temp.MakeInstall(("misc/m.txt", "ok"), ("startrek.zix", Zix("DIR: misc", "1 gone.txt")));
+        var game = temp.MakeInstall(("misc/m.trn", "ok"), ("startrek.zix", Zix("DIR: misc", "1 gone.trn")));
         var w = new StringWriter();
         Assert.AreEqual(0, AssetCheck.Run(game, new AssetKind[] { new ModelKind() }, w));
-        StringAssert.Contains(w.ToString(), "MISSING index/gone.txt");
+        StringAssert.Contains(w.ToString(), "MISSING index/gone.trn");
     }
 
     [TestMethod]

@@ -56,6 +56,10 @@ public sealed class MapKind : AssetKind
         catch (InvalidDataException e) { throw new InvalidDataException($"{file}: {e.Message}", e); }
     }
 
+    // The definitions the map's object classes name that the install lacks.
+    public override IReadOnlyList<string> Unresolved(GameFileSystem files, string name) =>
+        AssetReferences.Missing(((MapAsset)Load(files, name)).Map.Objects.Select(o => o.Class + ".odf"), n => files.Find(n) != null);
+
     // An object outside the map's X/Z bounds is a note, never a failure: the shipped maps place staged
     // ships, nebula edges, and distant background bodies there.
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)

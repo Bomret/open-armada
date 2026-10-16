@@ -26,6 +26,30 @@ public sealed class DefinitionKind : AssetKind
         return def.Notes;
     }
 
+    // The keys whose values name another asset, found in the install's definitions: a model (a SOD name
+    // with or without ".sod"), a definition (with ".odf"), a texture or a sprite. Any key whose value ends
+    // ".wav" names a sound.
+    static readonly string[] ModelKeys = { "baseName", "shotGeometry" };
+    static readonly string[] DefinitionKeys = { "physicsFile" };
+    static readonly string[] VisualKeys =
+    {
+        "Sprite", "texture", "AnimTexture", "particleTexture", "smokeTexture", "steamTexture", "sprayTexture",
+        "effectTexture", "explosionSprite", "mapSprite", "weldingBeamSprite",
+    };
+
+    // The models, definitions, sounds, textures and sprites the definition's own and overriding values
+    // name that the install lacks. A value it inherits is the parent's to report.
+    public override IReadOnlyList<string> Unresolved(GameFileSystem files, string name)
+    {
+        var values = ResolvedDefinition.Resolve(files, name).Values.Where(v => v.Origin != ValueOrigin.Inherited && v.Tokens.Count > 0).ToList();
+        IEnumerable<string> Of(string[] keys) => values.Where(v => keys.Contains(v.Key, StringComparer.OrdinalIgnoreCase)).Select(v => v.Tokens[0]);
+        return AssetReferences.Missing(Of(ModelKeys), n => files.Find(n.EndsWith(".sod", StringComparison.OrdinalIgnoreCase) ? n : n + ".sod") != null)
+            .Concat(AssetReferences.Missing(Of(DefinitionKeys), n => files.Find(n) != null))
+            .Concat(AssetReferences.Missing(values.Select(v => v.Tokens[0]).Where(t => t.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)), n => files.Find(n) != null))
+            .Concat(AssetReferences.Missing(Of(VisualKeys), n => AssetReferences.HasTexture(files, n) || AssetReferences.HasSprite(files, n)))
+            .ToList();
+    }
+
     // Names of the files with the extension that the archives and the override layer hold. Loose files
     // elsewhere in the install (events.odf is not a definition) are left out, and so are loose files in a
     // subfolder of addon (the game reads addon non-recursively, so no name reaches them).

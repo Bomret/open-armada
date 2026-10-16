@@ -19,15 +19,31 @@ public sealed class InterfaceConfigKind : AssetKind
         files.Inventory().Where(f => f.StartsWith(Folder + "gui_", StringComparison.OrdinalIgnoreCase)
             && f.EndsWith(".cfg", StringComparison.OrdinalIgnoreCase) && f.IndexOf('/', Folder.Length) < 0);
 
-    public override object Load(GameFileSystem files, string name)
+    public override object Load(GameFileSystem files, string name) => Read(files, name, null);
+
+    // The entries of the files a load reads: the copy the bare name resolves to (an override in addon\ wins
+    // over misc/), then each include. A load that fails keeps the entries read before it failed.
+    public override IEnumerable<string> Reads(GameFileSystem files, string name)
     {
+        var reads = new List<string>();
+        try { Read(files, name, reads); }
+        catch (Exception) { }
+        return reads.Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    static InterfaceConfig Read(GameFileSystem files, string name, List<string>? reads)
+    {
+        string Open(string n)
+        {
+            if (files.Entry(n) is { } entry) reads?.Add(entry);
+            return Windows1252.Encoding.GetString(files.ReadAllBytes(n));
+        }
         // The bare name resolves through the game's precedence (addon override first, then the index);
         // the misc folder is the fallback for an install whose index does not list the file.
         string? Text(string n) =>
-            (files.Find(n) is not null ? n : files.Find(Folder + n) is not null ? Folder + n : null) is { } found
-                ? Windows1252.Encoding.GetString(files.ReadAllBytes(found)) : null;
+            (files.Find(n) is not null ? n : files.Find(Folder + n) is not null ? Folder + n : null) is { } found ? Open(found) : null;
         var bare = name[(name.LastIndexOf('/') + 1)..];
-        return InterfaceConfig.Read(bare, Text(bare) ?? Windows1252.Encoding.GetString(files.ReadAllBytes(name)), Text);
+        return InterfaceConfig.Read(bare, Text(bare) ?? Open(name), Text);
     }
 
     public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ((InterfaceConfig)Load(files, name)).Notes;

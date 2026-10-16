@@ -99,12 +99,9 @@ public class InstallClassifierTests
     public void NumberedSuffixNoMipLevelHasIsATextureExtra(string entry) =>
         Assert.AreEqual(FileClass.KnownNotLoaded, ClassOf(entry, "Textures/RGB/a.tga"));
 
-    // On an install holding files in and beside every kind's scope, override copies, and copies an
-    // override or a loose file shadows, the Loaded entries are exactly the files the kinds load: each
-    // enumerated name as the lookup resolves it, and each mip level a texture reads beside its base. The
-    // archive and the index are containers, read by the file system rather than a kind.
-    [TestMethod]
-    public void LoadedEntriesAreExactlyTheFilesTheKindsEnumerate()
+    // An install holding files in and beside every kind's scope, override copies, and copies an override
+    // or a loose file shadows, classified with the install opened.
+    static IReadOnlyList<Classified> ClassifyFixture()
     {
         var temp = new TempInstall();
         try
@@ -120,7 +117,7 @@ public class InstallClassifierTests
                 "cursors/c.cur", "cursors/sub/d.cur", "misc/gui_a.cfg", "misc/other.cfg",
                 "l.map", "l.set", "l.ldl", "l.fnt", "addon/h.odf", "addon/sub/i.odf", "events.odf", "j.odf",
                 "addon/p.sod", "addon/r.wav",
-                "addon/l.fnt", "addon/l.map", "addon/l.set", "addon/Armada.pal", "addon/splash.bmp",
+                "addon/l.fnt", "addon/l.map", "addon/l.set", "addon/Armada.pal", "addon/splash.bmp", "addon/gui_a.cfg",
             };
             var root = temp.MakeInstall(files.Select(f => (f, ""))
                 .Append(("addon/q.tga", Tga(8))).Append(("addon/q.1", Tga(4)))
@@ -130,31 +127,40 @@ public class InstallClassifierTests
                 .Append(("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: assets.zfs\n----\n1 z.odf\n"))
                 .ToArray());
             var fs = new GameFileSystem(root);
-            string Entry(string found) => (found.Contains("::") ? found : Path.GetRelativePath(root, found).Replace('\\', '/')).ToLowerInvariant();
-            string Beside(string entry, string name) => entry.Contains("::") ? entry[..(entry.IndexOf("::") + 2)] + name.ToLowerInvariant() : Path.GetDirectoryName(entry)!.Replace('\\', '/') is var d && d != "" ? $"{d}/{name.ToLowerInvariant()}" : name.ToLowerInvariant();
-            var kinds = AssetKind.Discover().Where(k => k.GetType().Namespace == "OpenArmada.Assets").ToList();
-            var expected = new HashSet<string>();
-            foreach (var kind in kinds)
-                foreach (var name in kind.Enumerate(fs))
-                {
-                    if (fs.Find(name) is not { } found) continue;
-                    var entry = Entry(found);
-                    expected.Add(entry);
-                    if (kind is TextureKind t && TryLoad(t, fs, name) is { } texture)
-                        foreach (var mip in texture.Mips) expected.Add(Beside(entry, mip.Name));
-                }
-            var loaded = InstallClassifier.Classify(fs.Inventory(), fs)
-                .Where(c => c.Class == FileClass.Loaded && !c.Entry.EndsWith(".zfs") && !c.Entry.EndsWith(".zix"))
-                .Select(c => c.Entry.ToLowerInvariant()).ToHashSet();
-            Assert.AreEqual(string.Join(" ", expected.Order()), string.Join(" ", loaded.Order()));
+            return InstallClassifier.Classify(fs.Inventory(), fs);
         }
         finally { temp.CleanUp(); }
     }
 
-    static TextureAsset? TryLoad(TextureKind kind, GameFileSystem fs, string name)
+    // The Loaded entries of the fixture are exactly the files the game reads, listed by hand: each kind's
+    // assets by the lookup the kind loads them with (a bare name takes the override copy, a texture copy
+    // another shadows is still checked), and each mip level a texture reads beside its base. The archive and
+    // the index are containers, read by the file system rather than a kind.
+    [TestMethod]
+    public void LoadedEntriesAreExactlyTheFilesTheKindsRead()
     {
-        try { return (TextureAsset)kind.Load(fs, name); }
-        catch (Exception) { return null; }
+        string[] expected =
+        {
+            "addon/armada.pal", "addon/gui_a.cfg", "addon/h.odf", "addon/l.fnt", "addon/l.map", "addon/l.set",
+            "addon/p.sod", "addon/q.1", "addon/q.tga", "addon/splash.bmp", "assets.zfs::z.odf",
+            "bitmaps/ms/m.bmp", "bzn/k.bzn", "bzn/n.bmp", "cursors/c.cur", "cursors/sub/d.cur", "l.ldl",
+            "sod/a.sod", "sod/software/b.sod", "sounds/f.wav", "sounds/music/e.wav", "sprites/s.spr",
+            "textures/index8/u.tga", "textures/rgb/pal1.pal", "textures/rgb/q.1", "textures/rgb/q.tga", "textures/rgb/t.tga",
+        };
+        var loaded = ClassifyFixture()
+            .Where(c => c.Class == FileClass.Loaded && !c.Entry.EndsWith(".zfs") && !c.Entry.EndsWith(".zix"))
+            .Select(c => c.Entry.ToLowerInvariant()).ToHashSet();
+        Assert.AreEqual(string.Join(" ", expected.Order()), string.Join(" ", loaded.Order()));
+    }
+
+    // An interface configuration loads by its bare name, so an override copy wins over misc/.
+    [TestMethod]
+    public void InterfaceConfigOverrideIsLoadedAndTheStockCopyIsShadowed()
+    {
+        var classified = ClassifyFixture();
+        Classified Of(string entry) => classified.Single(c => c.Entry == entry);
+        Assert.AreEqual((FileClass.Loaded, FileClass.KnownNotLoaded, "shadowed copies"),
+            (Of("addon/gui_a.cfg").Class, Of("misc/gui_a.cfg").Class, Of("misc/gui_a.cfg").Group));
     }
 
     [TestMethod]

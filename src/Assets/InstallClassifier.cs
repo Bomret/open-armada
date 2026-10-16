@@ -35,8 +35,8 @@ public static class InstallClassifier
         return entries.Select(e => { var (c, g) = Safe(e.ToLowerInvariant(), all, reads); return new Classified(e, c, g); }).ToList();
     }
 
-    // The entries the kinds read, each with the name of a kind that reads it, and the bare names the kinds
-    // look up. A kind that cannot list its assets adds nothing; the asset check reports it.
+    // The entries the kinds read, each with the name of a kind that reads it, and the bare names of those
+    // entries. A kind that cannot list its assets adds nothing; the asset check reports it.
     sealed record KindReads(Dictionary<string, string> Entries, HashSet<string> Names);
 
     static KindReads Reads(GameFileSystem files)
@@ -50,7 +50,7 @@ public static class InstallClassifier
                     foreach (var entry in kind.Reads(files, name))
                     {
                         reads.Entries.TryAdd(entry.ToLowerInvariant(), kind.Name);
-                        if (!name.Contains('/')) reads.Names.Add(name.ToLowerInvariant());
+                        reads.Names.Add(Bare(entry.ToLowerInvariant()));
                     }
             }
             catch (Exception) { }
@@ -70,11 +70,14 @@ public static class InstallClassifier
         if (reads == null) return rule;
         if (reads.Entries.TryGetValue(entry, out var kind)) return rule.Item1 == FileClass.Loaded ? rule : Loaded(kind);
         if (rule.Item1 != FileClass.Loaded) return rule;
-        var name = entry[(Math.Max(entry.LastIndexOf('/'), entry.LastIndexOf(':')) + 1)..];
+        var name = Bare(entry);
         return Numbered.IsMatch(Path.GetExtension(name)) ? Known("texture extras")
             : reads.Names.Contains(name) ? Known("shadowed copies")
             : rule;
     }
+
+    // The file name of an entry, past its folders or its archive.
+    static string Bare(string entry) => entry[(Math.Max(entry.LastIndexOf('/'), entry.LastIndexOf(':')) + 1)..];
 
     static (FileClass, string) Loaded(string group) => (FileClass.Loaded, group);
     static (FileClass, string) Out(string group) => (FileClass.OutOfScope, group);

@@ -89,6 +89,14 @@ public class InstallClassifierTests
         Assert.AreEqual(FileClass.KnownNotLoaded, ClassOf("Textures/RGB/a.4", chain));
     }
 
+    // A numbered suffix no mip level has (0, past 9, past the range of an int) is a texture extra, not a crash.
+    [TestMethod]
+    [DataRow("Textures/RGB/a.0")]
+    [DataRow("Textures/RGB/a.10")]
+    [DataRow("Textures/RGB/a.99999999999")]
+    public void NumberedSuffixNoMipLevelHasIsATextureExtra(string entry) =>
+        Assert.AreEqual(FileClass.KnownNotLoaded, ClassOf(entry, "Textures/RGB/a.tga"));
+
     // The classifier's Loaded rules repeat each kind's file scope; on an install holding files in and
     // beside every scope, the two agree on which files load.
     [TestMethod]

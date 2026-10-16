@@ -129,6 +129,21 @@ public class AssetCheckTests
         StringAssert.Contains(output, "disk gone");
     }
 
+    // A folder the check cannot list fails the check with its name and the reason; the check still ends.
+    [TestMethod]
+    public void UnreadableFolderFailsTheClassificationWithItsName()
+    {
+        var game = Install(("SOD/a.sod", Sod(1.8f)), ("locked/x.txt", ""));
+        var locked = Path.Combine(game, "locked");
+        File.SetUnixFileMode(locked, UnixFileMode.None);
+        try
+        {
+            var (code, output) = Run(game, new ModelKind());
+            Assert.AreEqual((1, true), (code, output.Contains("locked")));
+        }
+        finally { File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); }
+    }
+
     [TestMethod]
     public void EmptyKindIsReportedAsEmpty()
     {

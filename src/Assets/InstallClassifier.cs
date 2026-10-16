@@ -26,7 +26,14 @@ public static class InstallClassifier
     {
         var entries = inventory.ToList();
         var all = new HashSet<string>(entries.Select(e => e.ToLowerInvariant()));
-        return entries.Select(e => { var (c, g) = Rule(e.ToLowerInvariant(), all); return new Classified(e, c, g); }).ToList();
+        return entries.Select(e => { var (c, g) = Safe(e.ToLowerInvariant(), all); return new Classified(e, c, g); }).ToList();
+    }
+
+    // A rule that throws leaves its file unclassified, with the reason as the group, and the rest go on.
+    static (FileClass, string) Safe(string entry, HashSet<string> all)
+    {
+        try { return Rule(entry, all); }
+        catch (Exception e) { return (FileClass.Unclassified, e.Message); }
     }
 
     static (FileClass, string) Loaded(string group) => (FileClass.Loaded, group);
@@ -132,8 +139,8 @@ public static class InstallClassifier
         if (ext == ".jbf") return Known("texture extras");
         if (!Numbered.IsMatch(ext)) return parts[1] == "index8" && ext == "" ? Known("texture extras") : Unknown;
         var stem = entry[..^ext.Length];
-        var level = int.Parse(ext[1..]);
+        if (!int.TryParse(ext[1..], out var level) || level is < 1 or > 9) return Known("texture extras");
         var chain = all.Contains(stem + ".tga") && Enumerable.Range(1, level - 1).All(i => all.Contains($"{stem}.{i}"));
-        return level is >= 1 and <= 9 && chain ? Loaded("textures") : Known("texture extras");
+        return chain ? Loaded("textures") : Known("texture extras");
     }
 }

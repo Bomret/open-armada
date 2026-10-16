@@ -91,15 +91,22 @@ public static class AssetCheck
 
     // Classifies every file of the install (InstallClassifier), prints the counts, each known but not
     // loaded file, the out of scope groups and each unclassified file. Returns the number unclassified,
-    // each of which fails the check.
+    // each of which fails the check; an install it cannot list (an unreadable folder) fails it once, with
+    // the reason, which names the folder.
     static int Classify(GameFileSystem files, TextWriter output)
     {
-        var classified = InstallClassifier.Classify(files.Inventory());
+        IReadOnlyList<Classified> classified;
+        try { classified = InstallClassifier.Classify(files.Inventory()); }
+        catch (Exception e)
+        {
+            output.WriteLine($"FAIL files: cannot classify the install: {e.Message}");
+            return 1;
+        }
         foreach (var c in classified.Where(c => c.Class == FileClass.KnownNotLoaded)) output.WriteLine($"NOT LOADED {c.Entry}: {c.Group}");
         foreach (var g in classified.Where(c => c.Class == FileClass.OutOfScope).GroupBy(c => c.Group))
             output.WriteLine($"OUT OF SCOPE {g.Key}: {g.Count()} files");
         var unclassified = classified.Where(c => c.Class == FileClass.Unclassified).ToList();
-        foreach (var c in unclassified) output.WriteLine($"UNCLASSIFIED {c.Entry}");
+        foreach (var c in unclassified) output.WriteLine(c.Group == "" ? $"UNCLASSIFIED {c.Entry}" : $"UNCLASSIFIED {c.Entry}: {c.Group}");
         int N(FileClass k) => classified.Count(c => c.Class == k);
         output.WriteLine($"files: {N(FileClass.Loaded)} loaded, {N(FileClass.OutOfScope)} out of scope, {N(FileClass.KnownNotLoaded)} known but not loaded, {unclassified.Count} unclassified");
         return unclassified.Count;

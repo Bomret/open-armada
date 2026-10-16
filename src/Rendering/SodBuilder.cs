@@ -113,7 +113,8 @@ public sealed class SodBuilder
         if (_textures.TryGetValue(name, out var cached)) return cached;
         Texture2D? tex = null;
         // The file system prefers full-color textures; some ship only as 8-bit palette TGAs.
-        if (_files.Find(name + ".tga") != null)
+        string? why = null;
+        try
         {
             var image = new Image();
             if (image.LoadTgaFromBuffer(_files.ReadAllBytes(name + ".tga")) == Error.Ok)
@@ -121,8 +122,13 @@ public sealed class SodBuilder
                 image.GenerateMipmaps();
                 tex = ImageTexture.CreateFromImage(image);
             }
+            else why = "not a readable TGA";
         }
-        if (tex == null) GD.Print($"texture '{name}' not in install, rendering untextured");
+        catch (System.Exception e) when (e is System.IO.FileNotFoundException or UnsupportedFormatException or System.IO.InvalidDataException)
+        {
+            why = e.Message;
+        }
+        if (tex == null) GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
         return _textures[name] = tex;
     }
 

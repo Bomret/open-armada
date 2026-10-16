@@ -24,8 +24,8 @@ namespace OpenArmada.Assets;
 // a direct relative path), and for a name the index lists but cannot resolve (it never hides a file
 // the install has). A name with a folder resolves directly and skips the layers.
 //
-// An index name is matched whole against a folder, and by its first 16 characters against an archive
-// (the game's key, and the length of an archive entry name). Each archive file is opened once, however
+// A name is matched whole against a folder, and by its first 16 characters against an archive, for an
+// addon archive and an index archive alike (the game's key, and the length of an archive entry name). Each archive file is opened once, however
 // many sources name it.
 //
 // Faults (an unreadable archive or index, an entry past the end of its archive) and index entries whose
@@ -166,7 +166,7 @@ public sealed class GameFileSystem
         if (ResolveDir(new[] { "addon" }) is { } addon && Entries(addon).TryGetValue(name, out var loose) && File.Exists(loose))
             return new Hit(loose);
         foreach (var a in _addonArchives)
-            if (a.Zfs.Contains(name)) return new Hit(null, a, name);
+            if (a.Zfs.Contains(ZixIndex.MemberKey(name))) return new Hit(null, a, ZixIndex.MemberKey(name));
         return null;
     }
 

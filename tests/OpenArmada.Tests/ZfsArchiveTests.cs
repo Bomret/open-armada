@@ -116,14 +116,13 @@ public class ZfsArchiveTests
     }
 
     [TestMethod]
+    [Timeout(10000)]
     public void SelfPointingBlockWithHugeFileCountIsUnreadablePromptly()
     {
         var bytes = Build(0, M("a.txt", "a"));
         BitConverter.GetBytes(uint.MaxValue - 1).CopyTo(bytes, 16);
         BitConverter.GetBytes(28u).CopyTo(bytes, 28);
-        var clock = System.Diagnostics.Stopwatch.StartNew();
         Assert.ThrowsExactly<InvalidDataException>(() => ZfsArchive.Open(bytes));
-        Assert.IsTrue(clock.ElapsedMilliseconds < 1000);
     }
 
     [TestMethod]

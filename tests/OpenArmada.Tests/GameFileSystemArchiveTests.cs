@@ -152,6 +152,16 @@ public class GameFileSystemArchiveTests
     }
 
     [TestMethod]
+    public void AddonArchiveMemberAskedForByLongNameBeatsIndexCopy()
+    {
+        var fs = new GameFileSystem(temp.MakeInstall(
+            ("assets.zfs", Latin1(Build(0, M("testobjectives.t", "index copy")))),
+            ("addon/x.zfs", Latin1(Build(0, M("testobjectives.t", "addon copy")))),
+            ("startrek.zix", Zix("DIR: assets.zfs", "1 testobjectives.txt"))));
+        Assert.AreEqual("addon copy", Read(fs, "testobjectives.txt"));
+    }
+
+    [TestMethod]
     public void IndexEntryHeldOnlyInAddonIsNotMissing()
     {
         var fs = new GameFileSystem(temp.MakeInstall(("misc/m.txt", "ok"), ("addon/x.txt", "addon"), ("startrek.zix", Zix("DIR: misc", "1 x.txt"))));

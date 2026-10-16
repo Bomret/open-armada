@@ -19,7 +19,7 @@ public class GameFileSystemTests
         {
             var full = Path.Combine(root, path);
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-            File.WriteAllText(full, content);
+            File.WriteAllText(full, content, System.Text.Encoding.Latin1); // one byte per char
         }
         return root;
     }

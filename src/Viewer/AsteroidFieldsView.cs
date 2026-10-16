@@ -36,8 +36,7 @@ public partial class AsteroidFieldsView : Node3D
             {
                 var node = builder.Build(Sod.Read(files.ReadAllBytes(model + ".sod")));
                 foreach (var problem in builder.Problems) gap($"{model}: {problem}");
-                var found = new List<(Mesh, Transform3D)>();
-                Collect(node, node, Transform3D.Identity, found);
+                var found = VisibleMeshes.Of(node);
                 node.Free();
                 parts[model] = found;
                 foreach (var (mesh, t) in found)
@@ -88,15 +87,6 @@ public partial class AsteroidFieldsView : Node3D
             }
         }
         _start = Time.GetTicksMsec();
-    }
-
-    // The visible meshes of the model with their transforms in the root's frame.
-    static void Collect(Node3D root, Node3D node, Transform3D transform, List<(Mesh, Transform3D)> into)
-    {
-        if (!node.Visible) return;
-        if (node != root) transform *= node.Transform;
-        if (node is MeshInstance3D m && m.Mesh != null) into.Add((m.Mesh, transform));
-        foreach (var child in node.GetChildren().OfType<Node3D>()) Collect(root, child, transform, into);
     }
 
     public override void _Process(double delta)

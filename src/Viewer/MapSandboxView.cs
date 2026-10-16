@@ -163,14 +163,7 @@ public partial class MapSandboxView : Node3D
     static Aabb Extent(Node3D root)
     {
         Aabb? box = null;
-        void Walk(Node3D n, Transform3D t)
-        {
-            if (!n.Visible) return;
-            if (n != root) t *= n.Transform;
-            if (n is MeshInstance3D m) box = box?.Merge(t * m.GetAabb()) ?? t * m.GetAabb();
-            foreach (var child in n.GetChildren().OfType<Node3D>()) Walk(child, t);
-        }
-        Walk(root, Transform3D.Identity);
+        foreach (var (mesh, t) in VisibleMeshes.Of(root)) box = box?.Merge(t * mesh.GetAabb()) ?? t * mesh.GetAabb();
         return box ?? new Aabb(-Vector3.One, Vector3.One * 2);
     }
 

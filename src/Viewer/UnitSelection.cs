@@ -150,9 +150,9 @@ public partial class UnitSelection : Node3D
     static Aabb? Extent(Node3D node)
     {
         Aabb? box = null;
-        foreach (var mesh in node.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Where(m => m.IsVisibleInTree() && m.Mesh is not TorusMesh)) // the selection ring is no part of the model
+        foreach (var (mesh, t) in VisibleMeshes.Of(node).Where(m => m.Mesh is not TorusMesh)) // the selection ring is no part of the model
         {
-            var world = mesh.GlobalTransform * mesh.GetAabb();
+            var world = node.GlobalTransform * t * mesh.GetAabb();
             box = box?.Merge(world) ?? world;
         }
         return box;

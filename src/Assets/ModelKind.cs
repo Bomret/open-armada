@@ -4,14 +4,16 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// Models: the .sod files of the SOD folder and its software-renderer copies.
+// Models: the .sod files of the SOD folder and its software-renderer copies. A bare name resolves like
+// Find: the main folder wins. A software-renderer copy hidden behind a main model of the same name is
+// listed with its folder ("SOD/Software/x.sod"), so it is still loaded and checked.
 public sealed class ModelKind : AssetKind
 {
     public const string KindName = "models";
 
     public override string Name => KindName;
 
-    public override IEnumerable<string> Enumerate(GameFileSystem files) => files.List(".sod", "SOD", "SOD/Software");
+    public override IEnumerable<string> Enumerate(GameFileSystem files) => Layered(files, ".sod", "SOD", "SOD/Software");
 
     public override object Load(GameFileSystem files, string name) => Sod.Read(files.ReadAllBytes(name));
 

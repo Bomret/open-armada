@@ -35,6 +35,16 @@ public abstract class AssetKind
     protected static IEnumerable<string> RootFiles(GameFileSystem files, string extension) =>
         files.Inventory().Where(f => f.EndsWith(extension, StringComparison.OrdinalIgnoreCase) && !f.Contains('/') && !f.Contains("::"));
 
+    // The files with the extension in the folders, each once: under its bare name when the bare name
+    // resolves to it (GameFileSystem.Find), else under its folder name ("SOD/Software/x.sod"), so a copy
+    // that another one of the same name shadows is still listed, loaded, and checked.
+    protected static IEnumerable<string> Layered(GameFileSystem files, string extension, params string[] folders)
+    {
+        foreach (var folder in folders)
+            foreach (var n in files.List(extension, folder))
+                yield return files.Find(n) == files.Find(folder + "/" + n) ? n : folder + "/" + n;
+    }
+
     public static IReadOnlyList<AssetKind> Discover() =>
         typeof(AssetKind).Assembly.GetTypes()
             .Where(t => t.IsSubclassOf(typeof(AssetKind)) && !t.IsAbstract && t.GetConstructor(Type.EmptyTypes) != null)

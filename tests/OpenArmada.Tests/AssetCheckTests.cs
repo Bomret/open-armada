@@ -67,6 +67,15 @@ public class AssetCheckTests
         StringAssert.Contains(output, "0 failed");
     }
 
+    // A software-renderer copy that shares its name with a main model is a different file: it is listed
+    // under its folder and checked too.
+    [TestMethod]
+    public void SoftwareModelWithTheNameOfAMainModelIsCheckedToo()
+    {
+        var (_, output) = Run(Install(("SOD/a.sod", Sod(1.8f)), ("SOD/Software/a.sod", Sod(1.8f))), new ModelKind());
+        StringAssert.Contains(output, "models: 2 loaded, 0 unsupported, 0 failed");
+    }
+
     [TestMethod]
     [DataRow(0f)]
     [DataRow(-1f)]

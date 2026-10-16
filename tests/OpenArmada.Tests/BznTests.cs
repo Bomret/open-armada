@@ -126,6 +126,17 @@ public class BznTests
     }
 
     [TestMethod]
+    public void ObjectWithAPrefixPastTheLimitAndAValidTailIsReportedAtItsOffset()
+    {
+        var b = Sample();
+        b.Objects[0] = b.Objects[0] with { Prefix = Enumerable.Repeat(BznBuilder.Bool(false), 70).ToArray() };
+        var bytes = b.Build();
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Bzn.Read(bytes));
+        StringAssert.Contains(e.Message, $"at offset {ObjectOffset(bytes, "fbattle")}");
+        StringAssert.Contains(e.Message, "unrecognized class record");
+    }
+
+    [TestMethod]
     public void ObjectWithoutATailDoesNotSwallowTheNextObjectsHeader()
     {
         var b = Sample();

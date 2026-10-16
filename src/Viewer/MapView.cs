@@ -49,7 +49,11 @@ public partial class MapView : Control
             var (x, z) = map.Map.Bounds.FromStartCell(s.Cell);
             var (col, row) = map.Map.Bounds.ToImage(x, z, size);
             DrawArc(new Vector2(col, row), 9, 0, Mathf.Tau, 24, Colors.White, 2f);
-            DrawString(font, new Vector2(col + 11, row + 5), s.Number.ToString(), HorizontalAlignment.Left, -1, 14, Colors.White);
+            var number = s.Number.ToString();
+            var width = font.GetStringSize(number, HorizontalAlignment.Left, -1, 14).X;
+            // The number sits right of the ring, or left of it when that would cross the square's edge.
+            var labelX = col + 11 + width > size ? col - 11 - width : col + 11;
+            DrawString(font, new Vector2(labelX, row + 5), number, HorizontalAlignment.Left, -1, 14, Colors.White);
         }
     }
 

@@ -87,6 +87,18 @@ public class MovePlanTests
     }
 
     [TestMethod]
+    public void AMaxRollNotAbove0IsReportedOncePerCauseWithNamesAndACountAndTakenAsNoRoll()
+    {
+        var plan = Plan(new[] { "a", "b", "a" }, new[] { ("a", Ship), ("b", Ship) }, "impulseSpeed = 1\r\nyawRotationRate = 1\r\nmaxRoll = -30");
+        Assert.IsTrue(plan.Physics.Count > 0);
+        Assert.IsTrue(plan.Physics.Values.All(p => p.MaxRoll == null));
+        var report = plan.Reports.Single();
+        CollectionAssert.AreEqual(new[] { "a", "b" }, report.Names.ToArray());
+        Assert.AreEqual(3, report.Count);
+        StringAssert.Contains(report.Text, "maxRoll");
+    }
+
+    [TestMethod]
     public void AShipWithoutAPhysicsDefinitionIsLeftToTheUnitPlansReport()
     {
         var plan = Plan(new[] { "a" }, new[] { ("a", Ship) }, null);

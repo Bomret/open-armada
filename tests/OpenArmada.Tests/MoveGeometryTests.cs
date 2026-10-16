@@ -56,6 +56,24 @@ public class MoveGeometryTests
     }
 
     [TestMethod]
+    public void AShipThatTurnedByAHeadingChangePointsItsBowAlongTravel()
+    {
+        // an unrotated ship's bow is -Z; a pose heading of PI + change travels along (sin, cos) of that heading
+        var bow = Vector3.Transform(-Vector3.UnitZ, MoveGeometry.Orientation(Quaternion.Identity, 0.7f, 0));
+        Assert.AreEqual(MathF.Sin(MathF.PI + 0.7f), bow.X, 1e-5);
+        Assert.AreEqual(MathF.Cos(MathF.PI + 0.7f), bow.Z, 1e-5);
+    }
+
+    [TestMethod]
+    public void InALeftTurnTheInnerLeftWingGoesDown()
+    {
+        // the ship turns left (heading grows) and ShipMotion banks it negative; the bow is -Z, so left is -X
+        var orientation = MoveGeometry.Orientation(Quaternion.Identity, 0, -0.3f);
+        Assert.IsTrue(Vector3.Transform(-Vector3.UnitX, orientation).Y < 0);
+        Assert.IsTrue(Vector3.Transform(Vector3.UnitX, orientation).Y > 0);
+    }
+
+    [TestMethod]
     public void AShipWithMapFrontPlusXFacesPlusXAndFliesStraightAheadWithoutTurningOrBanking()
     {
         // SandboxPlan's AxisZ for Front = (1, 0, 0) is (-1, 0, 0), so the bow points to +X

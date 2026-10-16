@@ -14,7 +14,7 @@ public partial class MoveOrders : Node3D
 {
     readonly UnitSelection _selection;
     readonly Dictionary<PlacedObject, Node3D> _nodes;
-    readonly Dictionary<PlacedObject, (ShipMotion Motion, Basis Initial, float Heading)> _moving = new();
+    readonly Dictionary<PlacedObject, (ShipMotion Motion, System.Numerics.Quaternion Initial, float Heading)> _moving = new();
     readonly MovePlan _plan;
     readonly float _planeHeight;
 
@@ -55,9 +55,10 @@ public partial class MoveOrders : Node3D
             if (!_moving.TryGetValue(unit.Object, out var state))
             {
                 var o = unit.Object;
+                var initial = node.Transform.Basis.GetRotationQuaternion();
                 var heading = MoveGeometry.BowHeading(new System.Numerics.Vector3(o.AxisZ.X, o.AxisZ.Y, o.AxisZ.Z));
                 _moving[o] = state = (new ShipMotion(physics, new System.Numerics.Vector3(o.Position.X, o.Position.Y, o.Position.Z), heading),
-                    node.Transform.Basis, heading);
+                    new System.Numerics.Quaternion(initial.X, initial.Y, initial.Z, initial.W), heading);
             }
             state.Motion.SetTarget(target.X, target.Y);
         }
@@ -68,8 +69,8 @@ public partial class MoveOrders : Node3D
         foreach (var (o, (motion, initial, start)) in _moving)
         {
             var pose = motion.Step(delta);
-            var basis = new Basis(Vector3.Up, pose.Heading - start) * initial * new Basis(Vector3.Forward, pose.Bank); // the bow is node-local -Z, the roll axis
-            _nodes[o].Transform = new Transform3D(basis, new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z));
+            var q = MoveGeometry.Orientation(initial, pose.Heading - start, pose.Bank);
+            _nodes[o].Transform = new Transform3D(new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)),new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z));
         }
     }
 }

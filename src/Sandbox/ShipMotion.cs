@@ -71,7 +71,7 @@ public sealed class ShipMotion
         if (pivot)
         {
             if (error != 0) return;
-            driving -= MathF.Abs(turn) / (float)_physics.YawRotationRate;
+            driving = MathF.Max(0, driving - MathF.Abs(turn) / (float)_physics.YawRotationRate); // float rounding can leave it an ulp below 0
         }
         // never farther along the heading than the foot of the target's perpendicular, so the distance only shrinks
         var travel = MathF.Min((float)_physics.ImpulseSpeed * driving, distance * MathF.Cos(error));

@@ -12,7 +12,7 @@ public class BmpPaletteTests
     internal static byte[] MakeBmp(int w, int h, int bpp, int compression = 0, int pixelBytes = -1)
     {
         var palette = bpp == 8 ? 1024 : 0;
-        var rows = (w * bpp + 31) / 32 * 4 * h;
+        var rows = (w * bpp + 31) / 32 * 4 * Math.Abs(h);
         var data = new byte[14 + 40 + palette + (pixelBytes >= 0 ? pixelBytes : rows)];
         data[0] = (byte)'B'; data[1] = (byte)'M';
         BitConverter.GetBytes(data.Length).CopyTo(data, 2);

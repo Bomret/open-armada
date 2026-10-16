@@ -75,6 +75,43 @@ _Avoid_: SPR, sprite sheet definition
 The color that marks which player owns an object, applied to a model's team-colored materials.
 _Avoid_: player color, faction color
 
+**Physics definition**
+The object definition (`*phys.odf`) that an object definition names in its `physicsFile` key. It holds the
+movement values of a class, such as its speed and turn rate.
+_Avoid_: phys file, physics ODF
+
+**Unit**
+A map object whose definition names a physics definition. A unit is a ship or a station.
+_Avoid_: mobile unit, actor, entity
+
+**Ship**
+A unit whose definition does not set `is_starbase`. A ship moves when it is ordered.
+_Avoid_: vessel, craft, mobile unit
+
+**Station**
+A unit whose definition sets `is_starbase`, such as a starbase, shipyard, or sensor array. A station does
+not move.
+_Avoid_: base, building, structure
+
+**Asteroid field**
+A map object of class `asteroidfield` whose rocks the engine generates from the field's definition. The map
+stores only the field, not the rocks.
+_Avoid_: asteroid belt, rock field
+
+**Game constants**
+The named values that the install's `RTS_CFG.h` declares, such as the camera heights and the combat plane.
+_Avoid_: RTS config, config header values, settings
+
+**Combat plane**
+The horizontal band between the `SHIP_COMBAT_FLOOR` and `SHIP_COMBAT_CEILING` game constants. The camera
+looks at its middle height.
+_Avoid_: play plane, ground plane, map plane
+
+**Stand-in**
+A value or behavior that the engine supplies itself because the install defines none, or because the
+game's own behavior is not known. Each stand-in is documented as such where it is used.
+_Avoid_: default, fallback, placeholder
+
 ## Tools
 
 **Asset check**
@@ -93,6 +130,11 @@ _Avoid_: file category, file status
 **Asset browser**
 The engine's interactive mode for picking any asset of an install and inspecting its preview.
 _Avoid_: model viewer, asset viewer
+
+**Map sandbox**
+The engine's mode that opens one map as a live 3D scene, where units can be selected and ships ordered to
+move.
+_Avoid_: map viewer, 3D preview, game mode
 
 **Preview**
 The asset browser's rendering of one asset, showing that its meaning was understood: a model as the game

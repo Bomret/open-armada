@@ -39,6 +39,24 @@ public class BoxSelectTests
         Assert.IsFalse(BoxSelect.IsClick(new Vector2(10, 10), new Vector2(30, 10)));
     }
 
+    static string? Nearest(params (string, float?, bool, bool, bool)[] entries) => BoxSelect.Nearest(entries);
+
+    [TestMethod]
+    public void TheNearestBoxTheRayEntersIsTheHit() =>
+        Assert.AreEqual("near", Nearest(("far", 9f, true, false, false), ("near", 3f, false, false, false), ("miss", null, true, false, false)));
+
+    [TestMethod]
+    public void AUnitWhoseBoxHoldsTheCameraTakesNoClick() =>
+        Assert.AreEqual("behind", Nearest(("unit", 0f, true, true, true), ("behind", 5f, true, false, false)));
+
+    [TestMethod]
+    public void APlanetWhoseBoxHoldsTheCameraAndWhoseShapeTheRayHitsBlocksTheUnitBehindIt() =>
+        Assert.AreEqual("planet", Nearest(("planet", 0f, false, true, true), ("behind", 5f, true, false, false)));
+
+    [TestMethod]
+    public void APlanetWhoseBoxHoldsTheCameraAndWhoseShapeTheRayMissesBlocksNothing() =>
+        Assert.AreEqual("behind", Nearest(("planet", 0f, false, true, false), ("behind", 5f, true, false, false)));
+
     [TestMethod]
     public void ADragOfThreePixelsIsAClickAndOneOfFourIsABox()
     {

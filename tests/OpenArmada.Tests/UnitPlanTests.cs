@@ -85,7 +85,10 @@ public class UnitPlanTests
     public void AUnitNameAndAStarbaseValueThatAreBothBadAreReportedEachOnce()
     {
         var plan = Plan(new[] { "x" }, new[] { ("x", Physics + "unitName = Borg Cube\r\nis_starbase = yes") }, ("addon/p.odf", ""));
+        Assert.AreEqual(new Ship("x"), plan.Units.Single().Unit);
         Assert.AreEqual(2, plan.Reports.Count);
+        Assert.AreEqual(1, plan.Reports.Count(r => r.Cause.Contains("unitName")));
+        Assert.AreEqual(1, plan.Reports.Count(r => r.Cause.Contains("is_starbase")));
     }
 
     [TestMethod]

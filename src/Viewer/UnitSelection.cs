@@ -65,15 +65,14 @@ public partial class UnitSelection : Node3D
         if (camera == null) return;
         var origin = camera.ProjectRayOrigin(at);
         var direction = camera.ProjectRayNormal(at);
-        PlacedObject? hit = null;
-        var nearest = float.MaxValue;
-        foreach (var (placed, node) in _nodes)
+        // ponytail: the box around the model's meshes is the hit shape (a non-unit object holding the camera
+        // in its box uses its bounding sphere); a mesh-exact pick if overlaps matter
+        var hit = BoxSelect.Nearest(_nodes.Select(pair =>
         {
-            // ponytail: the box around the model's meshes is the hit shape; a mesh-exact pick if overlaps matter
-            // a box around the camera (a big planet it sits in) takes no click
-            if (Extent(node) is not { } box || box.HasPoint(origin) || Enters(box, origin, direction) is not { } distance) continue;
-            if (distance < nearest) { nearest = distance; hit = placed; }
-        }
+            if (Extent(pair.Value) is not { } box) return (pair.Key, (float?)null, false, false, false);
+            var radius = Math.Max(box.Size.X, Math.Max(box.Size.Y, box.Size.Z)) / 2;
+            return (pair.Key, Enters(box, origin, direction), _units.ContainsKey(pair.Key), box.HasPoint(origin), HitsSphere(box.GetCenter(), radius, origin, direction));
+        }));
         Select(hit != null && _units.TryGetValue(hit, out var unit) ? new[] { unit } : Array.Empty<SelectableUnit>());
     }
 
@@ -136,6 +135,13 @@ public partial class UnitSelection : Node3D
             far = Math.Min(far, Math.Max(from, to));
         }
         return near <= far ? near : null;
+    }
+
+    // Whether the ray passes within `radius` of `center` ahead of the origin; `direction` is a unit vector.
+    static bool HitsSphere(Vector3 center, float radius, Vector3 origin, Vector3 direction)
+    {
+        var along = (center - origin).Dot(direction);
+        return along >= 0 && (origin + direction * along).DistanceTo(center) <= radius;
     }
 
     // The box around the object's visible meshes in world space; null when it has none.

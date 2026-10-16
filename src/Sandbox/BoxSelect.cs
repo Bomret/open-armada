@@ -13,6 +13,21 @@ public static class BoxSelect
 
     public static bool IsClick(Vector2 from, Vector2 to) => MathF.Abs(to.X - from.X) < ClickPixels && MathF.Abs(to.Y - from.Y) < ClickPixels;
 
+    // The item a click ray hits first: the one with the smallest entry distance (null: the ray misses it). A
+    // box that holds the camera has no entry distance: a unit's box takes no click, but a non-unit object
+    // (a planet) whose shape the ray hits blocks at distance 0, because its box is bigger than its shape.
+    public static T? Nearest<T>(IEnumerable<(T Item, float? Distance, bool IsUnit, bool CameraInside, bool OnShape)> entries)
+    {
+        T? hit = default;
+        var nearest = float.MaxValue;
+        foreach (var (item, distance, isUnit, cameraInside, onShape) in entries)
+        {
+            float? at = cameraInside ? (!isUnit && onShape ? 0f : null) : distance;
+            if (at is { } d && d < nearest) { nearest = d; hit = item; }
+        }
+        return hit;
+    }
+
     // The items whose point lies in the box between the two corners, whichever way the drag went. An item
     // behind the camera is never inside: its projected point is mirrored.
     public static IReadOnlyList<T> Inside<T>(IEnumerable<(T Item, Vector2 Point, bool InFront)> entries, Vector2 from, Vector2 to)

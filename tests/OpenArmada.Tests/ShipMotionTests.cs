@@ -102,6 +102,41 @@ public class ShipMotionTests
     }
 
     [TestMethod]
+    public void TheBankIsZeroOnAStraightRunBeforeTheShipArrives()
+    {
+        var ship = Ship(maxRoll: 30);
+        ship.SetTarget(100, 100); // a 45 degree turn takes under one second at Yaw 1; the target is 141 away at speed 10
+        var pose = ship.Step(0);
+        for (var i = 0; i < 100; i++) pose = ship.Step(0.05); // 5 seconds
+        Assert.IsTrue(new Vector2(pose.Position.X - 100, pose.Position.Z - 100).Length() > 50, "the ship has not arrived");
+        Assert.AreEqual(0, pose.Bank, 1e-6);
+    }
+
+    [TestMethod]
+    public void ATurnInPlaceFollowedByTravelTakesTheSameTimeWhateverTheStepSize()
+    {
+        // 15 behind, inside the turning circle: a pi turn (3.14 s) then 15 at speed 10; after 4 s it is 8.6 behind
+        var fine = Ship();
+        var coarse = Ship();
+        fine.SetTarget(0, -15);
+        coarse.SetTarget(0, -15);
+        ShipPose pose = default;
+        for (var i = 0; i < 400; i++) pose = fine.Step(0.01);
+        Assert.AreEqual(-8.58, pose.Position.Z, 0.05);
+        for (var i = 0; i < 8; i++) pose = coarse.Step(0.5);
+        Assert.AreEqual(-8.58, pose.Position.Z, 0.05);
+    }
+
+    [TestMethod]
+    public void TheHeadingStaysWithinMinusPiAndPi()
+    {
+        var ship = Ship(heading: 3.0f);
+        ship.SetTarget(-10, -100);
+        var pose = ship.Step(1);
+        Assert.IsTrue(pose.Heading > -MathF.PI && pose.Heading <= MathF.PI, $"heading {pose.Heading}");
+    }
+
+    [TestMethod]
     public void ARightTurnBanksTheOtherWay()
     {
         var ship = Ship();

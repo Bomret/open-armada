@@ -30,9 +30,9 @@ public partial class MoveOrders : Node3D
         try
         {
             var constants = GameConstantsKind.Of(files);
-            if (!constants.TryNumber("SHIP_COMBAT_FLOOR", out var floor, out var p1)) throw new InvalidOperationException(p1);
-            if (!constants.TryNumber("SHIP_COMBAT_CEILING", out var ceiling, out var p2)) throw new InvalidOperationException(p2);
-            _planeHeight = (float)((floor + ceiling) / 2);
+            if (!constants.TryNumber("SHIP_COMBAT_FLOOR", out var floor, out var p1)) gap($"combat plane height unreadable ({p1}), plane at height 0 used");
+            else if (!constants.TryNumber("SHIP_COMBAT_CEILING", out var ceiling, out var p2)) gap($"combat plane height unreadable ({p2}), plane at height 0 used");
+            else _planeHeight = (float)((floor + ceiling) / 2);
         }
         catch (Exception e)
         {
@@ -47,21 +47,19 @@ public partial class MoveOrders : Node3D
         if (camera == null) return;
         var origin = camera.ProjectRayOrigin(click.Position);
         var direction = camera.ProjectRayNormal(click.Position);
-        // the ray meets the plane ahead of the origin; parallel or pointing away it is ignored
-        var along = (_planeHeight - origin.Y) / direction.Y;
-        if (!float.IsFinite(along) || along <= 0) return;
-        var target = origin + direction * along;
+        if (MoveGeometry.PlaneTarget(new System.Numerics.Vector3(origin.X, origin.Y, origin.Z),
+                new System.Numerics.Vector3(direction.X, direction.Y, direction.Z), _planeHeight) is not { } target) return;
         foreach (var unit in _selection.Selected)
         {
             if (!unit.Movable || !_plan.Physics.TryGetValue(unit.Object, out var physics) || !_nodes.TryGetValue(unit.Object, out var node)) continue;
             if (!_moving.TryGetValue(unit.Object, out var state))
             {
                 var o = unit.Object;
-                var heading = MathF.Atan2(o.AxisZ.X, o.AxisZ.Z); // the model's +Z is its bow
+                var heading = MoveGeometry.BowHeading(new System.Numerics.Vector3(o.AxisZ.X, o.AxisZ.Y, o.AxisZ.Z));
                 _moving[o] = state = (new ShipMotion(physics, new System.Numerics.Vector3(o.Position.X, o.Position.Y, o.Position.Z), heading),
                     node.Transform.Basis, heading);
             }
-            state.Motion.SetTarget(target.X, target.Z);
+            state.Motion.SetTarget(target.X, target.Y);
         }
     }
 
@@ -70,7 +68,7 @@ public partial class MoveOrders : Node3D
         foreach (var (o, (motion, initial, start)) in _moving)
         {
             var pose = motion.Step(delta);
-            var basis = new Basis(Vector3.Up, pose.Heading - start) * initial * new Basis(Vector3.Back, pose.Bank);
+            var basis = new Basis(Vector3.Up, pose.Heading - start) * initial * new Basis(Vector3.Forward, pose.Bank); // the bow is node-local -Z, the roll axis
             _nodes[o].Transform = new Transform3D(basis, new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z));
         }
     }

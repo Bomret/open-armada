@@ -19,6 +19,13 @@ public sealed class ShipMotion
     // stand-in: a target nearer than this counts as reached.
     const float Reached = 1e-4f;
 
+    // stand-in: a target nearer than this many turning circles (speed / yawRate) is reached by turning in place;
+    // the install defines no such rule.
+    const float Pivot = 2;
+    // stand-in: a target more than this angle off the heading is reached by turning in place first; the install
+    // defines no such rule.
+    const float PivotAngle = MathF.PI / 2;
+
     readonly PhysicsValues _physics;
     Vector3 _position;
     float _heading;
@@ -51,19 +58,32 @@ public sealed class ShipMotion
         var error = MathF.IEEERemainder(MathF.Atan2(offset.X, offset.Y) - _heading, 2 * MathF.PI);
         var most = (float)_physics.YawRotationRate * seconds;
         var turn = MathF.Abs(error) <= most ? error : MathF.CopySign(most, error);
-        _heading += turn;
+        var pivot = distance < Pivot * (float)(_physics.ImpulseSpeed / _physics.YawRotationRate) || MathF.Abs(error) >= PivotAngle;
+        _heading = Wrap(_heading + turn);
         error -= turn;
         _bank = _physics.MaxRoll is { } roll ? -(float)(roll * Math.PI / 180) * Math.Clamp(turn / most, -1, 1) : 0; // stand-in: no bank without maxRoll (the Borg physics definitions have none)
 
         // ponytail: a target inside two turning circles (2 * speed / yawRate) is reached by turning in place and
-        // then driving straight; a ship never orbits it. Farther away it drives while turning. Smooth arcs or
-        // slowing down if the pivot looks wrong.
-        var circle = 2 * (float)(_physics.ImpulseSpeed / _physics.YawRotationRate);
-        if (error != 0 && (distance < circle || MathF.Abs(error) >= MathF.PI / 2)) return;
+        // then driving straight; a ship never orbits it. Farther away it drives while turning. The ship drives
+        // only for the time left after the turn completes within the step. Smooth arcs or slowing down if the
+        // pivot looks wrong.
+        var driving = seconds;
+        if (pivot)
+        {
+            if (error != 0) return;
+            driving -= MathF.Abs(turn) / (float)_physics.YawRotationRate;
+        }
         // never farther along the heading than the foot of the target's perpendicular, so the distance only shrinks
-        var travel = MathF.Min((float)_physics.ImpulseSpeed * seconds, distance * MathF.Cos(error));
+        var travel = MathF.Min((float)_physics.ImpulseSpeed * driving, distance * MathF.Cos(error));
         if (travel >= distance) { Stop(target); return; }
         _position += new Vector3(MathF.Sin(_heading), 0, MathF.Cos(_heading)) * travel;
+    }
+
+    // The angle in (-pi, pi].
+    static float Wrap(float angle)
+    {
+        var wrapped = MathF.IEEERemainder(angle, 2 * MathF.PI);
+        return wrapped <= -MathF.PI ? wrapped + 2 * MathF.PI : wrapped;
     }
 
     void Stop(Vector2 target)

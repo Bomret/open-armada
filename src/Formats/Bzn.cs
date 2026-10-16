@@ -25,6 +25,11 @@ public sealed record MapBounds(float MinX, float MaxX, float MinY, float MaxY, f
         return ((x - MinX + (longest - Width) / 2) / longest * size, size - (z - MinZ + (longest - Depth) / 2) / longest * size);
     }
 
+    // Ground position of a start cell (derived from data, within one cell): the 118-cell grid stretches over
+    // the whole map on each axis, row 0 at the top (maximum Z).
+    public (float X, float Z) FromStartCell(StartCell c) =>
+        (MinX + c.X / (float)Mdf.MaxCell * Width, MinZ + (1 - c.Y / (float)Mdf.MaxCell) * Depth);
+
     public bool Contains(float x, float z) => x >= MinX && x <= MaxX && z >= MinZ && z <= MaxZ;
 }
 

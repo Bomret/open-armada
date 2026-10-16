@@ -132,8 +132,8 @@ public static class InstallClassifier
     // A file of the override layer or an archive, by its extension: the kinds that list such files by
     // bare name load it (DefinitionKind.Named, AssetKind.Layered); a file of any other kind still
     // replaces a file of its name for the game. With the install opened, Classify marks such a file
-    // loaded when a kind reads it (a font, key map, settings file, palette, splash.bmp, or mip level that
-    // replaces the stock one), and the rest stay overrides no kind loads.
+    // loaded when a kind reads it (a font, key map, settings file, palette, interface configuration,
+    // splash.bmp, or mip level that replaces the stock one), and the rest stay overrides no kind loads.
     static (FileClass, string) Layer(string name) => Path.GetExtension(name) switch
     {
         ".odf" => Loaded("definitions"),

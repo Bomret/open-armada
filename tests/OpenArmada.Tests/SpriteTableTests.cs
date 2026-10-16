@@ -156,6 +156,22 @@ public class SpriteTableTests
     }
 
     [TestMethod]
+    public void NumericLinesBeforeTheFieldLineAreReportedByTheFieldLineCheck()
+    {
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr", ("a.spr", Head + "@animation f\n1 2\noffset 1 1 step\n")));
+        StringAssert.Contains(e.Message, "a.spr:4");
+        StringAssert.Contains(e.Message, "expected '<offset|colour|draw|width>");
+    }
+
+    [TestMethod]
+    public void EmitterWithoutNameIsReported()
+    {
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr", ("a.spr", Head + "@emitter\n@end_emitter\n")));
+        StringAssert.Contains(e.Message, "a.spr:3");
+        StringAssert.Contains(e.Message, "@emitter names no emitter");
+    }
+
+    [TestMethod]
     public void UnrecognizedDirectiveIsReportedWithTableAndLine()
     {
         var e = Assert.ThrowsExactly<InvalidDataException>(() => Read("a.spr", ("a.spr", Head + "@bogus=1\n")));

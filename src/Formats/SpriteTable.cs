@@ -32,7 +32,7 @@ public sealed record SpriteNode(string Name, IReadOnlyList<string> Arguments);
 // A sprite table (.spr): "sprite_table" on the first line, '#' comments, @include of other tables,
 // directives and rows "Name Texture U V W H" with trailing directives. An include's sprites and
 // animations come where the @include stands; a table included again (by any path) adds nothing the
-// second time. Anything not recognized, an include cycle, a missing table, an unterminated @emitter,
+// second time. Anything not recognized, an @animation, @emitter, @include, or @sprite_node without its name, an include cycle, a missing table, an unterminated @emitter,
 // an animation without its field line or with more keyframes than its count (fewer is a note), and a flipbook
 // larger than its table's text or leaving its @reference area throw InvalidDataException naming the
 // table and line (INV-0002).
@@ -211,7 +211,9 @@ public sealed class SpriteTable
                         if (anim == null) throw Bad(table, n, "@keyframes outside an @animation");
                         inKeyframes = true;
                         break;
-                    case "@emitter": emitter = value; emitterLine = n; break;
+                    case "@emitter":
+                        if (value.Length == 0) throw Bad(table, n, "@emitter names no emitter");
+                        emitter = value; emitterLine = n; break;
                     case "@sprite_node": _nodes.Add(t.Length > 1 ? new SpriteNode(t[1], t[2..]) : throw Bad(table, n, "@sprite_node names no node")); break;
                     default: throw Bad(table, n, $"unrecognized directive {name}");
                 }
@@ -229,6 +231,7 @@ public sealed class SpriteTable
                     throw Bad(table, n, $"animation '{anim.Name}': expected '<offset|colour|draw|width> <count> <seconds> <step|linear>', got '{string.Join(" ", t)}'");
                 var ok = double.TryParse(t[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var length);
                 var count = Int(table, n, t[1], "keyframe count");
+                // The table's character count bounds the count, so Frames allocates within a small constant factor of the table's size.
                 if (count > text.Length) throw Bad(table, n, $"animation '{anim.Name}': keyframe count {count} is more than the table has text for");
                 _animations[anim.Name] = anim = anim with { Field = t[0], Count = count, Length = ok ? length : throw Bad(table, n, $"length '{t[2]}' is not a number"), Method = t[3] };
                 inKeyframes = true; // the game takes keyframe lines without the @keyframes directive too

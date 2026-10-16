@@ -25,8 +25,9 @@ public static class InstallClassifier
 
     // With `files`, the kinds decide what loads (AssetKind.Reads): a file some kind reads is loaded, the
     // override copy where it wins its name. A file the rules below call loaded that no kind reads is known
-    // but not loaded: a mip level is a texture extra (past a gap, or after a level of the wrong size), and a
-    // file whose bare name a kind reads from another copy is a shadowed copy. Without, the names alone decide.
+    // but not loaded: a file whose bare name a kind reads from another copy is a shadowed copy (a mip level
+    // of a texture an override replaces too), and any other mip level is a texture extra (past a gap, or
+    // after a level of the wrong size). Without, the names alone decide.
     public static IReadOnlyList<Classified> Classify(IEnumerable<string> inventory, GameFileSystem? files = null)
     {
         var entries = inventory.ToList();
@@ -71,8 +72,8 @@ public static class InstallClassifier
         if (reads.Entries.TryGetValue(entry, out var kind)) return rule.Item1 == FileClass.Loaded ? rule : Loaded(kind);
         if (rule.Item1 != FileClass.Loaded) return rule;
         var name = Bare(entry);
-        return Numbered.IsMatch(Path.GetExtension(name)) ? Known("texture extras")
-            : reads.Names.Contains(name) ? Known("shadowed copies")
+        return reads.Names.Contains(name) ? Known("shadowed copies")
+            : Numbered.IsMatch(Path.GetExtension(name)) ? Known("texture extras")
             : rule;
     }
 

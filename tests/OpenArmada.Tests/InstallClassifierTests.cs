@@ -163,6 +163,24 @@ public class InstallClassifierTests
             (Of("addon/gui_a.cfg").Class, Of("misc/gui_a.cfg").Class, Of("misc/gui_a.cfg").Group));
     }
 
+    // A stock mip level the stock texture does not read, while the override texture reads a level of its
+    // name, is a copy the override shadows rather than a texture extra.
+    [TestMethod]
+    public void StockMipLevelOfAnOverrideTextureIsAShadowedCopy()
+    {
+        var temp = new TempInstall();
+        try
+        {
+            string Tga(int size) => System.Text.Encoding.Latin1.GetString(TgaTests.Make(size, size, 24));
+            var root = temp.MakeInstall(("addon/q.tga", Tga(8)), ("addon/q.1", Tga(4)),
+                ("Textures/RGB/q.tga", Tga(16)), ("Textures/RGB/q.1", Tga(4)));
+            var fs = new GameFileSystem(root);
+            var stock = InstallClassifier.Classify(fs.Inventory(), fs).Single(c => c.Entry == "Textures/RGB/q.1");
+            Assert.AreEqual((FileClass.KnownNotLoaded, "shadowed copies"), (stock.Class, stock.Group));
+        }
+        finally { temp.CleanUp(); }
+    }
+
     [TestMethod]
     public void FileNoRuleClassifiesIsUnclassified()
     {

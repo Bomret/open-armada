@@ -118,6 +118,33 @@ public class CrossReferenceTests
     }
 
     [TestMethod]
+    public void MissingIncludeOfAnEnumeratedParentIncludedWithAFolderPrefixIsListedForTheParentOnly()
+    {
+        var fs = Install(("addon/p.odf", "#include \"gone.odf\"\r\n"), ("addon/c.odf", "#include \"addon/p.odf\"\r\n"));
+        Assert.IsNotNull(fs.Find("addon/p.odf"));
+        var all = new[] { "c.odf", "p.odf" }.SelectMany(d => new DefinitionKind().Unresolved(fs, d)).ToList();
+        CollectionAssert.AreEqual(new[] { "gone.odf" }, all);
+    }
+
+    [TestMethod]
+    public void MissingIncludeOfAnEnumeratedParentInAChainIsListedForTheParentOnly()
+    {
+        var fs = Install(("addon/g.odf", "x = 1\r\n"), ("addon/p.odf", "#include \"g.odf\"\r\n#include \"gone.odf\"\r\n"),
+            ("addon/c.odf", "#include \"p.odf\"\r\n"));
+        var all = new[] { "c.odf", "p.odf", "g.odf" }.SelectMany(d => new DefinitionKind().Unresolved(fs, d)).ToList();
+        CollectionAssert.AreEqual(new[] { "gone.odf" }, all);
+    }
+
+    [TestMethod]
+    public void MissingIncludeOfALooseParentIsListedForEachEnumeratedChildThatReachesIt()
+    {
+        var fs = Install(("addon/a.odf", "#include \"p.odf\"\r\n"), ("addon/b.odf", "#include \"p.odf\"\r\n"),
+            ("misc/p.odf", "#include \"gone.odf\"\r\n"), ("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: misc\n----\n1 p.odf\n"));
+        CollectionAssert.AreEqual(new[] { "gone.odf" }, new DefinitionKind().Unresolved(fs, "a.odf").ToArray());
+        CollectionAssert.AreEqual(new[] { "gone.odf" }, new DefinitionKind().Unresolved(fs, "b.odf").ToArray());
+    }
+
+    [TestMethod]
     public void ModelMissingAnimationAndSpriteMissingTextureAreEachPrintedOnce()
     {
         var root = temp.MakeInstall(("SOD/m.sod", Model("", (4, "hull", "spin", 0f))), ("Sprites/t.spr", "sprite_table\n@reference=128\na gone 0 0 32 32\n"));

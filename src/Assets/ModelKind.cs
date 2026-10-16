@@ -30,7 +30,10 @@ public sealed class ModelKind : AssetKind
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var analysis = ModelRules.Analyze(files, (Sod)Load(files, name));
-        var listed = analysis.MissingAnimations.Select(m => m.Problem).ToHashSet();
-        return analysis.Problems.Where(p => !listed.Contains(p)).ToList();
+        // One occurrence per missing animation, so an unrelated line with the same text stays.
+        var lines = analysis.Problems.ToList();
+        foreach (var m in analysis.MissingAnimations)
+            if (m.Problem != null) lines.Remove(m.Problem);
+        return lines;
     }
 }

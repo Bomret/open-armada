@@ -51,10 +51,11 @@ public sealed class DefinitionKind : AssetKind
         bool Has(string n) => files.Find(n) != null;
         // A sound name resolves through the index; one the index lacks resolves in sounds/**: by its file
         // name when it has no folder, by its path below sounds/ when it has one.
-        // A missing include is the includer's to report; when the includer is no enumerated definition (a
+        // A missing include is the includer's to report (compared by its bare name, as an include may carry a
+        // folder prefix); when the includer is no enumerated definition (a
         // loose file the index places in a folder), no one else would, so the definition it reaches reports it.
         var definitions = new Lazy<HashSet<string>>(() => AssetReferences.DefinitionNames(files));
-        var ownMissing = def.MissingIncludes.Where(m => m.IncludedBy.Equals(name, StringComparison.OrdinalIgnoreCase) || !definitions.Value.Contains(m.IncludedBy)).Select(m => m.Name);
+        var ownMissing = def.MissingIncludes.Where(m => Path.GetFileName(m.IncludedBy).Equals(name, StringComparison.OrdinalIgnoreCase) || !definitions.Value.Contains(Path.GetFileName(m.IncludedBy))).Select(m => m.Name);
         return AssetReferences.Missing(ownMissing, _ => false)
             .Concat(AssetReferences.Missing(Of(ModelKeys), n => Has(n.EndsWith(".sod", StringComparison.OrdinalIgnoreCase) ? n : n + ".sod")))
             .Concat(AssetReferences.Missing(Of(DefinitionKeys), Has))

@@ -69,11 +69,12 @@ public class ImageSoundKindTests
     }
 
     [TestMethod]
-    public void MipLevelOfWrongSizeFailsTheTexture()
+    public void MipLevelOfUnexpectedSizeStillLoadsWithItsOwnSize()
     {
+        // The install ships such files (a 32x32 base with a 128x128 level 1); the preview shows the sizes as they are.
         var fs = Install(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(3)));
-        var e = Assert.ThrowsExactly<InvalidDataException>(() => new TextureKind().Load(fs, "a.tga"));
-        StringAssert.Contains(e.Message, "a.1");
+        var t = (TextureAsset)new TextureKind().Load(fs, "a.tga");
+        Assert.AreEqual(3, t.Mips[0].Info.Width);
     }
 
     [TestMethod]

@@ -40,24 +40,17 @@ public sealed class TextureKind : AssetKind
         var folder = cut >= 0 ? name[..(cut + 1)] : files.Find("Textures/RGB/" + name) != null ? "Textures/RGB/" : "Textures/Index8/";
         var stem = Path.GetFileNameWithoutExtension(name);
         var mips = new List<TextureLevel>();
-        var previous = info;
         for (var i = 1; i <= MaxMipLevel; i++)
         {
             var mipName = $"{stem}.{i}";
             if (files.Find(folder + mipName) == null) break;
-            var level = ReadLevel(files, folder + mipName, mipName);
-            if (level.Width != Math.Max(1, previous.Width / 2) || level.Height != Math.Max(1, previous.Height / 2))
-                throw new InvalidDataException($"{mipName} is {level.Width}x{level.Height}, not half of {previous.Width}x{previous.Height}");
-            mips.Add(new TextureLevel(mipName, level, files.ReadAllBytes(folder + mipName)));
-            previous = level;
+            var bytes = files.ReadAllBytes(folder + mipName);
+            // simplicity: level sizes are not checked against the half-size rule the game applies; some
+            // shipped 8-bit textures break it, and the preview shows each level's own size.
+            try { mips.Add(new TextureLevel(mipName, Tga.Read(bytes), bytes)); }
+            catch (InvalidDataException e) { throw new InvalidDataException($"{mipName}: {e.Message}"); }
+            catch (UnsupportedFormatException e) { throw new UnsupportedFormatException($"{mipName}: {e.Message}"); }
         }
         return new TextureAsset(name, info, data, mips);
-    }
-
-    static TgaInfo ReadLevel(GameFileSystem files, string path, string label)
-    {
-        try { return Tga.Read(files.ReadAllBytes(path)); }
-        catch (InvalidDataException e) { throw new InvalidDataException($"{label}: {e.Message}"); }
-        catch (UnsupportedFormatException e) { throw new UnsupportedFormatException($"{label}: {e.Message}"); }
     }
 }

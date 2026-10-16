@@ -42,6 +42,15 @@ public class ImageSoundKindTests
         Assert.AreEqual((true, 1), (t.Base.Info.Indexed, t.Mips.Count));
     }
 
+    // The classification agrees with the texture: a level that ends the chain by its size is not loaded.
+    [TestMethod]
+    public void LevelThatEndsTheChainBySizeIsClassifiedKnownButNotLoaded()
+    {
+        var w = new StringWriter();
+        AssetCheck.Run(Dir(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(4)), ("Textures/RGB/a.2", Tga(3))), new AssetKind[] { new TextureKind() }, w);
+        StringAssert.Contains(w.ToString(), "NOT LOADED Textures/RGB/a.2: texture extras");
+    }
+
     // An override texture takes its mip levels from the override layer, never the stock texture's levels.
     [TestMethod]
     public void OverrideTextureReadsNoMipLevelOfTheStockTexture()

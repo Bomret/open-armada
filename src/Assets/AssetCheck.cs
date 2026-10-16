@@ -96,7 +96,7 @@ public static class AssetCheck
     static int Classify(GameFileSystem files, TextWriter output)
     {
         IReadOnlyList<Classified> classified;
-        try { classified = InstallClassifier.Classify(files.Inventory()); }
+        try { classified = InstallClassifier.Classify(files.Inventory(), files); }
         catch (Exception e)
         {
             output.WriteLine($"FAIL files: cannot classify the install: {e.Message}");

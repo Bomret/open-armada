@@ -14,12 +14,13 @@ public class DefinitionKindTests
     public void CleanUp() => defs.CleanUp();
 
     [TestMethod]
-    public void CheckFailsForADefinitionWithAMissingInclude()
+    public void CheckFailsForADefinitionWithAnUnreadableIncludeButNotAMissingOne()
     {
-        var install = defs.Install(new[] { ("a.odf", "#include \"gone.odf\""), ("b.odf", "x = 1") });
-        var e = Assert.ThrowsExactly<InvalidDataException>(() => new DefinitionKind().Check(install, "a.odf"));
-        StringAssert.Contains(e.Message, "gone.odf");
+        var install = defs.Install(new[] { ("a.odf", "#include \"gone.odf\""), ("b.odf", "x = 1"), ("c.odf", "#include \"c.odf\"") });
+        Assert.AreEqual(0, new DefinitionKind().Check(install, "a.odf").Count);
         Assert.AreEqual(0, new DefinitionKind().Check(install, "b.odf").Count);
+        var e = Assert.ThrowsExactly<InvalidDataException>(() => new DefinitionKind().Check(install, "c.odf"));
+        StringAssert.Contains(e.Message, "cycle");
     }
 
     [TestMethod]

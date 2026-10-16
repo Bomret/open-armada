@@ -26,6 +26,11 @@ public abstract class AssetKind
         return Array.Empty<string>();
     }
 
+    // The names this asset refers to that the install does not hold (a map's object class with no
+    // definition, a model's missing texture). The check lists each as an unresolved reference and does not
+    // fail the asset. Kinds whose assets refer to others override it.
+    public virtual IReadOnlyList<string> Unresolved(GameFileSystem files, string name) => Array.Empty<string>();
+
     // The loose files of the install root with the extension (".map"), not those of a folder or an archive.
     protected static IEnumerable<string> RootFiles(GameFileSystem files, string extension) =>
         files.Inventory().Where(f => f.EndsWith(extension, StringComparison.OrdinalIgnoreCase) && !f.Contains('/') && !f.Contains("::"));

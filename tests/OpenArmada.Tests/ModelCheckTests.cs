@@ -62,11 +62,12 @@ public class ModelCheckTests
     }
 
     [TestMethod]
-    public void CheckReportsAnAnimationReferenceNoTableDefines()
+    public void AnAnimationReferenceNoTableDefinesIsUnresolvedNotANote()
     {
         var files = Install(("SOD/m.sod", Latin1(new SodBytes(1.8f).Lighting(("lit", 1f, 1))
             .Nodes(new NodeSpec("hull", "", Triangle())).End((4, "hull", "spin", 0f)))));
-        StringAssert.Contains(new ModelKind().Check(files, "m.sod").Single(), "'spin'");
+        Assert.AreEqual(0, new ModelKind().Check(files, "m.sod").Count);
+        CollectionAssert.Contains(new ModelKind().Unresolved(files, "m.sod").ToArray(), "spin");
     }
 
     [TestMethod]

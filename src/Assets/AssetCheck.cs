@@ -30,7 +30,7 @@ public static class AssetCheck
             return 1;
         }
 
-        int loadedTotal = 0, unsupportedTotal = 0, failedTotal = 0;
+        int loadedTotal = 0, unsupportedTotal = 0, failedTotal = 0, unresolved = 0;
         foreach (var missing in files.Missing) output.WriteLine($"MISSING {missing}");
         foreach (var fault in files.Faults)
         {
@@ -57,6 +57,12 @@ public static class AssetCheck
                     foreach (var note in notes) output.WriteLine($"NOTE {kind.Name}/{name}: {note}");
                     // The game's own decoders run after the readers accepted the file.
                     decode?.Invoke(kind, files, name);
+                    // Unresolved references list apart from failures and do not fail the asset.
+                    foreach (var missing in kind.Unresolved(files, name))
+                    {
+                        output.WriteLine($"UNRESOLVED {kind.Name}/{name}: {missing}");
+                        unresolved++;
+                    }
                     loaded++;
                 }
                 catch (UnsupportedFormatException e)
@@ -78,6 +84,24 @@ public static class AssetCheck
             failedTotal += failed;
         }
         output.WriteLine($"{loadedTotal} loaded, {unsupportedTotal} unsupported, {failedTotal} failed");
+        output.WriteLine($"{unresolved} unresolved references");
+        failedTotal += Classify(files, output);
         return failedTotal == 0 ? 0 : 1;
+    }
+
+    // Classifies every file of the install (InstallClassifier), prints the counts, each known but not
+    // loaded file, the out of scope groups and each unclassified file. Returns the number unclassified,
+    // each of which fails the check.
+    static int Classify(GameFileSystem files, TextWriter output)
+    {
+        var classified = InstallClassifier.Classify(files.Inventory());
+        foreach (var c in classified.Where(c => c.Class == FileClass.KnownNotLoaded)) output.WriteLine($"NOT LOADED {c.Entry}: {c.Group}");
+        foreach (var g in classified.Where(c => c.Class == FileClass.OutOfScope).GroupBy(c => c.Group))
+            output.WriteLine($"OUT OF SCOPE {g.Key}: {g.Count()} files");
+        var unclassified = classified.Where(c => c.Class == FileClass.Unclassified).ToList();
+        foreach (var c in unclassified) output.WriteLine($"UNCLASSIFIED {c.Entry}");
+        int N(FileClass k) => classified.Count(c => c.Class == k);
+        output.WriteLine($"files: {N(FileClass.Loaded)} loaded, {N(FileClass.OutOfScope)} out of scope, {N(FileClass.KnownNotLoaded)} known but not loaded, {unclassified.Count} unclassified");
+        return unclassified.Count;
     }
 }

@@ -17,13 +17,51 @@ public sealed class DefinitionKind : AssetKind
     // The resolved definition.
     public override object Load(GameFileSystem files, string name) => ResolvedDefinition.Resolve(files, name);
 
-    // A definition fails when its include chain is wrong (ResolvedDefinition.Problems); a line the
+    // A definition fails when its include chain is wrong (ResolvedDefinition.Failures: an unreadable include,
+    // a cycle, a chain too deep); a missing include is an unresolved reference, not a failure. A line the
     // reader does not recognize is a note (ResolvedDefinition.Notes).
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var def = ResolvedDefinition.Resolve(files, name);
-        if (def.Problems.Count > 0) throw new InvalidDataException(string.Join("; ", def.Problems));
+        if (def.Failures.Count > 0) throw new InvalidDataException(string.Join("; ", def.Failures));
         return def.Notes;
+    }
+
+    // The keys whose values name another asset, found in the install's definitions: a model (a SOD name
+    // with or without ".sod"), a definition (with ".odf"), a texture or a sprite. Any key whose value ends
+    // ".wav" names a sound. Of the install's keys whose values resolve, these name only models:
+    // baseName, shotGeometry, dbName, particleArt, workerBeeName.
+    static readonly string[] ModelKeys = { "baseName", "shotGeometry", "dbName", "particleArt", "workerBeeName" };
+    static readonly string[] DefinitionKeys = { "physicsFile" };
+    static readonly string[] VisualKeys =
+    {
+        "Sprite", "texture", "AnimTexture", "particleTexture", "smokeTexture", "steamTexture", "sprayTexture",
+        "effectTexture", "explosionSprite", "mapSprite", "weldingBeamSprite",
+    };
+
+    // The models, definitions, sounds, textures and sprites the definition's own and overriding values
+    // name that the install lacks, and the includes the install lacks that its own file names, or that a
+    // parent names when that parent is no enumerated definition. A value or a missing include it inherits
+    // from an enumerated parent is the parent's to report.
+    public override IReadOnlyList<string> Unresolved(GameFileSystem files, string name)
+    {
+        var def = ResolvedDefinition.Resolve(files, name);
+        var values = def.Values.Where(v => v.Origin != ValueOrigin.Inherited && v.Tokens.Count > 0).ToList();
+        IEnumerable<string> Of(string[] keys) => values.Where(v => keys.Contains(v.Key, StringComparer.OrdinalIgnoreCase)).Select(v => v.Tokens[0]);
+        bool Has(string n) => files.Find(n) != null;
+        // A sound name resolves through the index; one the index lacks resolves in sounds/**: by its file
+        // name when it has no folder, by its path below sounds/ when it has one.
+        // A missing include is the includer's to report (compared by its bare name, as an include may carry a
+        // folder prefix); when the includer is no enumerated definition (a
+        // loose file the index places in a folder), no one else would, so the definition it reaches reports it.
+        var definitions = new Lazy<HashSet<string>>(() => AssetReferences.DefinitionNames(files));
+        var ownMissing = def.MissingIncludes.Where(m => Path.GetFileName(m.IncludedBy).Equals(name, StringComparison.OrdinalIgnoreCase) || !definitions.Value.Contains(Path.GetFileName(m.IncludedBy))).Select(m => m.Name);
+        return AssetReferences.Missing(ownMissing, _ => false)
+            .Concat(AssetReferences.Missing(Of(ModelKeys), n => Has(n.EndsWith(".sod", StringComparison.OrdinalIgnoreCase) ? n : n + ".sod")))
+            .Concat(AssetReferences.Missing(Of(DefinitionKeys), Has))
+            .Concat(AssetReferences.Missing(values.Select(v => v.Tokens[0]).Where(t => t.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)), n => Has(n) || AssetReferences.HasSound(files, n)))
+            .Concat(AssetReferences.Missing(Of(VisualKeys), n => AssetReferences.HasTexture(files, n) || AssetReferences.SpriteNames(files).Contains(n)))
+            .ToList();
     }
 
     // Names of the files with the extension that the archives and the override layer hold. Loose files

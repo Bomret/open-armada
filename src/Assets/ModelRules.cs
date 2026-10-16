@@ -167,13 +167,17 @@ public static class ModelRules
     // What a model cannot be drawn as the data says (Problems, one line each: what the reader found,
     // texture materials, lighting materials and models it does not know, animation references it cannot
     // run), and the texture animations it does run (Runs: a mesh node and its flipbook, one per node of
-    // the referenced name).
-    public sealed record Analysis(IReadOnlyList<string> Problems, IReadOnlyList<(Sod.Node Node, TextureAnimation Flipbook)> Runs);
+    // the referenced name). MissingAnimations holds each animation reference no sprite table answers, with
+    // the line it adds to Problems (null when the reference names no mesh node, so it adds none);
+    // ModelKind lists such an animation as an unresolved reference and leaves the line out of its check.
+    public sealed record Analysis(IReadOnlyList<string> Problems, IReadOnlyList<(Sod.Node Node, TextureAnimation Flipbook)> Runs,
+        IReadOnlyList<(string Animation, string? Problem)> MissingAnimations);
 
     public static Analysis Analyze(GameFileSystem files, Sod sod)
     {
         var problems = new List<string>(sod.Problems);
         var runs = new List<(Sod.Node, TextureAnimation)>();
+        var missing = new List<(string, string?)>();
         var unnamed = 0;
         foreach (var n in sod.Nodes.Where(n => n.Mesh != null))
         {
@@ -198,12 +202,14 @@ public static class ModelRules
             TextureAnimation? flipbook = null;
             string? why = null;
             if (anim != null) flipbook = Animation(anim, r.Offset, out why);
+            string? line = null;
             if (targets.Count == 0) problems.Add($"animation '{r.Animation}' names the node '{r.Node}', which is no mesh node of the model");
-            else if (anim == null) problems.Add($"animation '{r.Animation}' of node '{r.Node}' is in no sprite table");
+            else if (anim == null) problems.Add(line = $"animation '{r.Animation}' of node '{r.Node}' is in no sprite table");
             else if (flipbook == null) problems.Add($"node '{r.Node}': {why}");
             else runs.AddRange(targets.Select(t => (t, flipbook)));
+            if (anim == null) missing.Add((r.Animation, line));
         }
-        return new Analysis(problems, runs);
+        return new Analysis(problems, runs, missing);
     }
 
     public static IReadOnlyList<string> Check(GameFileSystem files, Sod sod) => Analyze(files, sod).Problems;

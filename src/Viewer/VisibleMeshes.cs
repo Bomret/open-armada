@@ -21,4 +21,16 @@ public static class VisibleMeshes
         Walk(root, Transform3D.Identity);
         return found;
     }
+
+    // The box around the meshes, each placed by `frame` times its own transform; null when there are none.
+    public static Aabb? Extent(IEnumerable<(Mesh Mesh, Transform3D Transform)> meshes, Transform3D frame)
+    {
+        Aabb? box = null;
+        foreach (var (mesh, t) in meshes)
+        {
+            var placed = frame * t * mesh.GetAabb();
+            box = box?.Merge(placed) ?? placed;
+        }
+        return box;
+    }
 }

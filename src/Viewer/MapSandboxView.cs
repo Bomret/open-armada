@@ -150,7 +150,8 @@ public partial class MapSandboxView : Node3D
     {
         var node = Instance(files, builder, team, model, 0);
         if (node == null) return;
-        var box = Extent(node);
+        // The box in the model's own frame; a model without visible meshes gets a unit box.
+        var box = VisibleMeshes.Extent(VisibleMeshes.Of(node), Transform3D.Identity) ?? new Aabb(-Vector3.One, Vector3.One * 2);
         var inside = box.Position.X < 0 && box.Position.Y < 0 && box.Position.Z < 0 && box.End.X > 0 && box.End.Y > 0 && box.End.Z > 0;
         var shift = inside ? Vector3.Zero : -box.GetCenter();
         box.Position += shift;
@@ -166,14 +167,6 @@ public partial class MapSandboxView : Node3D
         _background = node;
         _backgroundOffset = shift * scale;
         _camera = camera;
-    }
-
-    // The box around the visible meshes of the model, in the root's own frame (the root's transform left out).
-    static Aabb Extent(Node3D root)
-    {
-        Aabb? box = null;
-        foreach (var (mesh, t) in VisibleMeshes.Of(root)) box = box?.Merge(t * mesh.GetAabb()) ?? t * mesh.GetAabb();
-        return box ?? new Aabb(-Vector3.One, Vector3.One * 2);
     }
 
     // Prints the gaps and shows them on a label with their count, or a problem in place of the scene.

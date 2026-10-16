@@ -147,16 +147,8 @@ public partial class UnitSelection : Node3D
     }
 
     // The box around the object's visible meshes in world space; null when it has none.
-    static Aabb? Extent(Node3D node)
-    {
-        Aabb? box = null;
-        foreach (var (mesh, t) in VisibleMeshes.Of(node).Where(m => m.Mesh is not TorusMesh)) // the selection ring is no part of the model
-        {
-            var world = node.GlobalTransform * t * mesh.GetAabb();
-            box = box?.Merge(world) ?? world;
-        }
-        return box;
-    }
+    static Aabb? Extent(Node3D node) => // the selection ring is no part of the model
+        VisibleMeshes.Extent(VisibleMeshes.Of(node).Where(m => m.Mesh is not TorusMesh), node.GlobalTransform);
 
     static System.Numerics.Vector2 ToNumerics(Vector2 v) => new(v.X, v.Y);
 

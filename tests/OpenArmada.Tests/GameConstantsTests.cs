@@ -63,6 +63,19 @@ public class GameConstantsTests
     }
 
     [TestMethod]
+    public void AnExponentFormIsPartOfTheLiteral()
+    {
+        var c = Read("float BIG = 1e3;", "float SMALL = 1.0e-3f;", "float NEG = -2.5E+2F;");
+        Assert.IsTrue(c.TryNumber("BIG", out var big, out _));
+        Assert.AreEqual(1000.0, big);
+        Assert.IsTrue(c.TryNumber("SMALL", out var small, out _));
+        Assert.AreEqual(0.001, small);
+        Assert.IsTrue(c.TryNumber("NEG", out var neg, out _));
+        Assert.AreEqual(-250.0, neg);
+        Assert.AreEqual(0, c.Notes.Count);
+    }
+
+    [TestMethod]
     public void ADefineExpressionIsKeptAsTextWithANote()
     {
         var c = Read("#define X (1+2)");

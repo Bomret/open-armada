@@ -33,6 +33,16 @@ public class GameConstantsKindTests
     }
 
     [TestMethod]
+    public void AFileReachedOnlyThroughTheIndexIsFoundAndLoaded()
+    {
+        var zix = "000001\n0 d:\\x x 'Disc\n----\nDIR: misc\n----\n1 RTS_CFG.h\n";
+        var files = Install(("startrek.zix", zix), ("misc/RTS_CFG.h", "float A = 7.0;\n"));
+        CollectionAssert.AreEqual(new[] { "RTS_CFG.h" }, new GameConstantsKind().Enumerate(files).ToArray());
+        Assert.IsTrue(GameConstantsKind.Of(files).TryNumber("A", out var a, out _));
+        Assert.AreEqual(7.0, a);
+    }
+
+    [TestMethod]
     public void AnOverrideCopyAloneIsListed()
     {
         var files = Install(("addon/RTS_CFG.h", "float A = 5.0;\n"));

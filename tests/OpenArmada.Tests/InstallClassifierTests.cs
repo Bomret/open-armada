@@ -65,7 +65,26 @@ public class InstallClassifierTests
     public void VideoHelpAiCodeInstallNetworkAndCopyProtectionAreOutOfScope(string entry) =>
         Assert.AreEqual(FileClass.OutOfScope, ClassOf(entry));
 
+    // The files a GOG install or its unpacked installer adds beside the game.
     [TestMethod]
+    [DataRow("__redist/DirectX/DXSETUP.exe")]
+    [DataRow("__support/add/gameux.cmd")]
+    [DataRow("commonappdata/GOG.com/supportInstaller/uninstall.dll")]
+    [DataRow("tmp/GOG200.png")]
+    [DataRow("app/webcache.zip")]
+    [DataRow("goggame-1582325353.info")]
+    [DataRow("ipxwrapper-readme.txt")]
+    [DataRow("firewall_u.cmd")]
+    [DataRow("directplay-win64.reg")]
+    [DataRow("dxcfg.ini")]
+    [DataRow("ScrnThms")]
+    [DataRow("Dcphr")]
+    [DataRow("Manual.pdf")]
+    public void GogInstallerAndWrapperFilesAreOutOfScope(string entry) =>
+        Assert.AreEqual(FileClass.OutOfScope, ClassOf(entry));
+
+    [TestMethod]
+    [DataRow("ARMADA.PRF")]
     [DataRow("misc/moon.alb")]
     [DataRow("misc/usrmsn01.trn")]
     [DataRow("giddi/joystick.std")]

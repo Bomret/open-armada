@@ -8,7 +8,18 @@ Status: prototype. A map sandbox opens one map as a live 3D scene. An asset brow
 
 - Godot 4.7 .NET build (`brew install --cask godot-mono`)
 - .NET SDK 10 (pinned in `global.json`; the project targets `net8.0`)
-- An installed copy of Star Trek: Armada
+- An installed copy of Star Trek: Armada, or its GOG installer unpacked as described below
+
+## Use the GOG installer
+
+The GOG installer is an Inno Setup file. `innoextract` unpacks it on macOS or Linux without running it:
+
+```sh
+brew install innoextract   # or your package manager on Linux
+innoextract -m -d "/path/to/Star Trek - Armada" "setup_star_trektm_armada_1.2_rdna_fix_(52907).exe"
+```
+
+`-m` skips the installer's temporary files. The game files land at the root of the `-d` folder; pass that folder as `--game`. The asset check classifies the files GOG adds beside the game as out of scope.
 
 ## Run the asset browser
 

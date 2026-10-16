@@ -9,7 +9,8 @@ where one performs the operation, `tea api` where none does.
 - **Owner / repo**: `bomret/open-armada`.
 - **Remote**: `origin` (`ssh://git@codeberg.org/bomret/open-armada.git`).
 - **Default PR posture**: `draft` (override: `ready` | `push-only`).
-- **Base branch**: the branch the scope branch was cut from (default `main`).
+- **Base branch**: `main`.
+  Scope branches are cut from it, and their pull requests target it.
 
 ## tea conventions
 

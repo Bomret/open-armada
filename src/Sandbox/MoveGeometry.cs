@@ -31,6 +31,9 @@ public static class MoveGeometry
     // vertex's Z, so the model's +Z bow sits at node-local -Z and points along -axisZ in the world.
     public static float BowHeading(Vector3 axisZ) => MathF.Atan2(-axisZ.X, -axisZ.Z);
 
+    // The pose of a unit standing where the map placed it: its position, its bow heading, no bank.
+    public static ShipPose PlacedPose(Vector3 position, Vector3 axisZ) => new(position, BowHeading(axisZ), 0);
+
     // The orientation of a ship that started at `initial` and has since changed its heading by `headingChange`
     // and banks by `bank` (ShipMotion's pose). The heading turns about the world's Y; the bank rolls about the
     // ship's own bow axis, node-local -Z, and is negative in a left turn, so the left (-X) wing goes down.

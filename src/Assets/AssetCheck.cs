@@ -11,8 +11,11 @@ public static class AssetCheck
 {
     // Returns the process exit code: 0 when no asset failed, 1 otherwise. Unsupported assets are
     // listed in their own category and do not fail the check. A reader that throws fails only
-    // its own asset (INV-0002); nothing here lets an exception escape.
-    public static int Run(string? game, IEnumerable<AssetKind> kinds, TextWriter output)
+    // its own asset (INV-0002); nothing here lets an exception escape. `decode`, when given, runs
+    // the engine's own decoder on each asset the readers accepted and throws when it rejects the
+    // asset (ADR 0002); the Godot-free tests pass none.
+    public static int Run(string? game, IEnumerable<AssetKind> kinds, TextWriter output,
+        Action<AssetKind, GameFileSystem, string>? decode = null)
     {
         if (string.IsNullOrEmpty(game))
         {
@@ -43,7 +46,11 @@ public static class AssetCheck
             {
                 try
                 {
-                    kind.Check(files, name);
+                    var notes = kind.Check(files, name);
+                    // Notes print before the decoder runs, so a decode failure does not lose them.
+                    foreach (var note in notes) output.WriteLine($"NOTE {kind.Name}/{name}: {note}");
+                    // The game's own decoders run after the readers accepted the file.
+                    decode?.Invoke(kind, files, name);
                     loaded++;
                 }
                 catch (UnsupportedFormatException e)

@@ -10,7 +10,8 @@ namespace OpenArmada.Assets;
 //
 // A bare name (no folder) is searched only in the folders that hold its kind, by extension, first
 // match wins: ".tga" in the full-color texture folder before the 8-bit one, ".sod" in the main
-// model folder before its software-renderer copies. Any other bare name is not found.
+// model folder before its software-renderer copies, ".pal" in the install root before the texture
+// folder, ".bmp" in the install root (splash.bmp). Any other bare name is not found.
 //
 // Archives and the override layer (issue #2) plug in at Resolve: the sources are tried in order
 // there, and List and Inventory gather from the same sources.
@@ -18,6 +19,8 @@ public sealed class GameFileSystem
 {
     static readonly string[][] TextureFolders = { new[] { "Textures", "RGB" }, new[] { "Textures", "Index8" } };
     static readonly string[][] ModelFolders = { new[] { "SOD" }, new[] { "SOD", "Software" } };
+    static readonly string[][] PaletteFolders = { Array.Empty<string>(), new[] { "Textures", "RGB" } };
+    static readonly string[][] RootFolder = { Array.Empty<string>() };
 
     readonly string Root;
     readonly Dictionary<string, Dictionary<string, string>> _entries = new(StringComparer.Ordinal);
@@ -42,6 +45,8 @@ public sealed class GameFileSystem
         {
             ".tga" => TextureFolders,
             ".sod" => ModelFolders,
+            ".pal" => PaletteFolders,
+            ".bmp" => RootFolder,
             _ => Array.Empty<string[]>(),
         };
         foreach (var folder in folders)

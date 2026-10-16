@@ -112,17 +112,23 @@ public sealed class SodBuilder
         if (name.Length == 0 || name.Equals("noIcon", System.StringComparison.OrdinalIgnoreCase)) return null;
         if (_textures.TryGetValue(name, out var cached)) return cached;
         Texture2D? tex = null;
-        // The file system prefers full-color textures; some ship only as 8-bit palette TGAs.
-        if (_files.Find(name + ".tga") is { } path)
+        // Textures come through the textures kind: full-color wins over 8-bit palette TGAs.
+        try
         {
+            // Base level only: a bad mip level must not leave the model untextured.
+            var asset = new TextureKind().LoadBase(_files, name + ".tga");
             var image = new Image();
-            if (image.LoadTgaFromBuffer(File.ReadAllBytes(path)) == Error.Ok)
+            if (image.LoadTgaFromBuffer(asset.Data) == Error.Ok)
             {
                 image.GenerateMipmaps();
                 tex = ImageTexture.CreateFromImage(image);
             }
         }
-        if (tex == null) GD.Print($"texture '{name}' not in install, rendering untextured");
+        catch (System.Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException)
+        {
+            GD.Print($"texture '{name}': {e.Message}");
+        }
+        if (tex == null) GD.Print($"texture '{name}' not loaded, rendering untextured");
         return _textures[name] = tex;
     }
 

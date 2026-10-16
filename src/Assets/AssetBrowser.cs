@@ -49,11 +49,19 @@ public sealed class AssetBrowser
         }
     }
 
-    // Index of the named asset in Assets, ignoring case; -1 when absent.
-    public int IndexOf(string name)
+    // The --model entrance: selects the kind named "models", whatever its position, and returns the
+    // index in Assets of the model `name` (with or without ".sod", any case); -1 when the install
+    // has no models kind (the selection is left alone) or the model is absent.
+    public int SelectModel(string name)
     {
+        int kind = -1;
+        for (int i = 0; i < Kinds.Count; i++)
+            if (Kinds[i].Name == "models") kind = i;
+        if (kind < 0) return -1;
+        SelectKind(kind);
         for (int i = 0; i < Assets.Count; i++)
-            if (Assets[i].Equals(name, StringComparison.OrdinalIgnoreCase)) return i;
+            if (Assets[i].Equals(name, StringComparison.OrdinalIgnoreCase) ||
+                Assets[i].Equals(name + ".sod", StringComparison.OrdinalIgnoreCase)) return i;
         return -1;
     }
 

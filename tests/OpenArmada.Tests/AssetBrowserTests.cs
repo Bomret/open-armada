@@ -89,11 +89,28 @@ public class AssetBrowserTests
     }
 
     [TestMethod]
-    public void IndexOf_finds_an_asset_without_regard_to_case()
+    public void SelectModel_selects_the_models_kind_even_when_another_kind_sorts_first()
     {
-        var b = Open(new FakeKind("models", "Fente", "Other"));
-        Assert.AreEqual(0, b.IndexOf("fente"));
-        Assert.AreEqual(-1, b.IndexOf("nope"));
+        var b = Open(new FakeKind("audio", "fente.wav"), new FakeKind("models", "Fente.sod", "Other.sod"));
+        Assert.AreEqual("audio", b.Kind!.Name);
+        Assert.AreEqual(0, b.SelectModel("fente"));
+        Assert.AreEqual("models", b.Kind!.Name);
+        Assert.AreEqual("Fente.sod", b.Assets[0]);
+    }
+
+    [TestMethod]
+    public void SelectModel_matches_with_or_without_extension_in_any_case()
+    {
+        var b = Open(new FakeKind("models", "Fente.sod", "Other.sod"));
+        Assert.AreEqual(1, b.SelectModel("OTHER.sod"));
+        Assert.AreEqual(1, b.SelectModel("other"));
+    }
+
+    [TestMethod]
+    public void SelectModel_returns_minus_one_when_the_model_or_the_kind_is_absent()
+    {
+        Assert.AreEqual(-1, Open(new FakeKind("models", "Fente.sod")).SelectModel("nope"));
+        Assert.AreEqual(-1, Open(new FakeKind("audio", "a")).SelectModel("a"));
     }
 
     [TestMethod]

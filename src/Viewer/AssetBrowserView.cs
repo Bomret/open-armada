@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using OpenArmada.Assets;
 
@@ -47,7 +48,7 @@ public partial class AssetBrowserView : Control
 
         _screenshot = Arg("--screenshot");
         _browser = AssetBrowser.Open(game, AssetKind.Discover());
-        _previews = KindPreview.Discover();
+        _previews = KindPreview.Discover(_browser.Kinds.Select(k => k.Name), out var previewProblems);
 
         var split = new HSplitContainer();
         split.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -58,6 +59,12 @@ public partial class AssetBrowserView : Control
         _assets = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
         left.AddChild(_kinds);
         left.AddChild(_assets);
+        if (previewProblems.Count > 0)
+        {
+            var text = string.Join("\n", previewProblems);
+            GD.PrintErr(text);
+            left.AddChild(new Label { Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart });
+        }
         _pane = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         split.AddChild(_pane);
         _message = new Label
@@ -76,18 +83,19 @@ public partial class AssetBrowserView : Control
             return;
         }
         foreach (var kind in _browser.Kinds) _kinds.AddItem(kind.Name);
-        _kinds.ItemSelected += i => { _browser.SelectKind((int)i); FillAssets(null); };
+        _kinds.ItemSelected += i => { _browser.SelectKind((int)i); FillAssets(-1); };
         _assets.ItemSelected += i => ShowAsset((int)i);
-        if (_browser.Kinds.Count > 0)
+        if (_browser.Kind != null) // the browser selects the first kind when there is one
         {
-            _kinds.Select(0);
-            FillAssets(Arg("--model"));
+            var model = Arg("--model");
+            int wanted = model == null ? -1 : _browser.SelectModel(model);
+            _kinds.Select(Array.IndexOf(_browser.Kinds.ToArray(), _browser.Kind));
+            FillAssets(wanted);
         }
     }
 
-    // Lists the selected kind's assets and selects `wanted` (a name, with or without extension) or
-    // else the first.
-    void FillAssets(string? wanted)
+    // Lists the selected kind's assets and selects the one at `wanted`, or else the first.
+    void FillAssets(int wanted)
     {
         _assets.Clear();
         foreach (var name in _browser.Assets) _assets.AddItem(name);
@@ -96,8 +104,7 @@ public partial class AssetBrowserView : Control
             ShowMessage(_browser.Notice ?? $"no {_browser.Kind!.Name} in this install");
             return;
         }
-        int index = wanted == null ? -1 : Math.Max(_browser.IndexOf(wanted), _browser.IndexOf(wanted + ".sod"));
-        index = Math.Max(0, index);
+        int index = Math.Max(0, wanted);
         _assets.Select(index);
         _assets.EnsureCurrentIsVisible();
         ShowAsset(index);
@@ -114,10 +121,13 @@ public partial class AssetBrowserView : Control
     {
         var kind = _browser.Kind!;
         var name = _browser.Assets[index];
+        if (!_previews.TryGetValue(kind.Name, out var preview))
+        {
+            ShowMessage($"no preview for {kind.Name}");
+            return;
+        }
         try
         {
-            if (!_previews.TryGetValue(kind.Name, out var preview))
-                throw new NotSupportedException($"no preview for {kind.Name}");
             var control = preview.Create(_browser.Files!, kind, name);
             ShowMessage("");
             _pane.AddChild(control);

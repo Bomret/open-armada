@@ -49,6 +49,68 @@ public class CrossReferenceTests
     }
 
     [TestMethod]
+    public void DefinitionNamesAMissingDbNameParticleArtAndWorkerBeeModel()
+    {
+        var fs = Install(("addon/d.odf", "dbName = \"nodb\"\r\nparticleArt = \"noart\"\r\nworkerBeeName = \"nobee\"\r\n"),
+            ("addon/e.odf", "dbName = \"here\"\r\nparticleArt = \"here\"\r\nworkerBeeName = \"here\"\r\n"), ("SOD/here.sod", Model("")));
+        CollectionAssert.AreEquivalent(new[] { "nodb", "noart", "nobee" }, new DefinitionKind().Unresolved(fs, "d.odf").ToArray());
+        Assert.AreEqual(0, new DefinitionKind().Unresolved(fs, "e.odf").Count);
+    }
+
+    [TestMethod]
+    public void ShotGeometryWithASodSuffixResolves()
+    {
+        var fs = Install(("addon/d.odf", "shotGeometry = \"here.sod\"\r\n"), ("SOD/here.sod", Model("")));
+        Assert.AreEqual(0, new DefinitionKind().Unresolved(fs, "d.odf").Count);
+    }
+
+    [TestMethod]
+    public void SoundInASoundsSubfolderWithNoIndexEntryResolves()
+    {
+        var fs = Install(("addon/d.odf", "fireSound = \"x.wav\"\r\nhitSound = \"gone.wav\"\r\n"), ("sounds/effects/x.wav", ""));
+        CollectionAssert.AreEqual(new[] { "gone.wav" }, new DefinitionKind().Unresolved(fs, "d.odf").ToArray());
+    }
+
+    [TestMethod]
+    public void MissingParentIsAnUnresolvedReferenceAndTheDefinitionStillResolves()
+    {
+        var root = temp.MakeInstall(("addon/c.odf", "#include \"gone.odf\"\r\nbaseName = \"nomodel\"\r\n"));
+        var w = new StringWriter();
+        var code = AssetCheck.Run(root, new AssetKind[] { new DefinitionKind() }, w);
+        var output = w.ToString();
+        StringAssert.Contains(output, "UNRESOLVED definitions/c.odf: gone.odf");
+        StringAssert.Contains(output, "UNRESOLVED definitions/c.odf: nomodel");
+        Assert.AreEqual(0, code, output);
+    }
+
+    [TestMethod]
+    public void IncludeCycleStillFailsTheDefinition()
+    {
+        var root = temp.MakeInstall(("addon/a.odf", "#include \"b.odf\"\r\n"), ("addon/b.odf", "#include \"a.odf\"\r\n"));
+        var w = new StringWriter();
+        Assert.AreEqual(1, AssetCheck.Run(root, new AssetKind[] { new DefinitionKind() }, w), w.ToString());
+    }
+
+    [TestMethod]
+    public void ChildInheritingAMissingModelAndAMissingParentIsReportedOnTheParentOnly()
+    {
+        var fs = Install(("addon/p.odf", "#include \"gone.odf\"\r\nbaseName = \"nomodel\"\r\n"), ("addon/c.odf", "#include \"p.odf\"\r\n"));
+        CollectionAssert.AreEquivalent(new[] { "gone.odf", "nomodel" }, new DefinitionKind().Unresolved(fs, "p.odf").ToArray());
+        Assert.AreEqual(0, new DefinitionKind().Unresolved(fs, "c.odf").Count);
+    }
+
+    [TestMethod]
+    public void ModelMissingAnimationAndSpriteMissingTextureAreEachPrintedOnce()
+    {
+        var root = temp.MakeInstall(("SOD/m.sod", Model("", (4, "hull", "spin", 0f))), ("Sprites/t.spr", "sprite_table\n@reference=128\na gone 0 0 32 32\n"));
+        var w = new StringWriter();
+        AssetCheck.Run(root, new AssetKind[] { new ModelKind(), new SpriteTableKind() }, w);
+        var lines = w.ToString().Split('\n');
+        Assert.AreEqual(1, lines.Count(l => l.Contains("'spin'") || l.Contains(": spin")), w.ToString());
+        Assert.AreEqual(1, lines.Count(l => l.Contains("'gone'") || l.Contains(": gone")), w.ToString());
+    }
+
+    [TestMethod]
     public void DefinitionVisualResolvesAsATextureOrASprite()
     {
         var fs = Install(("addon/d.odf", "smokeTexture = \"puff\"\r\ntexture = \"flash\"\r\nSprite = \"nowhere\""),

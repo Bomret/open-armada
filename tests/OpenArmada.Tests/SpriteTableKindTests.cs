@@ -49,20 +49,11 @@ public class SpriteTableKindTests
     }
 
     [TestMethod]
-    public void MissingTextureIsANoteNamingTheSprite()
+    public void MissingTextureIsUnresolvedOnceAndNoNote()
     {
-        var files = Install(("Sprites/a.spr", Head + "here t_ok 0 0 1 1\nlost t_gone 0 0 1 1\n"), ("Textures/RGB/t_ok.tga", "x"));
-        var notes = new SpriteTableKind().Check(files, "Sprites/a.spr");
-        Assert.AreEqual(1, notes.Count);
-        StringAssert.Contains(notes[0], "lost");
-        StringAssert.Contains(notes[0], "t_gone");
-    }
-
-    [TestMethod]
-    public void ANoteIsListedOncePerMissingTexturePerSprite()
-    {
-        var files = Install(("Sprites/a.spr", Head + "s1 gone 0 0 1 1\ns2 gone 0 0 1 1\n"));
-        Assert.AreEqual(2, new SpriteTableKind().Check(files, "Sprites/a.spr").Count);
+        var files = Install(("Sprites/a.spr", Head + "here t_ok 0 0 1 1\nlost t_gone 0 0 1 1\nlost2 t_gone 0 0 1 1\n"), ("Textures/RGB/t_ok.tga", "x"));
+        Assert.AreEqual(0, new SpriteTableKind().Check(files, "Sprites/a.spr").Count);
+        CollectionAssert.AreEqual(new[] { "t_gone" }, new SpriteTableKind().Unresolved(files, "Sprites/a.spr").ToArray());
     }
 
     [TestMethod]

@@ -47,15 +47,13 @@ public sealed class SpriteTableKind : AssetKind
     public override IReadOnlyList<string> Unresolved(GameFileSystem files, string name) =>
         AssetReferences.Missing(((SpriteTable)Load(files, name)).Sprites.Select(s => s.Texture), n => AssetReferences.HasTexture(files, n));
 
-    // One note per sprite whose texture (a .tga) the install lacks, one per sprite whose @tmaterial is no
-    // render type the engine draws, then the table's own notes.
+    // One note per sprite whose @tmaterial is no render type the engine draws, then the table's own notes.
+    // A missing texture is left out; Unresolved lists it.
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var table = (SpriteTable)Load(files, name);
-        return table.Sprites.Where(s => files.Find(s.Texture + ".tga") is null)
-            .Select(s => $"{s.Table}:{s.Line}: sprite '{s.Name}': texture '{s.Texture}' not found")
-            .Concat(table.Sprites.Where(s => s.Material != null && !ModelRules.IsRenderType(s.Material))
-                .Select(s => $"{s.Table}:{s.Line}: sprite '{s.Name}': texture material '{s.Material}' is not a render type the engine knows"))
+        return table.Sprites.Where(s => s.Material != null && !ModelRules.IsRenderType(s.Material))
+            .Select(s => $"{s.Table}:{s.Line}: sprite '{s.Name}': texture material '{s.Material}' is not a render type the engine knows")
             .Concat(table.Notes).ToList();
     }
 }

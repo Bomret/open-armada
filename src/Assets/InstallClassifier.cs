@@ -53,7 +53,7 @@ public static class InstallClassifier
             "bzn" when depth == 2 && ext == ".bmp" => Loaded("bitmaps"),
             "3d_paths" when depth == 2 && ext == ".pth" => Loaded("scripted paths"),
             "sounds" when ext == ".wav" => Loaded("sounds"),
-            "cursors" when depth == 2 && ext == ".cur" => Loaded("cursors"),
+            "cursors" when ext == ".cur" => Loaded("cursors"),
             "misc" when depth == 2 => Misc(parts[1], ext),
             "giddi" when depth == 2 && ext == ".std" => Known("input device maps"),
             "addon" => Addon(parts, ext),

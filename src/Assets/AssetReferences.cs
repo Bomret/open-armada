@@ -12,9 +12,9 @@ internal static class AssetReferences
     internal static bool HasTexture(GameFileSystem files, string name) =>
         files.Find(name.EndsWith(".tga", StringComparison.OrdinalIgnoreCase) ? name : name + ".tga") != null;
 
-    // A sprite of any table of the install.
-    internal static bool HasSprite(GameFileSystem files, string name) =>
-        new SpriteTableKind().Tables(files).Any(t => t.Sprites.Any(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
+    // The names of the sprites of every table of the install.
+    internal static HashSet<string> SpriteNames(GameFileSystem files) =>
+        new SpriteTableKind().Tables(files).SelectMany(t => t.Sprites.Select(s => s.Name)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     // The names in `names` that `resolves` rejects, each once, in first-seen order.
     internal static IReadOnlyList<string> Missing(IEnumerable<string> names, Func<string, bool> resolves) =>

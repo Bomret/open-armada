@@ -26,5 +26,7 @@ public sealed class ModelKind : AssetKind
     }
 
     // What the model holds that the engine cannot draw as the data says (ModelRules.Check): notes, no failure.
-    public override IReadOnlyList<string> Check(GameFileSystem files, string name) => ModelRules.Check(files, (Sod)Load(files, name));
+    // A missing animation is left out; Unresolved lists it.
+    public override IReadOnlyList<string> Check(GameFileSystem files, string name) =>
+        ModelRules.Check(files, (Sod)Load(files, name)).Where(p => !p.EndsWith(ModelRules.InNoSpriteTable)).ToList();
 }

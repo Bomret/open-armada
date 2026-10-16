@@ -170,6 +170,10 @@ public static class ModelRules
     // the referenced name).
     public sealed record Analysis(IReadOnlyList<string> Problems, IReadOnlyList<(Sod.Node Node, TextureAnimation Flipbook)> Runs);
 
+    // The end of the problem line of an animation no sprite table holds; ModelKind lists that animation as
+    // an unresolved reference instead.
+    public const string InNoSpriteTable = " is in no sprite table";
+
     public static Analysis Analyze(GameFileSystem files, Sod sod)
     {
         var problems = new List<string>(sod.Problems);
@@ -199,7 +203,7 @@ public static class ModelRules
             string? why = null;
             if (anim != null) flipbook = Animation(anim, r.Offset, out why);
             if (targets.Count == 0) problems.Add($"animation '{r.Animation}' names the node '{r.Node}', which is no mesh node of the model");
-            else if (anim == null) problems.Add($"animation '{r.Animation}' of node '{r.Node}' is in no sprite table");
+            else if (anim == null) problems.Add($"animation '{r.Animation}' of node '{r.Node}'{InNoSpriteTable}");
             else if (flipbook == null) problems.Add($"node '{r.Node}': {why}");
             else runs.AddRange(targets.Select(t => (t, flipbook)));
         }

@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
@@ -78,6 +79,34 @@ public class InstallClassifierTests
         string[] chain = { "Textures/RGB/a.tga", "Textures/RGB/a.1", "Textures/RGB/a.2", "Textures/RGB/a.4" };
         Assert.AreEqual(FileClass.Loaded, ClassOf("Textures/RGB/a.2", chain));
         Assert.AreEqual(FileClass.KnownNotLoaded, ClassOf("Textures/RGB/a.4", chain));
+    }
+
+    // The classifier's Loaded rules repeat each kind's file scope; on an install holding files in and
+    // beside every scope, the two agree on which files load.
+    [TestMethod]
+    public void LoadedEntriesAreExactlyTheFilesTheKindsEnumerate()
+    {
+        var temp = new TempInstall();
+        try
+        {
+            string[] files =
+            {
+                "SOD/a.sod", "SOD/Software/b.sod", "SOD/sub/c.sod", "SOD/readme.txt",
+                "Textures/RGB/t.tga", "Textures/Index8/u.tga", "Textures/RGB/sub/v.tga", "Textures/RGB/pal1.pal", "Armada.pal",
+                "Sprites/s.spr", "Sprites/sub/w.spr", "Sprites/x.txt",
+                "bitmaps/ms/m.bmp", "bzn/k.bzn", "bzn/n.bmp", "bzn/o.xyz", "splash.bmp", "other.bmp",
+                "sounds/music/e.wav", "sounds/f.wav", "wav/g.wav",
+                "cursors/c.cur", "cursors/sub/d.cur", "misc/gui_a.cfg", "misc/other.cfg",
+                "l.map", "l.set", "l.ldl", "l.fnt", "addon/h.odf", "addon/sub/i.odf", "events.odf", "j.odf",
+            };
+            var fs = new GameFileSystem(temp.MakeInstall(files.Select(f => (f, "")).ToArray()));
+            string Bare(string e) => e[(Math.Max(e.LastIndexOf('/'), e.LastIndexOf(':')) + 1)..].ToLowerInvariant();
+            var inFixture = files.Select(Bare).ToHashSet();
+            var enumerated = AssetKind.Discover().Where(k => k.GetType().Namespace == "OpenArmada.Assets").SelectMany(k => k.Enumerate(fs)).Select(Bare).Where(inFixture.Contains).ToHashSet();
+            var loaded = InstallClassifier.Classify(fs.Inventory()).Where(c => c.Class == FileClass.Loaded).Select(c => Bare(c.Entry)).ToHashSet();
+            Assert.AreEqual(string.Join(" ", enumerated.Order()), string.Join(" ", loaded.Order()));
+        }
+        finally { temp.CleanUp(); }
     }
 
     [TestMethod]

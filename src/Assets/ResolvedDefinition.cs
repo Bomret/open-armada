@@ -34,6 +34,8 @@ public sealed class ResolvedDefinition
     readonly List<string> _chain = new();
     readonly List<string> _problems = new();
     readonly List<string> _notes = new();
+    readonly HashSet<string> _missing = new();
+    readonly List<string> _missingOwn = new();
     readonly Dictionary<string, (int Depth, IReadOnlyList<string> Includes)> _cut = new(StringComparer.OrdinalIgnoreCase);
 
     ResolvedDefinition(string name) => Name = name;
@@ -49,6 +51,13 @@ public sealed class ResolvedDefinition
     // One line per fault of the chain: an include that is missing or cannot be read, an include cycle,
     // a chain too deep. A line appears once, however many walks reach the fault.
     public IReadOnlyList<string> Problems => _problems;
+
+    // The Problems that make the definition fail: all but a missing include, which is an unresolved
+    // reference (AssetKind.Unresolved).
+    public IReadOnlyList<string> Failures => _problems.Where(p => !_missing.Contains(p)).ToList();
+
+    // The includes of this definition's own file that are missing, as the file names them.
+    public IReadOnlyList<string> MissingOwnIncludes => _missingOwn;
 
     // "<definition>: line N: reason" per line a definition of the chain holds that the reader does not
     // recognize (the game's own files have a few). Such a line is left out of the values.
@@ -90,9 +99,14 @@ public sealed class ResolvedDefinition
         try { bytes = files.ReadAllBytes(name); }
         catch (Exception e) when (path.Count > 0 && e is IOException or UnauthorizedAccessException or UnsupportedFormatException or InvalidDataException)
         {
-            AddProblem(e is FileNotFoundException
-                ? $"include '{name}' not found (included by {path[^1]})"
-                : $"include '{name}' cannot be read (included by {path[^1]}): {e.Message}");
+            if (e is FileNotFoundException)
+            {
+                var problem = $"include '{name}' not found (included by {path[^1]})";
+                AddProblem(problem);
+                _missing.Add(problem);
+                if (path.Count == 1) _missingOwn.Add(name);
+            }
+            else AddProblem($"include '{name}' cannot be read (included by {path[^1]}): {e.Message}");
             return false;
         }
         var odf = Odf.Parse(Windows1252.Encoding.GetString(bytes));

@@ -3,14 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
 // The asset browser: categories, the assets of the selected category, and a preview of the selected
 // asset.
 //   godot-mono --path . -- --game <Armada dir> [--model Fente] [--screenshot out.png]
+//   godot-mono --path . -- --game <Armada dir> --map <name> [--screenshot out.png]   (the map sandbox)
 //   godot-mono --headless --path . -- --check --game <Armada dir>
-// The game dir can also come from the ARMADA_DIR environment variable.
+// The game dir can also come from the ARMADA_DIR environment variable. `--check` wins over `--map`.
 public partial class AssetBrowserView : Control
 {
     AssetBrowser _browser = null!;
@@ -24,15 +26,11 @@ public partial class AssetBrowserView : Control
 
     public override void _Ready()
     {
-        var args = OS.GetCmdlineUserArgs();
-        string? Arg(string name)
-        {
-            int i = Array.IndexOf(args, name);
-            return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
-        }
-
-        var game = Arg("--game") ?? System.Environment.GetEnvironmentVariable("ARMADA_DIR");
-        if (Array.IndexOf(args, "--check") >= 0)
+        var args = new LaunchArgs(OS.GetCmdlineUserArgs());
+        var game = args.Value("--game") ?? System.Environment.GetEnvironmentVariable("ARMADA_DIR");
+        _screenshot = args.Value("--screenshot");
+        var model = args.Value("--model");
+        if (args.Has("--check"))
         {
             // A Godot callback exception does not set the exit code, so the check owns it.
             int code;
@@ -46,7 +44,17 @@ public partial class AssetBrowserView : Control
             return;
         }
 
-        _screenshot = Arg("--screenshot");
+        if (args.Has("--map"))
+        {
+            var map = args.Value("--map");
+            // The sandbox saves the screenshot; the browser's own _Process must not.
+            // This full-window Control would stop every mouse event in the GUI pass, so the sandbox's
+            // _UnhandledInput (selection, move orders) would never see a click.
+            MouseFilter = MouseFilterEnum.Ignore;
+            AddChild(new MapSandboxView(MapSandbox.Open(game, map, args.Problems), _screenshot));
+            _screenshot = null;
+            return;
+        }
         var registered = AssetKind.Discover();
         _browser = AssetBrowser.Open(game, registered);
         _previews = KindPreview.Discover(registered.Select(k => k.Name), out var previewProblems);
@@ -60,9 +68,10 @@ public partial class AssetBrowserView : Control
         _assets = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
         left.AddChild(_kinds);
         left.AddChild(_assets);
-        if (previewProblems.Count > 0)
+        var startProblems = previewProblems.Concat(args.Problems).ToList();
+        if (startProblems.Count > 0)
         {
-            var text = string.Join("\n", previewProblems);
+            var text = string.Join("\n", startProblems);
             GD.PrintErr(text);
             left.AddChild(new Label { Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart });
         }
@@ -88,7 +97,6 @@ public partial class AssetBrowserView : Control
         _assets.ItemSelected += i => ShowAsset((int)i);
         if (_browser.Kind != null) // the browser selects the first kind when there is one
         {
-            var model = Arg("--model");
             int wanted = model == null ? -1 : _browser.SelectModel(model);
             _kinds.Select(Array.IndexOf(_browser.Kinds.ToArray(), _browser.Kind));
             FillAssets(wanted);

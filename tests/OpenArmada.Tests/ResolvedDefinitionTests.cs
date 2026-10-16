@@ -92,6 +92,17 @@ public class ResolvedDefinitionTests
     }
 
     [TestMethod]
+    public void WholeNumberWrittenAsFloatIsAnInteger()
+    {
+        var def = Resolve("a.odf", ("a.odf", "a = 1.0\r\nb = 1f\r\nc = -2.0f\r\nd = 1.5"));
+        Assert.AreEqual(1, def.GetInt("a"));
+        Assert.AreEqual(1, def.GetInt("b"));
+        Assert.AreEqual(-2, def.GetInt("c"));
+        var e = Assert.ThrowsExactly<DefinitionException>(() => def.GetInt("d"));
+        StringAssert.Contains(e.Message, "is not an integer: 1.5");
+    }
+
+    [TestMethod]
     public void ListsStringsAndFloatsAsTheGameWritesThem()
     {
         var def = Resolve("a.odf", ("a.odf", "c = 1.0 0.5f 0\r\nn = \"a b\" \"c\"\r\ntitle = \"Star Base\"\r\nwhen = 2.0f // s"));

@@ -243,6 +243,14 @@ public class ModelCheckTests
     }
 
     [TestMethod]
+    public void TeamColorOfAnUnknownSlotFailsNamingTheSlot()
+    {
+        var team = TeamColors.Load(Install(("addon/teamcolor.odf", "red = 1 0 0\n")));
+        var e = Assert.ThrowsExactly<KeyNotFoundException>(() => team.Color("plaid"));
+        StringAssert.Contains(e.Message, "team-color slot 'plaid'");
+    }
+
+    [TestMethod]
     public void TeamColorsListTheGamesSlotsInTableOrder()
     {
         Assert.AreEqual(27, TeamColors.SlotNames.Count);

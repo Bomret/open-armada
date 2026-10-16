@@ -23,7 +23,6 @@ public sealed class TeamColors
     readonly Dictionary<string, Vector3> _colors = new(StringComparer.OrdinalIgnoreCase);
     readonly List<string> _notes = new();
 
-    public IReadOnlyList<string> Names => SlotNames;
     public IReadOnlyList<string> Notes => _notes;
 
     public Vector3 Color(string slot) => _colors[slot];
@@ -37,9 +36,11 @@ public sealed class TeamColors
         foreach (var name in SlotNames)
         {
             var tokens = file?.Find(name)?.Tokens;
+            var color = Vector3.Zero;
+            var valid = tokens != null && TryColor(tokens, out color);
             if (file != null && tokens == null) team._notes.Add($"teamcolor.odf has no color '{name}': black");
-            else if (tokens != null && !TryColor(tokens, out var c)) team._notes.Add($"teamcolor.odf: color '{name}' is not three numbers: black");
-            team._colors[name] = tokens != null && TryColor(tokens, out var color) ? color : Vector3.Zero;
+            else if (tokens != null && !valid) team._notes.Add($"teamcolor.odf: color '{name}' is not three numbers: black");
+            team._colors[name] = valid ? color : Vector3.Zero;
         }
         return team;
     }

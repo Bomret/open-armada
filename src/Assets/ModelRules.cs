@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
@@ -10,7 +11,8 @@ namespace OpenArmada.Assets;
 public enum BlendMode { Opaque, Cutout, Alpha, Add }
 
 // A texture material's draw state. Opacity is 1 - transparency; Nearest is point texture filtering.
-public sealed record BlendState(BlendMode Mode, float Opacity, bool Wireframe = false, bool Nearest = false);
+// AlphaTest drops texels below 128/255 before an Alpha blend (Cutout always does).
+public sealed record BlendState(BlendMode Mode, float Opacity, bool Wireframe = false, bool Nearest = false, bool AlphaTest = false);
 
 // What a model's mesh draws with: its texture (the entry's own for versions before 1.7), the blend
 // state, or the reason the blend is not known. Exactly one of Blend and Problem is set.
@@ -45,24 +47,28 @@ public static class ModelRules
     // Direct3D blend values of old texture material entries.
     const byte Zero = 1, One = 2, SrcAlpha = 5, InvSrcAlpha = 6;
 
-    // The game's named render types (Armada.exe FUN_00589070). `cloaked` has two passes; the first is kept.
+    // The animation reference type the installed models use: a texture flipbook.
+    public const byte AnimationReferenceType = 4;
+
+    // The game's named render types (Armada.exe FUN_00589070) that the reference install's models and
+    // sprite tables use (default, additive, alphathreshold, wormhole, interface, add_nomipf), plus the
+    // spec's translucent, alpha, and wireframe. The game also names default_persp, nofilter, fog, cloaked,
+    // and alpha_nof; no installed file uses them, so one that appears is reported as unknown.
     static readonly Dictionary<string, BlendState> Named = new(StringComparer.OrdinalIgnoreCase)
     {
         ["default"] = new(BlendMode.Opaque, 1f),
-        ["default_persp"] = new(BlendMode.Opaque, 1f),
-        ["nofilter"] = new(BlendMode.Opaque, 1f, Nearest: true),
         ["additive"] = new(BlendMode.Add, 1f),
         ["add_nomipf"] = new(BlendMode.Add, 1f),
         ["translucent"] = new(BlendMode.Alpha, 0.5f),
-        ["fog"] = new(BlendMode.Alpha, 0.7f),
         ["alphathreshold"] = new(BlendMode.Cutout, 1f),
         ["wireframe"] = new(BlendMode.Opaque, 1f, Wireframe: true),
         ["interface"] = new(BlendMode.Cutout, 1f, Nearest: true),
-        ["cloaked"] = new(BlendMode.Alpha, 0.5f),
         ["wormhole"] = new(BlendMode.Alpha, 1f),
         ["alpha"] = new(BlendMode.Alpha, 1f),
-        ["alpha_nof"] = new(BlendMode.Alpha, 1f, Nearest: true),
     };
+
+    // Whether a sprite's or mesh's texture material names a render type the engine draws.
+    public static bool IsRenderType(string name) => Named.ContainsKey(name);
 
     // The texture and blend of a mesh. Versions from 1.7 name the render type; older files name an entry of
     // their own texture material table. The game itself rejects files below 1.4 (Armada.exe FUN_0059b450);
@@ -90,7 +96,7 @@ public static class ModelRules
             _ => null,
         };
         return mode is { } m
-            ? new(entry.Texture, new BlendState(m, opacity, Nearest: entry.Filter == 1), null)
+            ? new(entry.Texture, new BlendState(m, opacity, Nearest: entry.Filter == 1, AlphaTest: m == BlendMode.Alpha), null)
             : new(entry.Texture, null, $"texture material '{entry.Name}' has blend {entry.SrcBlend}/{entry.DstBlend}, which the engine does not know");
     }
 
@@ -119,47 +125,84 @@ public static class ModelRules
     // that name ("borgate"). Null when no sprite table has either.
     public static SpriteAnimation? FindAnimation(GameFileSystem files, string name)
     {
-        var kind = new SpriteTableKind();
-        foreach (var table in kind.Enumerate(files))
-        {
-            SpriteTable t;
-            try { t = (SpriteTable)kind.Load(files, table); }
-            catch (System.IO.InvalidDataException) { continue; }
+        var tables = new SpriteTableKind().Tables(files).ToList();
+        foreach (var t in tables)
             if (t.Animations.TryGetValue(name, out var found)) return found;
+        foreach (var t in tables)
+        {
             var sprite = t.Sprites.FirstOrDefault(s => s.Anim != null && s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (sprite != null && t.Animations.TryGetValue(sprite.Anim!, out found)) return found;
+            if (sprite == null) continue;
+            foreach (var other in tables)
+                if (other.Animations.TryGetValue(sprite.Anim!, out var played)) return played;
         }
         return null;
     }
 
-    // Everything in the model the engine cannot draw as the data says, one line each: what the reader
-    // found, texture materials and lighting models it does not know, and animation references it cannot run.
-    public static IReadOnlyList<string> Check(GameFileSystem files, Sod sod)
+    // Lighting materials are global by name in the game: the first SOD loaded that defines a name supplies
+    // it to every model (Armada.exe FUN_0059bbe0; REA report of the asset-layer scope). The table of the
+    // install's models, built once per install in enumeration order.
+    static readonly ConditionalWeakTable<GameFileSystem, Dictionary<string, Sod.LightingMaterial>> Global = new();
+
+    static Dictionary<string, Sod.LightingMaterial> InstallLightingMaterials(GameFileSystem files)
+    {
+        var table = new Dictionary<string, Sod.LightingMaterial>();
+        var kind = new ModelKind();
+        foreach (var model in kind.Enumerate(files))
+        {
+            try { foreach (var m in ((Sod)kind.Load(files, model)).LightingMaterials) table.TryAdd(m.Name, m); }
+            // A model that cannot be read adds none; its own check reports it.
+            catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException or UnsupportedFormatException or System.IO.InvalidDataException) { }
+        }
+        return table;
+    }
+
+    // The lighting material a group names: the model's own, else the one another model of the install
+    // defines. Null when no model defines it.
+    public static Sod.LightingMaterial? FindLightingMaterial(GameFileSystem files, Sod sod, string name) =>
+        sod.LightingMaterials.FirstOrDefault(l => l.Name == name)
+        ?? (Global.GetValue(files, InstallLightingMaterials).TryGetValue(name, out var found) ? found : null);
+
+    // What a model cannot be drawn as the data says (Problems, one line each: what the reader found,
+    // texture materials, lighting materials and models it does not know, animation references it cannot
+    // run), and the texture animations it does run (Runs: a mesh node and its flipbook, one per node of
+    // the referenced name).
+    public sealed record Analysis(IReadOnlyList<string> Problems, IReadOnlyList<(Sod.Node Node, TextureAnimation Flipbook)> Runs);
+
+    public static Analysis Analyze(GameFileSystem files, Sod sod)
     {
         var problems = new List<string>(sod.Problems);
+        var runs = new List<(Sod.Node, TextureAnimation)>();
+        var unnamed = 0;
         foreach (var n in sod.Nodes.Where(n => n.Mesh != null))
         {
             var look = Look(sod, n.Mesh!);
             if (look.Problem != null) problems.Add($"node '{n.Name}': {look.Problem}");
-            foreach (var g in n.Mesh!.Groups.Select(g => g.Material).Distinct())
+            unnamed += n.Mesh!.Groups.Count(g => g.Material.Length == 0);
+            foreach (var g in n.Mesh!.Groups.Select(g => g.Material).Where(g => g.Length > 0).Distinct())
             {
-                var m = sod.LightingMaterials.FirstOrDefault(l => l.Name == g);
-                if (m != null && Lighting(m) == null) problems.Add($"node '{n.Name}': lighting material '{g}' has model {m.Model}, which the engine does not know");
+                var m = FindLightingMaterial(files, sod, g);
+                if (m == null) problems.Add($"node '{n.Name}': lighting material '{g}' is defined in no model; drawn Lambert white");
+                else if (Lighting(m) == null) problems.Add($"node '{n.Name}': lighting material '{g}' has model byte {m.StoredModel}, which the engine does not know");
             }
         }
+        // The game gives a group without a lighting material its default material (FUN_0058e850); its
+        // values are not decoded, so the engine stands in with Lambert white.
+        if (unnamed > 0) problems.Add($"{unnamed} groups name no lighting material; drawn Lambert white as the engine's stand-in for the game's default material");
         foreach (var r in sod.References)
         {
-            var anim = r.Type == AnimationReferenceType.Texture ? FindAnimation(files, r.Animation) : null;
-            if (r.Type != AnimationReferenceType.Texture) problems.Add($"animation reference to '{r.Node}' has type {r.Type}, which the engine does not know");
+            if (r.Type != AnimationReferenceType) { problems.Add($"animation reference to '{r.Node}' has type {r.Type}, which the engine does not know"); continue; }
+            var targets = sod.Nodes.Where(n => n.Mesh != null && n.Name == r.Node).ToList();
+            var anim = FindAnimation(files, r.Animation);
+            TextureAnimation? flipbook = null;
+            string? why = null;
+            if (anim != null) flipbook = Animation(anim, r.Offset, out why);
+            if (targets.Count == 0) problems.Add($"animation '{r.Animation}' names the node '{r.Node}', which is no mesh node of the model");
             else if (anim == null) problems.Add($"animation '{r.Animation}' of node '{r.Node}' is in no sprite table");
-            else if (Animation(anim, r.Offset, out var why) == null) problems.Add($"node '{r.Node}': {why}");
+            else if (flipbook == null) problems.Add($"node '{r.Node}': {why}");
+            else runs.AddRange(targets.Select(t => (t, flipbook)));
         }
-        return problems;
+        return new Analysis(problems, runs);
     }
-}
 
-// The one animation reference type the installed models use: a texture flipbook.
-public static class AnimationReferenceType
-{
-    public const byte Texture = 4;
+    public static IReadOnlyList<string> Check(GameFileSystem files, Sod sod) => Analyze(files, sod).Problems;
 }

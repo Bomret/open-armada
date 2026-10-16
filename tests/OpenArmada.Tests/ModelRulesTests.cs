@@ -56,10 +56,11 @@ public class ModelRulesTests
     }
 
     [TestMethod]
-    public void OldEntryWithSourceAlphaBlendsByAlphaAtItsOpacity()
+    public void OldEntryWithSourceAlphaBlendsByAlphaAtItsOpacityAndAlphaTests()
     {
+        // The alpha test is on for every entry but one/one (FUN_0059b230): texels below 128/255 are dropped.
         var look = ModelRules.Look(Old(0.25f, 5, 6), MeshOf("", "fx"));
-        Assert.AreEqual(new BlendState(BlendMode.Alpha, 0.75f), look.Blend);
+        Assert.AreEqual(new BlendState(BlendMode.Alpha, 0.75f, AlphaTest: true), look.Blend);
     }
 
     [TestMethod]

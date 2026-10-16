@@ -17,7 +17,7 @@ public sealed class SpriteTableKind : AssetKind
 
     public override IEnumerable<string> Enumerate(GameFileSystem files) => files.List(".spr", "Sprites").Select(n => Folder + n);
 
-    public override object Load(GameFileSystem files, string name) => Read(files, Path.GetFileName(name), Other(files, name));
+    public override object Load(GameFileSystem files, string name) => Read(files, Path.GetFileName(name), Tables(files, name));
 
     static SpriteTable Read(GameFileSystem files, string bare, IEnumerable<SpriteTable> ambient) =>
         SpriteTable.Read(bare, n => files.Find(Folder + n) is null ? null : System.Text.Encoding.Latin1.GetString(files.ReadAllBytes(Folder + n)), ambient);
@@ -26,11 +26,12 @@ public sealed class SpriteTableKind : AssetKind
     // engine loads on one thread.
     static readonly ConditionalWeakTable<GameFileSystem, Dictionary<string, SpriteTable?>> Parsed = new();
 
-    // The other tables of the install, for the animations they define; a table that fails to load adds none.
-    IEnumerable<SpriteTable> Other(GameFileSystem files, string name)
+    // The tables of the install except `except`, for the animations they define; a table that fails to
+    // load adds none.
+    internal IEnumerable<SpriteTable> Tables(GameFileSystem files, string? except = null)
     {
         var cache = Parsed.GetOrCreateValue(files);
-        foreach (var other in Enumerate(files).Where(n => !n.Equals(name, System.StringComparison.OrdinalIgnoreCase)))
+        foreach (var other in Enumerate(files).Where(n => except == null || !n.Equals(except, System.StringComparison.OrdinalIgnoreCase)))
         {
             if (!cache.TryGetValue(other, out var t))
             {
@@ -42,12 +43,15 @@ public sealed class SpriteTableKind : AssetKind
         }
     }
 
-    // One note per sprite whose texture (a .tga) the install lacks, then the table's own notes.
+    // One note per sprite whose texture (a .tga) the install lacks, one per sprite whose @tmaterial is no
+    // render type the engine draws, then the table's own notes.
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var table = (SpriteTable)Load(files, name);
         return table.Sprites.Where(s => files.Find(s.Texture + ".tga") is null)
             .Select(s => $"{s.Table}:{s.Line}: sprite '{s.Name}': texture '{s.Texture}' not found")
+            .Concat(table.Sprites.Where(s => s.Material != null && !ModelRules.IsRenderType(s.Material))
+                .Select(s => $"{s.Table}:{s.Line}: sprite '{s.Name}': texture material '{s.Material}' is not a render type the engine knows"))
             .Concat(table.Notes).ToList();
     }
 }

@@ -92,6 +92,102 @@ public class ModelCheckTests
         StringAssert.Contains(output.ToString(), "models: 2 loaded");
     }
 
+    static byte[] Model(params NodeSpec[] nodes) => new SodBytes(1.8f).Lighting(("lit", 1f, 1)).Nodes(nodes).End();
+
+    [TestMethod]
+    public void LightingMaterialOfAnotherModelIsFoundByName()
+    {
+        // Lighting materials are global by name in the game: a model may use one another model defines.
+        var files = Install(
+            ("SOD/a.sod", Latin1(new SodBytes(1.8f).Lighting(("shared", 1f, 2)).Nodes(new NodeSpec("hull", "", Triangle(lighting: "shared"))).End())),
+            ("SOD/b.sod", Latin1(Model(new NodeSpec("hull", "", Triangle(lighting: "shared"))))));
+        var b = (Sod)new ModelKind().Load(files, "b.sod");
+        Assert.AreEqual(2, ModelRules.FindLightingMaterial(files, b, "shared")!.Model);
+        Assert.AreEqual(0, new ModelKind().Check(files, "b.sod").Count);
+    }
+
+    [TestMethod]
+    public void LightingMaterialNoModelDefinesIsReportedWithNodeAndName()
+    {
+        var files = Install(("SOD/m.sod", Latin1(Model(new NodeSpec("hull", "", Triangle(lighting: "ghost"))))));
+        var note = new ModelKind().Check(files, "m.sod").Single();
+        StringAssert.Contains(note, "'hull'");
+        StringAssert.Contains(note, "'ghost'");
+    }
+
+    [TestMethod]
+    public void GroupsNamingNoLightingMaterialAreReportedOncePerModel()
+    {
+        // The game gives such a group its default material; the engine stands in for it and says so once.
+        var files = Install(("SOD/m.sod", Latin1(Model(new NodeSpec("a", "", Triangle(lighting: "")), new NodeSpec("b", "", Triangle(lighting: ""))))));
+        var note = new ModelKind().Check(files, "m.sod").Single();
+        StringAssert.Contains(note, "2 groups");
+        StringAssert.Contains(note, "no lighting material");
+    }
+
+    [TestMethod]
+    public void UnknownSpriteTextureMaterialIsReportedWithTableAndSprite()
+    {
+        var files = Install(("Sprites/t.spr", "sprite_table\n@tmaterial=sparkly\ngate gatetex 0 0 32 32\n@tmaterial=additive\nok gatetex 0 0 32 32\n"));
+        var notes = new SpriteTableKind().Check(files, "Sprites/t.spr").Where(n => n.Contains("texture material")).ToList();
+        Assert.AreEqual(1, notes.Count);
+        StringAssert.Contains(notes[0], "'sparkly'");
+        StringAssert.Contains(notes[0], "'gate'");
+        StringAssert.Contains(notes[0], "t.spr");
+    }
+
+    [TestMethod]
+    public void TeamColorNotesReachTheAssetCheck()
+    {
+        var files = Install(("addon/teamcolor.odf", "red = 1 0\n"));
+        var kind = new TeamColorKind();
+        var notes = kind.Check(files, kind.Enumerate(files).Single());
+        Assert.IsTrue(notes.Any(n => n.Contains("'red'")));
+    }
+
+    [TestMethod]
+    public void MissingTeamColorFileIsReportedByTheAssetCheck()
+    {
+        var files = Install();
+        var kind = new TeamColorKind();
+        Assert.IsTrue(kind.Check(files, kind.Enumerate(files).Single()).Any(n => n.Contains("teamcolor.odf")));
+    }
+
+    [TestMethod]
+    public void AnimationReferenceToAMissingNodeIsReported()
+    {
+        var files = Install(("Sprites/t.spr", Flip), ("SOD/m.sod", Latin1(new SodBytes(1.8f).Lighting(("lit", 1f, 1))
+            .Nodes(new NodeSpec("hull", "", Triangle())).End((4, "gone", "flip", 0f)))));
+        StringAssert.Contains(new ModelKind().Check(files, "m.sod").Single(), "'gone'");
+    }
+
+    [TestMethod]
+    public void AnimationReferenceToANodeWithoutAMeshIsReported()
+    {
+        var files = Install(("Sprites/t.spr", Flip), ("SOD/m.sod", Latin1(new SodBytes(1.8f).Lighting(("lit", 1f, 1))
+            .Nodes(new NodeSpec("pivot", "")).End((4, "pivot", "flip", 0f)))));
+        StringAssert.Contains(new ModelKind().Check(files, "m.sod").Single(), "'pivot'");
+    }
+
+    [TestMethod]
+    public void AnimationReferenceDrivesEveryNodeOfThatName()
+    {
+        var files = Install(("Sprites/t.spr", Flip), ("SOD/m.sod", Latin1(new SodBytes(1.8f).Lighting(("lit", 1f, 1))
+            .Nodes(new NodeSpec("hull", "", Triangle()), new NodeSpec("hull", "", Triangle())).End((4, "hull", "flip", 0f)))));
+        var analysis = ModelRules.Analyze(files, (Sod)new ModelKind().Load(files, "m.sod"));
+        Assert.AreEqual(2, analysis.Runs.Count);
+    }
+
+    [TestMethod]
+    public void LightingModelByteZeroOfAnOldFileIsReportedWithItsRealByte()
+    {
+        var files = Install(("SOD/m.sod", Latin1(new SodBytes(1.4f).TextureMaterials().Lighting(("old", 1f, 0))
+            .Nodes(new NodeSpec("hull", "", Triangle("default", "", "old"))).End())));
+        var note = new ModelKind().Check(files, "m.sod").Single();
+        StringAssert.Contains(note, "'old'");
+        StringAssert.Contains(note, "byte 0");
+    }
+
     [TestMethod]
     public void TeamColorsReadEveryNamedSlot()
     {
@@ -103,10 +199,9 @@ public class ModelCheckTests
     [TestMethod]
     public void TeamColorsListTheGamesSlotsInTableOrder()
     {
-        var team = TeamColors.Load(Install(("addon/teamcolor.odf", "red = 1 0 0\n")));
-        Assert.AreEqual(27, team.Names.Count);
-        Assert.AreEqual("empty", team.Names[0]);
-        Assert.AreEqual("cerulean", team.Names[26]);
+        Assert.AreEqual(27, TeamColors.SlotNames.Count);
+        Assert.AreEqual("empty", TeamColors.SlotNames[0]);
+        Assert.AreEqual("cerulean", TeamColors.SlotNames[26]);
     }
 
     [TestMethod]

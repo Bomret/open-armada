@@ -36,7 +36,8 @@ public sealed class Sod
         public string Name = "";
         public Vector3 Ambient, Diffuse, Specular;
         public float SpecularPower;
-        public byte Model; // 0 constant, 1 Lambert, 2 Phong
+        public byte Model; // 0 constant, 1 Lambert, 2 Phong; 255 when an old file stores 0
+        public byte StoredModel; // the byte as the file holds it
     }
 
     public enum NodeType : ushort { Null = 0, Mesh = 1, Sprite = 3, LodControl = 11, Emitter = 12 }
@@ -124,16 +125,21 @@ public sealed class Sod
 
         int materials = r.ReadUInt16();
         for (int i = 0; i < materials; i++)
-            sod.LightingMaterials.Add(new LightingMaterial
+        {
+            var material = new LightingMaterial
             {
                 Name = Id(r),
                 Ambient = Vec3(r),
                 Diffuse = Vec3(r),
                 Specular = Vec3(r),
                 SpecularPower = r.ReadSingle(),
-                // Versions up to 1.4 store the model plus one (Armada.exe 0x59bd80; the installed files hold 1 to 3).
-                Model = (byte)(r.ReadByte() - (sod.Version < 1.45f ? 1 : 0)),
-            });
+            };
+            material.StoredModel = r.ReadByte();
+            // Versions up to 1.4 store the model plus one (Armada.exe 0x59bd80; the installed files hold 1 to 3),
+            // so a stored 0 there is no model: 255, which no lighting model matches.
+            material.Model = sod.Version < 1.45f ? (byte)(material.StoredModel == 0 ? 255 : material.StoredModel - 1) : material.StoredModel;
+            sod.LightingMaterials.Add(material);
+        }
 
         int nodes = r.ReadUInt16();
         for (int i = 0; i < nodes; i++)
@@ -184,6 +190,21 @@ public sealed class Sod
         return sod;
     }
 
+    // Whether following the parent names from a node (the first node of a name is the parent) comes
+    // back to it: a node naming itself, or a loop of nodes. Such a node is no child of any node.
+    public bool InParentCycle(Node node)
+    {
+        var seen = new HashSet<Node>();
+        for (var current = node; current.Parent.Length > 0;)
+        {
+            var parent = Nodes.FirstOrDefault(p => p.Name == current.Parent);
+            if (parent == null || !seen.Add(parent)) return false;
+            if (parent == node) return true;
+            current = parent;
+        }
+        return false;
+    }
+
     void FindProblems()
     {
         var names = Nodes.Select(n => n.Name).ToHashSet();
@@ -191,6 +212,8 @@ public sealed class Sod
         {
             if (n.Parent.Length > 0 && !names.Contains(n.Parent))
                 Problems.Add($"node '{n.Name}' names the parent '{n.Parent}', which the model lacks");
+            if (InParentCycle(n))
+                Problems.Add($"node '{n.Name}' is its own ancestor through its parents (a parent cycle); it hangs from the root");
             if (n.Mesh is not { } m) continue;
             foreach (var (v, t) in m.Groups.SelectMany(g => g.Corners))
             {

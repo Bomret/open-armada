@@ -16,7 +16,7 @@ public sealed class SodBuilder
     readonly GameFileSystem _files;
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
     readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
-    readonly Dictionary<string, List<ShaderMaterial>> _byNode = new();
+    readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
     System.Numerics.Vector3 _teamColor = new(0.5f, 0.5f, 0.5f);
 
     public SodBuilder(GameFileSystem files) => _files = files;
@@ -35,22 +35,23 @@ public sealed class SodBuilder
     {
         _team.Clear();
         _byNode.Clear();
-        var problems = new List<string>(ModelRules.Check(_files, sod));
+        var analysis = ModelRules.Analyze(_files, sod);
         var nodes = new List<(Sod.Node Data, Node3D Node)>();
         foreach (var n in sod.Nodes)
         {
-            Node3D node = n.Mesh != null ? BuildMesh(sod, n, problems) : new Node3D();
+            Node3D node = n.Mesh != null ? BuildMesh(sod, n) : new Node3D();
             node.Name = n.Name.Length > 0 ? n.Name : "node";
             node.Transform = ToGodot(n.Transform);
             nodes.Add((n, node));
         }
-        // The first node of a name is the parent; a node with no known parent hangs from the root.
+        // The first node of a name is the parent; a node with no known parent, or in a parent cycle (reported
+        // in Problems), hangs from the root.
         var byName = new Dictionary<string, Node3D>();
         foreach (var (data, node) in nodes) byName.TryAdd(data.Name, node);
         Node3D? root = null;
         foreach (var (data, node) in nodes)
         {
-            if (data.Parent.Length > 0 && byName.TryGetValue(data.Parent, out var parent) && parent != node)
+            if (data.Parent.Length > 0 && byName.TryGetValue(data.Parent, out var parent) && !sod.InParentCycle(data))
                 parent.AddChild(node);
             else if (root == null)
                 root = node;
@@ -73,21 +74,16 @@ public sealed class SodBuilder
         }
 
         var animator = new TextureAnimator();
-        foreach (var r in sod.References)
-        {
-            var anim = r.Type == AnimationReferenceType.Texture && _byNode.ContainsKey(r.Node) ? ModelRules.FindAnimation(_files, r.Animation) : null;
-            if (anim != null && ModelRules.Animation(anim, r.Offset, out _) is { } flipbook) animator.Add(_byNode[r.Node], flipbook);
-        }
+        foreach (var (node, flipbook) in analysis.Runs) animator.Add(_byNode[node], flipbook);
         root.AddChild(animator);
-        Problems = problems;
-        foreach (var p in problems) GD.Print($"model: {p}");
+        Problems = analysis.Problems;
         return root;
     }
 
     static int VertexCount(Node node) =>
         (node is MeshInstance3D m ? m.Mesh.GetFaces().Length : 0) + node.GetChildren().Sum(VertexCount);
 
-    MeshInstance3D BuildMesh(Sod sod, Sod.Node data, List<string> problems)
+    MeshInstance3D BuildMesh(Sod sod, Sod.Node data)
     {
         var mesh = data.Mesh!;
         var look = ModelRules.Look(sod, mesh);
@@ -114,23 +110,29 @@ public sealed class SodBuilder
             }
             if (!blend.Wireframe) st.GenerateNormals();
             var surface = SurfaceOf(sod, group.Material);
+            // Lines carry no normals, so a wireframe shades constant whatever the lighting material says
+            // (the game keeps the material's model and shades the lines with it).
             if (blend.Wireframe) surface = surface with { Model = LightingModel.Constant };
             var material = SurfaceMaterial.Create(surface, blend, texture, mesh.BackfaceCull);
-            if (surface.Team) _team.Add((material, surface));
-            if (surface.Team) SurfaceMaterial.Apply(material, surface.WithTeam(_teamColor));
+            if (surface.Team)
+            {
+                _team.Add((material, surface));
+                SurfaceMaterial.Apply(material, surface.WithTeam(_teamColor));
+            }
             materials.Add(material);
             st.SetMaterial(material);
             st.Commit(array);
         }
-        _byNode[data.Name] = materials;
+        _byNode[data] = materials;
         return new MeshInstance3D { Mesh = array };
     }
 
-    // A group names its lighting material; one the model lacks (or an empty name) shades as the game's
-    // default material does: Lambert, white diffuse.
-    static Surface SurfaceOf(Sod sod, string name)
+    // A group names its lighting material, found in the model or any model of the install. One no model
+    // defines, no name at all, or of a model the engine does not know, is reported in Problems (ModelRules.Analyze) and
+    // shades with a stand-in: Lambert, white diffuse. The stand-in's values are the engine's, not the game's.
+    Surface SurfaceOf(Sod sod, string name)
     {
-        var material = sod.LightingMaterials.FirstOrDefault(m => m.Name == name);
+        var material = ModelRules.FindLightingMaterial(_files, sod, name);
         var surface = material == null ? null : ModelRules.Lighting(material);
         return surface ?? new Surface(LightingModel.Lambert, System.Numerics.Vector3.Zero, System.Numerics.Vector3.One, System.Numerics.Vector3.Zero, 1f, ModelRules.IsTeam(name));
     }

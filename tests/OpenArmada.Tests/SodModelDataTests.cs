@@ -33,6 +33,22 @@ public class SodModelDataTests
     }
 
     [TestMethod]
+    public void ParentCycleIsReportedForEveryNodeInIt()
+    {
+        var sod = Sod.Read(new SodBytes(1.8f).Lighting().Nodes(new NodeSpec("a", "b"), new NodeSpec("b", "a"), new NodeSpec("c", "a")).End());
+        Assert.AreEqual(2, sod.Problems.Count);
+        Assert.IsTrue(sod.Problems.Any(p => p.Contains("'a'") && p.Contains("cycle")));
+        Assert.IsTrue(sod.Problems.Any(p => p.Contains("'b'") && p.Contains("cycle")));
+    }
+
+    [TestMethod]
+    public void NodeNamingItselfAsParentIsReported()
+    {
+        var sod = Sod.Read(new SodBytes(1.8f).Lighting().Nodes(new NodeSpec("a", "a")).End());
+        StringAssert.Contains(sod.Problems.Single(), "'a'");
+    }
+
+    [TestMethod]
     public void FaceCornerPastTheVerticesIsReportedForTheNode()
     {
         var mesh = Triangle() with { Corners = new[] { (0, 0), (1, 1), (9, 2) } };

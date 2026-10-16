@@ -124,7 +124,7 @@ public sealed class SodBuilder
             }
             else why = "not a readable TGA";
         }
-        catch (System.Exception e) when (e is System.IO.FileNotFoundException or UnsupportedFormatException or System.IO.InvalidDataException)
+        catch (System.Exception e) when (e is System.IO.IOException or System.UnauthorizedAccessException or UnsupportedFormatException or System.IO.InvalidDataException)
         {
             why = e.Message;
         }

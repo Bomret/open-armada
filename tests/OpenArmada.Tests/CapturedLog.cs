@@ -4,7 +4,7 @@ using OpenArmada.Diagnostics;
 
 namespace OpenArmada.Tests;
 
-/// <summary>Captures the lines <see cref="Log"/> writes while it lives; disposing restores the previous sink.</summary>
+/// <summary>Captures the lines <see cref="Log"/> writes while it lives; disposing restores the previous sink and counts.</summary>
 sealed class CapturedLog : IDisposable
 {
     readonly IDisposable _redirect;

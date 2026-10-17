@@ -54,7 +54,7 @@ public static class Log
     static int _warns,
         _errors;
 
-    /// <summary>Entries written at <see cref="Level.Warn"/> since the start or the last <see cref="Redirect"/>.</summary>
+    /// <summary>Entries written at <see cref="Level.Warn"/> since the start or the last <see cref="Redirect"/> in force.</summary>
     public static int WarnCount
     {
         get
@@ -66,7 +66,7 @@ public static class Log
         }
     }
 
-    /// <summary>Entries written at <see cref="Level.Error"/> since the start or the last <see cref="Redirect"/>.</summary>
+    /// <summary>Entries written at <see cref="Level.Error"/> since the start or the last <see cref="Redirect"/> in force.</summary>
     public static int ErrorCount
     {
         get
@@ -112,21 +112,21 @@ public static class Log
     public static void Info(Area area, string text) => Write(Level.Info, area, text);
 
     /// <summary>
-    /// Replaces the sink and resets the counts; disposing restores the previous sink. For tests and the
-    /// run's own use.
+    /// Replaces the sink and resets the counts; disposing restores the previous sink and counts. For tests and
+    /// the run's own use.
     /// </summary>
     public static IDisposable Redirect(Action<string> sink)
     {
-        Action<string> previous;
+        Restore previous;
         lock (_lock)
         {
-            previous = _sink;
+            previous = new Restore(_sink, _warns, _errors);
             _sink = sink;
             _warns = 0;
             _errors = 0;
         }
 
-        return new Restore(previous);
+        return previous;
     }
 
     /// <summary>Writes a <see cref="Level.Warn"/> entry: the engine went on by design.</summary>
@@ -169,13 +169,15 @@ public static class Log
         }
     }
 
-    sealed class Restore(Action<string> previous) : IDisposable
+    sealed class Restore(Action<string> sink, int warns, int errors) : IDisposable
     {
         public void Dispose()
         {
             lock (_lock)
             {
-                _sink = previous;
+                _sink = sink;
+                _warns = warns;
+                _errors = errors;
             }
         }
     }

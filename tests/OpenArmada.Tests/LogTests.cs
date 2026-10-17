@@ -124,4 +124,17 @@ public class LogTests
         Assert.AreEqual(1, outer.Lines.Count);
         StringAssert.EndsWith(outer.Lines[0], "outer");
     }
+
+    [TestMethod]
+    public void RedirectRestoresThePreviousCounts()
+    {
+        using var outer = new CapturedLog();
+        Log.Warn(Area.Run, "outer");
+        using (new CapturedLog())
+        {
+            Log.Error(Area.Run, "inner");
+        }
+
+        Assert.AreEqual((1, 0), (Log.WarnCount, Log.ErrorCount));
+    }
 }

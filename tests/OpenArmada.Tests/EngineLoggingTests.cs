@@ -23,9 +23,9 @@ static class EngineLogScan
     ];
 
     static readonly Regex Output = new(
-        @"\bConsole\s*\.|using\s+static\s+(System\.)?Console\b|\bGD\s*\.\s*(Print\w*|Push(Error|Warning))\b"
-            + @"|using\s+static\s+Godot\.GD\b|\b(Debug|Trace)\s*\.\s*Write\w*"
-            + @"|using\s+\w+\s*=\s*(global::)?(System\.Console|Godot\.GD)\b"
+        @"\bConsole\s*\.|\bGD\s*\.\s*(Print\w*|Push(Error|Warning))\b|\b(Debug|Trace)\s*\.\s*Write\w*"
+            // A using-static or alias directive naming an output type, with an optional global:: qualifier.
+            + @"|using\s+(static\s+|\w+\s*=\s*)(global::)?((System\.)?Console|Godot\.GD|System\.Diagnostics\.(Debug|Trace))\b"
     );
 
     static readonly Regex LogUse = new(
@@ -113,6 +113,10 @@ public class EngineLoggingTests
     [DataRow("using G = Godot.GD;")]
     [DataRow("using G = global::System.Console;")]
     [DataRow("using G = global::Godot.GD;")]
+    [DataRow("using static global::System.Console;")]
+    [DataRow("using static global::Godot.GD;")]
+    [DataRow("using static System.Diagnostics.Debug;")]
+    [DataRow("using D = System.Diagnostics.Trace;")]
     public void EverySpellingOfAnOutputCallIsCaught(string line)
     {
         Assert.AreEqual(1, EngineLogScan.Violations("Viewer/Foo.cs", line).Count, line);

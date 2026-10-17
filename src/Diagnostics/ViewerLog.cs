@@ -68,7 +68,7 @@ public static class ViewerLog
     /// The texture <c>name</c> did not load, once per run in <c>area</c>, the area of the view that loaded it
     /// first: WARN when the install lacks it (<see cref="Log.IsAbsent"/>, absent data), else ERROR, an
     /// asset that failed to load (INV-0005); both name the texture and the reason (INV-0002). <c>asset</c>,
-    /// when known, is the asset that uses the texture: a later load of the same texture by another asset is
+    /// when known, is the asset that uses the texture: the first entry names it, and a later load of the same texture by another asset is
     /// one INFO per asset and texture that points back to the first entry, so a search for that asset finds why.
     /// </summary>
     public static void TextureFailed(Area area, string name, Exception e, string? asset = null)
@@ -84,13 +84,14 @@ public static class ViewerLog
 
             return;
         }
+        var user = asset == null ? "" : $"{asset}: ";
         if (Log.IsAbsent(e))
         {
-            Log.Warn(area, $"texture {Log.Quote(name)} missing: {e.Message}");
+            Log.Warn(area, $"{user}texture {Log.Quote(name)} missing: {e.Message}");
         }
         else
         {
-            Log.Error(area, $"texture {Log.Quote(name)} cannot be read: {e.Message}");
+            Log.Error(area, $"{user}texture {Log.Quote(name)} cannot be read: {e.Message}");
         }
     }
 

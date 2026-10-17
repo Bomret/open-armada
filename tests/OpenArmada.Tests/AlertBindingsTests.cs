@@ -23,6 +23,7 @@ public class AlertBindingsTests
     (AlertBindings Bindings, List<string> Gaps) Read(params (string Path, string Content)[] files)
     {
         var gaps = new List<string>();
+
         return (AlertBindings.Read(new GameFileSystem(temp.MakeInstall(files)), gaps.Add), gaps);
     }
 
@@ -30,9 +31,9 @@ public class AlertBindingsTests
     public void TheReferenceBindingsAreShiftGShiftYAndShiftR()
     {
         var (b, gaps) = Read(("Input.map", Reference));
-        Assert.AreEqual(AlertStance.Green, b.For(new KeyChord("G", Shift: true)));
-        Assert.AreEqual(AlertStance.Yellow, b.For(new KeyChord("Y", Shift: true)));
-        Assert.AreEqual(AlertStance.Red, b.For(new KeyChord("R", Shift: true)));
+        Assert.AreEqual(AlertStance.Green, b.For(new KeyChord { Key = "G", Shift = true }));
+        Assert.AreEqual(AlertStance.Yellow, b.For(new KeyChord { Key = "Y", Shift = true }));
+        Assert.AreEqual(AlertStance.Red, b.For(new KeyChord { Key = "R", Shift = true }));
         Assert.AreEqual(0, gaps.Count);
     }
 
@@ -40,10 +41,28 @@ public class AlertBindingsTests
     public void AChordWithOtherModifiersOrAnotherKeyIsBoundToNothing()
     {
         var (b, _) = Read(("Input.map", Reference));
-        Assert.IsNull(b.For(new KeyChord("G")));
-        Assert.IsNull(b.For(new KeyChord("G", Shift: true, Control: true)));
-        Assert.IsNull(b.For(new KeyChord("G", Shift: true, Alt: true)));
-        Assert.IsNull(b.For(new KeyChord("H", Shift: true)));
+        Assert.IsNull(b.For(new KeyChord { Key = "G" }));
+        Assert.IsNull(
+            b.For(
+                new KeyChord
+                {
+                    Key = "G",
+                    Shift = true,
+                    Control = true,
+                }
+            )
+        );
+        Assert.IsNull(
+            b.For(
+                new KeyChord
+                {
+                    Key = "G",
+                    Shift = true,
+                    Alt = true,
+                }
+            )
+        );
+        Assert.IsNull(b.For(new KeyChord { Key = "H", Shift = true }));
     }
 
     [TestMethod]
@@ -52,15 +71,15 @@ public class AlertBindingsTests
         var (b, _) = Read(
             ("Input.map", Reference.Replace("\tG\n", "\tF5\n").Replace("+ keyboard\tShift", "- keyboard\tShift"))
         );
-        Assert.AreEqual(AlertStance.Green, b.For(new KeyChord("F5")));
-        Assert.IsNull(b.For(new KeyChord("G", Shift: true)));
+        Assert.AreEqual(AlertStance.Green, b.For(new KeyChord { Key = "F5" }));
+        Assert.IsNull(b.For(new KeyChord { Key = "G", Shift = true }));
     }
 
     [TestMethod]
     public void AKeyIsMatchedWithoutRegardToCase()
     {
         var (b, _) = Read(("Input.map", Reference.Replace("\tG\n", "\tg\n")));
-        Assert.AreEqual(AlertStance.Green, b.For(new KeyChord("G", Shift: true)));
+        Assert.AreEqual(AlertStance.Green, b.For(new KeyChord { Key = "G", Shift = true }));
     }
 
     [TestMethod]
@@ -69,7 +88,7 @@ public class AlertBindingsTests
         var (b, gaps) = Read(("other.txt", "x"));
         Assert.AreEqual(1, gaps.Count);
         StringAssert.Contains(gaps[0], "Input.map");
-        Assert.IsNull(b.For(new KeyChord("G", Shift: true)));
+        Assert.IsNull(b.For(new KeyChord { Key = "G", Shift = true }));
     }
 
     [TestMethod]
@@ -78,7 +97,7 @@ public class AlertBindingsTests
         var (b, gaps) = Read(("Input.map", Reference.Replace("yellow {", "other {")));
         Assert.AreEqual(1, gaps.Count);
         StringAssert.Contains(gaps[0], "yellow");
-        Assert.AreEqual(AlertStance.Red, b.For(new KeyChord("R", Shift: true)));
+        Assert.AreEqual(AlertStance.Red, b.For(new KeyChord { Key = "R", Shift = true }));
     }
 
     [TestMethod]

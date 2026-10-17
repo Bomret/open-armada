@@ -4,13 +4,15 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Font preview: the glyph sheet, 16 characters per row in code order, ink dark on light, shown at 3x.
+/// <summary>Font preview: the glyph sheet, 16 characters per row in code order, ink dark on light, shown at 3x.</summary>
 public sealed class FontPreview : KindPreview
 {
     const int Scale = 3;
 
+    /// <inheritdoc/>
     public override string KindName => FontKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var font = (BitmapFont)kind.Load(files, name);
@@ -23,12 +25,20 @@ public sealed class FontPreview : KindPreview
             var (ox, oy) = (code % 16 * cellW, code / 16 * cellH);
             var g = font.Glyphs[code];
             for (var y = 0; y < font.Height; y++)
-            for (var x = 0; x < g.Width; x++)
-                if (g.Pixels[y * g.Width + x] != font.Transparent)
-                    image.SetPixel(ox + x, oy + y, new Color(0.05f, 0.05f, 0.2f));
+            {
+                for (var x = 0; x < g.Width; x++)
+                {
+                    if (g.Pixels[y * g.Width + x] != font.Transparent)
+                    {
+                        image.SetPixel(ox + x, oy + y, new Color(0.05f, 0.05f, 0.2f));
+                    }
+                }
+            }
         }
+
         image.Resize(image.GetWidth() * Scale, image.GetHeight() * Scale, Image.Interpolation.Nearest);
         var drawn = System.Linq.Enumerable.Count(font.Glyphs, g => g.Width > 0);
+
         return new ImagePane(
             $"{font.Glyphs.Count} characters ({drawn} drawn), {font.Height} rows high, widest {cellW} columns",
             new[] { (name, image) }

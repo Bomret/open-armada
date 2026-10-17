@@ -101,6 +101,7 @@ public class GameConstantsTests
             Assert.IsFalse(c.TryNumber(name, out _, out var problem));
             StringAssert.Contains(problem, "not a literal");
         }
+
         Assert.AreEqual("1e3", c.Values[0].Text);
         Assert.AreEqual(3, c.Notes.Count);
         Assert.IsTrue(c.TryNumber("D", out var d, out _));

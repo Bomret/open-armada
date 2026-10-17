@@ -24,7 +24,14 @@ public class CrossReferenceTests
         Latin1(
             new SodBytes(1.8f)
                 .Lighting(("lit", 1f, 1))
-                .Nodes(new NodeSpec("hull", "", Triangle(texture: texture)))
+                .Nodes(
+                    new NodeSpec
+                    {
+                        Name = "hull",
+                        Parent = "",
+                        Mesh = Triangle(texture: texture),
+                    }
+                )
                 .End(refs)
         );
 
@@ -32,7 +39,17 @@ public class CrossReferenceTests
     {
         var b = new BznBuilder();
         foreach (var c in classes)
-            b.Objects.Add(new(c, 1, new Vector3(100, 0, 100)));
+        {
+            b.Objects.Add(
+                new()
+                {
+                    Class = c,
+                    Team = 1,
+                    Position = new Vector3(100, 0, 100),
+                }
+            );
+        }
+
         return Latin1(b.Build());
     }
 

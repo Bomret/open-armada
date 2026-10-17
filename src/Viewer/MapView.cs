@@ -5,12 +5,15 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// The map from above, square: the overview image when the map has one, every object as a dot in its
-// team's color, and the start positions as numbered rings. Positions go through MapBounds.ToImage:
-// image right is +X and image top is maximum Z, so the map is not mirrored (models mirror Z for Godot,
-// which puts north at -Z, the same top of the picture). Objects outside the picture's area are left out.
+/// <summary>
+/// The map from above, square: the overview image when the map has one, every object as a dot in its
+/// team's color, and the start positions as numbered rings. Positions go through MapBounds.ToImage:
+/// image right is +X and image top is maximum Z, so the map is not mirrored (models mirror Z for Godot,
+/// which puts north at -Z, the same top of the picture). Objects outside the picture's area are left out.
+/// </summary>
 public partial class MapView : Control
 {
+    /// <summary>The dot color of each team, by team number 0 to 8; team 0 is gray.</summary>
     public static readonly Color[] TeamColors =
     {
         new(0.65f, 0.65f, 0.65f),
@@ -28,8 +31,10 @@ public partial class MapView : Control
     readonly ImageTexture? overview;
     readonly bool showObjects;
 
-    // The square fills the largest square of the control's area, so the picture shrinks with its pane.
-    // `overview` null draws a dark square instead; `showObjects` false draws the image alone.
+    /// <summary>
+    /// The square fills the largest square of the control's area, so the picture shrinks with its pane.
+    /// <c>overview</c> null draws a dark square instead; <c>showObjects</c> false draws the image alone.
+    /// </summary>
     public MapView(MapAsset map, Image? overview, bool showObjects)
     {
         this.map = map;
@@ -41,19 +46,30 @@ public partial class MapView : Control
         TextureFilter = TextureFilterEnum.Nearest;
     }
 
+    /// <inheritdoc/>
     public override void _Draw()
     {
         var size = Mathf.Min(Size.X, Size.Y);
         var rect = new Rect2(0, 0, size, size);
         if (overview != null)
+        {
             DrawTextureRect(overview, rect, false);
+        }
         else
+        {
             DrawRect(rect, new Color(0.08f, 0.08f, 0.1f));
+        }
+
         if (!showObjects)
             return;
         foreach (var o in map.Map.Objects)
+        {
             if (TryPlace(o, size, out var p))
+            {
                 DrawCircle(p, o.Team == 0 ? 1.5f : 3f, TeamColors[o.Team]);
+            }
+        }
+
         var font = ThemeDB.FallbackFont;
         foreach (var s in map.Starts)
         {
@@ -73,7 +89,7 @@ public partial class MapView : Control
         }
     }
 
-    // Objects left out because they lie outside the picture's area (the same at every scale).
+    /// <summary>Objects left out because they lie outside the picture's area (the same at every scale).</summary>
     public int Outside() => map.Map.Objects.Count(o => !TryPlace(o, 1, out _));
 
     // The picture point of an object in a square of `size` pixels; false when it lies outside the square.
@@ -81,6 +97,7 @@ public partial class MapView : Control
     {
         var (col, row) = map.Map.Bounds.ToImage(o.Position.X, o.Position.Z, size);
         p = new Vector2(col, row);
+
         return col >= 0 && col <= size && row >= 0 && row <= size;
     }
 }

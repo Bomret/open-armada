@@ -7,12 +7,14 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// The asset browser: categories, the assets of the selected category, and a preview of the selected
-// asset.
-//   godot-mono --path . -- --game <Armada dir> [--model Fente] [--screenshot out.png]
-//   godot-mono --path . -- --game <Armada dir> --map <name> [--screenshot out.png]   (the map sandbox)
-//   godot-mono --headless --path . -- --check --game <Armada dir>
-// The game dir can also come from the ARMADA_DIR environment variable. `--check` wins over `--map`.
+/// <summary>
+/// The asset browser: categories, the assets of the selected category, and a preview of the selected
+/// asset.
+///   godot-mono --path . -- --game &lt;Armada dir&gt; [--model Fente] [--screenshot out.png]
+///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]   (the map sandbox)
+///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
+/// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--map</c>.
+/// </summary>
 public partial class AssetBrowserView : Control
 {
     AssetBrowser _browser = null!;
@@ -25,6 +27,7 @@ public partial class AssetBrowserView : Control
     string? _screenshot;
     int _frames;
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         var args = new LaunchArgs(OS.GetCmdlineUserArgs());
@@ -44,7 +47,9 @@ public partial class AssetBrowserView : Control
                 Console.Out.WriteLine($"asset check crashed: {e}");
                 code = 1;
             }
+
             GetTree().Quit(code);
+
             return;
         }
 
@@ -57,8 +62,10 @@ public partial class AssetBrowserView : Control
             MouseFilter = MouseFilterEnum.Ignore;
             AddChild(new MapSandboxView(MapSandbox.Open(game, map, args.Problems), _screenshot));
             _screenshot = null;
+
             return;
         }
+
         var registered = AssetKind.Discover();
         _browser = AssetBrowser.Open(game, registered);
         _previews = KindPreview.Discover(registered.Select(k => k.Name), out var previewProblems);
@@ -76,9 +83,12 @@ public partial class AssetBrowserView : Control
         if (startProblems.Count > 0)
         {
             var text = string.Join("\n", startProblems);
+
             GD.PrintErr(text);
+
             left.AddChild(new Label { Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart });
         }
+
         _pane = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         split.AddChild(_pane);
         _message = new Label
@@ -93,11 +103,17 @@ public partial class AssetBrowserView : Control
         if (_browser.Problem != null)
         {
             _message.Text = _browser.Problem;
+
             GD.PrintErr(_browser.Problem);
+
             return;
         }
+
         foreach (var kind in _browser.Kinds)
+        {
             _kinds.AddItem(kind.Name);
+        }
+
         _kinds.ItemSelected += i =>
         {
             _browser.SelectKind((int)i);
@@ -117,12 +133,17 @@ public partial class AssetBrowserView : Control
     {
         _assets.Clear();
         foreach (var name in _browser.Assets)
+        {
             _assets.AddItem(name);
+        }
+
         if (_browser.Assets.Count == 0)
         {
             ShowMessage(_browser.Notice ?? $"no {_browser.Kind!.Name} in this install");
+
             return;
         }
+
         int index = Math.Max(0, wanted);
         _assets.Select(index);
         _assets.EnsureCurrentIsVisible();
@@ -143,8 +164,10 @@ public partial class AssetBrowserView : Control
         if (!_previews.TryGetValue(kind.Name, out var preview))
         {
             ShowMessage($"no preview for {kind.Name}");
+
             return;
         }
+
         try
         {
             var control = preview.Create(_browser.Files!, kind, name);
@@ -160,6 +183,7 @@ public partial class AssetBrowserView : Control
         }
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         // Wait a few frames so textures are uploaded before capturing.

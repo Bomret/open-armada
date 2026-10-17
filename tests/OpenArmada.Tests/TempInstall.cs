@@ -20,6 +20,7 @@ internal sealed class TempInstall
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
             File.WriteAllText(full, content, System.Text.Encoding.Latin1); // one byte per char
         }
+
         return root;
     }
 
@@ -32,6 +33,7 @@ internal sealed class TempInstall
         var dir = Path.Combine(Path.GetTempPath(), "oa-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         made.Add(dir);
+
         return dir;
     }
 
@@ -39,6 +41,8 @@ internal sealed class TempInstall
     internal void CleanUp()
     {
         foreach (var dir in made)
+        {
             Directory.Delete(dir, true);
+        }
     }
 }

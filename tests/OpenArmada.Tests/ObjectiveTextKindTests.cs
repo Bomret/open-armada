@@ -18,6 +18,7 @@ public class ObjectiveTextKindTests
     {
         var zix = "1\n-\nDIR: objtxt.zfs\n-\n1 b1ob1.txt\n1 b1ob2.txt\n";
         var zfs = Build(0, M("b1ob1.txt", "Destroy the \u0093Enterprise\u0094"), M("b1ob2.txt", "Defend"));
+
         return new GameFileSystem(
             temp.MakeInstall(("objtxt.zfs", Encoding.Latin1.GetString(zfs)), ("startrek.zix", zix))
         );

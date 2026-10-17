@@ -8,37 +8,50 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Rendering;
 
-// Turns a parsed SOD into a Godot node tree. Storm3D is left-handed (Direct3D);
-// Godot is right-handed, so Z is mirrored and triangle winding reversed. Surfaces follow ModelRules:
-// the texture material's blend, the lighting material's model and colors, the animation references.
-// Whatever the data holds that cannot be drawn as it says is listed in Problems, never hidden.
+/// <summary>
+/// Turns a parsed SOD into a Godot node tree. Storm3D is left-handed (Direct3D);
+/// Godot is right-handed, so Z is mirrored and triangle winding reversed. Surfaces follow ModelRules:
+/// the texture material's blend, the lighting material's model and colors, the animation references.
+/// Whatever the data holds that cannot be drawn as it says is listed in Problems, never hidden. Each sprite node the
+/// install's sprite tables attach to a node is drawn under it (SpriteNodeQuad).
+/// </summary>
 public sealed class SodBuilder
 {
+    const string NoSpriteTexture = "sprite texture cannot be read, its sprite node is not drawn";
+
     readonly GameFileSystem _files;
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
     readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
     readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
     System.Numerics.Vector3 _teamColor = new(0.5f, 0.5f, 0.5f);
 
+    /// <summary><c>files</c> is the install the builder reads textures and lighting materials from; it caches each texture it loads, by name.</summary>
     public SodBuilder(GameFileSystem files) => _files = files;
 
-    // What the last Build could not draw as the data says (ModelRules.Check), one line each.
+    /// <summary>What the last Build could not draw as the data says (ModelRules.Check), one line each.</summary>
     public IReadOnlyList<string> Problems { get; private set; } = new List<string>();
 
-    // Recolors the team materials of the model built last. Each Build makes its own materials, so a model
-    // built earlier keeps its color; Build(sod, color) colors a model as it is built.
+    /// <summary>
+    /// Recolors the team materials of the model built last. Each Build makes its own materials, so a model
+    /// built earlier keeps its color; Build(sod, color) colors a model as it is built.
+    /// </summary>
     public void SetTeamColor(System.Numerics.Vector3 color)
     {
         _teamColor = color;
         foreach (var (material, surface) in _team)
+        {
             SurfaceMaterial.Apply(material, surface.WithTeam(color));
+        }
     }
 
-    // Builds the model with its team materials in `teamColor` (the last color set when null).
+    /// <summary>Builds the model with its team materials in <c>teamColor</c> (the last color set when null).</summary>
     public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null)
     {
         if (teamColor != null)
+        {
             _teamColor = teamColor.Value;
+        }
+
         _team.Clear();
         _byNode.Clear();
         var analysis = ModelRules.Analyze(_files, sod);
@@ -50,27 +63,42 @@ public sealed class SodBuilder
             node.Transform = ToGodot(n.Transform);
             nodes.Add((n, node));
         }
+
         // The first node of a name is the parent; a node with no known parent, or in a parent cycle (reported
         // in Problems), hangs from the root.
         var byName = new Dictionary<string, Node3D>();
         foreach (var (data, node) in nodes)
+        {
             byName.TryAdd(data.Name, node);
+        }
+
         Node3D? root = null;
         foreach (var (data, node) in nodes)
         {
             if (data.Parent.Length > 0 && byName.TryGetValue(data.Parent, out var parent) && !sod.InParentCycle(data))
+            {
                 parent.AddChild(node);
+            }
             else if (root == null)
+            {
                 root = node;
+            }
             else
+            {
                 root.AddChild(node);
+            }
         }
+
         root ??= new Node3D();
 
         // Damage and borgification overlays only appear in those game states.
         foreach (var node in root.FindChildren("*", "", true, false).OfType<Node3D>())
+        {
             if (((string)node.Name).ToLowerInvariant() is "damage" or "borg")
+            {
                 node.Visible = false;
+            }
+        }
 
         // A LOD control node holds one child per detail level; show only the most detailed.
         foreach (var lod in sod.Nodes.Where(n => n.Type == Sod.NodeType.LodControl).Select(n => byName[n.Name]))
@@ -78,14 +106,37 @@ public sealed class SodBuilder
             var levels = lod.GetChildren().OfType<Node3D>().ToList();
             var best = levels.OrderByDescending(VertexCount).FirstOrDefault();
             foreach (var level in levels)
+            {
                 level.Visible = level == best;
+            }
         }
 
         var animator = new TextureAnimator();
         foreach (var (node, flipbook) in analysis.Runs)
+        {
             animator.Add(_byNode[node], flipbook);
+        }
+
         root.AddChild(animator);
-        Problems = analysis.Problems;
+
+        // A sprite node's gaps, and a sprite texture that cannot be read, are problems; the model still builds.
+        var sprites = SpriteNodes.For(_files, sod);
+        var gaps = new Gaps();
+        var built = nodes.ToDictionary(n => n.Data, n => n.Node);
+        foreach (var sprite in sprites.Nodes)
+        {
+            if (Texture(sprite.Sprite.Sprite.Texture) is { } texture)
+            {
+                built[sprite.Node].AddChild(SpriteNodeQuad.Create(sprite, texture));
+            }
+            else
+            {
+                gaps.Add(NoSpriteTexture, sprite.Sprite.Sprite.Texture, sprite.Node);
+            }
+        }
+
+        Problems = analysis.Problems.Concat(sprites.Reports.Concat(gaps.Entries).Select(r => r.Text)).ToList();
+
         return root;
     }
 
@@ -97,7 +148,7 @@ public sealed class SodBuilder
         var mesh = data.Mesh!;
         var look = ModelRules.Look(sod, mesh);
         // A blend the engine does not know is listed in Problems (ModelRules.Check) and drawn opaque.
-        var blend = look.Blend ?? new BlendState(BlendMode.Opaque, 1f);
+        var blend = look.Blend ?? new BlendState { Mode = BlendMode.Opaque, Opacity = 1f };
         var texture = Texture(look.Texture);
         var materials = new List<ShaderMaterial>();
         var array = new ArrayMesh();
@@ -123,24 +174,34 @@ public sealed class SodBuilder
                     st.AddVertex(new Vector3(p.X, p.Y, -p.Z));
                 }
             }
+
             if (!blend.Wireframe)
+            {
                 st.GenerateNormals();
+            }
+
             var surface = SurfaceOf(sod, group.Material);
             // Lines carry no normals, so a wireframe shades constant whatever the lighting material says
             // (the game keeps the material's model and shades the lines with it).
             if (blend.Wireframe)
+            {
                 surface = surface with { Model = LightingModel.Constant };
+            }
+
             var material = SurfaceMaterial.Create(surface, blend, texture, mesh.BackfaceCull);
             if (surface.Team)
             {
                 _team.Add((material, surface));
                 SurfaceMaterial.Apply(material, surface.WithTeam(_teamColor));
             }
+
             materials.Add(material);
             st.SetMaterial(material);
             st.Commit(array);
         }
+
         _byNode[data] = materials;
+
         return new MeshInstance3D { Mesh = array };
     }
 
@@ -151,15 +212,17 @@ public sealed class SodBuilder
     {
         var material = ModelRules.FindLightingMaterial(_files, sod, name);
         var surface = material == null ? null : ModelRules.Lighting(material);
+
         return surface
-            ?? new Surface(
-                LightingModel.Lambert,
-                System.Numerics.Vector3.Zero,
-                System.Numerics.Vector3.One,
-                System.Numerics.Vector3.Zero,
-                1f,
-                ModelRules.IsTeam(name)
-            );
+            ?? new Surface
+            {
+                Model = LightingModel.Lambert,
+                Ambient = System.Numerics.Vector3.Zero,
+                Diffuse = System.Numerics.Vector3.One,
+                Specular = System.Numerics.Vector3.Zero,
+                Power = 1f,
+                Team = ModelRules.IsTeam(name),
+            };
     }
 
     Texture2D? Texture(string name)
@@ -182,7 +245,9 @@ public sealed class SodBuilder
                 tex = ImageTexture.CreateFromImage(image);
             }
             else
+            {
                 why = "not a readable TGA";
+            }
         }
         catch (System.Exception e)
             when (e
@@ -194,8 +259,12 @@ public sealed class SodBuilder
         {
             why = e.Message;
         }
+
         if (tex == null)
+        {
             GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
+        }
+
         return _textures[name] = tex;
     }
 
@@ -205,6 +274,7 @@ public sealed class SodBuilder
         var x = new Vector3(m.Right.X, m.Right.Y, -m.Right.Z);
         var y = new Vector3(m.Up.X, m.Up.Y, -m.Up.Z);
         var z = new Vector3(-m.Front.X, -m.Front.Y, m.Front.Z);
+
         return new Transform3D(new Basis(x, y, z), new Vector3(m.Position.X, m.Position.Y, -m.Position.Z));
     }
 }

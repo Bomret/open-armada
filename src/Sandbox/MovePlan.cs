@@ -4,13 +4,18 @@ using OpenArmada.Assets;
 
 namespace OpenArmada.Sandbox;
 
-// The movement values of the scene's ships, read from their physics definitions, and the gaps found
-// while reading them (INV-0002). A ship with a gap has no entry: it stays selectable and never moves.
-// A physics definition that is missing altogether is the unit plan's report (such a ship is not Movable); one
-// the install holds that cannot be read is a gap here.
+/// <summary>
+/// The movement values of the scene's ships, read from their physics definitions, and the gaps found
+/// while reading them (INV-0002). A ship with a gap has no entry: it stays selectable and never moves.
+/// A physics definition that is missing altogether is the unit plan's report (such a ship is not Movable); one
+/// the install holds that cannot be read is a gap here.
+/// </summary>
 public sealed class MovePlan
 {
+    /// <summary>The movement values of each ship that can move; a ship with a gap has no entry.</summary>
     public IReadOnlyDictionary<PlacedObject, PhysicsValues> Physics { get; }
+
+    /// <summary>The gaps found while reading the physics definitions.</summary>
     public IReadOnlyList<ReportEntry> Reports { get; }
 
     MovePlan(IReadOnlyDictionary<PlacedObject, PhysicsValues> physics, IReadOnlyList<ReportEntry> reports)
@@ -19,6 +24,10 @@ public sealed class MovePlan
         Reports = reports;
     }
 
+    /// <summary>
+    /// Reads the physics definition of each <see cref="Ship"/> among <c>units</c> that is Movable; stations and
+    /// ships that are not Movable are skipped without a gap.
+    /// </summary>
     public static MovePlan Build(SandboxPlan plan, IEnumerable<SelectableUnit> units, GameFileSystem files)
     {
         var physics = new Dictionary<PlacedObject, PhysicsValues>();
@@ -36,8 +45,10 @@ public sealed class MovePlan
             catch (Exception) // a physics definition the install holds but that cannot be read is a gap, whatever the reason (INV-0002)
             {
                 gaps.Add("physics definition cannot be read, ships cannot move", o.Class);
+
                 continue;
             }
+
             var speed = Positive(definition, "impulseSpeed", o.Class, gaps);
             var yaw = Positive(definition, "yawRotationRate", o.Class, gaps);
             if (speed == null || yaw == null)
@@ -51,14 +62,26 @@ public sealed class MovePlan
                 try
                 {
                     if (definition.GetFloat("maxRoll") is var value and >= 0)
+                    {
                         roll = value;
+                    }
                 }
                 catch (DefinitionException) { }
+
                 if (roll == null)
+                {
                     gaps.Add("physics definition's maxRoll is no number of 0 or more, ships do not bank", o.Class);
+                }
             }
-            physics[o] = new PhysicsValues(speed.Value, yaw.Value, roll);
+
+            physics[o] = new PhysicsValues
+            {
+                ImpulseSpeed = speed.Value,
+                YawRotationRate = yaw.Value,
+                MaxRoll = roll,
+            };
         }
+
         return new MovePlan(physics, gaps.Entries);
     }
 
@@ -68,15 +91,19 @@ public sealed class MovePlan
         if (!definition.Has(key))
         {
             gaps.Add($"physics definition lacks {key}, ships cannot move", unitClass);
+
             return null;
         }
+
         try
         {
             if (definition.GetFloat(key) is var value and > 0)
                 return value;
         }
         catch (DefinitionException) { }
+
         gaps.Add($"physics definition's {key} is no number above 0, ships cannot move", unitClass);
+
         return null;
     }
 }

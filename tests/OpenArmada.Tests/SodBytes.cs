@@ -40,6 +40,7 @@ internal sealed class SodBytes
             _w.Write(e.Dst);
             _w.Write(e.Filter);
         }
+
         return this;
     }
 
@@ -50,10 +51,14 @@ internal sealed class SodBytes
         {
             Id(m.Name);
             for (var i = 0; i < 9; i++)
+            {
                 _w.Write(0.5f); // ambient, diffuse, specular
+            }
+
             _w.Write(m.Power);
             _w.Write(m.Model);
         }
+
         return this;
     }
 
@@ -67,25 +72,40 @@ internal sealed class SodBytes
             Id(n.Name);
             Id(n.Parent);
             for (var i = 0; i < 12; i++)
+            {
                 _w.Write(i % 4 == 0 ? 1f : 0f);
+            }
+
             if (n.Mesh is { } m)
+            {
                 Mesh(m);
+            }
         }
+
         return this;
     }
 
     void Mesh(MeshSpec m)
     {
         if (_version >= 1.65f)
+        {
             Id(m.TextureMaterial);
+        }
+
         Id(m.Texture);
         _w.Write((ushort)m.Vertices);
         _w.Write((ushort)m.TexCoords);
         _w.Write((ushort)1);
         for (var i = 0; i < m.Vertices * 3; i++)
+        {
             _w.Write((float)i);
+        }
+
         for (var i = 0; i < m.TexCoords * 2; i++)
+        {
             _w.Write(0.5f);
+        }
+
         _w.Write((ushort)(m.Corners.Length / 3));
         Id(m.Lighting);
         foreach (var (v, t) in m.Corners)
@@ -93,6 +113,7 @@ internal sealed class SodBytes
             _w.Write((ushort)v);
             _w.Write((ushort)t);
         }
+
         _w.Write((byte)1); // backface cull
         _w.Write((ushort)0);
     }
@@ -110,25 +131,43 @@ internal sealed class SodBytes
             Id(r.Node);
             Id(r.Animation);
             if (_version >= 1.75f)
+            {
                 _w.Write(r.Offset);
+            }
         }
+
         return _ms.ToArray();
     }
 
-    internal sealed record MeshSpec(
-        string TextureMaterial,
-        string Texture,
-        string Lighting,
-        int Vertices,
-        int TexCoords,
-        (int Vertex, int TexCoord)[] Corners
-    );
+    internal sealed record MeshSpec
+    {
+        public required string TextureMaterial { get; init; }
+        public required string Texture { get; init; }
+        public required string Lighting { get; init; }
+        public required int Vertices { get; init; }
+        public required int TexCoords { get; init; }
+        public required (int Vertex, int TexCoord)[] Corners { get; init; }
+    }
 
-    internal sealed record NodeSpec(string Name, string Parent, MeshSpec? Mesh = null);
+    internal sealed record NodeSpec
+    {
+        public required string Name { get; init; }
+        public required string Parent { get; init; }
+        public MeshSpec? Mesh { get; init; } = null;
+    }
 
     internal static MeshSpec Triangle(
         string textureMaterial = "default",
         string texture = "tex",
         string lighting = "lit"
-    ) => new(textureMaterial, texture, lighting, 3, 3, new[] { (0, 0), (1, 1), (2, 2) });
+    ) =>
+        new()
+        {
+            TextureMaterial = textureMaterial,
+            Texture = texture,
+            Lighting = lighting,
+            Vertices = 3,
+            TexCoords = 3,
+            Corners = new[] { (0, 0), (1, 1), (2, 2) },
+        };
 }

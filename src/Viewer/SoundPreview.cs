@@ -4,11 +4,13 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Sound preview: the format and length, and a button that plays the sound through its own player.
+/// <summary>Sound preview: the format and length, and a button that plays the sound through its own player.</summary>
 public sealed class SoundPreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => SoundKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var wav = (WavInfo)kind.Load(files, name);
@@ -26,14 +28,20 @@ public sealed class SoundPreview : KindPreview
         play.Pressed += () =>
         {
             if (player.Playing)
+            {
                 player.Stop();
+            }
             else
+            {
                 player.Play();
+            }
+
             play.Text = player.Playing ? "Stop" : "Play";
         };
         player.Finished += () => play.Text = "Play";
         box.AddChild(player);
         box.AddChild(play);
+
         return box;
     }
 }

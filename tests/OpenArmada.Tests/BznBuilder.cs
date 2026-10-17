@@ -10,17 +10,18 @@ namespace OpenArmada.Tests;
 // type byte, 3 filler bytes, u32 payload size, payload.
 internal sealed class BznBuilder
 {
-    internal sealed record Obj(
-        string Class,
-        int Team,
-        Vector3 Position,
-        string Label = "obj",
-        uint Pointer = 1,
-        byte[][]? Prefix = null,
-        float Yaw = 0,
-        bool NoTail = false,
-        float[]? Axes = null
-    );
+    internal sealed record Obj
+    {
+        public required string Class { get; init; }
+        public required int Team { get; init; }
+        public required Vector3 Position { get; init; }
+        public string Label { get; init; } = "obj";
+        public uint Pointer { get; init; } = 1;
+        public byte[][]? Prefix { get; init; } = null;
+        public float Yaw { get; init; } = 0;
+        public bool NoTail { get; init; } = false;
+        public float[]? Axes { get; init; } = null;
+    }
 
     internal int Version = 2051;
     internal string Description = "Test Map";
@@ -44,6 +45,7 @@ internal sealed class BznBuilder
         t[1] = t[2] = t[3] = 0xCD; // the writer leaves these uninitialised
         BitConverter.GetBytes((uint)payload.Length).CopyTo(t, 4);
         payload.CopyTo(t, 8);
+
         return t;
     }
 
@@ -59,6 +61,7 @@ internal sealed class BznBuilder
     {
         var b = new byte[size];
         Encoding.Latin1.GetBytes(s).CopyTo(b, 0);
+
         return Token(2, b);
     }
 
@@ -66,6 +69,7 @@ internal sealed class BznBuilder
     {
         var b = new byte[8];
         Encoding.Latin1.GetBytes(s).CopyTo(b, 0);
+
         return Token(7, b);
     }
 
@@ -116,6 +120,7 @@ internal sealed class BznBuilder
                 Str("federation", 64),
             }
         );
+
         return tokens.SelectMany(t => t).ToArray();
     }
 
@@ -140,6 +145,7 @@ internal sealed class BznBuilder
         tokens.Add(Int(CountOverride ?? Objects.Count));
         var body = tokens.SelectMany(t => t).Concat(Objects.SelectMany(ObjectTokens)).ToList();
         for (var i = 0; i < 9; i++) // one team record each
+        {
             body.AddRange(
                 new[]
                 {
@@ -152,6 +158,8 @@ internal sealed class BznBuilder
                     Int(i),
                 }.SelectMany(t => t)
             );
+        }
+
         body.AddRange(
             new[]
             {
@@ -168,15 +176,24 @@ internal sealed class BznBuilder
         {
             body.AddRange(new[] { Token(0, new byte[4]), Int(name.Length) }.SelectMany(t => t));
             if (name.Length > 0)
+            {
                 body.AddRange(Token(2, Encoding.Latin1.GetBytes(name)));
+            }
+
             body.AddRange(Int(points.Length));
             body.AddRange(Token(9, Floats(points.SelectMany(p => new[] { p.X, p.Y, p.Z }).ToArray())));
             body.AddRange(Token(0, new byte[4]));
             body.AddRange(Float(0.01f));
         }
+
         if (Extra != null)
+        {
             foreach (var t in Extra)
+            {
                 body.AddRange(t);
+            }
+        }
+
         return Encoding.Latin1.GetBytes(text).Concat(body).ToArray();
     }
 }

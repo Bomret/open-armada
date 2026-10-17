@@ -40,13 +40,23 @@ public class CameraRigTests
             {
                 var edit = edits.FirstOrDefault(e => e.Name == d.Name);
                 var value = edit.Name == null ? d.Value : edit.Value;
+
                 return value == null ? "" : $"{(d.Int ? "int" : "float")} {d.Name} = {value};\n";
             })
         );
+
         return GameConstants.Read("RTS_CFG.h", Encoding.ASCII.GetBytes(text));
     }
 
-    static readonly MapBounds Bounds = new(0, 1000, 0, 100, 0, 600);
+    static readonly MapBounds Bounds = new()
+    {
+        MinX = 0,
+        MaxX = 1000,
+        MinY = 0,
+        MaxY = 100,
+        MinZ = 0,
+        MaxZ = 600,
+    };
 
     static CameraRig Rig(params (string Name, string? Value)[] edits) => new CameraRig(Constants(edits), Bounds);
 
@@ -87,10 +97,16 @@ public class CameraRigTests
     {
         var rig = Rig();
         for (var i = 0; i < 50; i++)
+        {
             rig.ChangeHeight(0.1);
+        }
+
         Near(700, rig.Pose.Eye.Y);
         for (var i = 0; i < 200; i++)
+        {
             rig.ChangeHeight(-0.1);
+        }
+
         Near(10, rig.Pose.Eye.Y);
     }
 
@@ -191,7 +207,10 @@ public class CameraRigTests
         {
             rig.Rotate(Math.PI / 4);
             for (var i = 0; i < 20; i++)
+            {
                 rig.Pan(new Vector2(1, 1));
+            }
+
             var t = rig.Pose.Target;
             Assert.IsTrue(t.X >= 0 && t.X <= 1000 && t.Z >= 0 && t.Z <= 600, $"{t}");
         }
@@ -207,7 +226,10 @@ public class CameraRigTests
         Near(500 + 2 * 0.5f * 0.1f * 200, rig.Pose.Target.X); // acceleration 2 * speed 0.5 * dt * 200
         Assert.AreEqual(0.6, rig.ScrollSpeed, 1e-9); // grows by the time scale times dt
         for (var i = 0; i < 200; i++)
+        {
             rig.Scroll(cursor, size, true, Vector2.Zero, 0.1);
+        }
+
         Assert.AreEqual(10, rig.ScrollSpeed, 1e-9);
         rig.Scroll(new Vector2(400, 300), size, true, Vector2.Zero, 0.1);
         Assert.AreEqual(0.5, rig.ScrollSpeed, 1e-9);
@@ -370,11 +392,25 @@ public class CameraRigTests
     [TestMethod]
     public void InvertedMapBoundsGiveAFinitePoseAndAreReported()
     {
-        var rig = new CameraRig(Constants(), new MapBounds(1000, 0, 0, 100, 600, 0));
+        var rig = new CameraRig(
+            Constants(),
+            new MapBounds
+            {
+                MinX = 1000,
+                MaxX = 0,
+                MinY = 0,
+                MaxY = 100,
+                MinZ = 600,
+                MaxZ = 0,
+            }
+        );
         rig.Pan(new Vector2(1, 1));
         var (eye, target) = rig.Pose;
         foreach (var v in new[] { eye.X, eye.Y, eye.Z, target.X, target.Y, target.Z })
+        {
             Assert.IsTrue(float.IsFinite(v));
+        }
+
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("bounds")));
     }
 
@@ -401,7 +437,10 @@ public class CameraRigTests
         var rig = Rig(("OVERVIEW_PARABOLA_FOCUS", "0"), ("OVERVIEW_MIN_HEIGHT", "800"));
         var (eye, target) = rig.Pose;
         foreach (var v in new[] { eye.X, eye.Y, eye.Z, target.X, target.Y, target.Z })
+        {
             Assert.IsTrue(float.IsFinite(v));
+        }
+
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("OVERVIEW_PARABOLA_FOCUS")));
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("OVERVIEW_MIN_HEIGHT")));
         Near(300, MathF.Sqrt((eye.X - target.X) * (eye.X - target.X) + (eye.Z - target.Z) * (eye.Z - target.Z)));

@@ -15,6 +15,7 @@ public class TargetValueTests
     TargetValue Read(string odf)
     {
         var files = new GameFileSystem(temp.MakeInstall(("addon/d.odf", odf)));
+
         return ResolvedDefinition.Resolve(files, "d.odf").GetTargetValue("damageBase");
     }
 

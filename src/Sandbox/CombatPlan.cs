@@ -8,22 +8,31 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
-// The combat profile of every unit of a map, read once from the install, with the gaps found while
-// reading (INV-0002: a gap is reported with its cause once and the map still opens). Beam (`cannon`) and
-// torpedo (`launcher`) weapons are read; special weapons are out of scope and skipped without a gap.
-// A value the install lacks takes a stand-in and is reported when the rules need it; no profile value is a
-// non-number and MaximumCrew is above zero (INV-0003).
+/// <summary>
+/// The combat profile of every unit of a map, read once from the install, with the gaps found while
+/// reading (INV-0002: a gap is reported with its cause once and the map still opens). Beam (<c>cannon</c>) and
+/// torpedo (<c>launcher</c>) weapons are read; special weapons are out of scope and skipped without a gap.
+/// A value the install lacks takes a stand-in and is reported when the rules need it; no profile value is a
+/// non-number and MaximumCrew is above zero (INV-0003).
+/// </summary>
 public sealed class CombatPlan
 {
     const string BeamClass = "cannon";
     const string TorpedoClass = "launcher";
 
-    // One entry per unit of the plan, by the placed object itself (not by value).
+    /// <summary>One entry per unit of the plan, by the placed object itself (not by value).</summary>
     public IReadOnlyDictionary<PlacedObject, CombatProfile> Profiles { get; }
+
+    /// <summary>The gaps found while reading, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports { get; }
 
-    // The game constants of RTS_CFG.h that the combat rules read.
+    /// <summary>The game constants of RTS_CFG.h that the combat rules read.</summary>
     public float ShieldDamageProtection { get; }
+
+    /// <summary>
+    /// <c>SYSTEM_HITPOINTS_BONUS</c>: the hit points added to each ship system a unit has; stand-in 0 where the
+    /// install's RTS_CFG.h gives none.
+    /// </summary>
     public float SystemHitpointsBonus { get; }
 
     CombatPlan(
@@ -39,6 +48,11 @@ public sealed class CombatPlan
         SystemHitpointsBonus = systemHitpointsBonus;
     }
 
+    /// <summary>
+    /// Reads the profile of every unit whose class <c>plan</c> resolved; other units get none. Each class is read
+    /// once, and its gaps are reported for every unit of it. A missing or unreadable RTS_CFG.h, definition, or value
+    /// is a gap with a stand-in.
+    /// </summary>
     public static CombatPlan Build(GameFileSystem files, SandboxPlan plan, IEnumerable<SelectableUnit> units)
     {
         var gaps = new Gaps();
@@ -58,10 +72,14 @@ public sealed class CombatPlan
                 read = (reader.Read(definition, found), found);
                 byClass[u.Object.Class] = read;
             }
+
             profiles[u.Object] = read.Profile;
             foreach (var (cause, name) in read.Gaps)
+            {
                 gaps.Add(cause, name, u.Object);
+            }
         }
+
         return new CombatPlan(profiles, gaps.Entries, protection, bonus);
     }
 
@@ -76,6 +94,7 @@ public sealed class CombatPlan
         {
             gaps.Add($"{GameConstantsKind.FileName} cannot be read, stand-ins used for its constants", e.Message);
         }
+
         float Constant(string name, float standIn)
         {
             if (constants == null)
@@ -83,8 +102,10 @@ public sealed class CombatPlan
             if (constants.TryNumber(name, out var v, out _))
                 return (float)v;
             gaps.Add($"game constant {name} missing or no number, stand-in {Text(standIn)} used", name);
+
             return standIn;
         }
+
         // stand-in: no protection by the shields (the whole damage hurts the shields) and no bonus to system hit
         // points, where the install's RTS_CFG.h gives neither.
         return (Constant("SHIELD_DAMAGE_PROTECTION", 1), Constant("SYSTEM_HITPOINTS_BONUS", 0));
@@ -106,7 +127,16 @@ public sealed class CombatPlan
 
         // stand-in: a middling race for a race definition the install lacks: no delay and repair factors,
         // middling crew thresholds.
-        static readonly RaceValues StandInRace = new(0.5f, 0.25f, 1, 1, 1, 1, 1);
+        static readonly RaceValues StandInRace = new()
+        {
+            CrewYellowStatus = 0.5f,
+            CrewRedStatus = 0.25f,
+            WeaponYellow = 1,
+            WeaponRed = 1,
+            RepairYellow = 1,
+            RepairRed = 1,
+            RepairStrength = 1,
+        };
 
         // Each definition once: the definition, or null with the cause it could not be read.
         readonly Dictionary<string, (ResolvedDefinition? Definition, string Cause)> _resolved = new(
@@ -127,37 +157,43 @@ public sealed class CombatPlan
                 maximumCrew = Math.Max(1, crewCost);
                 r.Gap("maximumCrew missing or 0, stand-in crewCost (at least 1) used");
             }
+
             var systems = new List<SystemProfile>();
             foreach (var (name, key) in SystemKeys)
             {
                 // a system without hit points does not exist on the unit
                 var hitPoints = r.Num(key + "HitPoints", 0);
                 if (hitPoints > 0)
+                {
                     systems.Add(
-                        new SystemProfile(
-                            name,
-                            hitPoints,
-                            r.Num(key + "HitPercent", 0),
-                            r.Num(key + "CrewLoss", 0),
-                            r.Num(key + "RepairTime", 0)
-                        )
+                        new SystemProfile
+                        {
+                            Name = name,
+                            HitPoints = hitPoints,
+                            HitPercent = r.Num(key + "HitPercent", 0),
+                            CrewLoss = r.Num(key + "CrewLoss", 0),
+                            RepairTime = r.Num(key + "RepairTime", 0),
+                        }
                     );
+                }
             }
-            return new CombatProfile(
-                ReadWeapons(d, r, gaps),
-                r.Num("maxHealth", 0, report: true), // stand-in: no shields
-                r.Num("shieldRate", 0, report: true), // stand-in: no shield regain
-                r.Num("shieldDelay", 0),
-                crewCost,
-                maximumCrew,
-                systems,
-                r.Num("hullHitPercent", 0),
-                r.Num("lifeSupportLoss", 0),
-                r.Flag("defaultGreenAlert", false),
-                r.Flag("canAttack", true),
-                r.Str("fireball"),
-                ReadRace(d, r, gaps)
-            );
+
+            return new CombatProfile
+            {
+                Weapons = ReadWeapons(d, r, gaps),
+                MaxHealth = r.Num("maxHealth", 0, report: true),
+                ShieldRate = r.Num("shieldRate", 0, report: true),
+                ShieldDelay = r.Num("shieldDelay", 0),
+                CrewCost = crewCost,
+                MaximumCrew = maximumCrew,
+                Systems = systems,
+                HullHitPercent = r.Num("hullHitPercent", 0),
+                LifeSupportLoss = r.Num("lifeSupportLoss", 0),
+                DefaultGreenAlert = r.Flag("defaultGreenAlert", false),
+                CanAttack = r.Flag("canAttack", true),
+                Fireball = r.Str("fireball"),
+                Race = ReadRace(d, r, gaps),
+            };
         }
 
         IReadOnlyList<WeaponProfile> ReadWeapons(
@@ -179,8 +215,10 @@ public sealed class CombatPlan
                 )
                 {
                     unit.Gap("weapon slot number too large, slot left out", $"{unit.Who}.{slot.Key}");
+
                     continue;
                 }
+
                 var name = unit.Str(slot.Key);
                 if (name.Length == 0)
                     continue;
@@ -190,15 +228,20 @@ public sealed class CombatPlan
                 var w = new Values(weapon, gaps);
                 var label = w.Str("classLabel");
                 if (label.Length == 0)
+                {
                     w.Gap("classLabel missing, weapon left out");
+                }
+
                 if (label != BeamClass && label != TorpedoClass)
                     continue;
                 var ordName = w.Str("ordName");
                 if (ordName.Length == 0)
                 {
                     w.Gap("ordName missing, weapon left out");
+
                     continue;
                 }
+
                 var ordnance = Resolve(ordName, "ordnance", gaps);
                 if (ordnance == null)
                     continue;
@@ -208,38 +251,43 @@ public sealed class CombatPlan
                 {
                     // a weapon without hardpoints fires no shot, so it would make its unit an attacker that never fires
                     unit.Gap("weapon without hardpoints, weapon left out");
+
                     continue;
                 }
+
                 weapons.Add(
-                    new WeaponProfile(
-                        n,
-                        name,
-                        hardpoints,
-                        w.Num("shotDelay", 1, report: true), // stand-in: one second between shots
-                        w.Num("range", 0, report: true), // stand-in: no range, so the weapon never fires
-                        w.Target("hitChance", 1, report: true), // stand-in: a sure hit
-                        w.Num("warpToHitModifier", 0),
-                        w.Num("toHitWarpModifier", 0),
-                        w.Num("stopToHitModifier", 0),
-                        w.Num("toHitStopModifier", 0),
-                        w.Flag("crewAffectsWeaponDelay", false),
-                        w.Str("fireSound"),
-                        new OrdnanceProfile(
-                            o.Str("classLabel"),
-                            o.Target("damageBase", 0, report: true), // stand-in: no damage
-                            o.Target("damageVariance", 0),
-                            o.Target("damageThreshold", 0),
-                            o.Target("shieldCrewModifier", 0),
-                            o.Target("hullCrewModifier", 0),
-                            o.Num("lifeSpan", 0, report: true), // stand-in: the shot ends at once
-                            o.Num("shotSpeed", 0),
-                            o.Num("omegaTurn", 0),
-                            o.Num("seekTime", 0),
-                            o.Str("Sprite")
-                        )
-                    )
+                    new WeaponProfile
+                    {
+                        Slot = n,
+                        Name = name,
+                        Hardpoints = hardpoints,
+                        ShotDelay = w.Num("shotDelay", 1, report: true),
+                        Range = w.Num("range", 0, report: true),
+                        HitChance = w.Target("hitChance", 1, report: true),
+                        WarpToHitModifier = w.Num("warpToHitModifier", 0),
+                        ToHitWarpModifier = w.Num("toHitWarpModifier", 0),
+                        StopToHitModifier = w.Num("stopToHitModifier", 0),
+                        ToHitStopModifier = w.Num("toHitStopModifier", 0),
+                        CrewAffectsWeaponDelay = w.Flag("crewAffectsWeaponDelay", false),
+                        FireSound = w.Str("fireSound"),
+                        Ordnance = new OrdnanceProfile
+                        {
+                            ClassLabel = o.Str("classLabel"),
+                            DamageBase = o.Target("damageBase", 0, report: true),
+                            DamageVariance = o.Target("damageVariance", 0),
+                            DamageThreshold = o.Target("damageThreshold", 0),
+                            ShieldCrewModifier = o.Target("shieldCrewModifier", 0),
+                            HullCrewModifier = o.Target("hullCrewModifier", 0),
+                            LifeSpan = o.Num("lifeSpan", 0, report: true),
+                            ShotSpeed = o.Num("shotSpeed", 0),
+                            OmegaTurn = o.Num("omegaTurn", 0),
+                            SeekTime = o.Num("seekTime", 0),
+                            Sprite = o.Str("Sprite"),
+                        },
+                    }
                 );
             }
+
             return weapons;
         }
 
@@ -249,6 +297,7 @@ public sealed class CombatPlan
         {
             var file = name + ".odf";
             if (!_resolved.TryGetValue(file, out var found))
+            {
                 try
                 {
                     _resolved[file] = found = (ResolvedDefinition.Resolve(files, file), "");
@@ -262,8 +311,13 @@ public sealed class CombatPlan
                             : $"{what} definition cannot be read, weapon left out"
                     );
                 }
+            }
+
             if (found.Definition == null)
+            {
                 gaps.Add((found.Cause, name));
+            }
+
             return found.Definition;
         }
 
@@ -271,31 +325,40 @@ public sealed class CombatPlan
         {
             var race = unit.Str("race");
             if (race.Length == 0)
+            {
                 unit.Gap("race missing, stand-in race values used");
+            }
             else if (FindRace(race) is { } def)
             {
                 var r = new Values(def, gaps);
+
                 // The unit-level weaponYellow and weaponRed are not read: docs/combat-rules.md names the race as
                 // the source of the delay factors.
-                return new RaceValues(
-                    r.Num("crewYellowStatus", 0.5f, report: true), // stand-in: crew thresholds of a middling race
-                    r.Num("crewRedStatus", 0.25f, report: true),
-                    r.Num("weaponYellow", 1, report: true), // stand-in: no delay factor
-                    r.Num("weaponRed", 1, report: true),
-                    r.Num("repairYellow", 1, report: true), // stand-in: no repair factor
-                    r.Num("repairRed", 1, report: true),
-                    r.Num("repairStrength", 1, report: true)
-                );
+                return new RaceValues
+                {
+                    CrewYellowStatus = r.Num("crewYellowStatus", 0.5f, report: true),
+                    CrewRedStatus = r.Num("crewRedStatus", 0.25f, report: true),
+                    WeaponYellow = r.Num("weaponYellow", 1, report: true),
+                    WeaponRed = r.Num("weaponRed", 1, report: true),
+                    RepairYellow = r.Num("repairYellow", 1, report: true),
+                    RepairRed = r.Num("repairRed", 1, report: true),
+                    RepairStrength = r.Num("repairStrength", 1, report: true),
+                };
             }
             else if (_racesProblem != null)
+            {
                 unit.Gap(_racesProblem, "races.odf");
+            }
             else
+            {
                 unit.Gap(
                     _raceFileUnreadable
                         ? "race definition cannot be read, stand-in race values used"
                         : "race definition missing, stand-in race values used",
                     race
                 );
+            }
+
             return StandInRace;
         }
 
@@ -317,20 +380,27 @@ public sealed class CombatPlan
                         e is FileNotFoundException
                             ? "races.odf missing, stand-in race values used"
                             : "races.odf cannot be read, stand-in race values used";
+
                     return null;
                 }
+
                 foreach (var slot in list.Indexed("race"))
+                {
                     try
                     {
                         var def = ResolvedDefinition.Resolve(files, list.GetString(slot.Key));
                         if (def.Has("name"))
+                        {
                             _races.TryAdd(def.GetString("name"), def);
+                        }
                     }
                     catch (Exception e) // a race file that cannot be read is no race: its race is reported as unreadable
                     {
                         _raceFileUnreadable |= e is not FileNotFoundException;
                     }
+                }
             }
+
             return _races.GetValueOrDefault(race);
         }
     }
@@ -349,9 +419,13 @@ public sealed class CombatPlan
             if (!d.Has(key))
             {
                 if (report)
+                {
                     Gap($"{key} missing, stand-in {Text(shown)} used");
+                }
+
                 return standIn;
             }
+
             try
             {
                 return get();
@@ -359,6 +433,7 @@ public sealed class CombatPlan
             catch (DefinitionException)
             {
                 Gap($"{key} is no number, stand-in {Text(shown)} used");
+
                 return standIn;
             }
         }
@@ -370,7 +445,10 @@ public sealed class CombatPlan
         {
             var v = Read(key, TargetValue.Of(standIn), standIn, report, () => d.GetTargetValue(key));
             if (v.Malformed)
+            {
                 Gap("per-target override malformed, default used", $"{Who}.{key}");
+            }
+
             return v;
         }
 
@@ -385,6 +463,7 @@ public sealed class CombatPlan
             catch (DefinitionException)
             {
                 Gap($"{key} is no whole number, stand-in {standIn} used");
+
                 return standIn;
             }
         }
@@ -401,6 +480,7 @@ public sealed class CombatPlan
             catch (DefinitionException)
             {
                 Gap($"{key} is no single value, left out");
+
                 return "";
             }
         }

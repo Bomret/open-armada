@@ -6,12 +6,16 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Interface configuration preview: the layout of its elements (with the sprites its race's tables name
-// for them) beside the parsed entries and notes.
+/// <summary>
+/// Interface configuration preview: the layout of its elements (with the sprites its race's tables name
+/// for them) beside the parsed entries and notes.
+/// </summary>
 public sealed class InterfaceConfigPreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => InterfaceConfigKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var cfg = (InterfaceConfig)kind.Load(files, name);
@@ -27,13 +31,29 @@ public sealed class InterfaceConfigPreview : KindPreview
             if (e.Sprite != null && sprites.TryGetValue(e.Sprite, out var s))
             {
                 if (!textures.TryGetValue(s.Texture, out var loaded))
+                {
                     textures[s.Texture] = loaded = TryLoadTexture(files, s.Texture);
+                }
+
                 if (loaded is { } l)
+                {
                     (texture, region) = (
                         l.Texture,
-                        SpriteSheetView.Region(s, new SpriteFrame(s.U, s.V, s.W, s.H), l.Image.GetSize())
+                        SpriteSheetView.Region(
+                            s,
+                            new SpriteFrame
+                            {
+                                U = s.U,
+                                V = s.V,
+                                W = s.W,
+                                H = s.H,
+                            },
+                            l.Image.GetSize()
+                        )
                     );
+                }
             }
+
             items.Add((e, texture, region));
         }
 
@@ -62,6 +82,7 @@ public sealed class InterfaceConfigPreview : KindPreview
             }
         );
         box.AddChild(row);
+
         return box;
     }
 
@@ -71,6 +92,7 @@ public sealed class InterfaceConfigPreview : KindPreview
         try
         {
             var image = GodotDecoders.Tga(new TextureKind().LoadBase(files, texture + ".tga").Data, texture);
+
             return (image, ImageTexture.CreateFromImage(image));
         }
         catch (System.Exception ex)
@@ -98,11 +120,14 @@ public sealed class InterfaceConfigPreview : KindPreview
             try
             {
                 foreach (var s in ((SpriteTable)kind.Load(files, table)).Sprites)
+                {
                     result.TryAdd(s.Name, s);
+                }
             }
             catch (System.Exception ex)
                 when (ex is System.IO.IOException or System.IO.InvalidDataException or UnsupportedFormatException) { }
         }
+
         return result;
     }
 }

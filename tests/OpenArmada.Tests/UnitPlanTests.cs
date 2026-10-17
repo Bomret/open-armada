@@ -36,15 +36,28 @@ public class UnitPlanTests
         );
         var map = new BznBuilder { Background = "" };
         foreach (var c in classes)
-            map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
-        var asset = new MapAsset(
-            "bzn/t.bzn",
-            Bzn.Read(map.Build()),
-            Array.Empty<MapStart>(),
-            null,
-            Array.Empty<MapPath>()
-        );
+        {
+            map.Objects.Add(
+                new BznBuilder.Obj
+                {
+                    Class = c,
+                    Team = 1,
+                    Position = new Vector3(1, 2, 3),
+                    Label = c,
+                }
+            );
+        }
+
+        var asset = new MapAsset
+        {
+            Name = "bzn/t.bzn",
+            Map = Bzn.Read(map.Build()),
+            Starts = Array.Empty<MapStart>(),
+            Overview = null,
+            ScriptedPaths = Array.Empty<MapPath>(),
+        };
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
+
         return UnitPlan.Build(install, plan, selectable);
     }
 
@@ -64,7 +77,11 @@ public class UnitPlanTests
             ("addon/p.odf", "maxRoll = 1")
         );
         CollectionAssert.AreEqual(
-            new Unit[] { new Ship("Ship"), new Station("Base") },
+            new Unit[]
+            {
+                new Ship { Name = "Ship" },
+                new Station { Name = "Base" },
+            },
             plan.Units.Select(u => u.Unit).ToArray()
         );
         Assert.AreEqual("base", plan.Units[1].Object.Class);
@@ -98,7 +115,7 @@ public class UnitPlanTests
             new[] { ("x", Physics + "unitName = \"X\"\r\nis_starbase = yes") },
             ("addon/p.odf", "")
         );
-        Assert.AreEqual(new Ship("X"), plan.Units.Single().Unit);
+        Assert.AreEqual(new Ship { Name = "X" }, plan.Units.Single().Unit);
         StringAssert.Contains(plan.Reports.Single().Cause, "is_starbase");
     }
 
@@ -106,7 +123,7 @@ public class UnitPlanTests
     public void AUnitNameThatIsNoSingleValueIsReportedByItsOwnCauseAndTheClassNameStandsIn()
     {
         var plan = Plan(new[] { "x", "x" }, new[] { ("x", Physics + "unitName = Borg Cube") }, ("addon/p.odf", ""));
-        Assert.AreEqual(new Ship("x"), plan.Units[0].Unit);
+        Assert.AreEqual(new Ship { Name = "x" }, plan.Units[0].Unit);
         var report = plan.Reports.Single();
         StringAssert.Contains(report.Cause, "unitName");
         Assert.AreEqual(2, report.Count);
@@ -120,7 +137,7 @@ public class UnitPlanTests
             new[] { ("x", Physics + "unitName = Borg Cube\r\nis_starbase = yes") },
             ("addon/p.odf", "")
         );
-        Assert.AreEqual(new Ship("x"), plan.Units.Single().Unit);
+        Assert.AreEqual(new Ship { Name = "x" }, plan.Units.Single().Unit);
         Assert.AreEqual(2, plan.Reports.Count);
         Assert.AreEqual(1, plan.Reports.Count(r => r.Cause.Contains("unitName")));
         Assert.AreEqual(1, plan.Reports.Count(r => r.Cause.Contains("is_starbase")));
@@ -146,6 +163,16 @@ public class UnitPlanTests
     public void ADefinitionWithPhysicsButNoUnitNameTakesTheClassName()
     {
         var plan = Plan(new[] { "x" }, new[] { ("x", Physics) }, ("addon/p.odf", ""));
-        Assert.AreEqual(new Ship("x"), plan.Units.Single().Unit);
+        Assert.AreEqual(new Ship { Name = "x" }, plan.Units.Single().Unit);
+    }
+
+    // The map holds two objects of the same class, team, position, and label.
+    [TestMethod]
+    public void TwoIdenticalObjectsAreTwoUnits()
+    {
+        var plan = Plan(new[] { "ship", "ship" }, new[] { ("ship", Physics) }, ("addon/p.odf", "maxRoll = 1"));
+        Assert.AreEqual(2, plan.Units.Count);
+        Assert.AreNotEqual(plan.Units[0], plan.Units[1]);
+        Assert.AreNotSame(plan.Units[0].Object, plan.Units[1].Object);
     }
 }

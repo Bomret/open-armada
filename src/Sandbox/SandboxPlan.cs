@@ -8,30 +8,72 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
-// One map object to show. Position and the axes are in Godot's frame (Z mirrored, as the model builder
-// does), so the node's transform is Basis(AxisX, AxisY, AxisZ) at Position. Slot indexes
-// TeamColors.SlotNames.
-public sealed record PlacedObject(
-    string Label,
-    string Class,
-    string Model,
-    int Team,
-    int Slot,
-    Vector3 Position,
-    Vector3 AxisX,
-    Vector3 AxisY,
-    Vector3 AxisZ
-);
-
-// One gap of the map, shown once: the cause, the distinct names it touches, and how many objects it touches.
-public sealed record ReportEntry(string Cause, IReadOnlyList<string> Names, int Count)
+/// <summary>
+/// One map object to show. Position and the axes are in Godot's frame (Z mirrored, as the model builder
+/// does), so the node's transform is Basis(AxisX, AxisY, AxisZ) at Position. Slot indexes
+/// TeamColors.SlotNames. Each object is equal only to itself: a map can stack two objects of the same
+/// values, and each is its own unit.
+/// </summary>
+public sealed record PlacedObject
 {
+    /// <summary>The map object's label.</summary>
+    public required string Label { get; init; }
+
+    /// <summary>The map object's class: the name of its definition without ".odf".</summary>
+    public required string Class { get; init; }
+
+    /// <summary>The model to show, without ".sod": the definition's baseName, else the model named like the class.</summary>
+    public required string Model { get; init; }
+
+    /// <summary>The map object's team.</summary>
+    public required int Team { get; init; }
+
+    /// <summary>
+    /// The team-color slot, an index into <see cref="TeamColors.SlotNames"/>: the team's map record, or the slot of
+    /// the team's own number when the record is 0 or not usable.
+    /// </summary>
+    public required int Slot { get; init; }
+
+    /// <summary>The map object's position, in Godot's frame (Z mirrored).</summary>
+    public required Vector3 Position { get; init; }
+
+    /// <summary>The basis's X axis, from the map object's Right axis in Godot's frame; <see cref="Vector3.UnitX"/> for a degenerate orientation.</summary>
+    public required Vector3 AxisX { get; init; }
+
+    /// <summary>The basis's Y axis, from the map object's Up axis in Godot's frame; <see cref="Vector3.UnitY"/> for a degenerate orientation.</summary>
+    public required Vector3 AxisY { get; init; }
+
+    /// <summary>The basis's Z axis, from the map object's Front axis in Godot's frame; <see cref="Vector3.UnitZ"/> for a degenerate orientation.</summary>
+    public required Vector3 AxisZ { get; init; }
+
+    /// <summary>Whether <c>other</c> is this same object; two objects of equal values are not equal.</summary>
+    public bool Equals(PlacedObject? other) => ReferenceEquals(this, other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
+}
+
+/// <summary>One gap of the map, shown once: the cause, the distinct names it touches, and how many objects it touches.</summary>
+public sealed record ReportEntry
+{
+    /// <summary>What is wrong and what the sandbox does about it.</summary>
+    public required string Cause { get; init; }
+
+    /// <summary>The distinct names the cause touches, in the order first found.</summary>
+    public required IReadOnlyList<string> Names { get; init; }
+
+    /// <summary>How many objects the cause touches.</summary>
+    public required int Count { get; init; }
+
+    /// <summary>The line to show: the cause, the names, and the object count.</summary>
     public string Text => $"{Cause}: {string.Join(", ", Names)} ({Count} {(Count == 1 ? "object" : "objects")})";
 }
 
-// What a map sandbox shows of one map: the objects to place, the map's ambient light and background
-// model (null when the map names none the install holds), and the gaps found while planning (INV-0002:
-// a gap is reported and the map still opens).
+/// <summary>
+/// What a map sandbox shows of one map: the objects to place, the map's ambient light and background
+/// model (null when the map names none the install holds), and the gaps found while planning (INV-0002:
+/// a gap is reported and the map still opens).
+/// </summary>
 public sealed class SandboxPlan
 {
     const string AsteroidFieldLabel = "asteroidfield"; // a definition's classLabel; the rocks are generated, not placed from a model
@@ -41,18 +83,25 @@ public sealed class SandboxPlan
     const string DegenerateOrientation = "degenerate orientation, identity used";
     const string BadSlot = "team-color slot not usable, the team's own slot used";
 
+    /// <summary>The objects to place; asteroid fields and objects with a gap that leaves them out are absent.</summary>
     public IReadOnlyList<PlacedObject> Objects { get; }
+
+    /// <summary>The gaps found while planning, the asteroid fields' gaps included.</summary>
     public IReadOnlyList<ReportEntry> Reports { get; }
+
+    /// <summary>The map's ambient light (its AmbientRed, AmbientGreen, and AmbientBlue values).</summary>
     public Vector3 Ambient { get; }
+
+    /// <summary>The background model without ".sod"; null when the map names none the install holds.</summary>
     public string? Background { get; }
 
-    // The map's bounds in the map's own frame (Z not mirrored).
+    /// <summary>The map's bounds in the map's own frame (Z not mirrored).</summary>
     public MapBounds Bounds { get; }
 
-    // The asteroid fields to fill with rocks (a field with a missing or illegal value is reported and absent).
+    /// <summary>The asteroid fields to fill with rocks (a field with a missing or illegal value is reported and absent).</summary>
     public IReadOnlyList<AsteroidField> Fields { get; }
 
-    // The resolved definitions the plan was built from, by class name without regard to case.
+    /// <summary>The resolved definitions the plan was built from, by class name without regard to case.</summary>
     public IReadOnlyDictionary<string, ResolvedDefinition> Resolved { get; }
 
     SandboxPlan(
@@ -74,9 +123,11 @@ public sealed class SandboxPlan
         Bounds = bounds;
     }
 
-    // The resolved definition of each object class of the map, by class name without regard to case, and the
-    // classes whose definition the install holds but that cannot be read, whatever the reason. A class the
-    // install has no definition for is in neither.
+    /// <summary>
+    /// The resolved definition of each object class of the map, by class name without regard to case, and the
+    /// classes whose definition the install holds but that cannot be read, whatever the reason. A class the
+    /// install has no definition for is in neither.
+    /// </summary>
     public static (IReadOnlyDictionary<string, ResolvedDefinition> Found, IReadOnlySet<string> Unreadable) Definitions(
         GameFileSystem files,
         MapAsset map
@@ -96,10 +147,11 @@ public sealed class SandboxPlan
                 unreadable.Add(cls);
             } // INV-0002: a gap of its objects, the map still opens
         }
+
         return (found, unreadable);
     }
 
-    // `hasModel` tells whether the install holds a model of the name (given without ".sod").
+    /// <summary><c>hasModel</c> tells whether the install holds a model of the name (given without ".sod").</summary>
     public static SandboxPlan Build(
         MapAsset asset,
         (IReadOnlyDictionary<string, ResolvedDefinition> Found, IReadOnlySet<string> Unreadable) definitions,
@@ -114,13 +166,17 @@ public sealed class SandboxPlan
             if (definitions.Unreadable.Contains(o.Class))
             {
                 gaps.Add(UnreadableDefinition, o.Class);
+
                 continue;
             }
+
             if (!definitions.Found.TryGetValue(o.Class, out var definition))
             {
                 gaps.Add(MissingDefinition, o.Class);
+
                 continue;
             }
+
             if (
                 definition
                     .Find("classLabel")
@@ -133,21 +189,24 @@ public sealed class SandboxPlan
                 continue;
             var (x, y, z) = Orientation(o, gaps);
             placed.Add(
-                new PlacedObject(
-                    o.Label,
-                    o.Class,
-                    model,
-                    o.Team,
-                    Slot(map, o.Team, gaps),
-                    new Vector3(o.Position.X, o.Position.Y, -o.Position.Z),
-                    x,
-                    y,
-                    z
-                )
+                new PlacedObject
+                {
+                    Label = o.Label,
+                    Class = o.Class,
+                    Model = model,
+                    Team = o.Team,
+                    Slot = Slot(map, o.Team, gaps),
+                    Position = new Vector3(o.Position.X, o.Position.Y, -o.Position.Z),
+                    AxisX = x,
+                    AxisY = y,
+                    AxisZ = z,
+                }
             );
         }
+
         var background = BackgroundOf(map, hasModel, gaps);
         var (fields, fieldReports) = AsteroidField.Collect(map, definitions.Found, hasModel);
+
         return new SandboxPlan(
             placed,
             gaps.Entries.Concat(fieldReports).ToList(),
@@ -170,6 +229,7 @@ public sealed class SandboxPlan
         if (hasModel(name))
             return name;
         gaps.Add(MissingModel, name);
+
         return null;
     }
 
@@ -181,6 +241,7 @@ public sealed class SandboxPlan
         if (hasModel(name))
             return name;
         gaps.Add(MissingModel, name);
+
         return null;
     }
 
@@ -201,8 +262,10 @@ public sealed class SandboxPlan
         if (!finite || lengths == 0 || Math.Abs(Vector3.Dot(o.Right, Vector3.Cross(o.Up, o.Front))) / lengths < 0.001f)
         {
             gaps.Add(DegenerateOrientation, $"{o.Label} ({o.Class})");
+
             return (Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
         }
+
         return (
             new Vector3(o.Right.X, o.Right.Y, -o.Right.Z),
             new Vector3(o.Up.X, o.Up.Y, -o.Up.Z),
@@ -220,16 +283,20 @@ public sealed class SandboxPlan
         if (team < 0 || team >= map.Teams.Count)
         {
             gaps.Add(BadSlot, $"team {team} has no record");
+
             return own;
         }
+
         var record = map.Teams[team].Color;
         if (record == 0)
             return own;
         if (record < 0 || record >= slots)
         {
             gaps.Add(BadSlot, record.ToString());
+
             return own;
         }
+
         return record;
     }
 }

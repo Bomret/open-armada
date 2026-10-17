@@ -4,29 +4,49 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// A texture at native size with the named regions of its sprites outlined on it.
+/// <summary>A texture at native size with the named regions of its sprites outlined on it.</summary>
 public partial class SpriteSheetView : Control
 {
     readonly ImageTexture _texture;
     readonly List<(Sprite Sprite, Rect2 Rect)> _regions = new();
 
+    /// <summary>Shows <c>image</c> at native size with nearest filtering and outlines each of <c>sprites</c> with its name.</summary>
     public SpriteSheetView(Image image, IEnumerable<Sprite> sprites)
     {
         _texture = ImageTexture.CreateFromImage(image);
         CustomMinimumSize = new Vector2(image.GetWidth(), image.GetHeight());
         TextureFilter = TextureFilterEnum.Nearest;
         foreach (var s in sprites)
-            _regions.Add((s, Region(s, new SpriteFrame(s.U, s.V, s.W, s.H), image.GetSize())));
+        {
+            _regions.Add(
+                (
+                    s,
+                    Region(
+                        s,
+                        new SpriteFrame
+                        {
+                            U = s.U,
+                            V = s.V,
+                            W = s.W,
+                            H = s.H,
+                        },
+                        image.GetSize()
+                    )
+                )
+            );
+        }
     }
 
-    // A frame in reference pixels as a rectangle of the texture; without a reference it is in texture pixels.
+    /// <summary>A frame in reference pixels as a rectangle of the texture; without a reference it is in texture pixels.</summary>
     public static Rect2 Region(Sprite s, SpriteFrame f, Vector2I texture)
     {
         var sx = s.ReferenceWidth > 0 ? (float)texture.X / s.ReferenceWidth : 1f;
         var sy = s.ReferenceHeight > 0 ? (float)texture.Y / s.ReferenceHeight : 1f;
+
         return new Rect2(f.U * sx, f.V * sy, f.W * sx, f.H * sy);
     }
 
+    /// <inheritdoc/>
     public override void _Draw()
     {
         DrawTexture(_texture, Vector2.Zero);

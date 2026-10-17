@@ -9,10 +9,20 @@ namespace OpenArmada.Tests;
 // 36-byte entries, and file data XORed with the key over whole 4-byte words.
 internal static class ZfsBuilder
 {
-    internal sealed record Member(string Name, byte[] Data, uint Flags = 0);
+    internal sealed record Member
+    {
+        public required string Name { get; init; }
+        public required byte[] Data { get; init; }
+        public uint Flags { get; init; } = 0;
+    }
 
     internal static Member M(string name, string text, uint flags = 0) =>
-        new(name, Encoding.Latin1.GetBytes(text), flags);
+        new()
+        {
+            Name = name,
+            Data = Encoding.Latin1.GetBytes(text),
+            Flags = flags,
+        };
 
     internal static byte[] Build(uint key, params Member[] members)
     {
@@ -32,7 +42,10 @@ internal static class ZfsBuilder
         {
             var block = 28 + i / 100 * 0xE14;
             if (i % 100 == 0)
+            {
                 Put(block, i / 100 + 1 < blocks ? (uint)(28 + (i / 100 + 1) * 0xE14) : 0);
+            }
+
             var e = block + 4 + i % 100 * 36;
             Encoding.Latin1.GetBytes(members[i].Name).CopyTo(file, e);
             Put(e + 16, (uint)(dataStart + data.Count));
@@ -41,6 +54,7 @@ internal static class ZfsBuilder
             Put(e + 32, members[i].Flags);
             data.AddRange(Xor(members[i].Data, key));
         }
+
         return file.Concat(data).ToArray();
     }
 
@@ -50,7 +64,10 @@ internal static class ZfsBuilder
         if (key == 0)
             return o;
         for (var i = 0; i + 4 <= o.Length; i += 4)
+        {
             BitConverter.GetBytes(BitConverter.ToUInt32(o, i) ^ key).CopyTo(o, i);
+        }
+
         return o;
     }
 }

@@ -40,7 +40,11 @@ public class SodModelDataTests
         var sod = Sod.Read(
             new SodBytes(1.8f)
                 .Lighting()
-                .Nodes(new NodeSpec("a", "b"), new NodeSpec("b", "a"), new NodeSpec("c", "a"))
+                .Nodes(
+                    new NodeSpec { Name = "a", Parent = "b" },
+                    new NodeSpec { Name = "b", Parent = "a" },
+                    new NodeSpec { Name = "c", Parent = "a" }
+                )
                 .End()
         );
         Assert.AreEqual(2, sod.Problems.Count);
@@ -51,7 +55,7 @@ public class SodModelDataTests
     [TestMethod]
     public void NodeNamingItselfAsParentIsReported()
     {
-        var sod = Sod.Read(new SodBytes(1.8f).Lighting().Nodes(new NodeSpec("a", "a")).End());
+        var sod = Sod.Read(new SodBytes(1.8f).Lighting().Nodes(new NodeSpec { Name = "a", Parent = "a" }).End());
         StringAssert.Contains(sod.Problems.Single(), "'a'");
     }
 
@@ -59,7 +63,19 @@ public class SodModelDataTests
     public void FaceCornerPastTheVerticesIsReportedForTheNode()
     {
         var mesh = Triangle() with { Corners = new[] { (0, 0), (1, 1), (9, 2) } };
-        var sod = Sod.Read(new SodBytes(1.8f).Lighting(("lit", 1f, 1)).Nodes(new NodeSpec("hull", "", mesh)).End());
+        var sod = Sod.Read(
+            new SodBytes(1.8f)
+                .Lighting(("lit", 1f, 1))
+                .Nodes(
+                    new NodeSpec
+                    {
+                        Name = "hull",
+                        Parent = "",
+                        Mesh = mesh,
+                    }
+                )
+                .End()
+        );
         StringAssert.Contains(sod.Problems.Single(), "hull");
         StringAssert.Contains(sod.Problems.Single(), "vertex 9");
     }
@@ -68,7 +84,19 @@ public class SodModelDataTests
     public void FaceCornerPastTheTexCoordsIsReportedForTheNode()
     {
         var mesh = Triangle() with { Corners = new[] { (0, 0), (1, 7), (2, 2) } };
-        var sod = Sod.Read(new SodBytes(1.8f).Lighting(("lit", 1f, 1)).Nodes(new NodeSpec("hull", "", mesh)).End());
+        var sod = Sod.Read(
+            new SodBytes(1.8f)
+                .Lighting(("lit", 1f, 1))
+                .Nodes(
+                    new NodeSpec
+                    {
+                        Name = "hull",
+                        Parent = "",
+                        Mesh = mesh,
+                    }
+                )
+                .End()
+        );
         StringAssert.Contains(sod.Problems.Single(), "texture coordinate 7");
     }
 
@@ -76,7 +104,10 @@ public class SodModelDataTests
     public void NodeWithUnknownParentIsReported()
     {
         var sod = Sod.Read(
-            new SodBytes(1.8f).Lighting().Nodes(new NodeSpec("root", ""), new NodeSpec("wing", "nowhere")).End()
+            new SodBytes(1.8f)
+                .Lighting()
+                .Nodes(new NodeSpec { Name = "root", Parent = "" }, new NodeSpec { Name = "wing", Parent = "nowhere" })
+                .End()
         );
         StringAssert.Contains(sod.Problems.Single(), "'wing'");
         StringAssert.Contains(sod.Problems.Single(), "'nowhere'");
@@ -88,9 +119,31 @@ public class SodModelDataTests
         var sod = Sod.Read(
             new SodBytes(1.8f)
                 .Lighting(("lit", 1f, 1))
-                .Nodes(new NodeSpec("root", ""), new NodeSpec("hull", "root", Triangle()))
+                .Nodes(
+                    new NodeSpec { Name = "root", Parent = "" },
+                    new NodeSpec
+                    {
+                        Name = "hull",
+                        Parent = "root",
+                        Mesh = Triangle(),
+                    }
+                )
                 .End()
         );
         Assert.AreEqual(0, sod.Problems.Count);
+    }
+
+    [TestMethod]
+    public void CutOffFileIsInvalidData()
+    {
+        var whole = new SodBytes(1.7f)
+            .Lighting(("lit", 1f, 1))
+            .Nodes(new NodeSpec { Name = "root", Parent = "" })
+            .End((0, "root", "spin", 0f));
+        // Cut inside a value, and inside the last name.
+        foreach (var cut in new[] { 20, whole.Length - 2 })
+        {
+            Assert.ThrowsExactly<System.IO.InvalidDataException>(() => Sod.Read(whole[..cut]));
+        }
     }
 }

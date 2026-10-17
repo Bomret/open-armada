@@ -17,7 +17,10 @@ public class AssetCheckTests
         var b = new List<byte>(Encoding.ASCII.GetBytes("Storm3D_SW"));
         b.AddRange(BitConverter.GetBytes(version));
         if (version >= 1.7f)
+        {
             b.AddRange(new byte[8]);
+        }
+
         return Encoding.Latin1.GetString(b.ToArray());
     }
 
@@ -31,6 +34,7 @@ public class AssetCheckTests
         public override object Load(GameFileSystem f, string n)
         {
             load(n);
+
             return n;
         }
     }
@@ -38,6 +42,7 @@ public class AssetCheckTests
     static (int Code, string Output) Run(string? game, params AssetKind[] kinds)
     {
         var w = new StringWriter();
+
         return (AssetCheck.Run(game, kinds, w), w.ToString());
     }
 
@@ -148,7 +153,10 @@ public class AssetCheckTests
     public void UnreadableFolderFailsTheClassificationWithItsName()
     {
         if (OperatingSystem.IsWindows())
+        {
             Assert.Inconclusive("needs POSIX file modes");
+        }
+
         var game = Install(("SOD/a.sod", Sod(1.8f)), ("locked/x.txt", ""));
         var locked = Path.Combine(game, "locked");
         File.SetUnixFileMode(locked, UnixFileMode.None);
@@ -161,6 +169,7 @@ public class AssetCheckTests
                 Assert.Inconclusive("the folder stays readable (running as root)");
             }
             catch (UnauthorizedAccessException) { }
+
             var (code, output) = Run(game, new ModelKind());
             Assert.AreEqual((1, true), (code, output.Contains("locked")));
         }

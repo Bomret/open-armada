@@ -200,6 +200,7 @@ public class InstallClassifierTests
                     .ToArray()
             );
             var fs = new GameFileSystem(root);
+
             return InstallClassifier.Classify(fs.Inventory(), fs);
         }
         finally

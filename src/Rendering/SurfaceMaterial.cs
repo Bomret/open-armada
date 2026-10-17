@@ -4,32 +4,44 @@ using OpenArmada.Assets;
 
 namespace OpenArmada.Rendering;
 
-// The Godot material of a model surface: one shader that follows the game's rules. A constant material
-// is unshaded; Lambert and Phong add the scene's lights to the material's ambient, with Phong's specular
-// term from the specular color and power. The texture multiplies the lit color (texture stage 0 modulates
-// the lit vertex color in the game). Blend modes: opaque, alpha test at 128/255, alpha (with the alpha
-// test when the state asks), add.
-//
-// Known difference: the game adds the scene ambient and the material's ambient, clamps, and then modulates
-// the texture. Godot adds the scene ambient scaled by the albedo (texture * diffuse), and the shader cannot
-// clamp before the texture without leaving Godot's lighting; the material ambient is added as emission.
+/// <summary>
+/// The Godot material of a model surface: one shader that follows the game's rules. A constant material
+/// is unshaded; Lambert and Phong add the scene's lights to the material's ambient, with Phong's specular
+/// term from the specular color and power. The texture multiplies the lit color (texture stage 0 modulates
+/// the lit vertex color in the game). Blend modes: opaque, alpha test at 128/255, alpha (with the alpha
+/// test when the state asks), add.
+///
+/// Known difference: the game adds the scene ambient and the material's ambient, clamps, and then modulates
+/// the texture. Godot adds the scene ambient scaled by the albedo (texture * diffuse), and the shader cannot
+/// clamp before the texture without leaving Godot's lighting; the material ambient is added as emission.
+/// </summary>
 public static class SurfaceMaterial
 {
     static readonly Dictionary<string, Shader> Shaders = new();
 
+    /// <summary>
+    /// A new material with the surface's lighting model and colors and the blend of <c>blend</c>, textured when
+    /// <c>texture</c> is not null; <c>cull</c> true culls back faces, false draws both sides. Materials with the
+    /// same lighting model, blend mode, filtering, alpha test, and culling share one shader, built on first use
+    /// and kept for the life of the process.
+    /// </summary>
     public static ShaderMaterial Create(Surface surface, BlendState blend, Texture2D? texture, bool cull)
     {
         var mat = new ShaderMaterial { Shader = ShaderFor(surface.Model, blend, cull) };
         if (texture != null)
+        {
             mat.SetShaderParameter("albedo_tex", texture);
+        }
+
         mat.SetShaderParameter("has_tex", texture != null);
         mat.SetShaderParameter("opacity", blend.Opacity);
         mat.SetShaderParameter("uv_offset", Vector2.Zero);
         Apply(mat, surface);
+
         return mat;
     }
 
-    // Sets the colors and power; a team material calls it again when the team changes.
+    /// <summary>Sets the colors and power; a team material calls it again when the team changes.</summary>
     public static void Apply(ShaderMaterial mat, Surface s)
     {
         mat.SetShaderParameter("ambient", ToGodot(s.Ambient));
@@ -47,9 +59,15 @@ public static class SurfaceMaterial
             return shader;
         var render = new List<string> { cull ? "cull_back" : "cull_disabled" };
         if (model == LightingModel.Constant)
+        {
             render.Add("unshaded");
+        }
+
         if (blend.Mode == BlendMode.Add)
+        {
             render.Add("blend_add");
+        }
+
         var alpha = blend.Mode switch
         {
             BlendMode.Cutout => "if (a < 128.0 / 255.0) discard;",
@@ -88,6 +106,7 @@ void light() {{
 }}
 ",
         };
+
         return Shaders[key] = shader;
     }
 }

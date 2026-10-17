@@ -7,16 +7,26 @@ using System.Numerics;
 
 namespace OpenArmada.Formats;
 
-// A start location of the .mdf: a cell of the 118 x 118 grid (0..117 on both axes) the map is stretched onto.
-public readonly record struct StartCell(int X, int Y);
+/// <summary>A start location of the .mdf: a cell of the 118 x 118 grid (0..117 on both axes) the map is stretched onto.</summary>
+public readonly record struct StartCell
+{
+    /// <summary>The cell column, 0..117.</summary>
+    public required int X { get; init; }
 
-// The .mdf next to a multiplayer map: `StartLocations = n`, then `Start1 = x y` to `Startn = x y`.
+    /// <summary>The cell row, 0..117.</summary>
+    public required int Y { get; init; }
+}
+
+/// <summary>The .mdf next to a multiplayer map: <c>StartLocations = n</c>, then <c>Start1 = x y</c> to <c>Startn = x y</c>.</summary>
 public static class Mdf
 {
+    /// <summary>The highest cell index on both axes of the 118 x 118 grid.</summary>
     public const int MaxCell = 117;
 
-    // Throws InvalidDataException when the count is outside 2..8, a start is missing or outside the grid,
-    // a line is given twice, or a line is not one of these (the game would fall back to built-in defaults; the reader reports).
+    /// <summary>
+    /// Throws InvalidDataException when the count is outside 2..8, a start is missing or outside the grid,
+    /// a line is given twice, or a line is not one of these (the game would fall back to built-in defaults; the reader reports).
+    /// </summary>
     public static IReadOnlyList<StartCell> Read(string text)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -32,6 +42,7 @@ public static class Mdf
             if (!values.TryAdd(key, line[(eq + 1)..].Trim()))
                 throw new InvalidDataException($"mdf line '{key}' is given twice");
         }
+
         if (
             !values.Remove("StartLocations", out var countText)
             || !int.TryParse(countText, out var count)
@@ -53,17 +64,24 @@ public static class Mdf
                 || y is < 0 or > MaxCell
             )
                 throw new InvalidDataException($"mdf {key} is not two cells of 0..{MaxCell}: '{v}'");
-            cells.Add(new StartCell(x, y));
+            cells.Add(new StartCell { X = x, Y = y });
         }
+
         if (values.Count > 0)
             throw new InvalidDataException($"mdf line '{values.Keys.First()}' is not read");
+
         return cells;
     }
 }
 
-// The scripted camera paths of 3D_Paths/*.pth: a point count, then x y z per point (relative to the first point).
+/// <summary>The scripted camera paths of 3D_Paths/*.pth: a point count, then x y z per point (relative to the first point).</summary>
 public static class Pth
 {
+    /// <summary>Reads the points of a camera path in file order, as written.</summary>
+    /// <exception cref="InvalidDataException">
+    /// when the text does not start with a count of 0 or more followed by exactly that many groups of three values,
+    /// or a value is not a finite number.
+    /// </exception>
     public static IReadOnlyList<Vector3> Read(string text)
     {
         var t = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
@@ -81,6 +99,7 @@ public static class Pth
             float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var f) && float.IsFinite(f)
                 ? f
                 : throw new InvalidDataException($"pth value '{s}' is not a finite number");
+
         return Enumerable
             .Range(0, count)
             .Select(i => new Vector3(F(t[1 + i * 3]), F(t[2 + i * 3]), F(t[3 + i * 3])))

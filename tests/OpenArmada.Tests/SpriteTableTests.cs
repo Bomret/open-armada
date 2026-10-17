@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Formats;
 
@@ -13,6 +14,7 @@ public class SpriteTableTests
     static SpriteTable Read(string root, params (string Name, string Text)[] tables)
     {
         var map = tables.ToDictionary(t => t.Name, t => t.Text, System.StringComparer.OrdinalIgnoreCase);
+
         return SpriteTable.Read(root, n => map.TryGetValue(n, out var t) ? t : null);
     }
 
@@ -385,11 +387,62 @@ public class SpriteTableTests
         );
         Assert.AreEqual("rift", t.Emitters.Single().Name);
         CollectionAssert.AreEqual(new[] { "type=spray", "velocity=12" }, t.Emitters.Single().Body.ToArray());
-        Assert.AreEqual("n", t.SpriteNodes.Single().Name);
-        CollectionAssert.AreEqual(
-            new[] { "s", "const", "(1,1)", "(1,1,1)", "billboard" },
-            t.SpriteNodes.Single().Arguments.ToArray()
-        );
+        var node = t.SpriteNodes.Single();
+        Assert.AreEqual(("n", "s", "const"), (node.Node, node.Sprite, node.Animation));
+        Assert.AreEqual((1f, 1f, new Vector3(1, 1, 1), true), (node.Width, node.Height, node.Colour, node.Billboard));
+        Assert.AreEqual(("a.spr", 7), (node.Table, node.Line));
         Assert.AreEqual(1, t.Sprites.Count);
+    }
+
+    // The install's own spellings: tabs, leading dots, an unclosed or doubled parenthesis, a commented-out flag.
+    [TestMethod]
+    public void SpriteNodeLinesAreReadAsTheInstallSpellsThem()
+    {
+        var t = Read(
+            "a.spr",
+            (
+                "a.spr",
+                Head
+                    + "@sprite_node a s fire (2.35,10.88) (1,1,1\n"
+                    + "@sprite_node b s const (2.5,2.5) (.8,.7,.6)) billboard\n"
+                    + "@sprite_node c s const (.7,.7)) (1,.8,0)\n"
+                    + "@sprite_node d\ts const\t(.5,.5) (.7,.8,1)\n"
+                    + "@sprite_node e s strobe (.5,.5) (1,1,1) //billboard\n"
+            )
+        );
+        var n = t.SpriteNodes.ToDictionary(x => x.Node);
+        Assert.AreEqual((2.35f, 10.88f, new Vector3(1, 1, 1)), (n["a"].Width, n["a"].Height, n["a"].Colour));
+        Assert.AreEqual((new Vector3(.8f, .7f, .6f), true), (n["b"].Colour, n["b"].Billboard));
+        Assert.AreEqual((.7f, .7f, new Vector3(1, .8f, 0)), (n["c"].Width, n["c"].Height, n["c"].Colour));
+        Assert.AreEqual(("s", "const", .5f), (n["d"].Sprite, n["d"].Animation, n["d"].Width));
+        Assert.IsFalse(n["e"].Billboard);
+        Assert.AreEqual(0, t.Notes.Count);
+    }
+
+    [TestMethod]
+    public void MalformedSpriteNodeLineIsANoteForThatLineAlone()
+    {
+        var t = Read(
+            "a.spr",
+            (
+                "a.spr",
+                Head
+                    + "@animation f\ndraw 1 1 step\n0 1\n"
+                    + "@sprite_node bad s const (1,x) (1,1,1)\n"
+                    + "@sprite_node\n"
+                    + "@sprite_node short s const (1,1)\n"
+                    + "@sprite_node good s const (1,1) (1,1,1) billboard\n"
+                    + "s t 0 0 8 8\n"
+            )
+        );
+        Assert.AreEqual("good", t.SpriteNodes.Single().Node);
+        Assert.AreEqual(1, t.Sprites.Count);
+        Assert.IsTrue(t.Animations.ContainsKey("f"));
+        CollectionAssert.AreEqual(
+            new[] { "a.spr:6", "a.spr:7", "a.spr:8" },
+            t.UnreadSpriteNodes.Select(u => u.Note[..u.Note.IndexOf(": ", System.StringComparison.Ordinal)]).ToArray()
+        );
+        CollectionAssert.AreEqual(new[] { "bad", "", "short" }, t.UnreadSpriteNodes.Select(u => u.Node).ToArray());
+        CollectionAssert.IsSubsetOf(t.UnreadSpriteNodes.Select(u => u.Note).ToArray(), t.Notes.ToArray());
     }
 }

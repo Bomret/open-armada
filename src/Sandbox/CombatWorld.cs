@@ -5,24 +5,39 @@ using System.Numerics;
 
 namespace OpenArmada.Sandbox;
 
-// One unit as the combat world takes it: the placed object, its combat values, the name per-target values know
-// it by, its radius, and whether it can move at all.
-public sealed record CombatUnit(
-    PlacedObject Unit,
-    CombatProfile Profile,
-    string DefinitionName,
-    float Radius,
-    bool Mobile
-);
+/// <summary>
+/// One unit as the combat world takes it: the placed object, its combat values, the name per-target values know
+/// it by, its radius, and whether it can move at all.
+/// </summary>
+public sealed record CombatUnit
+{
+    /// <summary>The placed object.</summary>
+    public required PlacedObject Unit { get; init; }
 
-// The fight of a map in plain C#: every unit's combat state, the orders, and the shots in flight. Step advances
-// it and returns what happened. Unit positions come from the pose source; randomness from the injected source, a
-// number in [0, 1) per call.
+    /// <summary>The unit's combat values.</summary>
+    public required CombatProfile Profile { get; init; }
+
+    /// <summary>The name per-target values know the unit by (<c>zmama.odf</c>).</summary>
+    public required string DefinitionName { get; init; }
+
+    /// <summary>The unit's radius in world units, for distances surface to surface; 0 for a model without meshes.</summary>
+    public required float Radius { get; init; }
+
+    /// <summary>Whether the unit can move at all.</summary>
+    public required bool Mobile { get; init; }
+}
+
+/// <summary>
+/// The fight of a map in plain C#: every unit's combat state, the orders, and the shots in flight. Step advances
+/// it and returns what happened. Unit positions come from the pose source; randomness from the injected source, a
+/// number in [0, 1) per call.
+/// </summary>
 public sealed class CombatWorld
 {
     // stand-in: the world runs on fixed ticks of this many seconds, and a step carries the time left over to the
     // next, so one long step does what many short ones over the same time do; the game's own update rate is not
     // known.
+    /// <summary>The length of one world tick in seconds.</summary>
     public const double Tick = 0.02;
 
     // stand-in: a shield bubble reaches this many radii from a unit's center; the game's shape is not known.
@@ -41,6 +56,11 @@ public sealed class CombatWorld
     readonly List<Shot> _shots = new();
     double _pending;
 
+    /// <summary>
+    /// A world of the units, without orders. <c>shieldDamageProtection</c> and
+    /// <c>systemHitpointsBonus</c> are the RTS_CFG.h constants; <c>random</c> returns a number in [0, 1) per call.
+    /// A later unit with the same placed object replaces an earlier one.
+    /// </summary>
     public CombatWorld(
         UnitPoses poses,
         IEnumerable<CombatUnit> units,
@@ -53,6 +73,7 @@ public sealed class CombatWorld
         _protection = shieldDamageProtection;
         _random = random;
         foreach (var u in units)
+        {
             _units[u.Unit] = new UnitCombatState(
                 u.Unit,
                 u.Profile,
@@ -61,19 +82,22 @@ public sealed class CombatWorld
                 u.Mobile,
                 systemHitpointsBonus
             );
+        }
     }
 
-    // The shots in flight.
+    /// <summary>The shots in flight.</summary>
     public IReadOnlyList<Shot> Shots => _shots;
 
-    // The units still in the fight.
+    /// <summary>The units still in the fight.</summary>
     public IEnumerable<UnitCombatState> Units => _units.Values;
 
-    // The state of a unit; null once it is destroyed or when it is no unit of the world.
+    /// <summary>The state of a unit; null once it is destroyed or when it is no unit of the world.</summary>
     public UnitCombatState? State(PlacedObject unit) => _units.GetValueOrDefault(unit);
 
-    // Gives `attacker` an attack order on `target`, replacing its order. Refused (false) when either is gone, the
-    // target is not hostile to the attacker, or the attacker has no weapons.
+    /// <summary>
+    /// Gives <c>attacker</c> an attack order on <c>target</c>, replacing its order. Refused (false) when either is gone, the
+    /// target is not hostile to the attacker, or the attacker has no weapons.
+    /// </summary>
     public bool Attack(PlacedObject attacker, PlacedObject target)
     {
         if (State(attacker) is not { } a || State(target) is not { } t)
@@ -85,10 +109,11 @@ public sealed class CombatWorld
         a.AutoMove = false;
         a.PlayerMove = null;
         a.Intent = default;
+
         return true;
     }
 
-    // Ends the unit's attack order and its move order.
+    /// <summary>Ends the unit's attack order and its move order.</summary>
     public void ClearOrder(PlacedObject unit)
     {
         if (State(unit) is not { } state)
@@ -100,16 +125,20 @@ public sealed class CombatWorld
         state.Intent = default;
     }
 
-    // Gives the unit a move order to the point (X, Z), replacing its attack order. The unit is not idle until it
-    // arrives, however the motion gets there (a ship turns in place first without changing its position).
+    /// <summary>
+    /// Gives the unit a move order to the point (X, Z), replacing its attack order. The unit is not idle until it
+    /// arrives, however the motion gets there (a ship turns in place first without changing its position).
+    /// </summary>
     public void Move(PlacedObject unit, float x, float z)
     {
         ClearOrder(unit);
         if (State(unit) is { } state)
+        {
             state.PlayerMove = (x, z);
+        }
     }
 
-    // Advances the fight by `seconds` and returns the events of the ticks that ran.
+    /// <summary>Advances the fight by <c>seconds</c> and returns the events of the ticks that ran.</summary>
     public IReadOnlyList<CombatEvent> Step(double seconds)
     {
         var events = new List<CombatEvent>();
@@ -126,14 +155,18 @@ public sealed class CombatWorld
                 && Math.Abs(at.X - to.X) < ArrivedWithin
                 && Math.Abs(at.Z - to.Z) < ArrivedWithin
             )
+            {
                 u.PlayerMove = null;
+            }
         }
+
         _pending += Math.Max(0, seconds);
         while (_pending + Epsilon >= Tick)
         {
             _pending -= Tick;
             RunTick(events);
         }
+
         return events;
     }
 
@@ -147,9 +180,10 @@ public sealed class CombatWorld
             Think(u);
             if (u.Mobile && u.Immobile)
             {
-                u.Intent = new MoveIntent(MoveKind.Stop); // no order moves a derelict ship or one with dead engines
+                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a derelict ship or one with dead engines
                 u.PlayerMove = null;
             }
+
             Fire(u, events);
             CombatRules.RegainShields(u, Tick);
             CombatRules.Sustain(u, Tick);
@@ -177,17 +211,22 @@ public sealed class CombatWorld
         {
             u.Order = null;
             u.AutoOrder = false;
-            u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
+            u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
         }
+
         // stand-in: what red gave the unit ends with red, the auto order and the walk toward an attacker (a
         // player's order stays); the game's behavior is not known.
         if (u.Alert != AlertStance.Red && (u.AutoOrder || u.AutoMove))
         {
             if (u.AutoOrder)
+            {
                 u.Order = null;
+            }
+
             u.AutoOrder = u.AutoMove = false;
-            u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
+            u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
         }
+
         var range = LongestRange(u);
         var radius = range - 25;
         if (u.Order == null)
@@ -210,19 +249,30 @@ public sealed class CombatWorld
             else if (u.Mobile && u.Attacker is { } attacker && Valid(u, attacker))
             {
                 var at = Position(attacker); // else go to where the unit that hit it is
-                u.Intent = new MoveIntent(MoveKind.MoveTo, at.X, at.Z);
+                u.Intent = new MoveIntent
+                {
+                    Kind = MoveKind.MoveTo,
+                    X = at.X,
+                    Z = at.Z,
+                };
                 u.AutoMove = true;
+
                 return;
             }
             else
             {
                 u.Attacker = null;
                 if (u.AutoMove)
-                    u.Intent = new MoveIntent(MoveKind.Stop);
+                {
+                    u.Intent = new MoveIntent { Kind = MoveKind.Stop };
+                }
+
                 u.AutoMove = false;
+
                 return;
             }
         }
+
         var order = u.Order!;
         var distance = Surface(u, order);
         if (u.Mobile)
@@ -230,13 +280,21 @@ public sealed class CombatWorld
             var there = Position(order);
             // stand-in: the game's attack maneuver was not traced; the unit follows its target to the closing
             // range, then holds position and turns toward it.
-            u.Intent = new MoveIntent(distance > range - 50 ? MoveKind.MoveTo : MoveKind.Face, there.X, there.Z);
+            u.Intent = new MoveIntent
+            {
+                Kind = distance > range - 50 ? MoveKind.MoveTo : MoveKind.Face,
+                X = there.X,
+                Z = there.Z,
+            };
         }
+
         if (distance <= range)
         {
             u.Target = order;
+
             return;
         }
+
         // An ordered target out of range: the weapons fire at the unit's own pick (none at green).
         u.Target = u.Alert == AlertStance.Green ? null : Select(u, held, radius);
     }
@@ -272,19 +330,25 @@ public sealed class CombatWorld
             if (u.Derelict || u.SystemDestroyed(SystemNames.Weapons) || u.Target is not { } target)
             {
                 weapon.Cooldown = Math.Max(0, weapon.Cooldown); // an idle weapon does not store shots
+
                 continue;
             }
+
             var delay = CombatRules.ReloadDelay(weapon.Profile, u);
             // A delay below a tick fires several rounds in one tick; a delay of zero fires one round per tick. A
             // round is one shot per hardpoint, so a weapon without hardpoints fires nothing.
             while (weapon.Cooldown <= Epsilon)
             {
                 foreach (var hardpoint in weapon.Profile.Hardpoints)
-                    events.Add(new ShotFired(Launch(u, weapon.Profile, target, hardpoint)));
+                {
+                    events.Add(new ShotFired { Shot = Launch(u, weapon.Profile, target, hardpoint) });
+                }
+
                 weapon.Cooldown += delay;
                 if (delay <= Epsilon)
                 {
                     weapon.Cooldown = 0;
+
                     break;
                 }
             }
@@ -326,7 +390,10 @@ public sealed class CombatWorld
             hardpoint
         );
         if (hits)
+        {
             _shots.Add(shot);
+        }
+
         return shot;
     }
 
@@ -337,24 +404,33 @@ public sealed class CombatWorld
             if (shot.Target.Destroyed)
             {
                 _shots.Remove(shot);
+
                 continue;
             }
+
             shot.Age += Tick;
             var ordnance = shot.Weapon.Ordnance;
             if (shot.Kind == ShotKind.Beam)
             {
                 // The beam ends without damage as soon as its shooter is gone or its target is beyond twice the range.
                 if (shot.Shooter.Destroyed || Surface(shot.Shooter, shot.Target) > 2 * shot.Weapon.Range)
+                {
                     _shots.Remove(shot);
+                }
                 else if (shot.Age + Epsilon >= ordnance.LifeSpan)
                 {
                     _shots.Remove(shot);
                     Land(shot, events);
                 }
+
                 continue;
             }
+
             if (shot.Kind == ShotKind.Torpedo && shot.Age <= ordnance.SeekTime)
+            {
                 shot.Direction = Steer(shot, Tick);
+            }
+
             var step = shot.Direction * ordnance.ShotSpeed * (float)Tick;
             var reach =
                 shot.Target.Radius == 0 ? ZeroRadiusContactReach
@@ -366,9 +442,13 @@ public sealed class CombatWorld
                 Land(shot, events);
             }
             else if (shot.Age + Epsilon >= ordnance.LifeSpan)
+            {
                 _shots.Remove(shot); // expires without damage
+            }
             else
+            {
                 shot.Position += step;
+            }
         }
     }
 
@@ -386,6 +466,7 @@ public sealed class CombatWorld
             return want;
         var axis = Vector3.Cross(shot.Direction, want);
         axis = axis.LengthSquared() < 1e-12f ? Vector3.UnitY : Vector3.Normalize(axis);
+
         return Vector3.Transform(shot.Direction, Quaternion.CreateFromAxisAngle(axis, most));
     }
 
@@ -395,6 +476,7 @@ public sealed class CombatWorld
         var along = to - from;
         var length = along.LengthSquared();
         var t = length == 0 ? 0 : Math.Clamp(Vector3.Dot(point - from, along) / length, 0, 1);
+
         return Vector3.Distance(from + along * t, point);
     }
 
@@ -406,13 +488,13 @@ public sealed class CombatWorld
         var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
         target.Attacker = shot.Shooter;
-        events.Add(new ShotLanded(shot, hit));
+        events.Add(new ShotLanded { Shot = shot, Hit = hit });
         if (!hit.Destroyed)
             return;
         _units.Remove(target.Unit);
         _shots.RemoveAll(s => s.Target == target);
         target.Order = null;
         target.Target = null;
-        events.Add(new UnitDestroyed(target.Unit));
+        events.Add(new UnitDestroyed { Unit = target.Unit });
     }
 }

@@ -9,15 +9,15 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// The map sandbox: one map of the install as a live 3D scene, built from the scene plan.
-//   godot-mono --path . -- --game <Armada dir> --map <name> [--screenshot out.png]
-// Each later feature of the sandbox is one more node added in _Ready (the camera, the asteroid fields, the
-// selection, the orders). A gap of the map or of the sandbox is printed and counted on screen; the map
-// still opens (INV-0002).
-public partial class MapSandboxView : Node3D
+/// <summary>
+/// The map sandbox: one map of the install as a live 3D scene, built from the scene plan.
+///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]
+/// Each later feature of the sandbox is one more node added in _Ready (the camera, the asteroid fields, the
+/// selection, the orders). A gap of the map or of the sandbox is printed and counted on screen; the map
+/// still opens (INV-0002).
+/// </summary>
+public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : Node3D
 {
-    readonly MapSandbox _sandbox;
-    readonly string? _screenshot;
     readonly Dictionary<string, Sod> _sods = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<(string Model, int Slot), Node3D> _templates = new();
     readonly List<string> _gaps = new();
@@ -31,34 +31,34 @@ public partial class MapSandboxView : Node3D
     bool _mouseInWindow = true;
     int _frames;
 
-    public MapSandboxView(MapSandbox sandbox, string? screenshot)
-    {
-        _sandbox = sandbox;
-        _screenshot = screenshot;
-    }
-
+    /// <inheritdoc/>
     public override void _Ready()
     {
-        if (_sandbox.Problem != null)
+        if (sandbox.Problem != null)
         {
-            Show(_sandbox.Problem);
+            Show(sandbox.Problem);
+
             return;
         }
+
         var window = GetWindow();
         window.MouseEntered += () => _mouseInWindow = true;
         window.MouseExited += () => _mouseInWindow = false;
         // stand-in: the game ran full screen, where the screen edge holds the cursor in the scroll border; the
         // sandbox confines the cursor to its window while the window has focus. Losing focus releases it; Esc
         // releases it until the window gains focus again. A headless or screenshot run never confines.
-        if (DisplayServer.GetName() != "headless" && _screenshot == null)
+        if (DisplayServer.GetName() != "headless" && screenshot == null)
         {
             window.FocusEntered += () => Input.MouseMode = Input.MouseModeEnum.Confined;
             window.FocusExited += () => Input.MouseMode = Input.MouseModeEnum.Visible;
             if (window.HasFocus())
+            {
                 Input.MouseMode = Input.MouseModeEnum.Confined;
+            }
         }
-        var files = _sandbox.Files!;
-        var plan = _sandbox.Plan!;
+
+        var files = sandbox.Files!;
+        var plan = sandbox.Plan!;
         var team = TeamColors.Load(files);
         var builder = new SodBuilder(files);
         _gaps.AddRange(team.Notes);
@@ -94,6 +94,7 @@ public partial class MapSandboxView : Node3D
             AddChild(node);
             nodes[o] = node;
         }
+
         var selection = new UnitSelection(files, plan, nodes);
         AddChild(selection);
         _gaps.AddRange(selection.Reports.Select(r => r.Text));
@@ -112,8 +113,12 @@ public partial class MapSandboxView : Node3D
             AddGap($"{GameConstantsKind.FileName} cannot be read: {e.Message}");
             _rig = new CameraRig(null, bounds);
         }
+
         foreach (var problem in _rig.Problems)
+        {
             AddGap(problem);
+        }
+
         var orders = new UnitOrders(
             files,
             plan,
@@ -131,7 +136,9 @@ public partial class MapSandboxView : Node3D
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.
         var art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
-        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders));
+        var (eye, target) = _rig.Pose; // the camera's opening pose: no input has moved it yet
+        var falloff = SoundFalloff.For(System.Numerics.Vector3.Distance(eye, target));
+        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, AddGap));
         _gaps.AddRange(art.Reports.Select(r => r.Text));
 
         AddChild(new AsteroidFieldsView(files, plan, AddGap));
@@ -151,7 +158,10 @@ public partial class MapSandboxView : Node3D
         _camera = camera;
         PlaceCamera();
         if (plan.Background != null)
+        {
             AddBackground(files, builder, team, plan.Background, camera, reach);
+        }
+
         Show(null);
     }
 
@@ -166,17 +176,25 @@ public partial class MapSandboxView : Node3D
         try
         {
             if (!_sods.TryGetValue(model, out var sod))
+            {
                 _sods[model] = sod = Sod.Read(files.ReadAllBytes(model + ".sod"));
+            }
+
             var node = builder.Build(sod, team.Color(TeamColors.SlotNames[slot]));
             foreach (var problem in builder.Problems)
+            {
                 AddGap($"{model}: {problem}");
+            }
+
             _templates[(model, slot)] = node;
+
             return node;
         }
         catch (Exception e) // a model that cannot be read is a gap, whatever the reason, and is read once (INV-0002)
         {
             _unreadable.Add(model);
             AddGap($"model '{model}' cannot be read: {e.Message}");
+
             return null;
         }
     }
@@ -184,7 +202,9 @@ public partial class MapSandboxView : Node3D
     void AddGap(string gap)
     {
         if (!_gaps.Contains(gap))
+        {
             _gaps.Add(gap);
+        }
     }
 
     // The background model sits behind every other object: it is scaled until its origin's nearest distance to
@@ -244,7 +264,10 @@ public partial class MapSandboxView : Node3D
     {
         var text = problem ?? (_gaps.Count == 0 ? "" : $"{_gaps.Count} gaps:\n{string.Join("\n", _gaps)}");
         if (text.Length > 0)
+        {
             GD.PrintErr(text);
+        }
+
         var layer = new CanvasLayer();
         AddChild(layer);
         layer.AddChild(
@@ -268,28 +291,41 @@ public partial class MapSandboxView : Node3D
         _camera.LookAt(new Vector3(target.X, target.Y, -target.Z));
     }
 
-    // The wheel changes the height (stand-in: the game uses a vertical drag), a middle-button drag rotates. On a
-    // trackpad (stand-in: the game had none) a two-finger pan does both and a pinch changes the height (CameraRig
-    // names the scales). Esc releases the confined cursor.
+    /// <summary>
+    /// The wheel changes the height (stand-in: the game uses a vertical drag), a middle-button drag rotates. On a
+    /// trackpad (stand-in: the game had none) a two-finger pan does both and a pinch changes the height (CameraRig
+    /// names the scales). Esc releases the confined cursor.
+    /// </summary>
     public override void _Input(InputEvent e)
     {
         if (_rig == null)
             return;
         if (e is InputEventKey { Pressed: true, Keycode: Key.Escape })
+        {
             Input.MouseMode = Input.MouseModeEnum.Visible;
+        }
         else if (
             e is InputEventMouseButton { Pressed: true } b
             && b.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown
         )
+        {
             _rig.ChangeHeight(b.ButtonIndex == MouseButton.WheelUp ? -_rig.ZoomStep : _rig.ZoomStep);
+        }
         else if (e is InputEventMouseMotion m && m.ButtonMask.HasFlag(MouseButtonMask.Middle))
+        {
             _rig.Rotate(m.Relative.X * _rig.RotationPerPixel);
+        }
         else if (e is InputEventPanGesture p)
+        {
             _rig.TrackpadPan(new System.Numerics.Vector2(p.Delta.X, p.Delta.Y));
+        }
         else if (e is InputEventMagnifyGesture g)
+        {
             _rig.Pinch(g.Factor);
+        }
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         if (_rig != null)
@@ -313,13 +349,17 @@ public partial class MapSandboxView : Node3D
             );
             PlaceCamera();
         }
+
         // The background keeps its centering offset from the camera and never turns with it.
         if (_background != null && _camera != null)
+        {
             _background.GlobalPosition = _camera.GlobalPosition + _backgroundOffset;
+        }
+
         // Wait a few frames so textures are uploaded before capturing.
-        if (_screenshot == null || ++_frames < 5)
+        if (screenshot == null || ++_frames < 5)
             return;
-        GetViewport().GetTexture().GetImage().SavePng(_screenshot);
+        GetViewport().GetTexture().GetImage().SavePng(screenshot);
         GetTree().Quit();
     }
 }

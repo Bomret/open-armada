@@ -30,6 +30,7 @@ public class GameFileSystemArchiveTests
             ("misc/m.txt", "from folder"),
             ("startrek.zix", Zix("DIR: assets.zfs\nDIR: misc", "1 A.ODF\n2 M.TXT")),
         };
+
         return new GameFileSystem(temp.MakeInstall(files.Concat(more).ToArray()));
     }
 

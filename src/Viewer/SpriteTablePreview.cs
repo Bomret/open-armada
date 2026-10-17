@@ -6,12 +6,16 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Sprite table preview: the sprites that animate, running, then each texture with the named regions
-// of the table's sprites outlined on it. A texture the install lacks is named under its sprites.
+/// <summary>
+/// Sprite table preview: the sprites that animate, running, then each texture with the named regions
+/// of the table's sprites outlined on it. A texture the install lacks is named under its sprites.
+/// </summary>
 public sealed class SpriteTablePreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => SpriteTableKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var table = (SpriteTable)kind.Load(files, name);
@@ -19,6 +23,7 @@ public sealed class SpriteTablePreview : KindPreview
             System.StringComparer.OrdinalIgnoreCase
         );
         foreach (var sprite in table.Sprites)
+        {
             if (!loaded.ContainsKey(sprite.Texture))
             {
                 try
@@ -35,6 +40,7 @@ public sealed class SpriteTablePreview : KindPreview
                     loaded[sprite.Texture] = null;
                 }
             }
+        }
 
         var box = new VBoxContainer();
         var animated = table
@@ -61,6 +67,7 @@ public sealed class SpriteTablePreview : KindPreview
             cell.AddChild(new Label { Text = $"{s.Name} ({frames.Count} frames)" });
             flow.AddChild(cell);
         }
+
         box.AddChild(flow);
         foreach (var group in table.Sprites.GroupBy(s => s.Texture, System.StringComparer.OrdinalIgnoreCase))
         {
@@ -74,14 +81,18 @@ public sealed class SpriteTablePreview : KindPreview
                 }
             );
             if (loaded[group.Key] is { } t)
+            {
                 box.AddChild(new SpriteSheetView(t.Image, group));
+            }
         }
+
         var scroll = new ScrollContainer
         {
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
         scroll.AddChild(box);
+
         return scroll;
     }
 }

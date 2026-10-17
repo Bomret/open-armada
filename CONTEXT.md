@@ -67,6 +67,10 @@ _Avoid_: spawn, start cell, start point
 The picture of a map that the game's menus show, the map's `.bmp` file.
 _Avoid_: minimap, map thumbnail
 
+**Sprite node**
+A sprite that a sprite table attaches to a model node by name. It has a size, a colour, and an animation, and it faces the camera when the table says so. An explosion model holds only sprite nodes.
+_Avoid_: node sprite, attached sprite
+
 **Sprite table**
 A text file (`.spr`) that names regions of textures as sprites and gives their blend mode and animation.
 _Avoid_: SPR, sprite sheet definition

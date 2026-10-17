@@ -24,6 +24,7 @@ public class BmpPaletteTests
         data[26] = 1;
         data[28] = (byte)bpp;
         BitConverter.GetBytes(compression).CopyTo(data, 30);
+
         return data;
     }
 

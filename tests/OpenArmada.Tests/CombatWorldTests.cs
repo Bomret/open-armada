@@ -173,7 +173,18 @@ public class CombatWorldTests
             }),
             1,
             () => 0,
-            hardpointPosition: (_, _, pose) => pose.Position + new Vector3(-80, 0, 0)
+            // the hardpoint sits 80 behind the center (the bow is node-local -Z); the placed ships have identity axes,
+            // so the pose's orientation is its heading change from there
+            hardpointPosition: (_, _, pose) =>
+                pose.Position
+                + Vector3.Transform(
+                    new Vector3(0, 0, 80),
+                    MoveGeometry.Orientation(
+                        Quaternion.Identity,
+                        pose.Heading - MoveGeometry.BowHeading(Vector3.UnitZ),
+                        pose.Bank
+                    )
+                )
         );
         world.Attack(a.Object, b.Object);
         var kinds = new List<MoveKind>();

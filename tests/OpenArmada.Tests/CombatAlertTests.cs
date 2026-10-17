@@ -362,9 +362,10 @@ public class CombatAlertTests
         var world = World(a, Target("first", 2, 20), Target("second", 3, 60));
         Assert.AreEqual("first", Aimed(world.Step(0.02), "a"));
         world.Units.First(u => u.Unit.Label == "first").Derelict = true;
-        Assert.AreEqual("second", Aimed(world.Step(2), "a"));
+        world.Step(0.02);
         Assert.AreEqual("second", world.State(a.Object)!.Target!.Unit.Label);
         Assert.AreEqual(60, world.State(a.Object)!.Intent.X);
+        Assert.AreEqual("second", Aimed(world.Step(2), "a"));
     }
 
     [TestMethod]

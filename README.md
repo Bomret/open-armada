@@ -31,7 +31,8 @@ The sandbox behaves as follows:
 
 - Camera: the arrow keys and the window edges scroll the camera. The mouse wheel changes its height. A middle-button drag rotates it. On a trackpad, a two-finger pan changes the height and rotates, and a pinch changes the height. The camera limits and rates come from the install's `RTS_CFG.h`.
 - The sandbox confines the cursor to its window while the window has focus. Esc releases it until the window gains focus again.
-- Left-click selects a unit, and a left-button drag selects the units in the box. Right-click sends the selected ships to a point; a point outside the map sends them to the nearest point of the map's edge. Stations do not move.
+- Left-click selects a unit, and a left-button drag selects the units in the box. Right-click on a hostile unit orders the selected units to attack it. Right-click elsewhere sends the selected ships to that point; a point outside the map sends them to the nearest point of the map's edge. Stations do not move.
+- The green, yellow, and red alert keys set the alert stance of the selected units. The keys come from the install's `Input.map` (Shift+G, Shift+Y, and Shift+R in the reference install).
 - A map object or definition that cannot be read is reported as a gap, printed and counted on screen, and the map still opens.
 
 These rules apply to every map the sandbox opens.

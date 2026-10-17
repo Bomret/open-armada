@@ -116,7 +116,10 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         }
         catch (Exception e) // no readable RTS_CFG.h: the camera uses its stand-ins (INV-0002)
         {
-            Note($"{GameConstantsKind.FileName} cannot be read: {e.Message}");
+            // CombatPlan.Build read the same file above and logged its cause (WARN missing, ERROR unreadable);
+            // this line is only shown.
+            var what = e is System.IO.FileNotFoundException ? "missing" : "cannot be read";
+            AddGap($"{GameConstantsKind.FileName} {what}, the camera uses its stand-ins: {e.Message}");
             _rig = new CameraRig(null, bounds);
         }
 
@@ -193,7 +196,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
                 Note($"{model}: {problem}");
             }
 
-            // The builder logged each texture that failed as one ERROR; these lines are only shown.
+            // The builder logged each texture that failed (ViewerLog.TextureFailed); these lines are only shown.
             foreach (var failure in builder.TextureFailures)
             {
                 AddGap($"{model}: {failure}");
@@ -212,7 +215,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
     }
 
     // Shows a gap on the label once. The producers that pass this (the orders, the combat view, the model
-    // builder's texture failures) log their own findings, and so does AlertBindings.Read for the alert keys.
+    // builder's texture failures, the camera's RTS_CFG.h, which CombatPlan.Build logs) log their own findings,
+    // and so does AlertBindings.Read for the alert keys.
     // Returns whether the gap was new.
     bool AddGap(string gap)
     {

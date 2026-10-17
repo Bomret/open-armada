@@ -6,12 +6,16 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Interface configuration preview: the layout of its elements (with the sprites its race's tables name
-// for them) beside the parsed entries and notes.
+/// <summary>
+/// Interface configuration preview: the layout of its elements (with the sprites its race's tables name
+/// for them) beside the parsed entries and notes.
+/// </summary>
 public sealed class InterfaceConfigPreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => InterfaceConfigKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var cfg = (InterfaceConfig)kind.Load(files, name);

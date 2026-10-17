@@ -6,13 +6,15 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// The text the browser previews of a definition and of a tech tree.
+/// <summary>The text the browser previews of a definition and of a tech tree.</summary>
 public static class DefinitionText
 {
     const string Unknown = "unknown race";
 
-    // The chain, the problems, then one line per key: `key = value    [mark]`, the mark saying whether the
-    // value is the definition's own, inherited from an include, or overridden by the override layer.
+    /// <summary>
+    /// The chain, the problems, then one line per key: <c>key = value    [mark]</c>, the mark saying whether the
+    /// value is the definition's own, inherited from an include, or overridden by the override layer.
+    /// </summary>
     public static string Format(ResolvedDefinition def)
     {
         var sb = new StringBuilder();
@@ -47,8 +49,10 @@ public static class DefinitionText
         return sb.ToString();
     }
 
-    // The requirements of each entry, grouped under the race of its object definition (the `race` key);
-    // an entry whose definition is missing or has no race falls under "unknown race", listed last.
+    /// <summary>
+    /// The requirements of each entry, grouped under the race of its object definition (the <c>race</c> key);
+    /// an entry whose definition is missing or has no race falls under "unknown race", listed last.
+    /// </summary>
     public static string Format(GameFileSystem files, TechTree tree)
     {
         var sb = new StringBuilder();

@@ -6,34 +6,68 @@ using System.Text.RegularExpressions;
 
 namespace OpenArmada.Formats;
 
-// One "key = value" line: Values are the quoted text (IsText) or the numbers as written.
+/// <summary>One "key = value" line: Values are the quoted text (IsText) or the numbers as written.</summary>
 public sealed record ConfigEntry
 {
+    /// <summary>The name left of the '='.</summary>
     public required string Key { get; init; }
+
+    /// <summary>
+    /// The value: one element holding the quoted text without its quotes when <see cref="IsText"/>, else the
+    /// numbers as written, without a trailing "//" comment.
+    /// </summary>
     public required string[] Values { get; init; }
+
+    /// <summary>True when the value is one quoted text, false when it is numbers.</summary>
     public required bool IsText { get; init; }
+
+    /// <summary>
+    /// The configuration the line is in: the name given to <see cref="InterfaceConfig.Read"/> or the name of an
+    /// include.
+    /// </summary>
     public required string File { get; init; }
+
+    /// <summary>The 1-based line in <see cref="File"/>.</summary>
     public required int Line { get; init; }
 }
 
-// A rectangle of the interface in screen pixels (Sprite: the sprite name the cfg gives it, if any).
-// A panel is a screen area with a cursor of its own; the other elements are positioned inside a panel
-// and are listed here already moved by the panel's position.
+/// <summary>
+/// A rectangle of the interface in screen pixels (Sprite: the sprite name the cfg gives it, if any).
+/// A panel is a screen area with a cursor of its own; the other elements are positioned inside a panel
+/// and are listed here already moved by the panel's position.
+/// </summary>
 public sealed record LayoutElement
 {
+    /// <summary>
+    /// The key of the cfg line that places the element, such as an "...Area" key or a "...Panel_n" piece.
+    /// </summary>
     public required string Name { get; init; }
+
+    /// <summary>The left edge in screen pixels, moved by the panel's position unless the element is a panel.</summary>
     public required float X { get; init; }
+
+    /// <summary>The top edge in screen pixels, moved by the panel's position unless the element is a panel.</summary>
     public required float Y { get; init; }
+
+    /// <summary>The width in screen pixels.</summary>
     public required float Width { get; init; }
+
+    /// <summary>The height in screen pixels.</summary>
     public required float Height { get; init; }
+
+    /// <summary>The sprite name the cfg gives the element, or null when it gives none.</summary>
     public required string? Sprite { get; init; }
+
+    /// <summary>True for a panel: a "gPanelArea" key whose group g also has a "gDefaultCursor" key.</summary>
     public required bool IsPanel { get; init; }
 }
 
-// An interface configuration (the misc/gui_*.cfg files): "key = value" lines where a value is one
-// quoted text or numbers, "//" comments, and "#include" of another configuration, expanded where it
-// stands (Armada.exe's reader 0x5537a0). A line that is none of these, an include that cannot be read
-// and an include cycle are Notes naming file:line, and the rest still loads (INV-0002).
+/// <summary>
+/// An interface configuration (the misc/gui_*.cfg files): "key = value" lines where a value is one
+/// quoted text or numbers, "//" comments, and "#include" of another configuration, expanded where it
+/// stands (Armada.exe's reader 0x5537a0). A line that is none of these, an include that cannot be read
+/// and an include cycle are Notes naming file:line, and the rest still loads (INV-0002).
+/// </summary>
 public sealed class InterfaceConfig
 {
     static readonly Regex Include = new(@"^#include\s+""([^""]*)""\s*(//.*)?$");
@@ -45,14 +79,28 @@ public sealed class InterfaceConfig
     readonly List<string> _notes = new();
     readonly List<LayoutElement> _elements = new();
 
+    /// <summary>The name given to <see cref="Read"/>, the top configuration of the include tree.</summary>
     public string Name { get; }
+
+    /// <summary>
+    /// The "key = value" lines of the configuration and its includes, in reading order, includes expanded where they
+    /// stand.
+    /// </summary>
     public IReadOnlyList<ConfigEntry> Entries => _entries;
+
+    /// <summary>The problems that do not stop the read, each naming file:line.</summary>
     public IReadOnlyList<string> Notes => _notes;
+
+    /// <summary>
+    /// The layout rectangles: each "...Area" key of four numbers, and each "...Panel_n" key of four numbers whose
+    /// "...Panel" key is text. A later line of a key overrides an earlier one. The list is ordered by line number, then
+    /// by file name, so elements of different files interleave.
+    /// </summary>
     public IReadOnlyList<LayoutElement> Elements => _elements;
 
     InterfaceConfig(string name) => Name = name;
 
-    // `open` returns the text of an included configuration by the name written after #include, or null.
+    /// <summary><c>open</c> returns the text of an included configuration by the name written after #include, or null.</summary>
     public static InterfaceConfig Read(string name, string text, Func<string, string?> open)
     {
         var c = new InterfaceConfig(name);

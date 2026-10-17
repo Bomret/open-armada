@@ -4,12 +4,15 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// The readout of the selected units: for each its name, shields (current and maximum), and crew, refreshed every
-// frame. stand-in: a plain label at the bottom left of the window; the game's own interface comes later.
+/// <summary>
+/// The readout of the selected units: for each its name, shields (current and maximum), and crew, refreshed every
+/// frame. stand-in: a plain label at the bottom left of the window; the game's own interface comes later.
+/// </summary>
 public partial class UnitReadout(UnitSelection selection, CombatWorld world) : CanvasLayer
 {
     readonly Label _label = new() { Position = new Vector2(8, 0) };
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         _label.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
@@ -17,6 +20,7 @@ public partial class UnitReadout(UnitSelection selection, CombatWorld world) : C
         AddChild(_label);
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta) =>
         _label.Text = string.Join(
             "\n",

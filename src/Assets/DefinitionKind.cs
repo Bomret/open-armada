@@ -5,21 +5,26 @@ using System.Linq;
 
 namespace OpenArmada.Assets;
 
-// Object definitions (.odf): the archive's and the override layer's, each name once.
+/// <summary>Object definitions (.odf): the archive's and the override layer's, each name once.</summary>
 public sealed class DefinitionKind : AssetKind
 {
+    /// <summary>The kind's <see cref="Name"/>: <c>definitions</c>.</summary>
     public const string KindName = "definitions";
 
+    /// <inheritdoc/>
     public override string Name => KindName;
 
+    /// <inheritdoc/>
     public override IEnumerable<string> Enumerate(GameFileSystem files) => Named(files, ".odf");
 
-    // The resolved definition.
+    /// <summary>The resolved definition.</summary>
     public override object Load(GameFileSystem files, string name) => ResolvedDefinition.Resolve(files, name);
 
-    // A definition fails when its include chain is wrong (ResolvedDefinition.Failures: an unreadable include,
-    // a cycle, a chain too deep); a missing include is an unresolved reference, not a failure. A line the
-    // reader does not recognize is a note (ResolvedDefinition.Notes).
+    /// <summary>
+    /// A definition fails when its include chain is wrong (ResolvedDefinition.Failures: an unreadable include,
+    /// a cycle, a chain too deep); a missing include is an unresolved reference, not a failure. A line the
+    /// reader does not recognize is a note (ResolvedDefinition.Notes).
+    /// </summary>
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var def = ResolvedDefinition.Resolve(files, name);
@@ -50,10 +55,12 @@ public sealed class DefinitionKind : AssetKind
         "weldingBeamSprite",
     };
 
-    // The models, definitions, sounds, textures and sprites the definition's own and overriding values
-    // name that the install lacks, and the includes the install lacks that its own file names, or that a
-    // parent names when that parent is no enumerated definition. A value or a missing include it inherits
-    // from an enumerated parent is the parent's to report.
+    /// <summary>
+    /// The models, definitions, sounds, textures and sprites the definition's own and overriding values
+    /// name that the install lacks, and the includes the install lacks that its own file names, or that a
+    /// parent names when that parent is no enumerated definition. A value or a missing include it inherits
+    /// from an enumerated parent is the parent's to report.
+    /// </summary>
     public override IReadOnlyList<string> Unresolved(GameFileSystem files, string name)
     {
         var def = ResolvedDefinition.Resolve(files, name);

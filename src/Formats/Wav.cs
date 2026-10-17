@@ -3,19 +3,41 @@ using System.IO;
 
 namespace OpenArmada.Formats;
 
+/// <summary>The PCM format and sample data of a WAV, as <see cref="Wav.Read"/> returns them.</summary>
 public sealed record WavInfo
 {
+    /// <summary>The sample rate in Hz.</summary>
     public required int SampleRate { get; init; }
+
+    /// <summary>The channel count: 1 (mono) or 2 (stereo).</summary>
     public required int Channels { get; init; }
+
+    /// <summary>The bits per sample: 8 or 16.</summary>
     public required int BitsPerSample { get; init; }
+
+    /// <summary>A copy of the data chunk's bytes, a whole number of frames.</summary>
     public required byte[] Data { get; init; }
 }
 
-// Reads a PCM WAV and checks that its header agrees with its data: format fields among
-// themselves, and the data chunk's declared size against the bytes that follow.
-// Only uncompressed PCM of 8 or 16 bits is read; any other encoding is unsupported.
+/// <summary>
+/// Reads a PCM WAV and checks that its header agrees with its data: format fields among
+/// themselves, and the data chunk's declared size against the bytes that follow.
+/// Only uncompressed PCM of 8 or 16 bits is read; any other encoding is unsupported.
+/// </summary>
 public static class Wav
 {
+    /// <summary>
+    /// Reads the fmt chunk and the first data chunk of a PCM WAV and checks them against each other and the file.
+    /// Chunks after the first data chunk are not read.
+    /// </summary>
+    /// <exception cref="InvalidDataException">
+    /// when the RIFF/WAVE header is missing, the fmt chunk is short or cut off, the header declares 0 channels or a
+    /// rate of 0 Hz or less, the block align or byte rate disagrees with the format, the data chunk comes before the
+    /// fmt chunk, overruns the file, or is not a whole number of frames, or either chunk is missing.
+    /// </exception>
+    /// <exception cref="UnsupportedFormatException">
+    /// when the format is not PCM, the samples are not 8 or 16 bits, or there are more than 2 channels.
+    /// </exception>
     public static WavInfo Read(byte[] d)
     {
         if (d.Length < 12 || !Is(d, 0, "RIFF") || !Is(d, 8, "WAVE"))

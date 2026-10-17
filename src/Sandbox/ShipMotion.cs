@@ -3,27 +3,41 @@ using System.Numerics;
 
 namespace OpenArmada.Sandbox;
 
-// The movement values of a ship's physics definition. MaxRoll is in degrees; null when the definition has none.
+/// <summary>The movement values of a ship's physics definition. MaxRoll is in degrees; null when the definition has none.</summary>
 public sealed record PhysicsValues
 {
+    /// <summary>The definition's impulseSpeed: the travel speed in world units per second.</summary>
     public required double ImpulseSpeed { get; init; }
+
+    /// <summary>The definition's yawRotationRate: the turn rate, read as radians per second.</summary>
     public required double YawRotationRate { get; init; }
+
+    /// <summary>The definition's maxRoll in degrees; null when the definition has none (no bank).</summary>
     public required double? MaxRoll { get; init; }
 }
 
-// A ship's pose: Heading is the yaw about +Y (0 faces +Z, a positive heading turns toward +X), Bank the roll
-// about the ship's forward axis in radians (negative leans into a turn toward +X).
+/// <summary>
+/// A ship's pose: Heading is the yaw about +Y (0 faces +Z, a positive heading turns toward +X), Bank the roll
+/// about the ship's forward axis in radians (negative leans into a turn toward +X).
+/// </summary>
 public readonly record struct ShipPose
 {
+    /// <summary>The ship's position in the map's world units.</summary>
     public required Vector3 Position { get; init; }
+
+    /// <summary>The yaw about +Y in radians: 0 faces +Z, a positive heading turns toward +X.</summary>
     public required float Heading { get; init; }
+
+    /// <summary>The roll about the ship's forward axis in radians; negative leans into a turn toward +X.</summary>
     public required float Bank { get; init; }
 }
 
-// The kinematic model of ADR 0003: a ship turns toward its target at yawRotationRate, travels at impulseSpeed
-// along its heading, banks into the turn up to maxRoll, and stops at the target. The scene only asks it for a pose.
-// stand-in: units are the map's world units per second; yawRotationRate is read as radians per second (the game
-// stores angles in radians); the install defines no other movement rule.
+/// <summary>
+/// The kinematic model of ADR 0003: a ship turns toward its target at yawRotationRate, travels at impulseSpeed
+/// along its heading, banks into the turn up to maxRoll, and stops at the target. The scene only asks it for a pose.
+/// stand-in: units are the map's world units per second; yawRotationRate is read as radians per second (the game
+/// stores angles in radians); the install defines no other movement rule.
+/// </summary>
 public sealed class ShipMotion
 {
     // stand-in: a target nearer than this counts as reached.
@@ -44,6 +58,7 @@ public sealed class ShipMotion
     Vector2? _target; // X, Z
     Vector2? _facing; // X, Z of the point a ship turns to face in place; never set together with _target
 
+    /// <summary>A ship at <c>position</c> facing <c>heading</c> (radians, as <see cref="ShipPose.Heading"/>), with no target and no bank.</summary>
     public ShipMotion(PhysicsValues physics, Vector3 position, float heading)
     {
         _physics = physics;
@@ -51,14 +66,14 @@ public sealed class ShipMotion
         _heading = heading;
     }
 
-    // Replaces the previous order; the ship keeps its own height.
+    /// <summary>Replaces the previous order; the ship keeps its own height.</summary>
     public void SetTarget(float x, float z)
     {
         _facing = null;
         _target = new Vector2(x, z);
     }
 
-    // Replaces the previous order; the ship stays where it is, at its own height, and keeps its heading.
+    /// <summary>Replaces the previous order; the ship stays where it is, at its own height, and keeps its heading.</summary>
     public void Stop()
     {
         _target = null;
@@ -66,15 +81,18 @@ public sealed class ShipMotion
         _bank = 0;
     }
 
-    // Replaces the previous order; the ship turns in place to face the point, the shorter way at yawRotationRate,
-    // and never travels. A point at the ship's own position gives no heading to turn to. The bank follows the
-    // turns made, so Pose keeps the last step's bank until the next positive Step turns the ship.
+    /// <summary>
+    /// Replaces the previous order; the ship turns in place to face the point, the shorter way at yawRotationRate,
+    /// and never travels. A point at the ship's own position gives no heading to turn to. The bank follows the
+    /// turns made, so Pose keeps the last step's bank until the next positive Step turns the ship.
+    /// </summary>
     public void Face(float x, float z)
     {
         _target = null;
         _facing = new Vector2(x, z);
     }
 
+    /// <summary>The ship's current pose.</summary>
     public ShipPose Pose =>
         new()
         {
@@ -83,6 +101,10 @@ public sealed class ShipMotion
             Bank = _bank,
         };
 
+    /// <summary>
+    /// Moves the ship by its order for <c>seconds</c> and returns the pose it reaches. A ship that reaches its target
+    /// stands exactly on it and its order ends. Zero or negative seconds change nothing.
+    /// </summary>
     public ShipPose Step(double seconds)
     {
         if (seconds > 0)

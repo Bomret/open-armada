@@ -9,12 +9,14 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// Draws and sounds the fight on the combat events of the orders node: a beam from the firing hardpoint to its
-// target for its life, a torpedo along its flight, each with the sprite its ordnance names; the weapon's fire
-// sound at the firing unit, once per weapon volley; the explosion of a destroyed unit where it was. A shot that
-// missed is drawn too, aimed beside its target, for its ordnance's life. Everything the install may lack is
-// read once when the node is built and reported through the CombatArt (INV-0002); a shot or a destruction
-// without its art still resolves.
+/// <summary>
+/// Draws and sounds the fight on the combat events of the orders node: a beam from the firing hardpoint to its
+/// target for its life, a torpedo along its flight, each with the sprite its ordnance names; the weapon's fire
+/// sound at the firing unit, once per weapon volley; the explosion of a destroyed unit where it was. A shot that
+/// missed is drawn too, aimed beside its target, for its ordnance's life. Everything the install may lack is
+/// read once when the node is built and reported through the CombatArt (INV-0002); a shot or a destruction
+/// without its art still resolves.
+/// </summary>
 public partial class CombatView : Node3D
 {
     // stand-in: the thickness of a drawn beam and the size of a drawn torpedo or pulse, in world units; the
@@ -48,8 +50,10 @@ public partial class CombatView : Node3D
     readonly List<Drawn> _drawn = new();
     readonly GameFileSystem _files;
 
-    // Reads every texture, sound, and model the fight can show now, so what fails is reported with the map's
-    // gaps. `nodes` are the unit nodes of the scene; `models` build the explosion models.
+    /// <summary>
+    /// Reads every texture, sound, and model the fight can show now, so what fails is reported with the map's
+    /// gaps. <c>nodes</c> are the unit nodes of the scene; <c>models</c> build the explosion models.
+    /// </summary>
     public CombatView(
         GameFileSystem files,
         CombatArt art,
@@ -329,6 +333,7 @@ public partial class CombatView : Node3D
         };
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         var live = _world.Shots.ToHashSet();

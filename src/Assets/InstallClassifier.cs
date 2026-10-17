@@ -6,39 +6,65 @@ using System.Text.RegularExpressions;
 
 namespace OpenArmada.Assets;
 
-// What the asset check does with an install file: some asset kind loads it, it is out of scope (video,
-// help, AI plans, compiled code, install, network, copy protection, GOG wrapper), the engine knows what it is but
-// reads it with no kind, or no rule places it.
+/// <summary>
+/// What the asset check does with an install file: some asset kind loads it, it is out of scope (video,
+/// help, AI plans, compiled code, install, network, copy protection, GOG wrapper), the engine knows what it is but
+/// reads it with no kind, or no rule places it.
+/// </summary>
 public enum FileClass
 {
+    /// <summary>Some asset kind loads the file.</summary>
     Loaded,
+
+    /// <summary>
+    /// The file is out of scope: video, help, AI plans, compiled code, install, network, copy protection, or GOG
+    /// wrapper.
+    /// </summary>
     OutOfScope,
+
+    /// <summary>The engine knows what the file is but reads it with no kind.</summary>
     KnownNotLoaded,
+
+    /// <summary>No rule places the file.</summary>
     Unclassified,
 }
 
-// One install file (an Inventory entry), its class, and the group that class names ("models", "video",
-// "input device maps"); for an unclassified file the reason a rule failed on it, or empty.
+/// <summary>
+/// One install file (an Inventory entry), its class, and the group that class names ("models", "video",
+/// "input device maps"); for an unclassified file the reason a rule failed on it, or empty.
+/// </summary>
 public sealed record Classified
 {
+    /// <summary>The install file, as an Inventory entry.</summary>
     public required string Entry { get; init; }
+
+    /// <summary>What the asset check does with the file.</summary>
     public required FileClass Class { get; init; }
+
+    /// <summary>
+    /// The group the class names ("models", "video"); for an unclassified file the reason a rule failed on it, or
+    /// empty.
+    /// </summary>
     public required string Group { get; init; }
 }
 
-// The classification rules: the one place that says which install file belongs to which class. Godot-free.
-// The "Loaded" rules mirror the enumeration scope of the asset kinds, and with the install opened the kinds
-// themselves confirm each file they read (Classify); the others come from the REA report of Armada.exe on
-// the unknown file groups. Entries and rules ignore case.
+/// <summary>
+/// The classification rules: the one place that says which install file belongs to which class. Godot-free.
+/// The "Loaded" rules mirror the enumeration scope of the asset kinds, and with the install opened the kinds
+/// themselves confirm each file they read (Classify); the others come from the REA report of Armada.exe on
+/// the unknown file groups. Entries and rules ignore case.
+/// </summary>
 public static class InstallClassifier
 {
     static readonly Regex Numbered = new(@"^\.\d+$");
 
-    // With `files`, the kinds decide what loads (AssetKind.Reads): a file some kind reads is loaded, the
-    // override copy where it wins its name. A file the rules below call loaded that no kind reads is known
-    // but not loaded: a file whose bare name a kind reads from another copy is a shadowed copy (a mip level
-    // of a texture an override replaces too), and any other mip level is a texture extra (past a gap, or
-    // after a level of the wrong size). Without, the names alone decide.
+    /// <summary>
+    /// With <c>files</c>, the kinds decide what loads (AssetKind.Reads): a file some kind reads is loaded, the
+    /// override copy where it wins its name. A file the rules below call loaded that no kind reads is known
+    /// but not loaded: a file whose bare name a kind reads from another copy is a shadowed copy (a mip level
+    /// of a texture an override replaces too), and any other mip level is a texture extra (past a gap, or
+    /// after a level of the wrong size). Without, the names alone decide.
+    /// </summary>
     public static IReadOnlyList<Classified> Classify(IEnumerable<string> inventory, GameFileSystem? files = null)
     {
         var entries = inventory.ToList();

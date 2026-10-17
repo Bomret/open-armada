@@ -4,7 +4,7 @@ using Godot;
 
 namespace OpenArmada.Viewer;
 
-// A model in its own 3D viewport. Drag to orbit, wheel to zoom.
+/// <summary>A model in its own 3D viewport. Drag to orbit, wheel to zoom.</summary>
 public partial class ModelPreviewPane : SubViewportContainer
 {
     readonly Node3D _model;
@@ -13,6 +13,10 @@ public partial class ModelPreviewPane : SubViewportContainer
         _pitch = -0.35f,
         _distance;
 
+    /// <summary>
+    /// Keeps <c>model</c> for <see cref="_Ready"/>, which adds it to the pane's own SubViewport with a camera, a light,
+    /// and an environment, and moves it so the box of its visible meshes is centered on the origin.
+    /// </summary>
     public ModelPreviewPane(Node3D model)
     {
         _model = model;
@@ -21,6 +25,7 @@ public partial class ModelPreviewPane : SubViewportContainer
         SizeFlagsVertical = SizeFlags.ExpandFill;
     }
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         var view = new SubViewport { OwnWorld3D = true };
@@ -71,6 +76,7 @@ public partial class ModelPreviewPane : SubViewportContainer
         _camera.LookAt(Vector3.Zero);
     }
 
+    /// <inheritdoc/>
     public override void _GuiInput(InputEvent e)
     {
         switch (e)

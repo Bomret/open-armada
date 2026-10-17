@@ -4,13 +4,18 @@ using OpenArmada.Assets;
 
 namespace OpenArmada.Sandbox;
 
-// The movement values of the scene's ships, read from their physics definitions, and the gaps found
-// while reading them (INV-0002). A ship with a gap has no entry: it stays selectable and never moves.
-// A physics definition that is missing altogether is the unit plan's report (such a ship is not Movable); one
-// the install holds that cannot be read is a gap here.
+/// <summary>
+/// The movement values of the scene's ships, read from their physics definitions, and the gaps found
+/// while reading them (INV-0002). A ship with a gap has no entry: it stays selectable and never moves.
+/// A physics definition that is missing altogether is the unit plan's report (such a ship is not Movable); one
+/// the install holds that cannot be read is a gap here.
+/// </summary>
 public sealed class MovePlan
 {
+    /// <summary>The movement values of each ship that can move; a ship with a gap has no entry.</summary>
     public IReadOnlyDictionary<PlacedObject, PhysicsValues> Physics { get; }
+
+    /// <summary>The gaps found while reading the physics definitions.</summary>
     public IReadOnlyList<ReportEntry> Reports { get; }
 
     MovePlan(IReadOnlyDictionary<PlacedObject, PhysicsValues> physics, IReadOnlyList<ReportEntry> reports)
@@ -19,6 +24,10 @@ public sealed class MovePlan
         Reports = reports;
     }
 
+    /// <summary>
+    /// Reads the physics definition of each <see cref="Ship"/> among <c>units</c> that is Movable; stations and
+    /// ships that are not Movable are skipped without a gap.
+    /// </summary>
     public static MovePlan Build(SandboxPlan plan, IEnumerable<SelectableUnit> units, GameFileSystem files)
     {
         var physics = new Dictionary<PlacedObject, PhysicsValues>();

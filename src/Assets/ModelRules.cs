@@ -7,66 +7,126 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// How a texture material blends: opaque, alpha-tested at 128/255 (cutout), blended by alpha, or added.
+/// <summary>How a texture material blends: opaque, alpha-tested at 128/255 (cutout), blended by alpha, or added.</summary>
 public enum BlendMode
 {
+    /// <summary>Drawn opaque.</summary>
     Opaque,
+
+    /// <summary>Alpha-tested at 128/255.</summary>
     Cutout,
+
+    /// <summary>Blended by alpha.</summary>
     Alpha,
+
+    /// <summary>Added to what is behind it.</summary>
     Add,
 }
 
-// A texture material's draw state. Opacity is 1 - transparency; Nearest is point texture filtering.
-// AlphaTest drops texels below 128/255 before an Alpha blend (Cutout always does).
+/// <summary>
+/// A texture material's draw state. Opacity is 1 - transparency; Nearest is point texture filtering.
+/// AlphaTest drops texels below 128/255 before an Alpha blend (Cutout always does).
+/// </summary>
 public sealed record BlendState
 {
+    /// <summary>How the material blends.</summary>
     public required BlendMode Mode { get; init; }
+
+    /// <summary>1 - transparency, clamped to 0..1 for an old texture material entry.</summary>
     public required float Opacity { get; init; }
+
+    /// <summary>True when the material draws as wireframe (the <c>wireframe</c> render type).</summary>
     public bool Wireframe { get; init; } = false;
+
+    /// <summary>True for point texture filtering.</summary>
     public bool Nearest { get; init; } = false;
+
+    /// <summary>True when texels below 128/255 are dropped before an <see cref="BlendMode.Alpha"/> blend.</summary>
     public bool AlphaTest { get; init; } = false;
 }
 
-// What a model's mesh draws with: its texture (the entry's own for versions before 1.7), the blend
-// state, or the reason the blend is not known. Exactly one of Blend and Problem is set.
+/// <summary>
+/// What a model's mesh draws with: its texture (the entry's own for versions before 1.7), the blend
+/// state, or the reason the blend is not known. Exactly one of Blend and Problem is set.
+/// </summary>
 public sealed record MeshLook
 {
+    /// <summary>
+    /// The texture the mesh draws with: the mesh's own, or for versions before 1.7 the texture of its texture
+    /// material entry.
+    /// </summary>
     public required string Texture { get; init; }
+
+    /// <summary>The blend state; null when <see cref="Problem"/> is set.</summary>
     public required BlendState? Blend { get; init; }
+
+    /// <summary>The reason the blend is not known; null when <see cref="Blend"/> is set.</summary>
     public required string? Problem { get; init; }
 }
 
+/// <summary>How a lighting material shades; the values match the SOD model byte (0, 1, 2).</summary>
 public enum LightingModel
 {
+    /// <summary>Constant shading.</summary>
     Constant,
+
+    /// <summary>Lambert shading.</summary>
     Lambert,
+
+    /// <summary>Phong shading.</summary>
     Phong,
 }
 
-// A lighting material as the surface is shaded. Team marks a material whose name starts "team".
+/// <summary>A lighting material as the surface is shaded. Team marks a material whose name starts "team".</summary>
 public sealed record Surface
 {
+    /// <summary>How the material shades.</summary>
     public required LightingModel Model { get; init; }
+
+    /// <summary>The material's ambient color.</summary>
     public required Vector3 Ambient { get; init; }
+
+    /// <summary>The material's diffuse color.</summary>
     public required Vector3 Diffuse { get; init; }
+
+    /// <summary>The material's specular color.</summary>
     public required Vector3 Specular { get; init; }
+
+    /// <summary>The material's specular power.</summary>
     public required float Power { get; init; }
+
+    /// <summary>True when the material's name starts with "team" (any case); <see cref="WithTeam"/> applies.</summary>
     public required bool Team { get; init; }
 
-    // The game replaces a team material's ambient with black and its diffuse and specular with the team
-    // color; power and model stay (Armada.exe FUN_005a5b00, see reports of the asset-layer scope).
+    /// <summary>
+    /// The game replaces a team material's ambient with black and its diffuse and specular with the team
+    /// color; power and model stay (Armada.exe FUN_005a5b00, see reports of the asset-layer scope).
+    /// </summary>
     public Surface WithTeam(Vector3 color) => this with { Ambient = Vector3.Zero, Diffuse = color, Specular = color };
 }
 
-// A texture flipbook: the node's texture coordinates are offset by one cell per frame.
+/// <summary>A texture flipbook: the node's texture coordinates are offset by one cell per frame.</summary>
 public sealed record TextureAnimation
 {
+    /// <summary>The number of cell columns in the texture.</summary>
     public required int Columns { get; init; }
+
+    /// <summary>The number of cell rows in the texture.</summary>
     public required int Rows { get; init; }
+
+    /// <summary>The number of frames; <see cref="UvOffset"/> needs at least 1, which <see cref="ModelRules.Animation"/> ensures.</summary>
     public required int Count { get; init; }
+
+    /// <summary>The seconds each frame shows; 0 or less holds the first frame.</summary>
     public required double FrameSeconds { get; init; }
+
+    /// <summary>The animation reference's time offset, added to the time before the frame is picked.</summary>
     public required double Offset { get; init; }
 
+    /// <summary>
+    /// The texture coordinate offset of the frame at <c>time</c> plus <see cref="Offset"/>, in seconds: frames run
+    /// row by row and loop after <see cref="Count"/>, also for a negative time.
+    /// </summary>
     public Vector2 UvOffset(double time)
     {
         var frame = FrameSeconds > 0 ? (int)Math.Floor((time + Offset) / FrameSeconds) : 0;
@@ -76,9 +136,11 @@ public sealed record TextureAnimation
     }
 }
 
-// The rules a model is drawn by, apart from drawing: which blend a texture material means, how a
-// lighting material shades, how an animation reference moves a texture, and what in a model cannot be
-// drawn. Godot-free, so the tests cover them.
+/// <summary>
+/// The rules a model is drawn by, apart from drawing: which blend a texture material means, how a
+/// lighting material shades, how an animation reference moves a texture, and what in a model cannot be
+/// drawn. Godot-free, so the tests cover them.
+/// </summary>
 public static class ModelRules
 {
     // Direct3D blend values of old texture material entries.
@@ -87,7 +149,7 @@ public static class ModelRules
         SrcAlpha = 5,
         InvSrcAlpha = 6;
 
-    // The animation reference type the installed models use: a texture flipbook.
+    /// <summary>The animation reference type the installed models use: a texture flipbook.</summary>
     public const byte AnimationReferenceType = 4;
 
     // The game's named render types (Armada.exe FUN_00589070) that the reference install's models and
@@ -117,15 +179,17 @@ public static class ModelRules
         ["alpha"] = new() { Mode = BlendMode.Alpha, Opacity = 1f },
     };
 
-    // Whether a sprite's or mesh's texture material names a render type the engine draws.
+    /// <summary>Whether a sprite's or mesh's texture material names a render type the engine draws.</summary>
     public static bool IsRenderType(string name) => Named.ContainsKey(name);
 
-    // The draw state of a named render type, whatever its case; null when the engine does not know the name.
+    /// <summary>The draw state of a named render type, whatever its case; null when the engine does not know the name.</summary>
     public static BlendState? Blend(string name) => Named.GetValueOrDefault(name);
 
-    // The texture and blend of a mesh. Versions from 1.7 name the render type; older files name an entry of
-    // their own texture material table. The game itself rejects files below 1.4 (Armada.exe FUN_0059b450);
-    // the engine still draws the 1.2 models of the install, blended by their entries.
+    /// <summary>
+    /// The texture and blend of a mesh. Versions from 1.7 name the render type; older files name an entry of
+    /// their own texture material table. The game itself rejects files below 1.4 (Armada.exe FUN_0059b450);
+    /// the engine still draws the 1.2 models of the install, blended by their entries.
+    /// </summary>
     public static MeshLook Look(Sod sod, Sod.Mesh mesh)
     {
         if (sod.Version >= 1.65f)
@@ -203,10 +267,11 @@ public static class ModelRules
             };
     }
 
+    /// <summary>True when a lighting material's name starts with "team" (any case).</summary>
     public static bool IsTeam(string materialName) =>
         materialName.StartsWith("team", StringComparison.OrdinalIgnoreCase);
 
-    // Null when the material's model is not constant, Lambert or Phong.
+    /// <summary>Null when the material's model is not constant, Lambert or Phong.</summary>
     public static Surface? Lighting(Sod.LightingMaterial m) =>
         m.Model > (byte)LightingModel.Phong
             ? null
@@ -220,8 +285,10 @@ public static class ModelRules
                 Team = IsTeam(m.Name),
             };
 
-    // A flipbook of the sprite tables as a texture animation shifted by a reference's time offset.
-    // Null, with the reason, for the animations that are not UV flipbooks.
+    /// <summary>
+    /// A flipbook of the sprite tables as a texture animation shifted by a reference's time offset.
+    /// Null, with the reason, for the animations that are not UV flipbooks.
+    /// </summary>
     public static TextureAnimation? Animation(SpriteAnimation a, float offset, out string? problem)
     {
         problem = null;
@@ -252,8 +319,10 @@ public static class ModelRules
         };
     }
 
-    // The animation an animation reference names: a table's animation, or the animation of a sprite of
-    // that name ("borgate"). Null when no sprite table has either.
+    /// <summary>
+    /// The animation an animation reference names: a table's animation, or the animation of a sprite of
+    /// that name ("borgate"). Null when no sprite table has either.
+    /// </summary>
     public static SpriteAnimation? FindAnimation(GameFileSystem files, string name)
     {
         var tables = new SpriteTableKind().Tables(files).ToList();
@@ -313,28 +382,45 @@ public static class ModelRules
         return table;
     }
 
-    // The lighting material a group names: the model's own, else the one another model the game loads
-    // defines. Null when no model defines it, and for an empty name (a group naming none; a material
-    // named "" is never looked up).
+    /// <summary>
+    /// The lighting material a group names: the model's own, else the one another model the game loads
+    /// defines. Null when no model defines it, and for an empty name (a group naming none; a material
+    /// named "" is never looked up).
+    /// </summary>
     public static Sod.LightingMaterial? FindLightingMaterial(GameFileSystem files, Sod sod, string name) =>
         name.Length == 0
             ? null
             : sod.LightingMaterials.FirstOrDefault(l => l.Name == name)
                 ?? (Global.GetValue(files, InstallLightingMaterials).TryGetValue(name, out var found) ? found : null);
 
-    // What a model cannot be drawn as the data says (Problems, one line each: what the reader found,
-    // texture materials, lighting materials and models it does not know, animation references it cannot
-    // run), and the texture animations it does run (Runs: a mesh node and its flipbook, one per node of
-    // the referenced name). MissingAnimations holds each animation reference no sprite table answers, with
-    // the line it adds to Problems (null when the reference names no mesh node, so it adds none);
-    // ModelKind lists such an animation as an unresolved reference and leaves the line out of its check.
+    /// <summary>
+    /// What a model cannot be drawn as the data says (Problems, one line each: what the reader found,
+    /// texture materials, lighting materials and models it does not know, animation references it cannot
+    /// run), and the texture animations it does run (Runs: a mesh node and its flipbook, one per node of
+    /// the referenced name). MissingAnimations holds each animation reference no sprite table answers, with
+    /// the line it adds to Problems (null when the reference names no mesh node, so it adds none);
+    /// ModelKind lists such an animation as an unresolved reference and leaves the line out of its check.
+    /// </summary>
     public sealed record Analysis
     {
+        /// <summary>What the model cannot be drawn as the data says, one line each.</summary>
         public required IReadOnlyList<string> Problems { get; init; }
+
+        /// <summary>The texture animations the model runs: a mesh node and its flipbook, one per node.</summary>
         public required IReadOnlyList<(Sod.Node Node, TextureAnimation Flipbook)> Runs { get; init; }
+
+        /// <summary>
+        /// Each animation reference no sprite table answers, with the line it adds to <see cref="Problems"/>, or
+        /// null when the reference names no mesh node.
+        /// </summary>
         public required IReadOnlyList<(string Animation, string? Problem)> MissingAnimations { get; init; }
     }
 
+    /// <summary>
+    /// Analyzes what the model cannot draw and which texture animations it runs; starts with the reader's own
+    /// <see cref="Sod.Problems"/>. Side effects: a lighting material the model lacks loads every model the game
+    /// loads, and an animation reference loads the install's sprite tables; both are cached per install.
+    /// </summary>
     public static Analysis Analyze(GameFileSystem files, Sod sod)
     {
         var problems = new List<string>(sod.Problems);
@@ -429,5 +515,6 @@ public static class ModelRules
         };
     }
 
+    /// <summary>The <see cref="Analysis.Problems"/> of <see cref="Analyze"/>.</summary>
     public static IReadOnlyList<string> Check(GameFileSystem files, Sod sod) => Analyze(files, sod).Problems;
 }

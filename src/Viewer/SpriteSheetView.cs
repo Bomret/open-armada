@@ -4,12 +4,13 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// A texture at native size with the named regions of its sprites outlined on it.
+/// <summary>A texture at native size with the named regions of its sprites outlined on it.</summary>
 public partial class SpriteSheetView : Control
 {
     readonly ImageTexture _texture;
     readonly List<(Sprite Sprite, Rect2 Rect)> _regions = new();
 
+    /// <summary>Shows <c>image</c> at native size with nearest filtering and outlines each of <c>sprites</c> with its name.</summary>
     public SpriteSheetView(Image image, IEnumerable<Sprite> sprites)
     {
         _texture = ImageTexture.CreateFromImage(image);
@@ -36,7 +37,7 @@ public partial class SpriteSheetView : Control
         }
     }
 
-    // A frame in reference pixels as a rectangle of the texture; without a reference it is in texture pixels.
+    /// <summary>A frame in reference pixels as a rectangle of the texture; without a reference it is in texture pixels.</summary>
     public static Rect2 Region(Sprite s, SpriteFrame f, Vector2I texture)
     {
         var sx = s.ReferenceWidth > 0 ? (float)texture.X / s.ReferenceWidth : 1f;
@@ -45,6 +46,7 @@ public partial class SpriteSheetView : Control
         return new Rect2(f.U * sx, f.V * sy, f.W * sx, f.H * sy);
     }
 
+    /// <inheritdoc/>
     public override void _Draw()
     {
         DrawTexture(_texture, Vector2.Zero);

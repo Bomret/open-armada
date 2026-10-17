@@ -6,33 +6,35 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// The single view of an install's files. Names are game-style ("SOD\Fente.sod"); lookups ignore
-// case and path separator, in folder and file names alike, on every platform.
-//
-// A bare name (no folder) is searched only in the folders that hold its kind, by extension, first
-// match wins: ".tga" in the full-color texture folder before the 8-bit one, ".sod" in the main
-// model folder before its software-renderer copies, ".pal" in the install root before the texture
-// folder, ".bmp" in the install root (splash.bmp), and ".map", ".set", ".ldl", ".fnt", ".exe" and ".h" in
-// the install root (the key and label maps, settings files, text tables, fonts, the launcher splash.exe,
-// whose bytes decode the text tables, and the RTS_CFG.h header). Any other bare name is not found. ReadByPath reads a root file
-// by path with no layers; the text tables and splash.exe load that way, as the launcher opens them.
-//
-// A bare name is looked up the way Armada.exe does (REA report of Armada.exe: FUN_004b8eb0 builds the
-// index, FUN_004b9270 scans addon\, FUN_004b9900 picks the lowest slot), first match wins:
-//   1. a loose file in the install's addon folder (not recursive),
-//   2. a member of an addon\*.zfs archive,
-//   3. the folder or archive that startrek.zix assigns the name to.
-// The game's index is authoritative and a name it lacks is not found. This engine instead falls back
-// to the loose-folder lookup above for a name the index does not list (the game loads e.g. bitmaps by
-// a direct relative path), and for a name the index lists but cannot resolve (it never hides a file
-// the install has). A name with a folder resolves directly and skips the layers.
-//
-// A name is matched whole against a folder, and by its first 16 characters against an archive, for an
-// addon archive and an index archive alike (the game's key, and the length of an archive entry name).
-// Each archive file is opened once, however many sources name it.
-//
-// Faults (an unreadable archive or index, an entry past the end of its archive) and index entries whose
-// file is missing (Missing) are collected once, when the install is opened; every other file loads.
+/// <summary>
+/// The single view of an install's files. Names are game-style ("SOD\Fente.sod"); lookups ignore
+/// case and path separator, in folder and file names alike, on every platform.
+///
+/// A bare name (no folder) is searched only in the folders that hold its kind, by extension, first
+/// match wins: ".tga" in the full-color texture folder before the 8-bit one, ".sod" in the main
+/// model folder before its software-renderer copies, ".pal" in the install root before the texture
+/// folder, ".bmp" in the install root (splash.bmp), and ".map", ".set", ".ldl", ".fnt", ".exe" and ".h" in
+/// the install root (the key and label maps, settings files, text tables, fonts, the launcher splash.exe,
+/// whose bytes decode the text tables, and the RTS_CFG.h header). Any other bare name is not found. ReadByPath reads a root file
+/// by path with no layers; the text tables and splash.exe load that way, as the launcher opens them.
+///
+/// A bare name is looked up the way Armada.exe does (REA report of Armada.exe: FUN_004b8eb0 builds the
+/// index, FUN_004b9270 scans addon\, FUN_004b9900 picks the lowest slot), first match wins:
+///   1. a loose file in the install's addon folder (not recursive),
+///   2. a member of an addon\*.zfs archive,
+///   3. the folder or archive that startrek.zix assigns the name to.
+/// The game's index is authoritative and a name it lacks is not found. This engine instead falls back
+/// to the loose-folder lookup above for a name the index does not list (the game loads e.g. bitmaps by
+/// a direct relative path), and for a name the index lists but cannot resolve (it never hides a file
+/// the install has). A name with a folder resolves directly and skips the layers.
+///
+/// A name is matched whole against a folder, and by its first 16 characters against an archive, for an
+/// addon archive and an index archive alike (the game's key, and the length of an archive entry name).
+/// Each archive file is opened once, however many sources name it.
+///
+/// Faults (an unreadable archive or index, an entry past the end of its archive) and index entries whose
+/// file is missing (Missing) are collected once, when the install is opened; every other file loads.
+/// </summary>
 public sealed class GameFileSystem
 {
     static readonly string[][] TextureFolders = { new[] { "Textures", "RGB" }, new[] { "Textures", "Index8" } };
@@ -75,7 +77,7 @@ public sealed class GameFileSystem
     readonly List<Source> _sources = new(); // per dir index - 1
     ZixIndex? _index;
 
-    // Throws DirectoryNotFoundException when root holds no install (no SOD folder).
+    /// <summary>Throws DirectoryNotFoundException when root holds no install (no SOD folder).</summary>
     public GameFileSystem(string root)
     {
         if (!Directory.Exists(root))
@@ -86,13 +88,17 @@ public sealed class GameFileSystem
         LoadSources();
     }
 
-    // One line per fault, "archive/<name>: reason", "archive/<name>/<entry>: reason" or
-    // "index/<name>: reason". The asset check prints each as a failure.
+    /// <summary>
+    /// One line per fault, "archive/&lt;name&gt;: reason", "archive/&lt;name&gt;/&lt;entry&gt;: reason" or
+    /// "index/&lt;name&gt;: reason". The asset check prints each as a failure.
+    /// </summary>
     public IReadOnlyList<string> Faults => _faults;
 
-    // One line per index entry whose file exists nowhere ("index/<name>: not found in <dir>"). The
-    // stock install's index names build tools that the install does not hold, so the asset check
-    // lists these without failing.
+    /// <summary>
+    /// One line per index entry whose file exists nowhere ("index/&lt;name&gt;: not found in &lt;dir&gt;"). The
+    /// stock install's index names build tools that the install does not hold, so the asset check
+    /// lists these without failing.
+    /// </summary>
     public IReadOnlyList<string> Missing => _missing;
 
     // Opens the addon archives and the index and checks each index entry once.
@@ -190,22 +196,33 @@ public sealed class GameFileSystem
         }
     }
 
-    // Full path of the file, or null when it does not exist. A member of an archive is named
-    // "<archive path>::<member>".
+    /// <summary>
+    /// Full path of the file, or null when it does not exist. A member of an archive is named
+    /// "&lt;archive path&gt;::&lt;member&gt;".
+    /// </summary>
     public string? Find(string name) => Locate(name)?.Display;
 
+    /// <summary>The bytes of the file <c>name</c> resolves to, by the same lookup as <see cref="Find"/>.</summary>
+    /// <exception cref="FileNotFoundException">when the install does not hold <c>name</c>.</exception>
+    /// <exception cref="UnsupportedFormatException">when the file is a compressed archive entry.</exception>
     public byte[] ReadAllBytes(string name) =>
         Locate(name) is { } hit ? Read(hit) : throw new FileNotFoundException($"'{name}' is not in the install", name);
 
-    // The file `sibling` (a bare name) from the source of `name`'s winning copy: the override layer when
-    // that copy is an override, else the same folder or archive; null when that source lacks it. A
-    // texture reads its mip levels this way, so it never takes the levels of a copy it replaces or that
-    // replaces it.
+    /// <summary>
+    /// The file <c>sibling</c> (a bare name) from the source of <c>name</c>'s winning copy: the override layer when
+    /// that copy is an override, else the same folder or archive; null when that source lacks it. A
+    /// texture reads its mip levels this way, so it never takes the levels of a copy it replaces or that
+    /// replaces it.
+    /// </summary>
     public byte[]? ReadBeside(string name, string sibling) => Beside(name, sibling) is { } hit ? Read(hit) : null;
 
-    // The Inventory entry of the file `name` resolves to, and of the file ReadBeside reads; null when there is none.
+    /// <summary>The Inventory entry of the file <c>name</c> resolves to, and of the file ReadBeside reads; null when there is none.</summary>
     public string? Entry(string name) => Locate(name) is { } hit ? Entry(hit) : null;
 
+    /// <summary>
+    /// The Inventory entry of the file <c>sibling</c> that <see cref="ReadBeside"/> reads beside <c>name</c>; null
+    /// when there is none.
+    /// </summary>
     public string? EntryBeside(string name, string sibling) => Beside(name, sibling) is { } hit ? Entry(hit) : null;
 
     Hit? Beside(string name, string sibling)
@@ -237,8 +254,10 @@ public sealed class GameFileSystem
     static byte[] Read(Hit hit) =>
         hit is { Archive: { } a, Member: { } m } ? a.Zfs.Read(m) : File.ReadAllBytes(hit.Path);
 
-    // The loose file at the path, relative to the install root, as a program that opens it by path reads
-    // it: no addon folder, archive, or index; null when there is none.
+    /// <summary>
+    /// The loose file at the path, relative to the install root, as a program that opens it by path reads
+    /// it: no addon folder, archive, or index; null when there is none.
+    /// </summary>
     public byte[]? ReadByPath(string name) =>
         Parts(name) is { Length: > 0 } parts && Resolve(parts) is { } path ? File.ReadAllBytes(path) : null;
 
@@ -268,7 +287,7 @@ public sealed class GameFileSystem
         return null;
     }
 
-    // True when a file of the override layer replaces an archive or index copy of the same name.
+    /// <summary>True when a file of the override layer replaces an archive or index copy of the same name.</summary>
     public bool Overrides(string name) => FromAddon(name) != null && FromIndex(name) != null;
 
     Hit? FromAddon(string name)
@@ -313,8 +332,10 @@ public sealed class GameFileSystem
         return null;
     }
 
-    // Names of the members of the archives called `archive` (e.g. "objtxt.zfs"), wherever the
-    // index or the addon folder places them. Find(name) then loads the winning copy.
+    /// <summary>
+    /// Names of the members of the archives called <c>archive</c> (e.g. "objtxt.zfs"), wherever the
+    /// index or the addon folder places them. Find(name) then loads the winning copy.
+    /// </summary>
     public IEnumerable<string> Members(string archive) =>
         _opened
             .Values.OfType<Archive>()
@@ -322,8 +343,10 @@ public sealed class GameFileSystem
             .SelectMany(a => a.Zfs.Names)
             .Distinct(StringComparer.OrdinalIgnoreCase);
 
-    // Bare file names with the extension (e.g. ".sod") across the given folders, each name once,
-    // in the order of the folders. Find(name) then loads the winning copy.
+    /// <summary>
+    /// Bare file names with the extension (e.g. ".sod") across the given folders, each name once,
+    /// in the order of the folders. Find(name) then loads the winning copy.
+    /// </summary>
     public IReadOnlyList<string> List(string extension, params string[] folders)
     {
         var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -344,8 +367,10 @@ public sealed class GameFileSystem
         return names.Values.ToList();
     }
 
-    // Every file of the install, as a game-style name with forward slashes, then every archive member
-    // as "<archive path>::<member>" (the "::" tells a member from a loose file).
+    /// <summary>
+    /// Every file of the install, as a game-style name with forward slashes, then every archive member
+    /// as "&lt;archive path&gt;::&lt;member&gt;" (the "::" tells a member from a loose file).
+    /// </summary>
     public IEnumerable<string> Inventory() =>
         Directory
             .EnumerateFiles(Root, "*", SearchOption.AllDirectories)

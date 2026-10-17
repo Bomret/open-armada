@@ -4,11 +4,13 @@ using OpenArmada.Assets;
 
 namespace OpenArmada.Viewer;
 
-// Palette preview: the 256 colors as a 16x16 grid of swatches, row-major by index.
+/// <summary>Palette preview: the 256 colors as a 16x16 grid of swatches, row-major by index.</summary>
 public sealed class PalettePreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => PaletteKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var colors = (IReadOnlyList<(byte R, byte G, byte B)>)kind.Load(files, name);

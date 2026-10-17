@@ -3,16 +3,30 @@ using System.IO;
 
 namespace OpenArmada.Formats;
 
+/// <summary>The image size and color depth from a BMP header, as <see cref="Bmp.Read"/> returns them.</summary>
 public sealed record BmpInfo
 {
+    /// <summary>The image width in pixels.</summary>
     public required int Width { get; init; }
+
+    /// <summary>The image height in pixels: the absolute value of the stored height, which may be negative.</summary>
     public required int Height { get; init; }
+
+    /// <summary>The color depth: 1, 4, 8, 24 or 32 bits per pixel.</summary>
     public required int BitsPerPixel { get; init; }
 }
 
-// Header and size check of the uncompressed Windows BMPs the game ships. Godot decodes the pixels.
+/// <summary>Header and size check of the uncompressed Windows BMPs the game ships. Godot decodes the pixels.</summary>
 public static class Bmp
 {
+    /// <summary>Reads the header of an uncompressed BMP and checks that the file holds all its pixel rows.</summary>
+    /// <exception cref="InvalidDataException">
+    /// when the "BM" signature is missing, the header is cut off, the width is not positive, the height is 0, or the
+    /// file is shorter than its pixel data.
+    /// </exception>
+    /// <exception cref="UnsupportedFormatException">
+    /// when the info header is not 40 bytes, the image is compressed, or the color depth is not 1, 4, 8, 24 or 32 bits.
+    /// </exception>
     public static BmpInfo Read(byte[] d)
     {
         if (d.Length < 14 || d[0] != 'B' || d[1] != 'M')

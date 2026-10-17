@@ -6,12 +6,16 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Game constants preview: the values in file order with their type and value (a kept text in quotes
-// when it is a string, bare when it is an expression), notes first.
+/// <summary>
+/// Game constants preview: the values in file order with their type and value (a kept text in quotes
+/// when it is a string, bare when it is an expression), notes first.
+/// </summary>
 public sealed class GameConstantsPreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => GameConstantsKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var c = (GameConstants)kind.Load(files, name);

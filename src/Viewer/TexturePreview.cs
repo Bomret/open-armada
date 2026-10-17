@@ -5,11 +5,13 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Texture preview: the texture at native size, then each of its mip levels.
+/// <summary>Texture preview: the texture at native size, then each of its mip levels.</summary>
 public sealed class TexturePreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => TextureKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var t = (TextureAsset)kind.Load(files, name);

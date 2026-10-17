@@ -5,25 +5,39 @@ using System.Numerics;
 
 namespace OpenArmada.Sandbox;
 
-// One unit as the combat world takes it: the placed object, its combat values, the name per-target values know
-// it by, its radius, and whether it can move at all.
+/// <summary>
+/// One unit as the combat world takes it: the placed object, its combat values, the name per-target values know
+/// it by, its radius, and whether it can move at all.
+/// </summary>
 public sealed record CombatUnit
 {
+    /// <summary>The placed object.</summary>
     public required PlacedObject Unit { get; init; }
+
+    /// <summary>The unit's combat values.</summary>
     public required CombatProfile Profile { get; init; }
+
+    /// <summary>The name per-target values know the unit by (<c>zmama.odf</c>).</summary>
     public required string DefinitionName { get; init; }
+
+    /// <summary>The unit's radius in world units, for distances surface to surface; 0 for a model without meshes.</summary>
     public required float Radius { get; init; }
+
+    /// <summary>Whether the unit can move at all.</summary>
     public required bool Mobile { get; init; }
 }
 
-// The fight of a map in plain C#: every unit's combat state, the orders, and the shots in flight. Step advances
-// it and returns what happened. Unit positions come from the pose source; randomness from the injected source, a
-// number in [0, 1) per call.
+/// <summary>
+/// The fight of a map in plain C#: every unit's combat state, the orders, and the shots in flight. Step advances
+/// it and returns what happened. Unit positions come from the pose source; randomness from the injected source, a
+/// number in [0, 1) per call.
+/// </summary>
 public sealed class CombatWorld
 {
     // stand-in: the world runs on fixed ticks of this many seconds, and a step carries the time left over to the
     // next, so one long step does what many short ones over the same time do; the game's own update rate is not
     // known.
+    /// <summary>The length of one world tick in seconds.</summary>
     public const double Tick = 0.02;
 
     // stand-in: a shield bubble reaches this many radii from a unit's center; the game's shape is not known.
@@ -42,6 +56,11 @@ public sealed class CombatWorld
     readonly List<Shot> _shots = new();
     double _pending;
 
+    /// <summary>
+    /// A world of the units, without orders. <c>shieldDamageProtection</c> and
+    /// <c>systemHitpointsBonus</c> are the RTS_CFG.h constants; <c>random</c> returns a number in [0, 1) per call.
+    /// A later unit with the same placed object replaces an earlier one.
+    /// </summary>
     public CombatWorld(
         UnitPoses poses,
         IEnumerable<CombatUnit> units,
@@ -66,17 +85,19 @@ public sealed class CombatWorld
         }
     }
 
-    // The shots in flight.
+    /// <summary>The shots in flight.</summary>
     public IReadOnlyList<Shot> Shots => _shots;
 
-    // The units still in the fight.
+    /// <summary>The units still in the fight.</summary>
     public IEnumerable<UnitCombatState> Units => _units.Values;
 
-    // The state of a unit; null once it is destroyed or when it is no unit of the world.
+    /// <summary>The state of a unit; null once it is destroyed or when it is no unit of the world.</summary>
     public UnitCombatState? State(PlacedObject unit) => _units.GetValueOrDefault(unit);
 
-    // Gives `attacker` an attack order on `target`, replacing its order. Refused (false) when either is gone, the
-    // target is not hostile to the attacker, or the attacker has no weapons.
+    /// <summary>
+    /// Gives <c>attacker</c> an attack order on <c>target</c>, replacing its order. Refused (false) when either is gone, the
+    /// target is not hostile to the attacker, or the attacker has no weapons.
+    /// </summary>
     public bool Attack(PlacedObject attacker, PlacedObject target)
     {
         if (State(attacker) is not { } a || State(target) is not { } t)
@@ -92,7 +113,7 @@ public sealed class CombatWorld
         return true;
     }
 
-    // Ends the unit's attack order and its move order.
+    /// <summary>Ends the unit's attack order and its move order.</summary>
     public void ClearOrder(PlacedObject unit)
     {
         if (State(unit) is not { } state)
@@ -104,8 +125,10 @@ public sealed class CombatWorld
         state.Intent = default;
     }
 
-    // Gives the unit a move order to the point (X, Z), replacing its attack order. The unit is not idle until it
-    // arrives, however the motion gets there (a ship turns in place first without changing its position).
+    /// <summary>
+    /// Gives the unit a move order to the point (X, Z), replacing its attack order. The unit is not idle until it
+    /// arrives, however the motion gets there (a ship turns in place first without changing its position).
+    /// </summary>
     public void Move(PlacedObject unit, float x, float z)
     {
         ClearOrder(unit);
@@ -115,7 +138,7 @@ public sealed class CombatWorld
         }
     }
 
-    // Advances the fight by `seconds` and returns the events of the ticks that ran.
+    /// <summary>Advances the fight by <c>seconds</c> and returns the events of the ticks that ran.</summary>
     public IReadOnlyList<CombatEvent> Step(double seconds)
     {
         var events = new List<CombatEvent>();

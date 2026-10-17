@@ -4,10 +4,14 @@ using OpenArmada.Assets;
 
 namespace OpenArmada.Viewer;
 
-// Godot's own runtime loaders for images and sounds (ADR 0002). Previews show what they return and
-// the asset check runs them on every asset; a loader that rejects a file throws InvalidDataException.
+/// <summary>
+/// Godot's own runtime loaders for images and sounds (ADR 0002). Previews show what they return and
+/// the asset check runs them on every asset; a loader that rejects a file throws InvalidDataException.
+/// </summary>
 public static class GodotDecoders
 {
+    /// <summary>Decodes a TGA file with Godot's loader; <c>name</c> only labels the error.</summary>
+    /// <exception cref="InvalidDataException">when Godot cannot decode the data or decodes an empty image.</exception>
     public static Image Tga(byte[] data, string name)
     {
         var image = new Image();
@@ -15,6 +19,8 @@ public static class GodotDecoders
         return Decode(image, image.LoadTgaFromBuffer(data), name);
     }
 
+    /// <summary>Decodes a BMP file with Godot's loader; <c>name</c> only labels the error.</summary>
+    /// <exception cref="InvalidDataException">when Godot cannot decode the data or decodes an empty image.</exception>
     public static Image Bmp(byte[] data, string name)
     {
         var image = new Image();
@@ -22,10 +28,12 @@ public static class GodotDecoders
         return Decode(image, image.LoadBmpFromBuffer(data), name);
     }
 
+    /// <summary>Decodes a WAV file with Godot's loader; <c>name</c> only labels the error.</summary>
+    /// <exception cref="InvalidDataException">when Godot cannot decode the data.</exception>
     public static AudioStreamWav Wav(byte[] data, string name) =>
         AudioStreamWav.LoadFromBuffer(data) ?? throw new InvalidDataException($"{name}: Godot cannot decode it");
 
-    // The decode step of the asset check: textures (base and every mip level), bitmaps, map overview images, and sounds.
+    /// <summary>The decode step of the asset check: textures (base and every mip level), bitmaps, map overview images, and sounds.</summary>
     public static void Check(AssetKind kind, GameFileSystem files, string name)
     {
         switch (kind.Name)

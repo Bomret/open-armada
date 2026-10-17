@@ -7,12 +7,14 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// The asset browser: categories, the assets of the selected category, and a preview of the selected
-// asset.
-//   godot-mono --path . -- --game <Armada dir> [--model Fente] [--screenshot out.png]
-//   godot-mono --path . -- --game <Armada dir> --map <name> [--screenshot out.png]   (the map sandbox)
-//   godot-mono --headless --path . -- --check --game <Armada dir>
-// The game dir can also come from the ARMADA_DIR environment variable. `--check` wins over `--map`.
+/// <summary>
+/// The asset browser: categories, the assets of the selected category, and a preview of the selected
+/// asset.
+///   godot-mono --path . -- --game &lt;Armada dir&gt; [--model Fente] [--screenshot out.png]
+///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]   (the map sandbox)
+///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
+/// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--map</c>.
+/// </summary>
 public partial class AssetBrowserView : Control
 {
     AssetBrowser _browser = null!;
@@ -25,6 +27,7 @@ public partial class AssetBrowserView : Control
     string? _screenshot;
     int _frames;
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         var args = new LaunchArgs(OS.GetCmdlineUserArgs());
@@ -180,6 +183,7 @@ public partial class AssetBrowserView : Control
         }
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         // Wait a few frames so textures are uploaded before capturing.

@@ -7,30 +7,57 @@ using System.Text;
 
 namespace OpenArmada.Formats;
 
-// One value of the binary part of a map: type code, offset of the token in the file, payload bytes.
+/// <summary>One value of the binary part of a map: type code, offset of the token in the file, payload bytes.</summary>
 public readonly record struct MapToken
 {
+    /// <summary>The token's type code, 0 to 11.</summary>
     public required byte Type { get; init; }
+
+    /// <summary>The file offset of the token's 8-byte header.</summary>
     public required int Offset { get; init; }
+
+    /// <summary>A copy of the token's payload bytes.</summary>
     public required byte[] Data { get; init; }
 }
 
-// The playable area. X and Z are the ground plane, Y is up. The bounds start at 0 in every shipped map.
+/// <summary>The playable area. X and Z are the ground plane, Y is up. The bounds start at 0 in every shipped map.</summary>
 public sealed record MapBounds
 {
+    /// <summary>The lowest X of the playable area.</summary>
     public required float MinX { get; init; }
+
+    /// <summary>The highest X of the playable area.</summary>
     public required float MaxX { get; init; }
+
+    /// <summary>The lowest Y (height) of the playable area.</summary>
     public required float MinY { get; init; }
+
+    /// <summary>The highest Y (height) of the playable area.</summary>
     public required float MaxY { get; init; }
+
+    /// <summary>The lowest Z of the playable area.</summary>
     public required float MinZ { get; init; }
+
+    /// <summary>The highest Z of the playable area.</summary>
     public required float MaxZ { get; init; }
 
+    /// <summary>
+    /// The extent along X: <see cref="MaxX"/> minus <see cref="MinX"/>; positive for a map that <see cref="Bzn.Read"/>
+    /// returns.
+    /// </summary>
     public float Width => MaxX - MinX;
+
+    /// <summary>
+    /// The extent along Z: <see cref="MaxZ"/> minus <see cref="MinZ"/>; positive for a map that <see cref="Bzn.Read"/>
+    /// returns.
+    /// </summary>
     public float Depth => MaxZ - MinZ;
 
-    // Where a ground position lands in the map's square overview image of `size` pixels: uniform scale,
-    // the longer side fills the image, the shorter one is centred. Image right is +X and image top is
-    // maximum Z (north), so the map is not mirrored; in Godot's frame, where models mirror Z, north is -Z.
+    /// <summary>
+    /// Where a ground position lands in the map's square overview image of <c>size</c> pixels: uniform scale,
+    /// the longer side fills the image, the shorter one is centred. Image right is +X and image top is
+    /// maximum Z (north), so the map is not mirrored; in Godot's frame, where models mirror Z, north is -Z.
+    /// </summary>
     public (float Col, float Row) ToImage(float x, float z, float size)
     {
         var longest = Math.Max(Width, Depth);
@@ -41,83 +68,171 @@ public sealed record MapBounds
         );
     }
 
-    // Ground position of a start cell (derived from data, within one cell): the 118-cell grid stretches over
-    // the whole map on each axis, row 0 at the top (maximum Z).
+    /// <summary>
+    /// Ground position of a start cell (derived from data, within one cell): the 118-cell grid stretches over
+    /// the whole map on each axis, row 0 at the top (maximum Z).
+    /// </summary>
     public (float X, float Z) FromStartCell(StartCell c) =>
         (MinX + c.X / (float)Mdf.MaxCell * Width, MinZ + (1 - c.Y / (float)Mdf.MaxCell) * Depth);
 
+    /// <summary>Whether a ground position lies inside the area on X and Z, edges included; Y is not checked.</summary>
     public bool Contains(float x, float z) => x >= MinX && x <= MaxX && z >= MinZ && z <= MaxZ;
 }
 
-// One game object. Prefix holds the class-specific tokens before the shared tail, Tail the 20 shared
-// tokens, both raw: the meaning of most of them is unknown (see the BZN maps page).
+/// <summary>
+/// One game object. Prefix holds the class-specific tokens before the shared tail, Tail the 20 shared
+/// tokens, both raw: the meaning of most of them is unknown (see the BZN maps page).
+/// </summary>
 public sealed record MapObject
 {
+    /// <summary>The object's class name, such as "fbattle": the text of the first header token.</summary>
     public required string Class { get; init; }
+
+    /// <summary>The second header token as an unsigned 32-bit number, not interpreted.</summary>
     public required uint Handle { get; init; }
+
+    /// <summary>The object's team, 0..8.</summary>
     public required int Team { get; init; }
+
+    /// <summary>The object's label in the map, such as "ship1": the text of the fifth header token.</summary>
     public required string Label { get; init; }
+
+    /// <summary>The sixth header token as an unsigned 32-bit number, not interpreted.</summary>
     public required uint Id { get; init; }
+
+    /// <summary>The object's position, the fourth vector of the header's 48-byte matrix token.</summary>
     public required Vector3 Position { get; init; }
+
+    /// <summary>The object's right axis, the first vector of the header's matrix token.</summary>
     public required Vector3 Right { get; init; }
+
+    /// <summary>The object's up axis, the second vector of the header's matrix token.</summary>
     public required Vector3 Up { get; init; }
+
+    /// <summary>The object's front axis, the third vector of the header's matrix token.</summary>
     public required Vector3 Front { get; init; }
+
+    /// <summary>The object's display name: the text of the seventh tail token (32 bytes).</summary>
     public required string DisplayName { get; init; }
+
+    /// <summary>The object's race: the text of the last tail token (64 bytes).</summary>
     public required string Race { get; init; }
+
+    /// <summary>The raw class-specific tokens between the header and the tail, at most 64.</summary>
     public required IReadOnlyList<MapToken> Prefix { get; init; }
+
+    /// <summary>The 20 raw shared tokens that end the object's record.</summary>
     public required IReadOnlyList<MapToken> Tail { get; init; }
+
+    /// <summary>The file offset of the object's first header token.</summary>
     public required int Offset { get; init; }
 }
 
-// One of the 9 team records. Fields named Unknown are read but their meaning is not known.
+/// <summary>One of the 9 team records. Fields named Unknown are read but their meaning is not known.</summary>
 public sealed record MapTeam
 {
+    /// <summary>The record's first value, a float of unknown meaning.</summary>
     public required float Unknown1 { get; init; }
+
+    /// <summary>The record's second value, a float of unknown meaning.</summary>
     public required float Unknown2 { get; init; }
+
+    /// <summary>The record's third value, an int of unknown meaning.</summary>
     public required int Unknown3 { get; init; }
+
+    /// <summary>The record's fourth value, a float of unknown meaning.</summary>
     public required float Unknown4 { get; init; }
+
+    /// <summary>The record's fifth value, a float of unknown meaning.</summary>
     public required float Unknown5 { get; init; }
+
+    /// <summary>The team's color value, the record's sixth value, an int.</summary>
     public required int Color { get; init; }
+
+    /// <summary>The team's secondary color value, the record's seventh value, an int.</summary>
     public required int SecondaryColor { get; init; }
 }
 
-// A named path of points in the map (AiPath), e.g. Camera_1.
+/// <summary>A named path of points in the map (AiPath), e.g. Camera_1.</summary>
 public sealed record MapPath
 {
+    /// <summary>The path's name; empty when its stored name length is 0.</summary>
     public required string Name { get; init; }
+
+    /// <summary>The path's points in file order.</summary>
     public required IReadOnlyList<Vector3> Points { get; init; }
 }
 
+/// <summary>
+/// A map as <see cref="Bzn.Read"/> returns it: the text preamble and the sections of the binary part, in file order.
+/// </summary>
 public sealed record BznMap
 {
+    /// <summary>The value of the "version [1] =" line, 2050 to 2052.</summary>
     public required int Version { get; init; }
+
+    /// <summary>The hex-decoded saveGameDesc line, as text up to its first NUL.</summary>
     public required string Description { get; init; }
+
+    /// <summary>The msn_filename field (16 bytes).</summary>
     public required string MissionFile { get; init; }
+
+    /// <summary>The TerrainName field (100 bytes).</summary>
     public required string TerrainName { get; init; }
+
+    /// <summary>The playable area; finite, with a positive width and depth.</summary>
     public required MapBounds Bounds { get; init; }
+
+    /// <summary>The ambient light color: X, Y and Z hold the AmbientRed, AmbientGreen and AmbientBlue fields.</summary>
     public required Vector3 Ambient { get; init; }
+
+    /// <summary>The BackgroundArt field (100 bytes); empty when the map names none.</summary>
     public required string BackgroundArt { get; init; }
+
+    /// <summary>The techTreeFilename field (128 bytes).</summary>
     public required string TechTree { get; init; }
+
+    /// <summary>The raceName field (128 bytes).</summary>
     public required string Race { get; init; }
+
+    /// <summary>The game objects in file order.</summary>
     public required IReadOnlyList<MapObject> Objects { get; init; }
+
+    /// <summary>The 9 team records; index i is team i.</summary>
     public required IReadOnlyList<MapTeam> Teams { get; init; }
+
+    /// <summary>The mission class field (40 bytes), such as "EmptyMission".</summary>
     public required string MissionClass { get; init; }
+
+    /// <summary>The mission script field (64 bytes).</summary>
     public required string MissionScript { get; init; }
+
+    /// <summary>The mission rules field (64 bytes).</summary>
     public required string MissionRules { get; init; }
+
+    /// <summary>The mission name field (64 bytes).</summary>
     public required string MissionName { get; init; }
+
+    /// <summary>The areas of interest, each its 6 raw tokens, not interpreted.</summary>
     public required IReadOnlyList<IReadOnlyList<MapToken>> Aois { get; init; }
+
+    /// <summary>The named paths (AiPath) in file order.</summary>
     public required IReadOnlyList<MapPath> Paths { get; init; }
 }
 
-// Reader of the .bzn map (layout: the BZN maps page of the knowledge base, REA report in the scope).
-// Throws InvalidDataException for a corrupt or cut-off file, naming the offset; UnsupportedFormatException
-// for a branch of the format no shipped map uses.
+/// <summary>
+/// Reader of the .bzn map (layout: the BZN maps page of the knowledge base, REA report in the scope).
+/// Throws InvalidDataException for a corrupt or cut-off file, naming the offset; UnsupportedFormatException
+/// for a branch of the format no shipped map uses.
+/// </summary>
 public static class Bzn
 {
     // the versions the shipped maps carry
     const int FirstVersion = 2050,
         LastVersion = 2052;
     const int MaxPrefix = 64;
+
+    /// <summary>The number of team records in a map: teams 0..8.</summary>
     public const int TeamCount = 9; // teams 0..8
 
     static readonly (byte, int)[] HeaderSig = { (7, 8), (4, 4), (9, 12), (4, 4), (2, 40), (8, 4), (11, 48) };
@@ -147,6 +262,18 @@ public static class Bzn
     static readonly (byte, int)[] TeamSig = { (5, 4), (5, 4), (4, 4), (5, 4), (5, 4), (4, 4), (4, 4) };
     static readonly (byte, int)[] AoiSig = { (8, 4), (4, 4), (1, 1), (1, 1), (4, 4), (4, 4) };
 
+    /// <summary>Reads a binary .bzn map of version 2050 to 2052 and checks that every token is accounted for.</summary>
+    /// <param name="d">The whole map file.</param>
+    /// <exception cref="InvalidDataException">
+    /// when the text preamble or a token is cut off, a line or token is not the one the layout expects, the bounds
+    /// are not a finite, non-empty area, a count does not fit in the rest of the file, an object has no tail, a
+    /// non-finite position or orientation, or a team outside 0..8, or tokens follow the last section. The message
+    /// names the offset.
+    /// </exception>
+    /// <exception cref="UnsupportedFormatException">
+    /// when the version is outside 2050..2052, the map is in text form (binarySave false), it is a save game
+    /// (missionSave false), or it remaps its bounds (rescale true).
+    /// </exception>
     public static BznMap Read(byte[] d)
     {
         var p = 0;

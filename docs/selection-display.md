@@ -44,7 +44,8 @@ screen, gets nothing. Of the rest:
   display's opacity.
 
 A part draws only while its opacity is above 0.5. Its colors are scaled by the opacity minus 0.5
-(0x49abf0, 0x49ad50, 0x49afe0).
+(0x49abf0, 0x49ad50, 0x49afe0). Read literally, a part at full opacity draws at half its color's
+intensity. Whether the game's renderer brightens the colors again is **unknown**.
 
 ## Shield bar
 
@@ -91,7 +92,8 @@ The map sandbox draws the shield bar and the crew dot of each selected unit, and
 under the cursor, by the rules above, redrawn every frame. The unit under the cursor is the one a click there
 would select. No unit shows a hover bar while the cursor is outside the window, or in a run without a mouse,
 such as a `--screenshot` run. It draws no energy bar, no system icons, and no reticle, and it does not show the display for
-the units whose owner matches.
+the units whose owner matches. The engine does not model the display's opacity, and it draws every part
+in full-intensity colors.
 
 The engine fills three gaps with stand-ins:
 

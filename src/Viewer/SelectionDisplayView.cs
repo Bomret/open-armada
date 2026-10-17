@@ -33,6 +33,8 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
     {
         // stand-in: the display scale of the screen the window is on stands for the game's pixel size
         var scale = DisplayServer.ScreenGetScale(DisplayServer.WindowGetCurrentScreen());
+        // ponytail: the hover pick walks every placed object's meshes each frame (O(objects × meshes)); skip
+        // it while neither the mouse nor the camera moved, or cache the pick, when maps grow large.
         var hovered = hoverPoint() is { } point ? selection.UnitAt(point) : null;
         foreach (var (unit, withDot) in SelectionDisplay.Shown(selection.Selected, hovered))
         {

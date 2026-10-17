@@ -140,6 +140,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
+        AddChild(new SelectionDisplayView(selection, orders.Combat));
         AddChild(new AlertKeys(AlertBindings.Read(files, gap => AddGap(gap)), selection, orders.Combat));
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins

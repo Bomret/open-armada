@@ -84,3 +84,16 @@ yellow is (1, 1, 0) at 0x690b20, and green is (0, 1, 0) at 0x690b40.
 Below the screen box, the selected unit shows one icon for each ship system it has, in the order 0, 1, 3,
 4, 2 (0x60c4b4, 0x49b6a0). The icons start one bar height below the bottom edge of the box. How an icon
 shows the state of its system is **unknown**: its draw method was not read.
+
+## What the engine draws
+
+The map sandbox draws the shield bar and the crew dot of each selected unit by the rules above, redrawn
+every frame. It draws no energy bar, no system icons, and no reticle, and it does not show the display for
+the units whose owner matches.
+
+The engine fills three gaps with stand-ins:
+
+- The screen box comes from the box around the unit's meshes in world axes.
+- A unit shows the shield bar when its `maxHealth` is above 0, in place of the game's own flag and value.
+- A game pixel is as large as the display scale of the screen the window is on, so the display keeps its
+  size on a high-density screen.

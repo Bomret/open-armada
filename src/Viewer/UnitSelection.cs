@@ -143,6 +143,26 @@ public partial class UnitSelection : Node3D
         return hit != null && _units.TryGetValue(hit, out var unit) ? unit : null;
     }
 
+    /// <summary>
+    /// The unit's screen box in viewport pixels (docs/selection-display.md); null when the unit is gone, has no
+    /// visible mesh, has a corner behind the camera, or lies wholly off screen.
+    /// </summary>
+    public ScreenBox? ScreenBoxOf(SelectableUnit unit)
+    {
+        var camera = GetViewport().GetCamera3D();
+        // stand-in: the box around the model's meshes in world axes; whether the game's box turns with the unit is unknown
+        if (camera == null || !_nodes.TryGetValue(unit.Object, out var node) || Extent(node) is not { } box)
+            return null;
+        var corners = Enumerable
+            .Range(0, 8)
+            .Select(i => box.GetEndpoint(i))
+            .Select(c =>
+                camera.IsPositionBehind(c) ? (System.Numerics.Vector2?)null : ToNumerics(camera.UnprojectPosition(c))
+            );
+
+        return SelectionDisplay.BoxOf(corners, ToNumerics(GetViewport().GetVisibleRect().Size));
+    }
+
     void Box(Vector2 from, Vector2 to)
     {
         var camera = GetViewport().GetCamera3D();

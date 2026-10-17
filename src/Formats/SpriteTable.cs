@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 
 namespace OpenArmada.Formats;
 
@@ -49,16 +50,27 @@ public sealed record SpriteAnimation(
 // blanks collapsed) and not interpreted.
 public sealed record SpriteEmitter(string Name, IReadOnlyList<string> Body);
 
-// A @sprite_node line: its name and the remaining tokens, kept as written and not interpreted.
-public sealed record SpriteNode(string Name, IReadOnlyList<string> Arguments);
+// A @sprite_node line: the model node it decorates, its sprite and node animation, its size, its colour, and
+// whether it faces the camera. Table and Line say where the line stands.
+public sealed record SpriteNodeLine(
+    string Node,
+    string Sprite,
+    string Animation,
+    float Width,
+    float Height,
+    Vector3 Colour,
+    bool Billboard,
+    string Table,
+    int Line
+);
 
 // A sprite table (.spr): "sprite_table" on the first line, '#' comments, @include of other tables,
 // directives and rows "Name Texture U V W H" with trailing directives. An include's sprites and
 // animations come where the @include stands; a table included again (by any path) adds nothing the
-// second time. Anything not recognized, an @animation, @emitter, @include, or @sprite_node without its name, an include cycle, a missing table, an unterminated @emitter,
+// second time. Anything not recognized, an @animation, @emitter, or @include without its name, an include cycle, a missing table, an unterminated @emitter,
 // an animation without its field line or with more keyframes than its count (fewer is a note), and a flipbook
 // larger than its table's text or leaving its @reference area throw InvalidDataException naming the
-// table and line (INV-0002).
+// table and line (INV-0002). A @sprite_node line that cannot be read is a note for that line alone.
 public sealed class SpriteTable
 {
     static readonly string[] Fields = { "offset", "colour", "draw", "width" };
@@ -68,16 +80,20 @@ public sealed class SpriteTable
     readonly List<Sprite> _sprites = new();
     readonly Dictionary<string, SpriteAnimation> _animations = new(StringComparer.OrdinalIgnoreCase);
     readonly List<SpriteEmitter> _emitters = new();
-    readonly List<SpriteNode> _nodes = new();
+    readonly List<SpriteNodeLine> _nodes = new();
+    readonly List<string> _unreadNodes = new();
     readonly List<string> _notes = new();
 
     public string Name { get; }
     public IReadOnlyList<Sprite> Sprites => _sprites;
     public IReadOnlyDictionary<string, SpriteAnimation> Animations => _animations;
     public IReadOnlyList<SpriteEmitter> Emitters => _emitters;
-    public IReadOnlyList<SpriteNode> SpriteNodes => _nodes;
+    public IReadOnlyList<SpriteNodeLine> SpriteNodes => _nodes;
 
-    // What does not fail the table: a sprite naming an animation no read table defines.
+    // The @sprite_node lines that cannot be read, one note each; Notes holds them too.
+    public IReadOnlyList<string> UnreadSpriteNodes => _unreadNodes;
+
+    // What does not fail the table: a sprite naming an animation no read table defines, an unreadable @sprite_node line.
     public IReadOnlyList<string> Notes => _notes;
 
     SpriteTable(string name) => Name = name;
@@ -144,6 +160,39 @@ public sealed class SpriteTable
             .Select(i => own with { U = s.U + i % columns * s.W, V = s.V + i / columns * s.H })
             .ToList();
     }
+
+    // "@sprite_node node sprite animation (w,h) (r,g,b) [billboard]"; null when the line does not say that.
+    // stand-in: the install's spellings are read as the game evidently accepts them: an unclosed or doubled
+    // parenthesis, leading-dot numbers, tabs; a "//billboard" is a comment, so that sprite does not face the camera.
+    static SpriteNodeLine? SpriteNodeOf(string table, int line, string[] t)
+    {
+        if (t.Length < 6)
+            return null;
+        var billboard = t[^1] == "billboard";
+        var groups = string.Concat(t[4..(billboard ? ^1 : ^0)])
+            .Split('(', StringSplitOptions.RemoveEmptyEntries)
+            .Select(g => g.TrimEnd(')').Split(','))
+            .ToArray();
+        if (groups.Length != 2 || groups[0].Length != 2 || groups[1].Length != 3)
+            return null;
+        var v = groups.SelectMany(g => g).Select(Float).ToArray();
+        if (v.Any(x => x == null))
+            return null;
+        return new SpriteNodeLine(
+            t[1],
+            t[2],
+            t[3],
+            v[0]!.Value,
+            v[1]!.Value,
+            new Vector3(v[2]!.Value, v[3]!.Value, v[4]!.Value),
+            billboard,
+            table,
+            line
+        );
+    }
+
+    static float? Float(string s) =>
+        float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && float.IsFinite(v) ? v : null;
 
     static InvalidDataException Bad(string table, int line, string what) => new($"{table}:{line}: {what}");
 
@@ -297,11 +346,14 @@ public sealed class SpriteTable
                         emitterLine = n;
                         break;
                     case "@sprite_node":
-                        _nodes.Add(
-                            t.Length > 1
-                                ? new SpriteNode(t[1], t[2..])
-                                : throw Bad(table, n, "@sprite_node names no node")
-                        );
+                        if (SpriteNodeOf(table, n, t) is { } node)
+                            _nodes.Add(node);
+                        else
+                        {
+                            var note = $"{table}:{n}: @sprite_node line '{string.Join(" ", t)}' cannot be read";
+                            _unreadNodes.Add(note);
+                            _notes.Add(note);
+                        }
                         break;
                     default:
                         throw Bad(table, n, $"unrecognized directive {name}");

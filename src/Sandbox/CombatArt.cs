@@ -7,8 +7,33 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
-// A shot's sprite: its row, whose Material is its blend, and its frames in play order, each for FrameSeconds.
-public sealed record SpriteArt(Sprite Sprite, IReadOnlyList<SpriteFrame> Frames, double FrameSeconds);
+// A shot's or a sprite node's sprite: its row, whose Material is its blend, and its frames in play order, each for
+// FrameSeconds.
+public sealed record SpriteArt(Sprite Sprite, IReadOnlyList<SpriteFrame> Frames, double FrameSeconds)
+{
+    public static SpriteArt Of(SpriteTable table, Sprite sprite)
+    {
+        var frames = table.Frames(sprite);
+        // stand-in: only a flipbook (@auto) animates; an animation of explicit keyframes shows its first frame.
+        var seconds =
+            frames.Count > 1 && sprite.Anim != null && table.Animations.TryGetValue(sprite.Anim, out var a)
+                ? a.FrameSeconds
+                : 0;
+        return new SpriteArt(sprite, frames, seconds);
+    }
+
+    // Every sprite of the install's tables by name. Each table is read with the animations of all the others, as
+    // the sprite table kind does; the tables go in name order (ignoring case), and the first row of a name wins.
+    // A table that cannot be read adds none.
+    public static Dictionary<string, (SpriteTable Table, Sprite Sprite)> Rows(GameFileSystem files)
+    {
+        var rows = new Dictionary<string, (SpriteTable, Sprite)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var table in new SpriteTableKind().Loaded(files))
+        foreach (var sprite in table.Sprites)
+            rows.TryAdd(sprite.Name, (table, sprite));
+        return rows;
+    }
+}
 
 // A unit's explosion: the sound and the model it shows for Length seconds. Each is null when the install lacks it.
 public sealed record ExplosionArt(string? Sound, string? Model, float Length);
@@ -111,43 +136,13 @@ public sealed class CombatArt
             _gaps.Add(NoSprite, weapon.Name, unit);
             return;
         }
-        _rows ??= LoadRows();
+        _rows ??= SpriteArt.Rows(_files);
         if (!_rows.TryGetValue(name, out var row))
         {
             _gaps.Add(MissingSprite, name, unit);
             return;
         }
-        var frames = row.Table.Frames(row.Sprite);
-        // stand-in: only a flipbook (@auto) animates; an animation of explicit keyframes shows its first frame.
-        var seconds =
-            frames.Count > 1 && row.Sprite.Anim != null && row.Table.Animations.TryGetValue(row.Sprite.Anim, out var a)
-                ? a.FrameSeconds
-                : 0;
-        _sprites[name] = new SpriteArt(row.Sprite, frames, seconds);
-    }
-
-    // Every sprite of the install's tables by name. Each table is read with the animations of all the others, as
-    // the sprite table kind does; the tables go in name order (ignoring case), and the first row of a name wins.
-    // A table that cannot be read adds none.
-    Dictionary<string, (SpriteTable, Sprite)> LoadRows()
-    {
-        var rows = new Dictionary<string, (SpriteTable, Sprite)>(StringComparer.OrdinalIgnoreCase);
-        var kind = new SpriteTableKind();
-        foreach (var name in kind.Enumerate(_files).OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
-        {
-            SpriteTable table;
-            try
-            {
-                table = (SpriteTable)kind.Load(_files, name);
-            }
-            catch (InvalidDataException)
-            {
-                continue;
-            }
-            foreach (var sprite in table.Sprites)
-                rows.TryAdd(sprite.Name, (table, sprite));
-        }
-        return rows;
+        _sprites[name] = SpriteArt.Of(row.Table, row.Sprite);
     }
 
     // Whether the install holds the sound; else a gap, `none` for an empty name and `missing` for a name it lacks.

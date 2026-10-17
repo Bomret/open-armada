@@ -77,8 +77,8 @@ public sealed class CombatArt
     // The explosion of a unit's fireball; null when its definition is missing or unreadable (a gap).
     public ExplosionArt? Explosion(PlacedObject unit) => _explosions.GetValueOrDefault(unit);
 
-    // The exact name of the unit's model node that a hardpoint name matches (the match ignores case, a node
-    // lookup does not); null when the model holds none.
+    // The name the built model node carries for the SOD node a hardpoint name matches (the match ignores case,
+    // a node lookup does not; Godot sanitizes the name, see NodeName); null when the model holds none.
     public string? Hardpoint(PlacedObject unit, string name) => NodesOf(unit.Model).GetValueOrDefault(name);
 
     // A failure of the view (a texture or a sound that cannot be decoded) joins the gaps, once per cause.
@@ -95,7 +95,7 @@ public sealed class CombatArt
             try
             {
                 foreach (var node in Sod.Read(_files.ReadAllBytes(model + ".sod")).Nodes)
-                    nodes.TryAdd(node.Name, node.Name);
+                    nodes.TryAdd(node.Name, NodeName.Of(node.Name));
             }
             catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
             _nodesOfModel[model] = nodes;

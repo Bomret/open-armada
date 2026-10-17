@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
+using OpenArmada.Sandbox;
 
 namespace OpenArmada.Rendering;
 
@@ -45,7 +46,7 @@ public sealed class SodBuilder
         foreach (var n in sod.Nodes)
         {
             Node3D node = n.Mesh != null ? BuildMesh(sod, n) : new Node3D();
-            node.Name = n.Name.Length > 0 ? n.Name : "node";
+            node.Name = NodeName.Of(n.Name);
             node.Transform = ToGodot(n.Transform);
             nodes.Add((n, node));
         }

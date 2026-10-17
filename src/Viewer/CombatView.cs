@@ -235,7 +235,7 @@ public partial class CombatView : Node3D
         {
             // The world drops a missed shot at once; it is drawn aimed beside the target and flies on straight.
             drawn.AimOffset = Gd(ShotGeometry.MissAim(Num(center), Num(targetAt), shot.Target.Radius)) - targetAt;
-            drawn.Direction = (targetAt + drawn.AimOffset - at).Normalized();
+            drawn.Direction = (targetAt + drawn.AimOffset - (at + drawn.Offset)).Normalized(); // from where it is drawn
         }
         AddChild(root);
         _drawn.Add(drawn);
@@ -252,10 +252,10 @@ public partial class CombatView : Node3D
         var region = SpriteSheetView.Region(d.Art.Sprite, frame, size);
         d.Material.Uv1Scale = new Vector3(region.Size.X / size.X, region.Size.Y / size.Y, 1);
         d.Material.Uv1Offset = new Vector3(region.Position.X / size.X, region.Position.Y / size.Y, 0);
-        if (At(shot.Target.Unit) is not { } target)
-            return;
         if (shot.Kind == ShotKind.Beam)
         {
+            if (At(shot.Target.Unit) is not { } target)
+                return;
             if (HardpointAt(shot.Shooter.Unit, shot.Hardpoint) is not { } start)
                 return;
             if (ShotGeometry.Beam(Num(start), Num(d.Missed ? target + d.AimOffset : target)) is not { } pose)
@@ -295,6 +295,7 @@ public partial class CombatView : Node3D
     public override void _Process(double delta) =>
         _drawn.RemoveAll(d =>
         {
+            // stand-in: a missed shot ages on the frame time and a hit in whole world ticks, so the clocks differ by under a tick.
             var gone = d.Missed ? (d.Age += delta) >= d.Shot.Weapon.Ordnance.LifeSpan : !_world.Shots.Contains(d.Shot);
             if (gone)
                 d.Root.QueueFree();

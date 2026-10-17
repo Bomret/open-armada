@@ -120,6 +120,16 @@ public class CombatArtTests
     }
 
     [TestMethod]
+    public void HardpointResolvesToTheNameTheBuiltNodeCarries()
+    {
+        var unit = Unit(Armed("phaser", "ph.wav", "hp.01"));
+        unit = (unit.Unit with { Model = "dotted" }, unit.Profile);
+        var art = CombatArt.Build(Install(("SOD/dotted.sod", Model("root", "hp.01"))), new[] { unit });
+        Assert.AreEqual("hp_01", art.Hardpoint(unit.Unit, "hp.01"));
+        Assert.AreEqual(0, art.Reports.Count);
+    }
+
+    [TestMethod]
     public void ModelThatCannotBeReadLeavesEveryHardpointMissing()
     {
         var unit = (

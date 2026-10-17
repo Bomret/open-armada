@@ -26,6 +26,8 @@ Prefer composing small, focused types over deep inheritance hierarchies.
 
 **Log statements are always their own context group.** A log call always gets a blank line above and below it.
 
+**A statement after a block starts a new context.** A statement that follows a closing brace (the end of an `if`, a loop, a `try`, or a nested block) gets a blank line above it.
+
 ### Jump statements
 
 Always put a blank line before a jump statement **unless it is the sole statement in its block**.

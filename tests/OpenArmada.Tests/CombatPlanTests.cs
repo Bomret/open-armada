@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 
@@ -130,6 +131,80 @@ public class CombatPlanTests
         var gap = r.Plan.Reports.Single(g => g.Cause.Contains("weapon definition"));
         CollectionAssert.AreEqual(new[] { "nope" }, gap.Names.ToArray());
         Assert.AreEqual(1, gap.Count);
+    }
+
+    [TestMethod]
+    public void EachGapCauseIsOneWarnEntryEqualToItsLabelLine()
+    {
+        using var log = new CapturedLog();
+        var weapon = "weapon1 = \"nope\"\r\nweaponHardpoints1 = \"a\"\r\n";
+        var r = Plan(
+            new[] { "s", "t" },
+            new[] { ("s", Ship + weapon), ("t", Ship + weapon), ("fed", Race) },
+            ("RTS_CFG.h", Constants)
+        );
+        Assert.IsTrue(r.Plan.Reports.Count > 0);
+        Assert.AreEqual(r.Plan.Reports.Count, log.Lines.Count, log.Text);
+        for (var i = 0; i < log.Lines.Count; i++)
+        {
+            StringAssert.Contains(log.Lines[i], " WARN combat: " + r.Plan.Reports[i].Text);
+        }
+
+        Assert.AreEqual(r.Plan.Reports.Count, Log.WarnCount);
+    }
+
+    // An archive whose one member is stored compressed, so reading that member throws.
+    static string Unreadable(string member, string content) =>
+        Encoding.Latin1.GetString(ZfsBuilder.Build(0, ZfsBuilder.M(member, content, 2)));
+
+    const string ArmedShip = "weapon1 = \"beam\"\r\nweaponHardpoints1 = \"a\"\r\n";
+
+    [TestMethod]
+    public void AnAssetThatCannotBeReadIsOneErrorEntryWithItsNameAndReasonAndNoWarnEntryForIt()
+    {
+        var weapon = ("addon/w.zfs", Unreadable("beam.odf", Beam));
+        var ordnance = ("addon/o.zfs", Unreadable("beamo.odf", BeamOrd));
+        var raceFile = ("addon/x.zfs", Unreadable("fed.odf", Race));
+        var racesList = ("addon/races.zfs", Unreadable("races.odf", "numberOfRaces = 1\r\nrace0 = \"fed.odf\"\r\n"));
+        var constants = ("addon/c.zfs", Unreadable("RTS_CFG.h", Constants));
+        var ship = ("s", Ship + ArmedShip);
+        var cases = new (string Name, string[] Classes, (string, string)[] Definitions, (string, string)[] Loose)[]
+        {
+            ("weapon definition beam", new[] { "s", "s" }, new[] { ship }, new[] { ("RTS_CFG.h", Constants), weapon }),
+            (
+                "ordnance definition beamo",
+                new[] { "s", "s" },
+                new[] { ship, ("beam", Beam) },
+                new[] { ("RTS_CFG.h", Constants), ordnance }
+            ),
+            (
+                "race definition fed.odf",
+                new[] { "s", "s" },
+                new[] { ship, ("beam", Beam), ("beamo", BeamOrd) },
+                new[] { ("RTS_CFG.h", Constants), raceFile }
+            ),
+            (
+                "races.odf",
+                new[] { "s", "s" },
+                new[] { ship, ("beam", Beam), ("beamo", BeamOrd) },
+                new[] { ("RTS_CFG.h", Constants), racesList }
+            ),
+            (
+                "RTS_CFG.h",
+                new[] { "s" },
+                new[] { ship, ("beam", Beam), ("beamo", BeamOrd), ("fed", Race) },
+                new[] { constants }
+            ),
+        };
+        foreach (var c in cases)
+        {
+            using var log = new CapturedLog();
+            var r = Plan(c.Classes, c.Definitions, c.Loose);
+            var errors = log.Lines.Where(l => l.Contains(" ERROR combat: " + c.Name + ": ")).ToList();
+            Assert.AreEqual(1, errors.Count, c.Name + "\n" + log.Text);
+            Assert.IsFalse(log.Lines.Any(l => l.Contains(" WARN ") && l.Contains("cannot be read")), c.Name);
+            Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.Contains("cannot be read")), c.Name);
+        }
     }
 
     [TestMethod]

@@ -40,7 +40,7 @@ A model preview also draws the model's sprite nodes. A sprite node is a sprite t
 godot-mono --path . -- --game "/path/to/Star Trek - Armada" --map 2duel
 ```
 
-`--map <name>` opens a map from the install's `bzn` folder, matched without regard to case, folder, or extension. The scene holds the map's objects with their team colors, its background, and generated asteroid fields. Add `--screenshot out.png` to render one frame to a file and quit.
+`--map <name>` opens a map from the install's `bzn` folder, matched without regard to case, folder, or extension. `docs/maps.md` lists the built-in maps with their teams and units. The scene holds the map's objects with their team colors, its background, and generated asteroid fields. Add `--screenshot out.png` to render one frame to a file and quit.
 
 The sandbox behaves as follows:
 

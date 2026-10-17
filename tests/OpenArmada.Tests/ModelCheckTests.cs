@@ -411,9 +411,13 @@ public class ModelCheckTests
         var team = TeamColors.Load(Install(("addon/teamcolor.odf", odf)));
         Assert.AreEqual(0, team.Notes.Count);
         foreach (var n in missing)
+        {
             Assert.AreEqual(Vector3.Zero, team.Color(n));
+        }
         for (var i = 0; i < given.Count; i++)
+        {
             Assert.AreEqual(new Vector3(i / 100f, 0.5f, 1f), team.Color(given[i]), given[i]);
+        }
     }
 
     [TestMethod]
@@ -463,7 +467,9 @@ public class ModelCheckTests
     {
         var team = TeamColors.Load(Install());
         foreach (var n in TeamColors.SlotNames)
+        {
             Assert.AreEqual(Vector3.Zero, team.Color(n));
+        }
         StringAssert.Contains(team.Notes.Single(), "teamcolor.odf");
     }
 

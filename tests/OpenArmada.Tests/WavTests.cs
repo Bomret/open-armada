@@ -37,7 +37,9 @@ public class WavTests
         w.Write((short)(blockAlign ?? channels * bits / 8));
         w.Write((short)bits);
         for (var i = 16; i < fmtSize; i++)
+        {
             w.Write((byte)0);
+        }
         w.Write("data"u8.ToArray());
         w.Write(declared);
         w.Write(new byte[actual]);

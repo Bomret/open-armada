@@ -53,11 +53,19 @@ public abstract class AssetKind
     {
         var bare = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var folder in folders)
-        foreach (var n in files.List(extension, folder))
-            yield return files.Find(n) == files.Find(folder + "/" + n) && bare.Add(n) ? n : folder + "/" + n;
+        {
+            foreach (var n in files.List(extension, folder))
+            {
+                yield return files.Find(n) == files.Find(folder + "/" + n) && bare.Add(n) ? n : folder + "/" + n;
+            }
+        }
         foreach (var n in DefinitionKind.Named(files, extension))
+        {
             if (bare.Add(n))
+            {
                 yield return n;
+            }
+        }
     }
 
     public static IReadOnlyList<AssetKind> Discover() =>

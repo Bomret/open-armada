@@ -51,11 +51,15 @@ public sealed class MovePlan
                 try
                 {
                     if (definition.GetFloat("maxRoll") is var value and >= 0)
+                    {
                         roll = value;
+                    }
                 }
                 catch (DefinitionException) { }
                 if (roll == null)
+                {
                     gaps.Add("physics definition's maxRoll is no number of 0 or more, ships do not bank", o.Class);
+                }
             }
             physics[o] = new PhysicsValues(speed.Value, yaw.Value, roll);
         }

@@ -45,6 +45,7 @@ public sealed class UnitPlan
                 // to the class name and to a ship
                 var name = o.Class;
                 if (definition.Has("unitName"))
+                {
                     try
                     {
                         name = definition.GetString("unitName");
@@ -53,8 +54,10 @@ public sealed class UnitPlan
                     {
                         gaps.Add(BadName, o.Class);
                     }
+                }
                 var station = false;
                 if (definition.Has("is_starbase"))
+                {
                     try
                     {
                         station = definition.GetInt("is_starbase") != 0;
@@ -63,6 +66,7 @@ public sealed class UnitPlan
                     {
                         gaps.Add(BadStarbase, o.Class);
                     }
+                }
                 unit = station ? new Station(name) : new Ship(name);
             }
             if (unit == null)
@@ -72,7 +76,9 @@ public sealed class UnitPlan
             {
                 movable = files.Find(definition.GetString("physicsFile")) != null;
                 if (!movable)
+                {
                     gaps.Add(MissingPhysics, o.Class);
+                }
             }
             catch (DefinitionException)
             {

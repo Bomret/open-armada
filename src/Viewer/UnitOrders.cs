@@ -55,7 +55,9 @@ public partial class UnitOrders : Node3D
         _poses = new UnitPoses(selection.Units.Select(u => u.Object));
         _plan = MovePlan.Build(plan, selection.Units, files);
         foreach (var report in _plan.Reports)
+        {
             gap(report.Text);
+        }
         var random = new System.Random();
         _world = new CombatWorld(
             _poses,
@@ -156,7 +158,9 @@ public partial class UnitOrders : Node3D
     public override void _Process(double delta)
     {
         foreach (var unit in _world.Units)
+        {
             if (unit.Intent.Kind != MoveKind.None && Motion(unit.Unit) is { } motion)
+            {
                 switch (unit.Intent.Kind)
                 {
                     case MoveKind.MoveTo:
@@ -169,6 +173,8 @@ public partial class UnitOrders : Node3D
                         motion.Stop();
                         break;
                 }
+            }
+        }
         foreach (var (o, (motion, initial, start, scale)) in _moving)
         {
             var pose = _poses.Advance(o, motion, delta);

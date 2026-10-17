@@ -203,12 +203,15 @@ public sealed class Sod
             r.ReadUInt16(); // unused
             ch.Keyframes = new Matrix34[keys];
             for (int k = 0; k < keys; k++)
+            {
                 ch.Keyframes[k] = Matrix(r);
+            }
             sod.Channels.Add(ch);
         }
 
         int refs = sod.Version >= 1.55f ? r.ReadUInt16() : 0;
         for (int i = 0; i < refs; i++)
+        {
             sod.References.Add(
                 new AnimationReference
                 {
@@ -218,6 +221,7 @@ public sealed class Sod
                     Offset = sod.Version >= 1.75f ? r.ReadSingle() : 0f, // 1.8 added the time offset
                 }
             );
+        }
 
         if (r.BaseStream.Position != data.Length)
             throw new InvalidDataException($"{data.Length - r.BaseStream.Position} trailing bytes");
@@ -248,11 +252,15 @@ public sealed class Sod
         foreach (var n in Nodes)
         {
             if (n.Parent.Length > 0 && !names.Contains(n.Parent))
+            {
                 Problems.Add($"node '{n.Name}' names the parent '{n.Parent}', which the model lacks");
+            }
             if (InParentCycle(n))
+            {
                 Problems.Add(
                     $"node '{n.Name}' is its own ancestor through its parents (a parent cycle); it hangs from the root"
                 );
+            }
             if (n.Mesh is not { } m)
                 continue;
             foreach (var (v, t) in m.Groups.SelectMany(g => g.Corners))
@@ -294,17 +302,23 @@ public sealed class Sod
             groups = r.ReadUInt16();
         mesh.Vertices = new Vector3[verts];
         for (int i = 0; i < verts; i++)
+        {
             mesh.Vertices[i] = Vec3(r);
+        }
         mesh.TexCoords = new Vector2[uvs];
         for (int i = 0; i < uvs; i++)
+        {
             mesh.TexCoords[i] = new Vector2(r.ReadSingle(), r.ReadSingle());
+        }
 
         for (int g = 0; g < groups; g++)
         {
             int faces = r.ReadUInt16();
             var group = new Group { Material = Id(r), Corners = new (ushort, ushort)[faces * 3] };
             for (int c = 0; c < faces * 3; c++)
+            {
                 group.Corners[c] = (r.ReadUInt16(), r.ReadUInt16());
+            }
             mesh.Groups.Add(group);
         }
 
@@ -325,10 +339,14 @@ public sealed class Sod
         r.ReadSingle(); // always 1.0 so far, meaning unknown
         mesh.Vertices = new Vector3[verts];
         for (int i = 0; i < verts; i++)
+        {
             mesh.Vertices[i] = Vec3(r);
+        }
         mesh.TexCoords = new Vector2[uvs];
         for (int i = 0; i < uvs; i++)
+        {
             mesh.TexCoords[i] = new Vector2(r.ReadSingle(), r.ReadSingle());
+        }
 
         var corners = new List<(ushort, ushort)>();
         for (int f = 0; f < faces; f++)
@@ -336,7 +354,9 @@ public sealed class Sod
             int n = r.ReadUInt16();
             var poly = new (ushort V, ushort T)[n];
             for (int c = 0; c < n; c++)
+            {
                 poly[c] = (r.ReadUInt16(), r.ReadUInt16());
+            }
             for (int c = 1; c + 1 < n; c++) // fan-triangulate
             {
                 corners.Add(poly[0]);

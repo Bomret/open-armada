@@ -170,7 +170,9 @@ public sealed record AsteroidField(
                 continue;
             }
             foreach (var missing in ModelNames.Except(present))
+            {
                 gaps.Add(MissingModel, missing, o);
+            }
             if (present.Count == 0)
             {
                 gaps.Add(NoModel, o.Class, o);
@@ -203,7 +205,9 @@ public sealed record AsteroidField(
                 $"{map.Description}\0{map.MissionFile}\0{map.TerrainName}\0{map.Objects.Count}\0{field.Handle}\0{field.Id}"
             )
         )
+        {
             hash = (hash ^ b) * 16777619u;
+        }
         return hash;
     }
 }

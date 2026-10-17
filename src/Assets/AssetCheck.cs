@@ -42,7 +42,9 @@ public static class AssetCheck
             failedTotal = 0,
             unresolved = 0;
         foreach (var missing in files.Missing)
+        {
             output.WriteLine($"MISSING {missing}");
+        }
         foreach (var fault in files.Faults)
         {
             output.WriteLine($"FAIL {fault}");
@@ -71,7 +73,9 @@ public static class AssetCheck
                     var notes = kind.Check(files, name);
                     // Notes print before the decoder runs, so a decode failure does not lose them.
                     foreach (var note in notes)
+                    {
                         output.WriteLine($"NOTE {kind.Name}/{name}: {note}");
+                    }
                     // The game's own decoders run after the readers accepted the file.
                     decode?.Invoke(kind, files, name);
                     // Unresolved references list apart from failures and do not fail the asset.
@@ -125,12 +129,18 @@ public static class AssetCheck
             return 1;
         }
         foreach (var c in classified.Where(c => c.Class == FileClass.KnownNotLoaded))
+        {
             output.WriteLine($"NOT LOADED {c.Entry}: {c.Group}");
+        }
         foreach (var g in classified.Where(c => c.Class == FileClass.OutOfScope).GroupBy(c => c.Group))
+        {
             output.WriteLine($"OUT OF SCOPE {g.Key}: {g.Count()} files");
+        }
         var unclassified = classified.Where(c => c.Class == FileClass.Unclassified).ToList();
         foreach (var c in unclassified)
+        {
             output.WriteLine(c.Group == "" ? $"UNCLASSIFIED {c.Entry}" : $"UNCLASSIFIED {c.Entry}: {c.Group}");
+        }
         int N(FileClass k) => classified.Count(c => c.Class == k);
         output.WriteLine(
             $"files: {N(FileClass.Loaded)} loaded, {N(FileClass.OutOfScope)} out of scope, {N(FileClass.KnownNotLoaded)} known but not loaded, {unclassified.Count} unclassified"

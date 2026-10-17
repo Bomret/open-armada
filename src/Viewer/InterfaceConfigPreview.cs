@@ -27,12 +27,16 @@ public sealed class InterfaceConfigPreview : KindPreview
             if (e.Sprite != null && sprites.TryGetValue(e.Sprite, out var s))
             {
                 if (!textures.TryGetValue(s.Texture, out var loaded))
+                {
                     textures[s.Texture] = loaded = TryLoadTexture(files, s.Texture);
+                }
                 if (loaded is { } l)
+                {
                     (texture, region) = (
                         l.Texture,
                         SpriteSheetView.Region(s, new SpriteFrame(s.U, s.V, s.W, s.H), l.Image.GetSize())
                     );
+                }
             }
             items.Add((e, texture, region));
         }
@@ -98,7 +102,9 @@ public sealed class InterfaceConfigPreview : KindPreview
             try
             {
                 foreach (var s in ((SpriteTable)kind.Load(files, table)).Sprites)
+                {
                     result.TryAdd(s.Name, s);
+                }
             }
             catch (System.Exception ex)
                 when (ex is System.IO.IOException or System.IO.InvalidDataException or UnsupportedFormatException) { }

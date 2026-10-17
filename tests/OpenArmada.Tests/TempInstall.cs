@@ -39,6 +39,8 @@ internal sealed class TempInstall
     internal void CleanUp()
     {
         foreach (var dir in made)
+        {
             Directory.Delete(dir, true);
+        }
     }
 }

@@ -64,8 +64,11 @@ public partial class CombatView : Node3D
         _world = world;
         _nodes = nodes;
         foreach (var sprite in art.Sprites)
+        {
             Texture(sprite.Sprite.Texture);
+        }
         foreach (var name in art.Sounds)
+        {
             try
             {
                 _sounds[name] = GodotDecoders.Wav(files.ReadAllBytes(name), name);
@@ -75,7 +78,9 @@ public partial class CombatView : Node3D
                 art.Report("sound cannot be decoded, it is not played", name);
                 GD.PrintErr($"sound {name}: {e.Message}");
             }
+        }
         foreach (var name in art.ExplosionModels)
+        {
             try
             {
                 _models[name] = builder.Build(Sod.Read(files.ReadAllBytes(name + ".sod")));
@@ -85,6 +90,7 @@ public partial class CombatView : Node3D
                 art.Report("explosion model cannot be read, it shows no model", name);
                 GD.PrintErr($"explosion model {name}: {e.Message}");
             }
+        }
         orders.Stepped += OnStep;
     }
 
@@ -109,13 +115,16 @@ public partial class CombatView : Node3D
     {
         var sounded = new HashSet<(UnitCombatState, int)>(); // the weapons whose fire sound this step played
         foreach (var e in events)
+        {
             try
             {
                 switch (e)
                 {
                     case ShotFired { Shot: var shot }:
                         if (sounded.Add((shot.Shooter, shot.Weapon.Slot)) && At(shot.Shooter.Unit) is { } at)
+                        {
                             PlaySound(shot.Weapon.FireSound, at);
+                        }
                         Draw(shot);
                         break;
                     case UnitDestroyed { Unit: var unit }:
@@ -127,6 +136,7 @@ public partial class CombatView : Node3D
             {
                 GD.PrintErr($"combat presentation failed: {ex.Message}");
             }
+        }
     }
 
     // A unit's place in the world; null when its node is gone, so nothing is drawn or sounded there.
@@ -198,8 +208,10 @@ public partial class CombatView : Node3D
         Blend(material, art.Sprite.Material);
         var root = new Node3D();
         if (shot.Kind == ShotKind.Beam)
+        {
             // two crossed quads: the beam shows from any side
             foreach (var roll in new[] { 0f, Mathf.Pi / 2 })
+            {
                 root.AddChild(
                     new MeshInstance3D
                     {
@@ -207,6 +219,8 @@ public partial class CombatView : Node3D
                         Rotation = new Vector3(roll, 0, 0),
                     }
                 );
+            }
+        }
         else
         {
             material.BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled;
@@ -289,7 +303,9 @@ public partial class CombatView : Node3D
         GetTree().CreateTimer(explosion.Length).Timeout += () =>
         {
             if (IsInstanceValid(node))
+            {
                 node.QueueFree();
+            }
         };
     }
 
@@ -301,9 +317,13 @@ public partial class CombatView : Node3D
             // stand-in: a missed shot ages on the frame time and a hit in whole world ticks, so the clocks differ by under a tick.
             var gone = d.Missed ? (d.Age += delta) >= d.Shot.Weapon.Ordnance.LifeSpan : !live.Contains(d.Shot);
             if (gone)
+            {
                 d.Root.QueueFree();
+            }
             else
+            {
                 Place(d);
+            }
             return gone;
         });
     }

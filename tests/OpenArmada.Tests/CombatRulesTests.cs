@@ -161,7 +161,9 @@ public class CombatRulesTests
     {
         var target = WithSystems(Sys("Engines", hitPoints: 0, percent: 50), Sys("Weapons", percent: 10));
         for (var roll = 0; roll < 100; roll++)
+        {
             Assert.AreNotEqual(HitLocation.Engines, CombatRules.Location(target, roll));
+        }
     }
 
     [TestMethod]

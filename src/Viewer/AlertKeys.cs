@@ -28,8 +28,12 @@ public partial class AlertKeys : Node
         if (_bindings.For(chord) is not { } stance)
             return;
         foreach (var unit in _selection.Selected)
+        {
             if (_world.State(unit.Object) is { } state)
+            {
                 state.Alert = stance;
+            }
+        }
         GetViewport().SetInputAsHandled();
     }
 }

@@ -162,11 +162,17 @@ public static class ModelRules
     {
         problem = null;
         if (a.Field != "offset")
+        {
             problem = $"animation '{a.Name}' changes '{a.Field}', which the engine does not draw on models";
+        }
         else if (a.Auto == null)
+        {
             problem = $"animation '{a.Name}' has explicit keyframes, which the engine does not draw on models";
+        }
         else if (a.Count < 1)
+        {
             problem = $"animation '{a.Name}' has no frames";
+        }
         if (problem != null)
             return null;
         var (columns, rows) = SpriteTable.Grid(a);
@@ -179,8 +185,10 @@ public static class ModelRules
     {
         var tables = new SpriteTableKind().Tables(files).ToList();
         foreach (var t in tables)
+        {
             if (t.Animations.TryGetValue(name, out var found))
                 return found;
+        }
         foreach (var t in tables)
         {
             var sprite = t.Sprites.FirstOrDefault(s =>
@@ -189,8 +197,10 @@ public static class ModelRules
             if (sprite == null)
                 continue;
             foreach (var other in tables)
+            {
                 if (other.Animations.TryGetValue(sprite.Anim!, out var played))
                     return played;
+            }
         }
         return null;
     }
@@ -211,7 +221,9 @@ public static class ModelRules
             try
             {
                 foreach (var m in ((Sod)kind.Load(files, model)).LightingMaterials)
+                {
                     table.TryAdd(m.Name, m);
+                }
             }
             // A model that cannot be read adds none; its own check reports it.
             catch (Exception e)
@@ -256,27 +268,35 @@ public static class ModelRules
         {
             var look = Look(sod, n.Mesh!);
             if (look.Problem != null)
+            {
                 problems.Add($"node '{n.Name}': {look.Problem}");
+            }
             unnamed += n.Mesh!.Groups.Count(g => g.Material.Length == 0);
             foreach (var g in n.Mesh!.Groups.Select(g => g.Material).Where(g => g.Length > 0).Distinct())
             {
                 var m = FindLightingMaterial(files, sod, g);
                 if (m == null)
+                {
                     problems.Add(
                         $"node '{n.Name}': lighting material '{g}' is defined in no model; drawn Lambert white"
                     );
+                }
                 else if (Lighting(m) == null)
+                {
                     problems.Add(
                         $"node '{n.Name}': lighting material '{g}' has model byte {m.StoredModel}, which the engine does not know"
                     );
+                }
             }
         }
         // The game gives a group without a lighting material its default material (FUN_0058e850); its
         // values are not decoded, so the engine stands in with Lambert white.
         if (unnamed > 0)
+        {
             problems.Add(
                 $"{unnamed} groups name no lighting material; drawn Lambert white as the engine's stand-in for the game's default material"
             );
+        }
         foreach (var r in sod.References)
         {
             if (r.Type != AnimationReferenceType)
@@ -289,20 +309,32 @@ public static class ModelRules
             TextureAnimation? flipbook = null;
             string? why = null;
             if (anim != null)
+            {
                 flipbook = Animation(anim, r.Offset, out why);
+            }
             string? line = null;
             if (targets.Count == 0)
+            {
                 problems.Add(
                     $"animation '{r.Animation}' names the node '{r.Node}', which is no mesh node of the model"
                 );
+            }
             else if (anim == null)
+            {
                 problems.Add(line = $"animation '{r.Animation}' of node '{r.Node}' is in no sprite table");
+            }
             else if (flipbook == null)
+            {
                 problems.Add($"node '{r.Node}': {why}");
+            }
             else
+            {
                 runs.AddRange(targets.Select(t => (t, flipbook)));
+            }
             if (anim == null)
+            {
                 missing.Add((r.Animation, line));
+            }
         }
         return new Analysis(problems, runs, missing);
     }

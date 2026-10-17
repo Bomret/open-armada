@@ -26,7 +26,9 @@ public partial class InterfaceLayoutView : Control
         {
             var rect = new Rect2(e.X, e.Y, e.Width, e.Height);
             if (texture != null)
+            {
                 DrawTextureRectRegion(texture, rect, region);
+            }
             DrawRect(rect, e.IsPanel ? Colors.Cyan : Colors.Green, false);
             DrawString(
                 ThemeDB.FallbackFont,

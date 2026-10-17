@@ -110,7 +110,9 @@ public class ShipMotionTests
         ship.SetTarget(100, 100); // a 45 degree turn takes under one second at Yaw 1; the target is 141 away at speed 10
         var pose = ship.Step(0);
         for (var i = 0; i < 100; i++)
+        {
             pose = ship.Step(0.05); // 5 seconds
+        }
         Assert.IsTrue(
             new Vector2(pose.Position.X - 100, pose.Position.Z - 100).Length() > 50,
             "the ship has not arrived"
@@ -128,10 +130,14 @@ public class ShipMotionTests
         coarse.SetTarget(0, -15);
         ShipPose pose = default;
         for (var i = 0; i < 400; i++)
+        {
             pose = fine.Step(0.01);
+        }
         Assert.AreEqual(-8.58, pose.Position.Z, 0.05);
         for (var i = 0; i < 8; i++)
+        {
             pose = coarse.Step(0.5);
+        }
         Assert.AreEqual(-8.58, pose.Position.Z, 0.05);
     }
 

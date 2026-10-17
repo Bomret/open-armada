@@ -37,7 +37,9 @@ public partial class AsteroidFieldsView : Node3D
             {
                 var node = builder.Build(Sod.Read(files.ReadAllBytes(model + ".sod")));
                 foreach (var problem in builder.Problems)
+                {
                     gap($"{model}: {problem}");
+                }
                 var found = VisibleMeshes.Of(node);
                 node.Free();
                 parts[model] = found;
@@ -45,7 +47,9 @@ public partial class AsteroidFieldsView : Node3D
                 {
                     var box = t * mesh.GetAabb();
                     foreach (var i in Enumerable.Range(0, 8))
+                    {
                         extent = MathF.Max(extent, box.GetEndpoint(i).Length());
+                    }
                 }
             }
             catch (Exception e) // a model that cannot be read is a gap and its rocks are left out (INV-0002)
@@ -62,7 +66,9 @@ public partial class AsteroidFieldsView : Node3D
             foreach (var rock in (field with { Models = models }).Rocks(extent))
             {
                 if (!byModel.TryGetValue(rock.Model, out var list))
+                {
                     byModel[rock.Model] = list = new List<Rock>();
+                }
                 list.Add(rock);
             }
         }
@@ -103,6 +109,7 @@ public partial class AsteroidFieldsView : Node3D
             return;
         var t = (Time.GetTicksMsec() - _start) / 1000.0;
         foreach (var group in _groups)
+        {
             for (var i = 0; i < group.Pose.Length; i++)
             {
                 var (position, q) = group.Rocks[i].Pose(t);
@@ -111,6 +118,7 @@ public partial class AsteroidFieldsView : Node3D
                     new Vector3(position.X, position.Y, position.Z)
                 );
             }
+        }
         foreach (var draw in _draws)
         {
             for (var i = 0; i < draw.Pose.Length; i++)

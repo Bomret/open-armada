@@ -36,7 +36,9 @@ public class UnitPlanTests
         );
         var map = new BznBuilder { Background = "" };
         foreach (var c in classes)
+        {
             map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
+        }
         var asset = new MapAsset(
             "bzn/t.bzn",
             Bzn.Read(map.Build()),

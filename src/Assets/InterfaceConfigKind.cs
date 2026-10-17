@@ -44,7 +44,9 @@ public sealed class InterfaceConfigKind : AssetKind
         string Open(string n)
         {
             if (files.Entry(n) is { } entry)
+            {
                 reads?.Add(entry);
+            }
             return Windows1252.Encoding.GetString(files.ReadAllBytes(n));
         }
         // The bare name resolves through the game's precedence (addon override first, then the index);

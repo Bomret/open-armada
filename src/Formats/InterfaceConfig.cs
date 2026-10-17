@@ -110,9 +110,13 @@ public sealed class InterfaceConfig
             {
                 var q = Quoted.Match(value);
                 if (q.Success)
+                {
                     _entries.Add(new ConfigEntry(key, new[] { q.Groups[1].Value }, true, file, i + 1));
+                }
                 else
+                {
                     _notes.Add($"{at}: unterminated text in '{line}'");
+                }
                 continue;
             }
             var tokens = value.Split("//")[0].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
@@ -123,9 +127,13 @@ public sealed class InterfaceConfig
                     || !double.IsFinite(v)
                 )
             )
+            {
                 _notes.Add($"{at}: value of '{key}' is neither text nor numbers: '{value}'");
+            }
             else
+            {
                 _entries.Add(new ConfigEntry(key, tokens, false, file, i + 1));
+            }
         }
     }
 
@@ -138,14 +146,20 @@ public sealed class InterfaceConfig
     {
         var byKey = new Dictionary<string, ConfigEntry>();
         foreach (var e in _entries)
+        {
             byKey[e.Key] = e; // a later line overrides an earlier one
+        }
         string? Text(string key) => byKey.TryGetValue(key, out var e) && e.IsText ? e.Values[0] : null;
 
         // A panel group "g" has gDefaultCursor and gPanelArea.
         var origins = new Dictionary<string, (float X, float Y)>();
         foreach (var (k, e) in byKey)
+        {
             if (k.EndsWith("PanelArea") && byKey.ContainsKey(k[..^9] + "DefaultCursor") && Numbers(e) is { } n)
+            {
                 origins[k[..^9]] = (n[0], n[1]);
+            }
+        }
         (float X, float Y) Origin(string key) =>
             origins
                 .Where(o => key.StartsWith(o.Key))

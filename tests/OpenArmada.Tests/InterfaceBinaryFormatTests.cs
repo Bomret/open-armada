@@ -53,14 +53,18 @@ public class InterfaceBinaryFormatTests
         {
             var offset = U32((uint)data.Count);
             for (var k = 0; k < 4; k++)
+            {
                 data[table + i * 4 + k] = offset[k];
+            }
             if (i == 65)
             {
                 data.AddRange(U32(3));
                 data.AddRange(new byte[] { 0, 255, 255, 255, 255, 0 });
             }
             else
+            {
                 data.AddRange(U32(0));
+            }
         }
         return data.Take(data.Count - truncate).ToArray();
     }
@@ -128,7 +132,9 @@ public class InterfaceBinaryFormatTests
         head.AddRange(System.BitConverter.GetBytes(hotY));
         head.AddRange(U32((uint)dib.Count, twoImages ? 38u : 22u));
         if (twoImages)
+        {
             head.AddRange(head.Skip(6).Take(16).ToArray()); // a second entry naming the same image
+        }
         return head.Concat(dib).ToArray();
     }
 

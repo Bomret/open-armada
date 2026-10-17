@@ -55,7 +55,9 @@ public partial class MapSandboxView : Node3D
             window.FocusEntered += () => Input.MouseMode = Input.MouseModeEnum.Confined;
             window.FocusExited += () => Input.MouseMode = Input.MouseModeEnum.Visible;
             if (window.HasFocus())
+            {
                 Input.MouseMode = Input.MouseModeEnum.Confined;
+            }
         }
         var files = _sandbox.Files!;
         var plan = _sandbox.Plan!;
@@ -113,7 +115,9 @@ public partial class MapSandboxView : Node3D
             _rig = new CameraRig(null, bounds);
         }
         foreach (var problem in _rig.Problems)
+        {
             AddGap(problem);
+        }
         var orders = new UnitOrders(
             files,
             plan,
@@ -151,7 +155,9 @@ public partial class MapSandboxView : Node3D
         _camera = camera;
         PlaceCamera();
         if (plan.Background != null)
+        {
             AddBackground(files, builder, team, plan.Background, camera, reach);
+        }
         Show(null);
     }
 
@@ -166,10 +172,14 @@ public partial class MapSandboxView : Node3D
         try
         {
             if (!_sods.TryGetValue(model, out var sod))
+            {
                 _sods[model] = sod = Sod.Read(files.ReadAllBytes(model + ".sod"));
+            }
             var node = builder.Build(sod, team.Color(TeamColors.SlotNames[slot]));
             foreach (var problem in builder.Problems)
+            {
                 AddGap($"{model}: {problem}");
+            }
             _templates[(model, slot)] = node;
             return node;
         }
@@ -184,7 +194,9 @@ public partial class MapSandboxView : Node3D
     void AddGap(string gap)
     {
         if (!_gaps.Contains(gap))
+        {
             _gaps.Add(gap);
+        }
     }
 
     // The background model sits behind every other object: it is scaled until its origin's nearest distance to
@@ -244,7 +256,9 @@ public partial class MapSandboxView : Node3D
     {
         var text = problem ?? (_gaps.Count == 0 ? "" : $"{_gaps.Count} gaps:\n{string.Join("\n", _gaps)}");
         if (text.Length > 0)
+        {
             GD.PrintErr(text);
+        }
         var layer = new CanvasLayer();
         AddChild(layer);
         layer.AddChild(
@@ -276,18 +290,28 @@ public partial class MapSandboxView : Node3D
         if (_rig == null)
             return;
         if (e is InputEventKey { Pressed: true, Keycode: Key.Escape })
+        {
             Input.MouseMode = Input.MouseModeEnum.Visible;
+        }
         else if (
             e is InputEventMouseButton { Pressed: true } b
             && b.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown
         )
+        {
             _rig.ChangeHeight(b.ButtonIndex == MouseButton.WheelUp ? -_rig.ZoomStep : _rig.ZoomStep);
+        }
         else if (e is InputEventMouseMotion m && m.ButtonMask.HasFlag(MouseButtonMask.Middle))
+        {
             _rig.Rotate(m.Relative.X * _rig.RotationPerPixel);
+        }
         else if (e is InputEventPanGesture p)
+        {
             _rig.TrackpadPan(new System.Numerics.Vector2(p.Delta.X, p.Delta.Y));
+        }
         else if (e is InputEventMagnifyGesture g)
+        {
             _rig.Pinch(g.Factor);
+        }
     }
 
     public override void _Process(double delta)
@@ -315,7 +339,9 @@ public partial class MapSandboxView : Node3D
         }
         // The background keeps its centering offset from the camera and never turns with it.
         if (_background != null && _camera != null)
+        {
             _background.GlobalPosition = _camera.GlobalPosition + _backgroundOffset;
+        }
         // Wait a few frames so textures are uploaded before capturing.
         if (_screenshot == null || ++_frames < 5)
             return;

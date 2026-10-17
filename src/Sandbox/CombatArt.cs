@@ -51,13 +51,21 @@ public sealed class CombatArt
             {
                 art.ResolveSprite(weapon, unit);
                 if (art.ResolveSound(weapon.FireSound, weapon.Name, NoSound, MissingSound, unit))
+                {
                     art._fireSounds.Add(weapon.FireSound);
+                }
                 foreach (var hardpoint in weapon.Hardpoints)
+                {
                     if (!nodes.ContainsKey(hardpoint))
+                    {
                         art._gaps.Add(MissingHardpoint, hardpoint, unit);
+                    }
+                }
             }
             if (art.ResolveExplosion(profile.Fireball, unit) is { } explosion)
+            {
                 art._explosions[unit] = explosion;
+            }
         }
         return art;
     }
@@ -95,7 +103,9 @@ public sealed class CombatArt
             try
             {
                 foreach (var node in Sod.Read(_files.ReadAllBytes(model + ".sod")).Nodes)
+                {
                     nodes.TryAdd(node.Name, NodeName.Of(node.Name));
+                }
             }
             catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
             _nodesOfModel[model] = nodes;
@@ -145,7 +155,9 @@ public sealed class CombatArt
                 continue;
             }
             foreach (var sprite in table.Sprites)
+            {
                 rows.TryAdd(sprite.Name, (table, sprite));
+            }
         }
         return rows;
     }
@@ -154,9 +166,13 @@ public sealed class CombatArt
     bool ResolveSound(string name, string subjectName, string none, string missing, PlacedObject unit)
     {
         if (name.Length == 0)
+        {
             _gaps.Add(none, subjectName, unit);
+        }
         else if (_files.Find(name) == null)
+        {
             _gaps.Add(missing, name, unit);
+        }
         else
             return true;
         return false;
@@ -198,13 +214,17 @@ public sealed class CombatArt
             return null;
         }
         if (art.Sound == null)
+        {
             _gaps.Add(
                 sound.Length == 0 ? NoExplosionSound : MissingExplosionSound,
                 sound.Length == 0 ? fireball : sound,
                 unit
             );
+        }
         if (art.Model == null)
+        {
             _gaps.Add(NoExplosionModel, model.Length == 0 ? fireball : model, unit);
+        }
         return art;
     }
 }

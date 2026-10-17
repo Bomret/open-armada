@@ -26,9 +26,13 @@ public sealed class SoundPreview : KindPreview
         play.Pressed += () =>
         {
             if (player.Playing)
+            {
                 player.Stop();
+            }
             else
+            {
                 player.Play();
+            }
             play.Text = player.Playing ? "Stop" : "Play";
         };
         player.Finished += () => play.Text = "Play";

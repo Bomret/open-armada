@@ -26,7 +26,9 @@ public sealed class LaunchArgs
             return _args[i + 1];
         var problem = $"{flag} needs a value";
         if (!_problems.Contains(problem))
+        {
             _problems.Add(problem);
+        }
         return null;
     }
 }

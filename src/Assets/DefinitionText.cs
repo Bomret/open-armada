@@ -18,9 +18,13 @@ public static class DefinitionText
         var sb = new StringBuilder();
         sb.Append(def.Name).Append(" (").AppendJoin(" <- ", def.Chain).Append(")\n");
         foreach (var p in def.Problems)
+        {
             sb.Append("problem: ").Append(p).Append('\n');
+        }
         foreach (var n in def.Notes)
+        {
             sb.Append("note: ").Append(n).Append('\n');
+        }
         sb.Append('\n');
         foreach (var v in def.Values)
         {
@@ -53,11 +57,13 @@ public static class DefinitionText
         {
             sb.Append(g.Key).Append('\n');
             foreach (var e in g.OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase))
+            {
                 sb.Append("  ")
                     .Append(e.Name)
                     .Append(": ")
                     .Append(e.Requires.Count == 0 ? "no requirements" : "requires " + string.Join(", ", e.Requires))
                     .Append('\n');
+            }
         }
         return sb.ToString();
     }

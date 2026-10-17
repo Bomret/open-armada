@@ -52,7 +52,9 @@ public sealed class SpriteTableKind : AssetKind
                 cache[other] = t;
             }
             if (t != null)
+            {
                 yield return t;
+            }
         }
     }
 

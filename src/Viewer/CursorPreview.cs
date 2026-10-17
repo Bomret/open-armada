@@ -18,15 +18,17 @@ public sealed class CursorPreview : KindPreview
         var image = Image.CreateEmpty(cursor.Width * Scale, cursor.Height * Scale, false, Image.Format.Rgba8);
         image.Fill(new Color(0.5f, 0.5f, 0.5f));
         for (var y = 0; y < cursor.Height; y++)
-        for (var x = 0; x < cursor.Width; x++)
         {
-            var o = (y * cursor.Width + x) * 4;
-            if (cursor.Rgba[o + 3] == 0)
-                continue;
-            image.FillRect(
-                new Rect2I(x * Scale, y * Scale, Scale, Scale),
-                Color.Color8(cursor.Rgba[o], cursor.Rgba[o + 1], cursor.Rgba[o + 2])
-            );
+            for (var x = 0; x < cursor.Width; x++)
+            {
+                var o = (y * cursor.Width + x) * 4;
+                if (cursor.Rgba[o + 3] == 0)
+                    continue;
+                image.FillRect(
+                    new Rect2I(x * Scale, y * Scale, Scale, Scale),
+                    Color.Color8(cursor.Rgba[o], cursor.Rgba[o + 1], cursor.Rgba[o + 2])
+                );
+            }
         }
         // A hotspot outside the image (a note) is drawn at the nearest edge pixel.
         var (hx, hy) = (
@@ -42,7 +44,9 @@ public sealed class CursorPreview : KindPreview
                 new Rect2I(hx + Scale - 1, hy, 1, Scale),
             }
         )
+        {
             image.FillRect(edge, Colors.Cyan);
+        }
         return new ImagePane(
             $"{cursor.Width}x{cursor.Height}, hotspot at ({cursor.HotspotX}, {cursor.HotspotY}){string.Concat(cursor.Notes.Select(n => " - " + n))}",
             new[] { (name, image) }

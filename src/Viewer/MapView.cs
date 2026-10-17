@@ -46,14 +46,22 @@ public partial class MapView : Control
         var size = Mathf.Min(Size.X, Size.Y);
         var rect = new Rect2(0, 0, size, size);
         if (overview != null)
+        {
             DrawTextureRect(overview, rect, false);
+        }
         else
+        {
             DrawRect(rect, new Color(0.08f, 0.08f, 0.1f));
+        }
         if (!showObjects)
             return;
         foreach (var o in map.Map.Objects)
+        {
             if (TryPlace(o, size, out var p))
+            {
                 DrawCircle(p, o.Team == 0 ? 1.5f : 3f, TeamColors[o.Team]);
+            }
+        }
         var font = ThemeDB.FallbackFont;
         foreach (var s in map.Starts)
         {

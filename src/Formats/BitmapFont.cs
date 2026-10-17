@@ -38,8 +38,10 @@ public sealed class BitmapFont
         if (data.Length < HeaderSize + (long)count * 4)
             throw new InvalidDataException($"{name}: glyph table is cut off");
         for (var i = 0; i < count; i++)
+        {
             if ((long)BitConverter.ToUInt32(data, HeaderSize + i * 4) + 4 > data.Length)
                 throw new InvalidDataException($"{name}: glyph {i} starts past the end of the file");
+        }
         // Only a well-formed font of another glyph count is unsupported, so the checks above come first.
         if (count != CodeCount)
             throw new UnsupportedFormatException(

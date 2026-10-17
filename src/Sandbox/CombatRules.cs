@@ -81,7 +81,9 @@ public static class CombatRules
         for (var i = 0; i < SystemOrder.Length; i++)
         {
             if (target.Systems.TryGetValue(SystemOrder[i], out var s) && !s.Destroyed)
+            {
                 left -= s.Profile.HitPercent + share;
+            }
             if (left < 0)
                 return (HitLocation)i;
         }
@@ -106,7 +108,9 @@ public static class CombatRules
                 continue;
             s.HitPoints = Math.Min(s.Max, s.HitPoints + seconds / perPoint);
             if (s.HitPoints >= s.Max)
+            {
                 s.Destroyed = false;
+            }
         }
     }
 
@@ -150,7 +154,9 @@ public static class CombatRules
         {
             var excess = shieldPart - ordnance.DamageThreshold.For(name);
             if (excess > 0)
+            {
                 crewLoss += Math.Min(excess, 1) + target.Crew * ordnance.ShieldCrewModifier.For(name) * excess / 100;
+            }
             shieldLoss = Math.Min(shieldPart, target.Shields);
             target.Shields -= shieldPart;
             if (target.Shields <= 0)
@@ -161,13 +167,16 @@ public static class CombatRules
             }
         }
         else
+        {
             systemsPart = damage;
+        }
 
         target.SystemsRemainder += systemsPart;
         var points = (int)Math.Floor(target.SystemsRemainder);
         target.SystemsRemainder -= points;
         var destroyed = false;
         if (points >= 1)
+        {
             switch (location)
             {
                 case HitLocation.Hull:
@@ -184,14 +193,19 @@ public static class CombatRules
                         {
                             system.Destroyed = true;
                             if (!target.Derelict)
+                            {
                                 crewLoss += 1 + target.Crew * system.Profile.CrewLoss / 100;
+                            }
                         }
                     }
                     break;
             }
+        }
         target.Crew = Math.Max(0, target.Crew - crewLoss);
         if (crewLoss > 0)
+        {
             CheckCrew(target);
+        }
         target.Destroyed |= destroyed;
         return new Hit(location, damage, shieldLoss, crewLoss, points, destroyed);
     }

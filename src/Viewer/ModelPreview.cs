@@ -21,7 +21,9 @@ public sealed class ModelPreview : KindPreview
 
         var pick = new OptionButton();
         foreach (var slot in TeamColors.SlotNames)
+        {
             pick.AddItem(slot);
+        }
         void Choose(int index) => builder.SetTeamColor(team.Color(TeamColors.SlotNames[index]));
         pick.ItemSelected += i => Choose((int)i);
         var args = OS.GetCmdlineUserArgs().ToList();
@@ -40,7 +42,9 @@ public sealed class ModelPreview : KindPreview
         bar.AddChild(pick);
         var problems = builder.Problems.Concat(team.Notes).ToList();
         if (problems.Count > 0)
+        {
             bar.AddChild(new Label { Text = $"{problems.Count} problems: {string.Join("; ", problems)}" });
+        }
 
         var box = new VBoxContainer();
         box.AddChild(bar);

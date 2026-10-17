@@ -12,7 +12,9 @@ public static class Palette
             throw new InvalidDataException($"palette is {data.Length} bytes, expected 768 (256 RGB colors)");
         var colors = new (byte, byte, byte)[256];
         for (var i = 0; i < 256; i++)
+        {
             colors[i] = (data[i * 3], data[i * 3 + 1], data[i * 3 + 2]);
+        }
         return colors;
     }
 }

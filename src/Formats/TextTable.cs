@@ -97,19 +97,29 @@ public sealed class TextTable
             if (tok == "}")
             {
                 if (blocks.Count == 0)
+                {
                     _notes.Add($"{At(line)}: '}}' without an open block");
+                }
                 else
+                {
                     blocks.RemoveAt(blocks.Count - 1);
+                }
             }
             else if (tok == "import")
             {
                 var target = k + 1 < tokens.Count ? Unquote(tokens[++k].Text) : null;
                 if (target == null)
+                {
                     _notes.Add($"{At(line)}: import needs a quoted file name");
+                }
                 else if (blocks.Count > 0)
+                {
                     _notes.Add($"{At(line)}: import '{target}' inside a block is ignored");
+                }
                 else
+                {
                     Import(At(line), FolderOf(file) + target, key, open, stack);
+                }
             }
             else if (tok == "string")
             {
@@ -121,11 +131,17 @@ public sealed class TextTable
                 }
                 var (name, value) = (tokens[++k].Text, Unquote(tokens[++k].Text));
                 if (blocks.Count == 0)
+                {
                     _notes.Add($"{At(line)}: string '{name}' outside a block");
+                }
                 else if (value == null)
+                {
                     _notes.Add($"{At(line)}: value of '{name}' is not quoted; the entry is dropped");
+                }
                 else
+                {
                     _entries.Add(new TextTableEntry(blocks[^1].Path, name, value, file, line));
+                }
             }
             else if (k + 1 < tokens.Count && tokens[k + 1].Text == "{")
             {
@@ -133,19 +149,27 @@ public sealed class TextTable
                 var (blockName, parent) = colon < 0 ? (tok, null) : (tok[..colon], tok[(colon + 1)..]);
                 var path = blocks.Count == 0 ? blockName : blocks[^1].Path + "." + blockName;
                 if (_blocks.FirstOrDefault(b => b.Path == path) is not { } first)
+                {
                     _blocks.Add(new TextTableBlock(path, parent));
+                }
                 else if (parent != null && parent != first.Parent)
+                {
                     _notes.Add(
                         $"{At(line)}: block '{path}' is reopened with parent '{parent}'; it keeps its first parent '{first.Parent ?? "(none)"}'"
                     );
+                }
                 blocks.Add((path, line));
                 k++;
             }
             else
+            {
                 _notes.Add($"{At(line)}: unrecognized statement '{tok}'");
+            }
         }
         foreach (var (path, line) in blocks)
+        {
             _notes.Add($"{At(line)}: block '{path}' is not closed");
+        }
     }
 
     // The folder of a file name, with its trailing separator ("" for a file in the root).
@@ -191,7 +215,9 @@ public sealed class TextTable
             if (char.IsWhiteSpace(s[i]))
             {
                 if (s[i++] == '\n')
+                {
                     line++;
+                }
                 continue;
             }
             var (start, startLine) = (i, line);
@@ -200,24 +226,40 @@ public sealed class TextTable
                 for (i++; i < s.Length && s[i] != '"'; i++)
                 {
                     if (s[i] == '\\' && i + 1 < s.Length)
+                    {
                         i++; // the next character cannot end the token
+                    }
                     if (s[i] == '\n')
+                    {
                         line++;
+                    }
                 }
                 if (i >= s.Length)
+                {
                     _notes.Add($"{file}:{startLine}: text is not closed");
+                }
                 else
+                {
                     i++;
+                }
                 tokens.Add((s[start..i], startLine));
                 continue;
             }
             while (i < s.Length && !char.IsWhiteSpace(s[i]) && s[i] != '#')
+            {
                 i++;
+            }
             if (i > start)
+            {
                 tokens.Add((s[start..i], startLine));
+            }
             if (i < s.Length && s[i] == '#')
+            {
                 while (i < s.Length && s[i] != '\n')
+                {
                     i++;
+                }
+            }
         }
         return tokens;
     }
@@ -265,7 +307,9 @@ public sealed class TextTable
                     break;
                 case '\t' or '\n' or '\r' or ' ':
                     while (i < token.Length && token[i] != '\n')
+                    {
                         i++;
+                    }
                     break; // line continuation
             }
         }

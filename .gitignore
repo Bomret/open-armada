@@ -3,3 +3,4 @@ bin/
 obj/
 *.user
 .superdev/
+.DS_Store

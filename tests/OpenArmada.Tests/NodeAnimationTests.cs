@@ -64,6 +64,7 @@ public class NodeAnimationTests
             var c = zero.At(5, loop).Colour;
             Assert.IsTrue(float.IsFinite(c.X) && float.IsFinite(c.Y) && float.IsFinite(c.Z));
         }
+
         Near(
             new Vector3(.5f, .5f, .5f),
             Anim("colour 3 2 linear\n@keyframes\n0 (.5,.5,.5)\n").At(1, loop: true).Colour

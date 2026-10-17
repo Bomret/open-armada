@@ -5,11 +5,15 @@ using OpenArmada.Viewer;
 
 namespace OpenArmada.Rendering;
 
-// How a sprite is drawn, for shot sprites and sprite nodes alike.
+/// <summary>How a sprite is drawn, for shot sprites and sprite nodes alike.</summary>
 public static class SpriteMaterial
 {
-    // The sprite's draw state from its render type, as the models' are (ModelRules).
-    // stand-in: a render type the engine does not know is drawn alpha blended.
+    /// <summary>
+    /// Sets the draw state of <paramref name="material"/> from the sprite's render type, as the models' are
+    /// (ModelRules): transparency, blend mode, opacity in the albedo alpha (the albedo color turns white), and
+    /// texture filter.
+    /// stand-in: a render type the engine does not know, or none, is drawn alpha blended.
+    /// </summary>
     public static void Blend(StandardMaterial3D material, string? renderType)
     {
         var blend =
@@ -30,7 +34,10 @@ public static class SpriteMaterial
             : BaseMaterial3D.TextureFilterEnum.Linear;
     }
 
-    // Shows one frame of the sprite: the material's texture coordinates cover that frame's region of the texture.
+    /// <summary>
+    /// Shows one frame of the sprite: sets the texture scale and offset of <paramref name="material"/> to cover that
+    /// frame's region of <paramref name="texture"/>.
+    /// </summary>
     public static void ShowFrame(StandardMaterial3D material, Sprite sprite, SpriteFrame frame, Texture2D texture)
     {
         var size = new Vector2I(texture.GetWidth(), texture.GetHeight());

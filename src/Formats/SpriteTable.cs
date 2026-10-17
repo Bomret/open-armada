@@ -329,6 +329,7 @@ public sealed class SpriteTable
         var v = groups.SelectMany(g => g).Select(Float).ToArray();
         if (v.Any(x => x == null))
             return null;
+
         return new SpriteNodeLine
         {
             Node = t[1],

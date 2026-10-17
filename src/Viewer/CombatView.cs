@@ -97,7 +97,9 @@ public partial class CombatView : Node3D
             {
                 _models[name] = builder.Build(Sod.Read(files.ReadAllBytes(name + ".sod")));
                 foreach (var problem in builder.Problems)
+                {
                     gap($"{name}: {problem}");
+                }
             }
             catch (Exception e) // a model that cannot be read is a gap, whatever the reason (INV-0002)
             {

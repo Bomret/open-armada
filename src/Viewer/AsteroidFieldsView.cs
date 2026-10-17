@@ -33,18 +33,37 @@ public partial class AsteroidFieldsView : Node3D
         public required Transform3D[] Pose { get; init; }
     }
 
-    // A sprite node of a model, taken from its built quad: the quad mesh at the node's size, its place in the model,
-    // and the material, sprite node, and texture that show its frame and colour.
-    sealed record SpritePart(
-        Mesh Mesh,
-        Transform3D Part,
-        StandardMaterial3D Material,
-        SpriteNode Node,
-        Texture2D Texture
-    );
+    // A sprite node of a model, taken from its built quad.
+    sealed record SpritePart
+    {
+        /// <summary>The quad mesh at the node's size.</summary>
+        public required Mesh Mesh { get; init; }
 
-    // The draw of one sprite node over all rocks of its model, and its material's opacity from the sprite's blend.
-    sealed record SpriteDraw(MultiMeshInstance3D Instance, SpritePart Sprite, float Opacity);
+        /// <summary>The quad's place in the model.</summary>
+        public required Transform3D Part { get; init; }
+
+        /// <summary>The material that shows the sprite's frame and colour.</summary>
+        public required StandardMaterial3D Material { get; init; }
+
+        /// <summary>The resolved sprite node.</summary>
+        public required SpriteNode Node { get; init; }
+
+        /// <summary>The sprite's texture.</summary>
+        public required Texture2D Texture { get; init; }
+    }
+
+    // The draw of one sprite node over all rocks of its model.
+    sealed record SpriteDraw
+    {
+        /// <summary>The instance that draws the sprite node over the rocks.</summary>
+        public required MultiMeshInstance3D Instance { get; init; }
+
+        /// <summary>The sprite node of the model.</summary>
+        public required SpritePart Sprite { get; init; }
+
+        /// <summary>The material's opacity from the sprite's blend.</summary>
+        public required float Opacity { get; init; }
+    }
 
     readonly List<Draw> _draws = new();
     readonly List<Group> _groups = new();
@@ -82,13 +101,14 @@ public partial class AsteroidFieldsView : Node3D
                 // The quads never enter the scene, so each still holds the material SpriteNodeQuad.Create made.
                 sprites[model] = VisibleMeshes
                     .SpriteNodesOf(node)
-                    .Select(q => new SpritePart(
-                        q.Quad.Mesh,
-                        q.Transform,
-                        (StandardMaterial3D)q.Quad.MaterialOverride,
-                        q.Quad.Sprite.Node,
-                        q.Quad.Sprite.Texture
-                    ))
+                    .Select(q => new SpritePart
+                    {
+                        Mesh = q.Quad.Mesh,
+                        Part = q.Transform,
+                        Material = (StandardMaterial3D)q.Quad.MaterialOverride,
+                        Node = q.Quad.Sprite.Node,
+                        Texture = q.Quad.Sprite.Texture,
+                    })
                     .ToList();
                 node.Free();
                 parts[model] = found;
@@ -100,12 +120,15 @@ public partial class AsteroidFieldsView : Node3D
                         extent = MathF.Max(extent, box.GetEndpoint(i).Length());
                     }
                 }
+
                 drawExtent = MathF.Max(drawExtent, extent);
                 foreach (var sprite in sprites[model])
                 {
                     var box = sprite.Part * sprite.Mesh.GetAabb();
                     foreach (var i in Enumerable.Range(0, 8))
+                    {
                         drawExtent = MathF.Max(drawExtent, box.GetEndpoint(i).Length());
+                    }
                 }
             }
             catch (Exception e) // a model that cannot be read is a gap and its rocks are left out (INV-0002)
@@ -168,6 +191,7 @@ public partial class AsteroidFieldsView : Node3D
                     }
                 );
             }
+
             // Each sprite node is one more draw over the model's rocks, placed by the rock's pose times its node's
             // place, so it moves and turns with the rock. Its material faces each rock's quad to the camera when the
             // sprite node is a billboard: Godot folds the instance transform into the model matrix first.
@@ -193,7 +217,14 @@ public partial class AsteroidFieldsView : Node3D
                         Buffer = new float[rocks.Count * 12],
                     }
                 );
-                _sprites.Add(new SpriteDraw(instance, sprite, sprite.Material.AlbedoColor.A));
+                _sprites.Add(
+                    new SpriteDraw
+                    {
+                        Instance = instance,
+                        Sprite = sprite,
+                        Opacity = sprite.Material.AlbedoColor.A,
+                    }
+                );
             }
         }
 
@@ -207,6 +238,7 @@ public partial class AsteroidFieldsView : Node3D
             return;
         var t = (Time.GetTicksMsec() - _start) / 1000.0;
         foreach (var draw in _sprites)
+        {
             draw.Instance.Visible = SpriteNodeQuad.Show(
                 draw.Sprite.Material,
                 draw.Sprite.Node,
@@ -215,6 +247,8 @@ public partial class AsteroidFieldsView : Node3D
                 t,
                 loop: true
             );
+        }
+
         foreach (var group in _groups)
         {
             for (var i = 0; i < group.Pose.Length; i++)

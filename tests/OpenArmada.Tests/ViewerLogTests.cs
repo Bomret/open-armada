@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
@@ -48,18 +49,6 @@ public class ViewerLogTests
     }
 
     [TestMethod]
-    public void Sprite_table_texture_that_did_not_load_is_one_error_with_texture_and_reason()
-    {
-        using var log = new CapturedLog();
-        ViewerLog.TextureNotLoaded("sprites.spr", "hull01", new InvalidDataException("bad magic"));
-        Assert.AreEqual(1, log.Lines.Count);
-        StringAssert.Contains(log.Text, " ERROR browser: ");
-        StringAssert.Contains(log.Text, "sprites.spr");
-        StringAssert.Contains(log.Text, "hull01");
-        StringAssert.Contains(log.Text, "bad magic");
-    }
-
-    [TestMethod]
     public void Failed_preview_is_one_error_with_asset_name_and_reason()
     {
         using var log = new CapturedLog();
@@ -105,15 +94,40 @@ public class ViewerLogTests
         Assert.AreEqual(0, log.Lines.Count);
     }
 
+    // TextureFailed logs a texture once per run, so each test names a texture of its own.
+
     [TestMethod]
-    public void Unreadable_texture_is_one_error_in_area_render_naming_texture_and_reason()
+    public void Texture_missing_from_the_install_is_one_warn_naming_texture_and_reason()
     {
         using var log = new CapturedLog();
-        ViewerLog.TextureUnavailable("hull01", "not a readable TGA");
-        Assert.AreEqual(1, log.Lines.Count);
-        StringAssert.Contains(log.Text, " ERROR render: ");
-        StringAssert.Contains(log.Text, "hull01");
-        StringAssert.Contains(log.Text, "not a readable TGA");
+        ViewerLog.TextureFailed(
+            Area.Render,
+            "missing01",
+            new FileNotFoundException("'missing01.tga' is not in the install")
+        );
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.Matches(
+            line,
+            new Regex(" WARN render: texture \"missing01\" missing: 'missing01.tga' is not in the install$")
+        );
+    }
+
+    [TestMethod]
+    public void Texture_that_cannot_be_read_is_one_error_naming_texture_and_reason()
+    {
+        using var log = new CapturedLog();
+        ViewerLog.TextureFailed(Area.Combat, "corrupt01", new InvalidDataException("bad magic"));
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.Matches(line, new Regex(" ERROR combat: texture \"corrupt01\" cannot be read: bad magic$"));
+    }
+
+    [TestMethod]
+    public void Texture_that_failed_is_one_entry_per_run_whichever_view_loads_it()
+    {
+        using var log = new CapturedLog();
+        ViewerLog.TextureFailed(Area.Render, "twice01", new InvalidDataException("bad magic"));
+        ViewerLog.TextureFailed(Area.Combat, "TWICE01", new InvalidDataException("bad magic"));
+        Assert.ContainsSingle(log.Lines);
     }
 
     [TestMethod]

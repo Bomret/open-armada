@@ -46,7 +46,7 @@ public sealed class ModelPreview : KindPreview
         var bar = new HBoxContainer();
         bar.AddChild(new Label { Text = "Team color" });
         bar.AddChild(pick);
-        // The builder logged each texture that failed as one ERROR; its lines are only shown.
+        // The builder logged each texture that failed (ViewerLog.TextureFailed); its lines are only shown.
         var notes = builder.Problems.Concat(team.Notes).ToList();
         ViewerLog.Notes(name, notes);
         var problems = notes.Concat(builder.TextureFailures).ToList();

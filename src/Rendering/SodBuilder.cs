@@ -19,13 +19,15 @@ namespace OpenArmada.Rendering;
 public sealed class SodBuilder
 {
     const string NoSpriteTexture = "sprite texture cannot be read, its sprite node is not drawn";
+    const string MissingSpriteTexture = "sprite texture missing, its sprite node is not drawn";
+    const string UnnamedSpriteTexture = "sprite names no texture, its sprite node is not drawn";
 
     readonly GameFileSystem _files;
 
     // Why a texture did not load.
-    readonly Dictionary<string, string?> _why = new(System.StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, System.Exception> _why = new(System.StringComparer.OrdinalIgnoreCase);
 
-    // Each texture is loaded once per builder, so a texture that fails is logged once per builder, at its load.
+    // Each texture is loaded once per builder; a texture that fails is logged once per run (ViewerLog.TextureFailed).
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
     readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
     readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
@@ -38,9 +40,9 @@ public sealed class SodBuilder
     public IReadOnlyList<string> Problems { get; private set; } = new List<string>();
 
     /// <summary>
-    /// The sprite nodes the last Build could not draw because their texture cannot be read, one line each, for
-    /// display: the builder logs each texture that fails as one ERROR when it first loads it, so a caller shows
-    /// these lines and does not log them.
+    /// The sprite nodes the last Build could not draw because their texture is missing or cannot be read, one line
+    /// each, for display: the builder logs each texture that fails when it loads it, once per run
+    /// (ViewerLog.TextureFailed: WARN when missing, else ERROR), so a caller shows these lines and does not log them.
     /// </summary>
     public IReadOnlyList<string> TextureFailures { get; private set; } = new List<string>();
 
@@ -132,25 +134,34 @@ public sealed class SodBuilder
 
         root.AddChild(animator);
 
-        // A sprite node's gaps are problems and a sprite texture that cannot be read is a texture failure; the
-        // model still builds.
+        // A sprite node's gaps, a sprite naming no texture included, are problems and a sprite texture that did
+        // not load is a texture failure; the model still builds.
         var sprites = SpriteNodes.For(_files, sod);
+        var unnamed = new Gaps();
         var gaps = new Gaps();
         var built = nodes.ToDictionary(n => n.Data, n => n.Node);
         foreach (var sprite in sprites.Nodes)
         {
-            if (Texture(sprite.Sprite.Sprite.Texture) is { } texture)
+            var name = sprite.Sprite.Sprite.Texture;
+            if (Texture(name) is { } texture)
             {
                 built[sprite.Node].AddChild(SpriteNodeQuad.Create(sprite, texture));
             }
+            else if (_why.TryGetValue(name, out var why))
+            {
+                var cause = why is FileNotFoundException ? MissingSpriteTexture : NoSpriteTexture;
+                gaps.Add(cause, $"{name} ({why.Message})", sprite.Node);
+            }
             else
             {
-                var name = sprite.Sprite.Sprite.Texture;
-                gaps.Add(NoSpriteTexture, _why.TryGetValue(name, out var why) ? $"{name} ({why})" : name, sprite.Node);
+                unnamed.Add(UnnamedSpriteTexture, sprite.Sprite.Sprite.Name, sprite.Node);
             }
         }
 
-        Problems = analysis.Problems.Concat(sprites.Reports.Select(r => r.Text)).ToList();
+        Problems = analysis
+            .Problems.Concat(sprites.Reports.Select(r => r.Text))
+            .Concat(unnamed.Entries.Select(r => r.Text))
+            .ToList();
         TextureFailures = gaps.Entries.Select(r => r.Text).ToList();
 
         return root;
@@ -165,7 +176,7 @@ public sealed class SodBuilder
         var look = ModelRules.Look(sod, mesh);
         // A blend the engine does not know is listed in Problems (ModelRules.Check) and drawn opaque.
         var blend = look.Blend ?? new BlendState { Mode = BlendMode.Opaque, Opacity = 1f };
-        // A texture that cannot be read is logged by Texture; the mesh draws untextured.
+        // A texture that did not load is logged by Texture; the mesh draws untextured.
         var texture = Texture(look.Texture);
         var materials = new List<ShaderMaterial>();
         var array = new ArrayMesh();
@@ -250,7 +261,7 @@ public sealed class SodBuilder
             return cached;
         Texture2D? tex = null;
         // Textures come through the textures kind: full-color wins over 8-bit palette TGAs.
-        string? why = null;
+        System.Exception? why = null;
         try
         {
             // Base level only: a bad mip level must not leave the model untextured.
@@ -263,7 +274,7 @@ public sealed class SodBuilder
             }
             else
             {
-                why = "not a readable TGA";
+                why = new InvalidDataException("not a readable TGA");
             }
         }
         catch (System.Exception e)
@@ -274,13 +285,13 @@ public sealed class SodBuilder
                         or System.IO.InvalidDataException
             )
         {
-            why = e.Message;
+            why = e;
         }
 
-        if (tex == null)
+        if (why != null)
         {
             _why[name] = why;
-            ViewerLog.TextureUnavailable(name, why);
+            ViewerLog.TextureFailed(Area.Render, name, why);
         }
 
         return _textures[name] = tex;

@@ -29,10 +29,6 @@ public static class ViewerLog
         }
     }
 
-    /// <summary>ERROR: the sprite table <c>table</c> shows texture <c>texture</c> as not found or unreadable (INV-0005).</summary>
-    public static void TextureNotLoaded(string table, string texture, Exception e) =>
-        Log.Error(Area.Browser, $"{table}: texture {Log.Quote(texture)} not loaded: {e.Message}");
-
     /// <summary>WARN, one entry per problem: a start problem of the preview registry.</summary>
     public static void StartProblems(IEnumerable<string> problems)
     {
@@ -54,12 +50,29 @@ public static class ViewerLog
         }
     }
 
+    // The textures logged this run, by name: one texture fails for one cause, so the first view that loads it
+    // (a model builder, the combat view, a sprite table preview) logs it and every later load stays silent.
+    // simplicity: a plain set, as the views load textures on Godot's main thread only.
+    static readonly HashSet<string> LoggedTextures = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
-    /// ERROR in area render: the model builder cannot read texture <c>name</c>, an asset that failed to load
-    /// (INV-0005); a mesh of it draws untextured, a sprite node of it is not drawn.
+    /// The texture <c>name</c> did not load, once per run in <c>area</c>, the area of the view that loaded it
+    /// first: WARN when the install lacks it (<see cref="FileNotFoundException"/>, absent data), else ERROR, an
+    /// asset that failed to load (INV-0005); both name the texture and the reason (INV-0002).
     /// </summary>
-    public static void TextureUnavailable(string name, string? reason) =>
-        Log.Error(Area.Render, $"texture {Log.Quote(name)} cannot be read: {reason}");
+    public static void TextureFailed(Area area, string name, Exception e)
+    {
+        if (!LoggedTextures.Add(name))
+            return;
+        if (e is FileNotFoundException)
+        {
+            Log.Warn(area, $"texture {Log.Quote(name)} missing: {e.Message}");
+        }
+        else
+        {
+            Log.Error(area, $"texture {Log.Quote(name)} cannot be read: {e.Message}");
+        }
+    }
 
     /// <summary>
     /// Why a screenshot was not saved, or null when it was: a viewport with no image (a headless run has no

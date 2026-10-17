@@ -103,7 +103,7 @@ public partial class CombatView : Node3D
                     gap($"{name}: {problem}");
                 }
 
-                // The builder logged each texture that failed as one ERROR; these lines are only shown.
+                // The builder logged each texture that failed (ViewerLog.TextureFailed); these lines are only shown.
                 foreach (var failure in builder.TextureFailures)
                 {
                     gap($"{name}: {failure}");
@@ -128,9 +128,16 @@ public partial class CombatView : Node3D
 
             return _textures[name] = ImageTexture.CreateFromImage(image);
         }
-        catch (Exception e) // a texture that cannot be read is a gap, whatever the reason (INV-0002)
+        catch (Exception e) // a texture that did not load is a gap, whatever the reason (INV-0002)
         {
-            _art.Fail("sprite texture", name, e.Message, "sprite texture cannot be read, its shots are not drawn");
+            // The grouped gap is display only; the texture is one entry per run, WARN when missing, else ERROR.
+            _art.Report(
+                e is System.IO.FileNotFoundException
+                    ? "sprite texture missing, its shots are not drawn"
+                    : "sprite texture cannot be read, its shots are not drawn",
+                name
+            );
+            ViewerLog.TextureFailed(Area.Combat, name, e);
 
             return _textures[name] = null;
         }

@@ -98,6 +98,8 @@ public partial class CombatView : Node3D
                 _models[name] = builder.Build(Sod.Read(files.ReadAllBytes(name + ".sod")));
                 foreach (var problem in builder.Problems)
                 {
+                    // The model is built and shown; the builder logs only its unavailable textures, not these.
+                    Log.Warn(Area.Combat, $"{name}: {problem}");
                     gap($"{name}: {problem}");
                 }
             }

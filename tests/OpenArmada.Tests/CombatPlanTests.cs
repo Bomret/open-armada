@@ -143,6 +143,7 @@ public class CombatPlanTests
             new[] { ("s", Ship + weapon), ("t", Ship + weapon), ("fed", Race) },
             ("RTS_CFG.h", Constants)
         );
+        Assert.IsTrue(r.Plan.Reports.Count > 0);
         Assert.AreEqual(r.Plan.Reports.Count, log.Lines.Count, log.Text);
         for (var i = 0; i < log.Lines.Count; i++)
         {

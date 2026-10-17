@@ -313,6 +313,23 @@ public class CombatArtTests
     }
 
     [TestMethod]
+    public void EachGapCauseFoundWhileBuildingIsOneWarnEntryEqualToItsLabelLine()
+    {
+        using var log = new CapturedLog();
+        var art = CombatArt.Build(
+            Install(),
+            new[] { Unit(Armed("phaser", "gone.wav", "hp01", "hp99")), Unit(Armed("phaser", "gone2.wav", "hp99")) }
+        );
+
+        Assert.IsTrue(art.Reports.Count >= 2);
+        Assert.AreEqual(art.Reports.Count, log.Lines.Count, log.Text);
+        for (var i = 0; i < log.Lines.Count; i++)
+        {
+            StringAssert.Contains(log.Lines[i], " WARN combat: " + art.Reports[i].Text);
+        }
+    }
+
+    [TestMethod]
     public void ASoundThatCannotBeDecodedIsOneErrorEntryWithItsNameAndReasonAndTheGroupedLineIsNotLogged()
     {
         var art = CombatArt.Build(Install(), new[] { Unit(Armed("phaser", "ph.wav", "hp01")) });

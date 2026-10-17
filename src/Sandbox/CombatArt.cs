@@ -116,7 +116,7 @@ public sealed class CombatArt
 
     /// <summary>
     /// Resolves the shot sprites, fire sounds, hardpoints, and explosions of the units from the install. Every failed
-    /// lookup becomes a gap in <see cref="Reports"/>. Reads the sprite tables once, on the first sprite, and each
+    /// lookup becomes a gap in <see cref="Reports"/>, logged once per cause as a WARN. Reads the sprite tables once, on the first sprite, and each
     /// model once.
     /// </summary>
     public static CombatArt Build(GameFileSystem files, IEnumerable<(PlacedObject Unit, CombatProfile Profile)> units)
@@ -146,6 +146,12 @@ public sealed class CombatArt
             {
                 art._explosions[unit] = explosion;
             }
+        }
+
+        // Each cause is one WARN entry with the text of its screen line (the sandbox and the view print the same).
+        foreach (var report in art._gaps.Entries)
+        {
+            Log.Warn(Area.Combat, report.Text);
         }
 
         return art;

@@ -8,6 +8,7 @@ format notes.
 
 - Domain terms: `CONTEXT.md`.
 - Combat rules and their recovered values: `docs/combat-rules.md`.
+- How the game draws a unit's status in the world: `docs/selection-display.md`.
 - Decisions: `docs/adr/`. Invariants: `docs/invariants.md`.
 - Source layout, controls, and the asset check: `README.md`.
 

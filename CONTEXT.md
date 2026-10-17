@@ -205,6 +205,7 @@ _Avoid_: log file, trace, diagnostics file, console output
 
 **Log entry**
 One line of the log that the engine writes: its local time, its level, its area, and its text. The level
-is `ERROR` when an asset or the run failed, `WARN` when the engine went on with a stand-in, a gap, a skip,
-or an unsupported asset, and `INFO` for context. The area names the part of the engine that wrote it.
+is `ERROR` when something broke (an asset failed to load, the engine caught a fault, or a mode failed to
+open), `WARN` when the engine went on by design with a stand-in, absent data, a skip, or an unsupported
+asset, and `INFO` for context. The area names the part of the engine that wrote it.
 _Avoid_: log message, log line, event

@@ -27,15 +27,15 @@ Check: none — no cheap test tells a hard-coded copy of an install value from a
 
 Class: architecture
 Concepts: Log, Log entry, Run
-Statement: Every line the engine writes about a run goes through `Log`, which has no Godot dependency; no other engine code writes to the console or calls Godot's print functions, and no parser calls `Log`.
+Statement: Every line the engine writes about a run goes through `Log`, which has no Godot dependency; no other engine code writes to the console or calls Godot's print functions, and no parser or asset kind calls `Log`.
 Breaks: silently
-Check: a unit test that scans the engine sources for direct console writes, Godot print calls outside the sink, and `Log` calls in the parsers.
+Check: a unit test that scans the engine sources for direct console writes, Godot print calls outside the sink, and `Log` calls in the parsers and asset kinds.
 Paths: src/**
 
 ### INV-0005
 
 Class: behavior
 Concepts: Log entry, Asset check, Stand-in
-Statement: A log entry's level states the consequence: `ERROR` when an asset or the run failed, so the asset check fails or a mode does not open; `WARN` when the engine went on with a stand-in, a gap, a skip, or an unsupported asset; `INFO` for context.
+Statement: A log entry's level states what happened, the same for one cause in every mode: `ERROR` when something broke — an asset failed to load, the engine caught a fault, or a mode failed to open — whether or not the run goes on; `WARN` when the engine went on by design with a stand-in, absent data, a skip, or an unsupported asset; `INFO` for context.
 Breaks: silently
 Check: none — the level of each call site is a judgment; the asset check's marker-to-level mapping has its own test, and reviewers check every other call site against this rule.

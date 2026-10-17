@@ -330,6 +330,22 @@ public class CombatArtTests
     }
 
     [TestMethod]
+    public void AnExplosionDefinitionThatCannotBeReadIsOneErrorEntryWithItsNameAndReasonAndTheGroupedLineIsNotLogged()
+    {
+        // xfc.odf is an archive member stored compressed, so reading it throws
+        var archive = Encoding.Latin1.GetString(ZfsBuilder.Build(0, ZfsBuilder.M("xfc.odf", Explosion, 2)));
+        using var log = new CapturedLog();
+        var a = Unit(Armed("phaser", "ph.wav", "hp01"), "xfc");
+        var b = Unit(Armed("phaser", "ph.wav", "hp01"), "xfc");
+        var art = CombatArt.Build(Install(("addon/x.zfs", archive)), new[] { a, b });
+
+        var entry = log.Lines.Single(l => l.Contains("xfc"));
+        StringAssert.Contains(entry, " ERROR combat: explosion definition xfc: ");
+        Assert.IsFalse(log.Lines.Any(l => l.Contains(" WARN ") && l.Contains("explosion definition cannot be read")));
+        StringAssert.Contains(art.Reports.Single().Cause, "explosion definition cannot be read");
+    }
+
+    [TestMethod]
     public void ASoundThatCannotBeDecodedIsOneErrorEntryWithItsNameAndReasonAndTheGroupedLineIsNotLogged()
     {
         var art = CombatArt.Build(Install(), new[] { Unit(Armed("phaser", "ph.wav", "hp01")) });

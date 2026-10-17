@@ -212,7 +212,8 @@ public class CombatAlertTests
         var world = World(a, Target("t", 2, 70));
         world.Move(a.Object, -500, 0); // the position stays while the ship turns, so the unit looks stopped
         world.Step(0.02);
-        Assert.IsNull(world.State(a.Object)!.Order);
+        Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind); // no closing on the hostile; the player's move is the sandbox's
+        Assert.IsFalse(world.State(a.Object)!.AutoMove);
     }
 
     [TestMethod]
@@ -246,7 +247,15 @@ public class CombatAlertTests
         engines.HitPoints = engines.Max;
         engines.Destroyed = false;
         world.Step(0.02);
-        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 70,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
     }
 
     [TestMethod]
@@ -258,7 +267,15 @@ public class CombatAlertTests
         world.Move(a.Object, 10, 0);
         Place(poses, a.Object, 10);
         world.Step(0.02);
-        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 70,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
     }
 
     [TestMethod]
@@ -363,6 +380,7 @@ public class CombatAlertTests
         var held = world.Units.First(u => u.Unit.Label == "held");
         Place(poses, held.Unit, 500);
         CollectionAssert.AreEqual(new[] { "near" }, Targets(world.Step(2), "a"));
+        Assert.AreEqual(70, world.State(a.Object)!.Intent.X);
     }
 
     [TestMethod]

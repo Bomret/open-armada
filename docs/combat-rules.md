@@ -37,11 +37,12 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   it while it stays valid and within the search radius, and takes the nearest valid hostile otherwise. A
   derelict is no valid target (0x42faa0), so a pick that turns derelict is dropped on the next tick. A unit
   that can attack (`canAttack`) closes on its current pick (**stand-in**; the game's 300-unit tether is not
-  built). With no pick, it walks toward the position of a unit that recently hit it (0x42a24c, 0x42a298). The
+  built). With no pick, it walks toward the position of a unit that recently hit it (0x42a24c is the branch
+  point in the idle path where this walk and the computer-player branch below are reached; 0x42a298). The
   engine stops that closing, and the walk toward an attacker, when the stance leaves red (**stand-in**). How
   long "recently" lasts is not known; the engine counts the last attacker until it is invalid (**stand-in**).
   A player's attack order keeps a derelict target. The game's computer-player branch of the idle path
-  (0x42a24c, `FUN_00472100`, **inferred**) is not built.
+  (reached at 0x42a24c, `FUN_00472100`, **inferred**) is not built.
 - **Yellow:** the unit picks targets by itself and fires at them, and never moves on its own. The game
   makes one more validity check on yellow candidates whose meaning is unknown; the engine skips it
   (**stand-in**).

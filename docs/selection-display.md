@@ -91,8 +91,9 @@ shows the state of its system is **unknown**: its draw method was not read.
 The map sandbox draws the shield bar and the crew dot of each selected unit, and the shield bar of the unit
 under the cursor, by the rules above, redrawn every frame. The unit under the cursor is the one a click there
 would select. No unit shows a hover bar while the cursor is outside the window, or in a run without a mouse,
-such as a `--screenshot` run. It draws no energy bar, no system icons, and no reticle, and it does not show the display for
-the units whose owner matches. The engine does not model the display's opacity.
+such as a `--screenshot` run. The cursor counts as inside while the window confines it. The engine draws no
+energy bar, no system icons, and no reticle, and it does not show the display for the units whose owner
+matches. The engine does not model the display's opacity.
 
 The engine fills four gaps with stand-ins:
 

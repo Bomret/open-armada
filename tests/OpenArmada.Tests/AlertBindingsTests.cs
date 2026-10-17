@@ -88,4 +88,20 @@ public class AlertBindingsTests
         Assert.AreEqual(1, gaps.Count);
         StringAssert.Contains(gaps[0], "red");
     }
+
+    [TestMethod]
+    public void AMalformedLineInAnAlertBlockIsNamedInTheGapOfThatBinding()
+    {
+        var (_, gaps) = Read(("Input.map", Reference.Replace("\t+ keyboard\tR\n", "\t+ keyboard\n")));
+        Assert.AreEqual(1, gaps.Count);
+        StringAssert.Contains(gaps[0], "Input.map:");
+        StringAssert.Contains(gaps[0], "unrecognized line '+ keyboard'");
+    }
+
+    [TestMethod]
+    public void AMalformedLineOutsideTheAlertBlocksIsNoGap()
+    {
+        var (_, gaps) = Read(("Input.map", Reference + "other {\n\tbroken\n}\n"));
+        Assert.AreEqual(0, gaps.Count);
+    }
 }

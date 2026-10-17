@@ -21,6 +21,9 @@ public partial class AlertKeys : Node
     {
         if (e is not InputEventKey { Pressed: true, Echo: false } key)
             return;
+        // stand-in: Godot's key names match the Input.map names for letters and F-keys (the alert keys of the
+        // install are letters); digits ("One"), the numpad and arrows ("GreyUpArrow"), "Minus", and "Plus" differ, so
+        // a rebound alert key of those kinds is not matched.
         var chord = new KeyChord(OS.GetKeycodeString(key.Keycode), key.ShiftPressed, key.CtrlPressed, key.AltPressed);
         if (_bindings.For(chord) is not { } stance)
             return;

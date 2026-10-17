@@ -18,13 +18,35 @@ public class CombatAlertTests
 
     static Spec Target(string label, int team, float x) => new(Placed(label, team, x), Profile());
 
-    static CombatWorld World(params Spec[] specs) =>
-        new(
-            new UnitPoses(specs.Select(s => s.Object)),
+    static CombatWorld World(params Spec[] specs) => WorldWithPoses(specs).World;
+
+    static (CombatWorld World, UnitPoses Poses) WorldWithPoses(params Spec[] specs)
+    {
+        var poses = new UnitPoses(specs.Select(s => s.Object));
+        var world = new CombatWorld(
+            poses,
             specs.Select(s => new CombatUnit(s.Object, s.Profile, s.Object.Label + ".odf", 0, s.Mobile)),
             1,
             () => 0
         );
+        return (world, poses);
+    }
+
+    // Moves the unit to (x, 0) as its own motion would, so the world sees it there.
+    static void Place(UnitPoses poses, PlacedObject unit, float x)
+    {
+        var motion = new ShipMotion(new PhysicsValues(100, 100, null), unit.Position, 0);
+        motion.SetTarget(x, 0);
+        poses.Advance(unit, motion, 100);
+    }
+
+    static string[] Targets(IEnumerable<CombatEvent> events, string shooter) =>
+        events
+            .OfType<ShotFired>()
+            .Where(e => e.Shot.Shooter.Unit.Label == shooter)
+            .Select(e => e.Shot.Target.Unit.Label)
+            .Distinct()
+            .ToArray();
 
     static int Fired(IEnumerable<CombatEvent> events, string shooter) =>
         events.OfType<ShotFired>().Count(e => e.Shot.Shooter.Unit.Label == shooter);
@@ -133,6 +155,100 @@ public class CombatAlertTests
         var world = World(a, far, Target("near", 3, 30));
         world.Attack(a.Object, far.Object);
         Assert.AreEqual(0, Fired(world.Step(2), "a"));
+    }
+
+    [TestMethod]
+    public void ARedUnitWithAMoveOrderKeepsItEvenWhenItsFirstStepTurnsInPlace()
+    {
+        var a = Ship("a", 1, 0);
+        var world = World(a, Target("t", 2, 70));
+        world.Move(a.Object, -500, 0); // the position stays while the ship turns, so the unit looks stopped
+        world.Step(0.02);
+        Assert.IsNull(world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void AMoveOrderEndsOnArrivalAndTheUnitIsIdleAgain()
+    {
+        var a = Ship("a", 1, 0);
+        var t = Target("t", 2, 70);
+        var (world, poses) = WorldWithPoses(a, t);
+        world.Move(a.Object, 10, 0);
+        Place(poses, a.Object, 10);
+        world.Step(0.02);
+        Assert.AreSame(world.State(t.Object), world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void ARedUnitSwitchedToYellowStopsChasingAnAttackerAndFiresOnlyWithinTheRadius()
+    {
+        var a = Ship("a", 1, 0, range: 100);
+        var shooter = new Spec(Placed("s", 2, 150), Profile(new[] { Weapon(range: 200) }), false);
+        var world = World(a, shooter);
+        world.Step(1.2);
+        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        world.State(a.Object)!.Alert = AlertStance.Yellow;
+        var events = world.Step(0.02);
+        Assert.AreNotEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        Assert.AreEqual(0, Fired(events, "a"));
+    }
+
+    [TestMethod]
+    public void ARedUnitSwitchedToYellowDropsItsAutoOrderAndStopsChasingIt()
+    {
+        var a = Ship("a", 1, 0);
+        var world = World(a, Target("t", 2, 70));
+        world.Step(0.02);
+        world.State(a.Object)!.Alert = AlertStance.Yellow;
+        world.Step(0.02);
+        Assert.IsNull(world.State(a.Object)!.Order);
+        Assert.AreNotEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+    }
+
+    [TestMethod]
+    public void ARedUnitSwitchedToGreenFiresAtNothingItWasNotOrderedToAttack()
+    {
+        var a = Ship("a", 1, 0);
+        var world = World(a, Target("t", 2, 70));
+        world.Step(0.02);
+        world.State(a.Object)!.Alert = AlertStance.Green;
+        Assert.AreEqual(0, Fired(world.Step(2), "a"));
+    }
+
+    [TestMethod]
+    public void APlayersAttackOrderStaysWhenTheAlertChanges()
+    {
+        var a = Ship("a", 1, 0);
+        var t = Target("t", 2, 70);
+        var world = World(a, t);
+        world.Attack(a.Object, t.Object);
+        world.State(a.Object)!.Alert = AlertStance.Green;
+        Assert.AreEqual("t", Aimed(world.Step(0.02), "a"));
+    }
+
+    [TestMethod]
+    public void AYellowUnitKeepsItsHeldTargetWhileANearerOneEntersTheRadius()
+    {
+        var a = Ship("a", 1, 0);
+        var incomer = Target("near", 3, 300);
+        var (world, poses) = WorldWithPoses(a, Target("held", 2, 60), incomer);
+        world.State(a.Object)!.Alert = AlertStance.Yellow;
+        world.Step(0.02);
+        Place(poses, incomer.Object, 10);
+        CollectionAssert.AreEqual(new[] { "held" }, Targets(world.Step(2), "a"));
+    }
+
+    [TestMethod]
+    public void AnOrderedUnitKeepsItsHeldFallbackWhileANearerOneEntersTheRadius()
+    {
+        var a = Ship("a", 1, 0);
+        var far = Target("far", 4, 1000);
+        var incomer = Target("near", 3, 300);
+        var (world, poses) = WorldWithPoses(a, far, Target("held", 2, 60), incomer);
+        world.Attack(a.Object, far.Object);
+        world.Step(0.02);
+        Place(poses, incomer.Object, 10);
+        CollectionAssert.AreEqual(new[] { "held" }, Targets(world.Step(2), "a"));
     }
 
     [TestMethod]

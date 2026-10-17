@@ -52,7 +52,12 @@ public sealed class AlertBindings
             );
             if (key == null)
             {
-                gap($"Input.map has no keyboard binding for '{section}' alert, so that key is unbound");
+                // a malformed line of the block is the likely cause, so the gap names it
+                var cause = map.Notes.Where(n => n.EndsWith($"in block '{section}'", StringComparison.Ordinal));
+                gap(
+                    $"Input.map has no keyboard binding for '{section}' alert, so that key is unbound"
+                        + string.Concat(cause.Select(n => $" ({n})"))
+                );
                 continue;
             }
             bool Held(string modifier) =>

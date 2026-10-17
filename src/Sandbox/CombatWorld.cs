@@ -28,6 +28,7 @@ public sealed class CombatWorld
     // stand-in: a shield bubble reaches this many radii from a unit's center; the game's shape is not known.
     const float BubbleRadii = 1.25f;
     const double Epsilon = 1e-9;
+    const float ArrivedWithin = 1e-3f;
 
     readonly UnitPoses _poses;
     readonly double _protection;
@@ -76,17 +77,32 @@ public sealed class CombatWorld
         if (!CombatRules.Hostile(a.Team, t.Team) || a.Weapons.Count == 0)
             return false;
         a.Order = t;
+        a.AutoOrder = false;
+        a.AutoMove = false;
+        a.PlayerMove = null;
         a.Intent = default;
         return true;
     }
 
-    // Ends the unit's attack order; a move order replaces it.
+    // Ends the unit's attack order and its move order.
     public void ClearOrder(PlacedObject unit)
     {
         if (State(unit) is not { } state)
             return;
         state.Order = null;
+        state.AutoOrder = false;
+        state.AutoMove = false;
+        state.PlayerMove = null;
         state.Intent = default;
+    }
+
+    // Gives the unit a move order to the point (X, Z), replacing its attack order. The unit is not idle until it
+    // arrives, however the motion gets there (a ship turns in place first without changing its position).
+    public void Move(PlacedObject unit, float x, float z)
+    {
+        ClearOrder(unit);
+        if (State(unit) is { } state)
+            state.PlayerMove = (x, z);
     }
 
     // Advances the fight by `seconds` and returns the events of the ticks that ran.
@@ -100,6 +116,13 @@ public sealed class CombatWorld
             var at = Position(u);
             u.Stopped = u.LastPosition == null || u.LastPosition == at;
             u.LastPosition = at;
+            // a ship that arrives stands exactly on its target (ShipMotion), which ends the move order
+            if (
+                u.PlayerMove is { } to
+                && Math.Abs(at.X - to.X) < ArrivedWithin
+                && Math.Abs(at.Z - to.Z) < ArrivedWithin
+            )
+                u.PlayerMove = null;
         }
         _pending += Math.Max(0, seconds);
         while (_pending + Epsilon >= Tick)
@@ -119,7 +142,10 @@ public sealed class CombatWorld
                 continue;
             Think(u);
             if (u.Mobile && u.Immobile)
+            {
                 u.Intent = new MoveIntent(MoveKind.Stop); // no order moves a derelict ship or one with dead engines
+                u.PlayerMove = null;
+            }
             Fire(u, events);
             CombatRules.RegainShields(u, Tick);
             CombatRules.Sustain(u, Tick);
@@ -145,6 +171,15 @@ public sealed class CombatWorld
         if (u.Order is { Destroyed: true })
         {
             u.Order = null;
+            u.AutoOrder = false;
+            u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
+        }
+        // What red gave the unit ends with red: the auto order and the walk toward an attacker (a player's order stays).
+        if (u.Alert != AlertStance.Red && (u.AutoOrder || u.AutoMove))
+        {
+            if (u.AutoOrder)
+                u.Order = null;
+            u.AutoOrder = u.AutoMove = false;
             u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
         }
         var range = LongestRange(u);
@@ -154,26 +189,31 @@ public sealed class CombatWorld
             if (u.Alert == AlertStance.Green)
                 return; // green picks nothing by itself
             u.Target = Select(u, held, radius);
-            // A unit is idle when it stands still or is on its own way to an attacker (a move order is not idle).
-            var idle = u.Stopped || u.Intent.Kind == MoveKind.MoveTo;
+            // stand-in: a unit is idle when it has no order of the player (no attack order, no move order until it
+            // arrives); the game's own idle test was not traced.
+            var idle = u.PlayerMove == null;
             if (u.Alert != AlertStance.Red || !u.Profile.CanAttack || u.Derelict || !idle)
                 return; // yellow never moves on its own
             if (u.Target != null)
             {
                 u.Order = u.Target; // idle at red: attack the pick
+                u.AutoOrder = true;
+                u.AutoMove = false;
                 u.Attacker = null;
             }
             else if (u.Mobile && u.Attacker is { } attacker && Valid(u, attacker))
             {
                 var at = Position(attacker); // else go to where the unit that hit it is
                 u.Intent = new MoveIntent(MoveKind.MoveTo, at.X, at.Z);
+                u.AutoMove = true;
                 return;
             }
             else
             {
                 u.Attacker = null;
-                if (u.Intent.Kind == MoveKind.MoveTo)
+                if (u.AutoMove)
                     u.Intent = new MoveIntent(MoveKind.Stop);
+                u.AutoMove = false;
                 return;
             }
         }

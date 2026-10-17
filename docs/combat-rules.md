@@ -31,9 +31,12 @@ match is case-sensitive (0x4ffd70). That the name includes the `.odf` suffix is 
 Every unit has one of three alert stances: red, yellow, or green (0x426e0b). A unit starts at red; a
 definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd).
 
-- **Red:** the unit picks targets by itself. An idle unit that can attack (`canAttack`) is given an attack
+- **Red:** the unit picks targets by itself. An idle unit (one without an order from the player; the engine
+  counts a unit with a move order as not idle until it arrives, **stand-in**) that can attack (`canAttack`) is given an attack
   order on the target it picks, or toward the position of a unit that recently hit it (0x42a24c,
-  0x42a298).
+  0x42a298). The engine ends such an order, and the walk toward an attacker, when the stance leaves red.
+  How long "recently" lasts is not known; the engine counts the last attacker until it is invalid
+  (**stand-in**).
 - **Yellow:** the unit picks targets by itself and fires at them, and never moves on its own. The game
   makes one more validity check on yellow candidates whose meaning is unknown; the engine skips it
   (**stand-in**).

@@ -21,9 +21,15 @@ public class SoundFalloffTests
     public void CloseSoundIsCapped()
     {
         var falloff = SoundFalloff.For(Opening);
-        Assert.AreEqual(falloff.MaxDb, falloff.DbAt(0));
-        Assert.AreEqual(falloff.MaxDb, falloff.DbAt(1));
-        Assert.IsTrue(falloff.MaxDb <= 0);
+        Assert.AreEqual(SoundFalloff.MaxDb, falloff.DbAt(0));
+        Assert.AreEqual(SoundFalloff.MaxDb, falloff.DbAt(1));
+        Assert.IsTrue(SoundFalloff.MaxDb <= 0);
+    }
+
+    [TestMethod]
+    public void FarSoundIsNotMuffled()
+    {
+        Assert.AreEqual(20500f, SoundFalloff.FilterCutoffHz); // Godot's highest cutoff, which filters nothing
     }
 
     [TestMethod]

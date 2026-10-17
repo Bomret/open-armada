@@ -185,14 +185,13 @@ public partial class CombatView : Node3D
     {
         if (!_sounds.TryGetValue(name, out var stream)) // only a sound the install holds and Godot decodes is read
             return;
-        // stand-in: the attenuation filter is off (20500 Hz), so a far sound is quieter but not muffled.
         var player = new AudioStreamPlayer3D
         {
             Stream = stream,
             Position = at,
             UnitSize = _falloff.UnitSize,
-            MaxDb = _falloff.MaxDb,
-            AttenuationFilterCutoffHz = 20500,
+            MaxDb = SoundFalloff.MaxDb,
+            AttenuationFilterCutoffHz = SoundFalloff.FilterCutoffHz,
         };
         player.Finished += player.QueueFree;
         AddChild(player);

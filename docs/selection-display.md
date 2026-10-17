@@ -92,12 +92,12 @@ The map sandbox draws the shield bar and the crew dot of each selected unit, and
 under the cursor, by the rules above, redrawn every frame. The unit under the cursor is the one a click there
 would select. No unit shows a hover bar while the cursor is outside the window, or in a run without a mouse,
 such as a `--screenshot` run. It draws no energy bar, no system icons, and no reticle, and it does not show the display for
-the units whose owner matches. The engine does not model the display's opacity, and it draws every part
-in full-intensity colors.
+the units whose owner matches. The engine does not model the display's opacity.
 
-The engine fills three gaps with stand-ins:
+The engine fills four gaps with stand-ins:
 
 - The screen box comes from the box around the unit's meshes in world axes.
 - A unit shows the shield bar when its `maxHealth` is above 0, in place of the game's own flag and value.
 - A game pixel is as large as the display scale of the screen the window is on, so the display keeps its
   size on a high-density screen.
+- Every part draws in full-intensity colors, because the game's display brightness is **unknown**.

@@ -36,6 +36,8 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
         // ponytail: the hover pick walks every placed object's meshes each frame (O(objects × meshes)); skip
         // it while neither the mouse nor the camera moved, or cache the pick, when maps grow large.
         var hovered = hoverPoint() is { } point ? selection.UnitAt(point) : null;
+        // stand-in: every part draws in full-intensity colors. The game scales its colors by the opacity minus 0.5,
+        // half intensity at full opacity, and whether its renderer brightens them again is unknown.
         foreach (var (unit, withDot) in SelectionDisplay.Shown(selection.Selected, hovered))
         {
             if (world.State(unit.Object) is not { } state || selection.ScreenBoxOf(unit) is not { } box)

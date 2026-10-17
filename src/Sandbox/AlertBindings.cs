@@ -31,8 +31,10 @@ public sealed class AlertBindings
         catch (Exception e)
         {
             gap($"Input.map cannot be read, so the alert keys are unbound: {e.Message}");
+
             return bindings;
         }
+
         foreach (
             var (section, stance) in new[]
             {
@@ -58,13 +60,16 @@ public sealed class AlertBindings
                     $"Input.map has no keyboard binding for '{section}' alert, so that key is unbound"
                         + string.Concat(cause.Select(n => $" ({n})"))
                 );
+
                 continue;
             }
+
             bool Held(string modifier) =>
                 lines.Any(e => e.Sign == "+" && e.Value.Equals(modifier, StringComparison.OrdinalIgnoreCase));
             bindings._chords[new KeyChord(key.Value.ToUpperInvariant(), Held("Shift"), Held("Control"), Held("Alt"))] =
                 stance;
         }
+
         return bindings;
     }
 

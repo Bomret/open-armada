@@ -32,8 +32,10 @@ public static class PreviewMatch
             catch (Exception e)
             {
                 list.Add($"preview {typeName} cannot be created: {(e.InnerException ?? e).Message}");
+
                 continue;
             }
+
             if (!known.Contains(kindName))
             {
                 list.Add($"preview {typeName} names kind \"{kindName}\", which no asset kind has");
@@ -43,7 +45,9 @@ public static class PreviewMatch
                 list.Add($"preview {typeName} is a second preview for kind \"{kindName}\"");
             }
         }
+
         problems = list;
+
         return found;
     }
 

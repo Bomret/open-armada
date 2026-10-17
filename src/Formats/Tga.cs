@@ -40,6 +40,7 @@ public static class Tga
         var need = 18 + idLength + map + (long)width * height * (bpp / 8);
         if (need > data.Length)
             throw new InvalidDataException($"TGA is cut off ({data.Length} of {need} bytes)");
+
         return new TgaInfo(width, height, bpp, type == 1);
     }
 }

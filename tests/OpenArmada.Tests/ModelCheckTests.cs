@@ -414,6 +414,7 @@ public class ModelCheckTests
         {
             Assert.AreEqual(Vector3.Zero, team.Color(n));
         }
+
         for (var i = 0; i < given.Count; i++)
         {
             Assert.AreEqual(new Vector3(i / 100f, 0.5f, 1f), team.Color(given[i]), given[i]);
@@ -470,6 +471,7 @@ public class ModelCheckTests
         {
             Assert.AreEqual(Vector3.Zero, team.Color(n));
         }
+
         StringAssert.Contains(team.Notes.Single(), "teamcolor.odf");
     }
 

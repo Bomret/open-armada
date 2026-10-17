@@ -181,15 +181,18 @@ public sealed class Sod
             {
                 case NodeType.Mesh:
                     node.Mesh = ReadMesh(r, sod.Version);
+
                     break;
                 case NodeType.Emitter:
                     node.Emitter = Id(r);
+
                     break;
                 case NodeType.Null or NodeType.Sprite or NodeType.LodControl:
                     break;
                 default:
                     throw new InvalidDataException($"unknown node type {(ushort)node.Type} at {r.BaseStream.Position}");
             }
+
             sod.Nodes.Add(node);
         }
 
@@ -206,6 +209,7 @@ public sealed class Sod
             {
                 ch.Keyframes[k] = Matrix(r);
             }
+
             sod.Channels.Add(ch);
         }
 
@@ -226,6 +230,7 @@ public sealed class Sod
         if (r.BaseStream.Position != data.Length)
             throw new InvalidDataException($"{data.Length - r.BaseStream.Position} trailing bytes");
         sod.FindProblems();
+
         return sod;
     }
 
@@ -243,6 +248,7 @@ public sealed class Sod
                 return true;
             current = parent;
         }
+
         return false;
     }
 
@@ -255,12 +261,14 @@ public sealed class Sod
             {
                 Problems.Add($"node '{n.Name}' names the parent '{n.Parent}', which the model lacks");
             }
+
             if (InParentCycle(n))
             {
                 Problems.Add(
                     $"node '{n.Name}' is its own ancestor through its parents (a parent cycle); it hangs from the root"
                 );
             }
+
             if (n.Mesh is not { } m)
                 continue;
             foreach (var (v, t) in m.Groups.SelectMany(g => g.Corners))
@@ -268,13 +276,16 @@ public sealed class Sod
                 if (v >= m.Vertices.Length)
                 {
                     Problems.Add($"node '{n.Name}': a face corner uses vertex {v}, the mesh has {m.Vertices.Length}");
+
                     break;
                 }
+
                 if (t >= m.TexCoords.Length)
                 {
                     Problems.Add(
                         $"node '{n.Name}': a face corner uses texture coordinate {t}, the mesh has {m.TexCoords.Length}"
                     );
+
                     break;
                 }
             }
@@ -305,6 +316,7 @@ public sealed class Sod
         {
             mesh.Vertices[i] = Vec3(r);
         }
+
         mesh.TexCoords = new Vector2[uvs];
         for (int i = 0; i < uvs; i++)
         {
@@ -319,12 +331,14 @@ public sealed class Sod
             {
                 group.Corners[c] = (r.ReadUInt16(), r.ReadUInt16());
             }
+
             mesh.Groups.Add(group);
         }
 
         mesh.BackfaceCull = r.ReadByte() != 0;
         // Count + vertex indices, meaning unknown; the spec claims this is always 0 (Zentity.SOD disagrees).
         r.ReadBytes(r.ReadUInt16() * 2);
+
         return mesh;
     }
 
@@ -342,6 +356,7 @@ public sealed class Sod
         {
             mesh.Vertices[i] = Vec3(r);
         }
+
         mesh.TexCoords = new Vector2[uvs];
         for (int i = 0; i < uvs; i++)
         {
@@ -357,6 +372,7 @@ public sealed class Sod
             {
                 poly[c] = (r.ReadUInt16(), r.ReadUInt16());
             }
+
             for (int c = 1; c + 1 < n; c++) // fan-triangulate
             {
                 corners.Add(poly[0]);
@@ -364,8 +380,10 @@ public sealed class Sod
                 corners.Add(poly[c + 1]);
             }
         }
+
         group.Corners = corners.ToArray();
         mesh.Groups.Add(group);
+
         return mesh;
     }
 

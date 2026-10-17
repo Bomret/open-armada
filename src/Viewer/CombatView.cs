@@ -67,6 +67,7 @@ public partial class CombatView : Node3D
         {
             Texture(sprite.Sprite.Texture);
         }
+
         foreach (var name in art.Sounds)
         {
             try
@@ -76,9 +77,11 @@ public partial class CombatView : Node3D
             catch (Exception e) // a sound that cannot be decoded is a gap, whatever the reason (INV-0002)
             {
                 art.Report("sound cannot be decoded, it is not played", name);
+
                 GD.PrintErr($"sound {name}: {e.Message}");
             }
         }
+
         foreach (var name in art.ExplosionModels)
         {
             try
@@ -88,9 +91,11 @@ public partial class CombatView : Node3D
             catch (Exception e) // a model that cannot be read is a gap, whatever the reason (INV-0002)
             {
                 art.Report("explosion model cannot be read, it shows no model", name);
+
                 GD.PrintErr($"explosion model {name}: {e.Message}");
             }
         }
+
         orders.Stepped += OnStep;
     }
 
@@ -101,12 +106,15 @@ public partial class CombatView : Node3D
         try
         {
             var image = GodotDecoders.Tga(new TextureKind().LoadBase(_files, name + ".tga").Data, name);
+
             return _textures[name] = ImageTexture.CreateFromImage(image);
         }
         catch (Exception e) // a texture that cannot be read is a gap, whatever the reason (INV-0002)
         {
             _art.Report("sprite texture cannot be read, its shots are not drawn", name);
+
             GD.PrintErr($"sprite texture {name}: {e.Message}");
+
             return _textures[name] = null;
         }
     }
@@ -125,10 +133,13 @@ public partial class CombatView : Node3D
                         {
                             PlaySound(shot.Weapon.FireSound, at);
                         }
+
                         Draw(shot);
+
                         break;
                     case UnitDestroyed { Unit: var unit }:
                         Explode(unit);
+
                         break;
                 }
             }
@@ -149,6 +160,7 @@ public partial class CombatView : Node3D
     {
         if (!_nodes.TryGetValue(unit, out var node) || !IsInstanceValid(node))
             return null;
+
         return _art.Hardpoint(unit, name) is { } exact && node.FindChild(exact, true, false) is Node3D hardpoint
             ? hardpoint
             : node;
@@ -231,6 +243,7 @@ public partial class CombatView : Node3D
                 }
             );
         }
+
         var at = new Vector3(shot.Position.X, shot.Position.Y, shot.Position.Z);
         var drawn = new Drawn
         {
@@ -251,6 +264,7 @@ public partial class CombatView : Node3D
             drawn.AimOffset = Gd(ShotGeometry.MissAim(Num(center), Num(targetAt), shot.Target.Radius)) - targetAt;
             drawn.Direction = (targetAt + drawn.AimOffset - (at + drawn.Offset)).Normalized(); // from where it is drawn
         }
+
         AddChild(root);
         _drawn.Add(drawn);
         Place(drawn);
@@ -277,13 +291,17 @@ public partial class CombatView : Node3D
                 return;
             d.Root.Basis = new Basis(Gd(pose.X), Gd(pose.Y), Gd(pose.Z));
             d.Root.Position = Gd(pose.Center);
+
             return;
         }
+
         if (d.Missed)
         {
             d.Root.Position = d.Start + d.Offset + d.Direction * shot.Weapon.Ordnance.ShotSpeed * (float)d.Age;
+
             return;
         }
+
         var at = new Vector3(shot.Position.X, shot.Position.Y, shot.Position.Z);
         // stand-in: the launch offset fades as the shot closes on its target, so it arrives at the target's center.
         var left = d.Distance > 0 ? 1 - Mathf.Clamp((at - d.Start).Length() / d.Distance, 0, 1) : 0;
@@ -324,6 +342,7 @@ public partial class CombatView : Node3D
             {
                 Place(d);
             }
+
             return gone;
         });
     }

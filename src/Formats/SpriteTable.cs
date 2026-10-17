@@ -97,6 +97,7 @@ public sealed class SpriteTable
                 table._animations.TryAdd(key, anim);
             }
         }
+
         foreach (var s in table._sprites)
         {
             if (s.Anim == null)
@@ -112,6 +113,7 @@ public sealed class SpriteTable
                 CheckFlipbook(s, a);
             }
         }
+
         return table;
     }
 
@@ -123,6 +125,7 @@ public sealed class SpriteTable
             "column" => 1,
             _ => (int)Math.Ceiling(Math.Sqrt(a.Count)),
         };
+
         return (columns, (a.Count + columns - 1) / columns);
     }
 
@@ -147,6 +150,7 @@ public sealed class SpriteTable
         if (s.Anim == null || !_animations.TryGetValue(s.Anim, out var a) || a.Auto == null || a.Count < 1)
             return new[] { own };
         var columns = Grid(a).Columns; // the cells lie inside the reference area: Read checked
+
         return Enumerable
             .Range(0, a.Count)
             .Select(i => own with { U = s.U + i % columns * s.W, V = s.V + i / columns * s.H })
@@ -162,11 +166,13 @@ public sealed class SpriteTable
         {
             line = line[..cut];
         }
+
         cut = line.IndexOf("//", StringComparison.Ordinal);
         if (cut >= 0)
         {
             line = line[..cut];
         }
+
         return line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
     }
 
@@ -174,6 +180,7 @@ public sealed class SpriteTable
     static (string Name, string Value) Split(string[] t)
     {
         var eq = t[0].IndexOf('=');
+
         return eq >= 0
             ? (t[0][..eq], t[0][(eq + 1)..] + string.Concat(t.Skip(1)))
             : (t[0], string.Join(" ", t.Skip(1)));
@@ -235,8 +242,10 @@ public sealed class SpriteTable
                 if (t.Length != 1 || t[0] != "sprite_table")
                     throw Bad(table, n, "the first line must be 'sprite_table'");
                 header = true;
+
                 continue;
             }
+
             if (emitter != null)
             {
                 if (t[0] == "@end_emitter")
@@ -249,8 +258,10 @@ public sealed class SpriteTable
                 {
                     emitterBody.Add(string.Join(" ", t));
                 }
+
                 continue;
             }
+
             if (t[0][0] == '@')
             {
                 var (name, value) = Split(t);
@@ -271,21 +282,27 @@ public sealed class SpriteTable
                             stack,
                             done
                         );
+
                         break;
                     case "@reference":
                         refW = refH = Int(table, n, value, "@reference");
+
                         break;
                     case "@referenceWidth":
                         refW = Int(table, n, value, "@referenceWidth");
+
                         break;
                     case "@referenceHeight":
                         refH = Int(table, n, value, "@referenceHeight");
+
                         break;
                     case "@tmaterial":
                         material = value;
+
                         break;
                     case "@skip":
                         skip = value;
+
                         break;
                     case "@animation":
                         if (value.Length == 0)
@@ -293,22 +310,26 @@ public sealed class SpriteTable
                         CloseAnimation();
                         animLine = n;
                         anim = new SpriteAnimation(value, "", 0, 0, "", null, new List<string[]>());
+
                         break;
                     case "@auto":
                         if (anim == null || !AutoShapes.Contains(value))
                             throw Bad(table, n, $"@auto '{value}' is not square, row, or column of an @animation");
                         _animations[anim.Name] = anim = anim with { Auto = value };
+
                         break;
                     case "@keyframes":
                         if (anim == null)
                             throw Bad(table, n, "@keyframes outside an @animation");
                         inKeyframes = true;
+
                         break;
                     case "@emitter":
                         if (value.Length == 0)
                             throw Bad(table, n, "@emitter names no emitter");
                         emitter = value;
                         emitterLine = n;
+
                         break;
                     case "@sprite_node":
                         _nodes.Add(
@@ -316,17 +337,22 @@ public sealed class SpriteTable
                                 ? new SpriteNode(t[1], t[2..])
                                 : throw Bad(table, n, "@sprite_node names no node")
                         );
+
                         break;
                     default:
                         throw Bad(table, n, $"unrecognized directive {name}");
                 }
+
                 continue;
             }
+
             if (inKeyframes && IsKeyframe(t))
             {
                 ((List<string[]>)anim!.Keyframes).Add(t);
+
                 continue;
             }
+
             inKeyframes = false;
             if (anim != null && anim.Field.Length == 0)
             {
@@ -353,8 +379,10 @@ public sealed class SpriteTable
                     Method = t[3],
                 };
                 inKeyframes = true; // the game takes keyframe lines without the @keyframes directive too
+
                 continue;
             }
+
             if (t.Length < 6)
                 throw Bad(table, n, $"a sprite row needs Name Texture U V W H, got '{string.Join(" ", t)}'");
             string? spriteAnim = null;
@@ -367,9 +395,11 @@ public sealed class SpriteTable
                 {
                     case "@anim":
                         spriteAnim = xv;
+
                         break;
                     case "@cursor":
                         cursor = true;
+
                         break;
                     case "@origin":
                         var xy = xv.Trim('(', ')').Split(',');
@@ -377,11 +407,13 @@ public sealed class SpriteTable
                             xy.Length == 2
                                 ? (Int(table, n, xy[0], "@origin"), Int(table, n, xy[1], "@origin"))
                                 : throw Bad(table, n, $"@origin '{xv}' is not (x,y)");
+
                         break;
                     default:
                         throw Bad(table, n, $"unrecognized row directive {extra}");
                 }
             }
+
             _sprites.Add(
                 new Sprite(
                     t[0],
@@ -402,6 +434,7 @@ public sealed class SpriteTable
                 )
             );
         }
+
         if (!header)
             throw new InvalidDataException($"{table}: the first line must be 'sprite_table'");
         if (emitter != null)

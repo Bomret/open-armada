@@ -41,6 +41,7 @@ public class SandboxPlanTests
             null,
             Array.Empty<MapPath>()
         );
+
         return SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), models.Contains);
     }
 
@@ -48,6 +49,7 @@ public class SandboxPlanTests
     {
         var b = new BznBuilder { Background = "" };
         b.Objects.AddRange(objects);
+
         return b;
     }
 

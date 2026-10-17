@@ -32,6 +32,7 @@ public static class Mdf
             if (!values.TryAdd(key, line[(eq + 1)..].Trim()))
                 throw new InvalidDataException($"mdf line '{key}' is given twice");
         }
+
         if (
             !values.Remove("StartLocations", out var countText)
             || !int.TryParse(countText, out var count)
@@ -55,8 +56,10 @@ public static class Mdf
                 throw new InvalidDataException($"mdf {key} is not two cells of 0..{MaxCell}: '{v}'");
             cells.Add(new StartCell(x, y));
         }
+
         if (values.Count > 0)
             throw new InvalidDataException($"mdf line '{values.Keys.First()}' is not read");
+
         return cells;
     }
 }
@@ -81,6 +84,7 @@ public static class Pth
             float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var f) && float.IsFinite(f)
                 ? f
                 : throw new InvalidDataException($"pth value '{s}' is not a finite number");
+
         return Enumerable
             .Range(0, count)
             .Select(i => new Vector3(F(t[1 + i * 3]), F(t[2 + i * 3]), F(t[3 + i * 3])))

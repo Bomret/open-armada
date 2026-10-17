@@ -36,6 +36,7 @@ public sealed class InterfaceConfigKind : AssetKind
             Read(files, name, reads);
         }
         catch (Exception) { }
+
         return reads.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -47,8 +48,10 @@ public sealed class InterfaceConfigKind : AssetKind
             {
                 reads?.Add(entry);
             }
+
             return Windows1252.Encoding.GetString(files.ReadAllBytes(n));
         }
+
         // The bare name resolves through the game's precedence (addon override first, then the index);
         // the misc folder is the fallback for an install whose index does not list the file.
         string? Text(string n) =>
@@ -61,6 +64,7 @@ public sealed class InterfaceConfigKind : AssetKind
                 ? Open(found)
                 : null;
         var bare = name[(name.LastIndexOf('/') + 1)..];
+
         return InterfaceConfig.Read(bare, Text(bare) ?? Open(name), Text);
     }
 

@@ -58,12 +58,14 @@ public sealed class CombatPlan
                 read = (reader.Read(definition, found), found);
                 byClass[u.Object.Class] = read;
             }
+
             profiles[u.Object] = read.Profile;
             foreach (var (cause, name) in read.Gaps)
             {
                 gaps.Add(cause, name, u.Object);
             }
         }
+
         return new CombatPlan(profiles, gaps.Entries, protection, bonus);
     }
 
@@ -78,6 +80,7 @@ public sealed class CombatPlan
         {
             gaps.Add($"{GameConstantsKind.FileName} cannot be read, stand-ins used for its constants", e.Message);
         }
+
         float Constant(string name, float standIn)
         {
             if (constants == null)
@@ -85,8 +88,10 @@ public sealed class CombatPlan
             if (constants.TryNumber(name, out var v, out _))
                 return (float)v;
             gaps.Add($"game constant {name} missing or no number, stand-in {Text(standIn)} used", name);
+
             return standIn;
         }
+
         // stand-in: no protection by the shields (the whole damage hurts the shields) and no bonus to system hit
         // points, where the install's RTS_CFG.h gives neither.
         return (Constant("SHIELD_DAMAGE_PROTECTION", 1), Constant("SYSTEM_HITPOINTS_BONUS", 0));
@@ -129,6 +134,7 @@ public sealed class CombatPlan
                 maximumCrew = Math.Max(1, crewCost);
                 r.Gap("maximumCrew missing or 0, stand-in crewCost (at least 1) used");
             }
+
             var systems = new List<SystemProfile>();
             foreach (var (name, key) in SystemKeys)
             {
@@ -147,6 +153,7 @@ public sealed class CombatPlan
                     );
                 }
             }
+
             return new CombatProfile(
                 ReadWeapons(d, r, gaps),
                 r.Num("maxHealth", 0, report: true), // stand-in: no shields
@@ -183,8 +190,10 @@ public sealed class CombatPlan
                 )
                 {
                     unit.Gap("weapon slot number too large, slot left out", $"{unit.Who}.{slot.Key}");
+
                     continue;
                 }
+
                 var name = unit.Str(slot.Key);
                 if (name.Length == 0)
                     continue;
@@ -197,14 +206,17 @@ public sealed class CombatPlan
                 {
                     w.Gap("classLabel missing, weapon left out");
                 }
+
                 if (label != BeamClass && label != TorpedoClass)
                     continue;
                 var ordName = w.Str("ordName");
                 if (ordName.Length == 0)
                 {
                     w.Gap("ordName missing, weapon left out");
+
                     continue;
                 }
+
                 var ordnance = Resolve(ordName, "ordnance", gaps);
                 if (ordnance == null)
                     continue;
@@ -214,8 +226,10 @@ public sealed class CombatPlan
                 {
                     // a weapon without hardpoints fires no shot, so it would make its unit an attacker that never fires
                     unit.Gap("weapon without hardpoints, weapon left out");
+
                     continue;
                 }
+
                 weapons.Add(
                     new WeaponProfile(
                         n,
@@ -246,6 +260,7 @@ public sealed class CombatPlan
                     )
                 );
             }
+
             return weapons;
         }
 
@@ -270,10 +285,12 @@ public sealed class CombatPlan
                     );
                 }
             }
+
             if (found.Definition == null)
             {
                 gaps.Add((found.Cause, name));
             }
+
             return found.Definition;
         }
 
@@ -287,6 +304,7 @@ public sealed class CombatPlan
             else if (FindRace(race) is { } def)
             {
                 var r = new Values(def, gaps);
+
                 // The unit-level weaponYellow and weaponRed are not read: docs/combat-rules.md names the race as
                 // the source of the delay factors.
                 return new RaceValues(
@@ -312,6 +330,7 @@ public sealed class CombatPlan
                     race
                 );
             }
+
             return StandInRace;
         }
 
@@ -333,8 +352,10 @@ public sealed class CombatPlan
                         e is FileNotFoundException
                             ? "races.odf missing, stand-in race values used"
                             : "races.odf cannot be read, stand-in race values used";
+
                     return null;
                 }
+
                 foreach (var slot in list.Indexed("race"))
                 {
                     try
@@ -351,6 +372,7 @@ public sealed class CombatPlan
                     }
                 }
             }
+
             return _races.GetValueOrDefault(race);
         }
     }
@@ -372,8 +394,10 @@ public sealed class CombatPlan
                 {
                     Gap($"{key} missing, stand-in {Text(shown)} used");
                 }
+
                 return standIn;
             }
+
             try
             {
                 return get();
@@ -381,6 +405,7 @@ public sealed class CombatPlan
             catch (DefinitionException)
             {
                 Gap($"{key} is no number, stand-in {Text(shown)} used");
+
                 return standIn;
             }
         }
@@ -395,6 +420,7 @@ public sealed class CombatPlan
             {
                 Gap("per-target override malformed, default used", $"{Who}.{key}");
             }
+
             return v;
         }
 
@@ -409,6 +435,7 @@ public sealed class CombatPlan
             catch (DefinitionException)
             {
                 Gap($"{key} is no whole number, stand-in {standIn} used");
+
                 return standIn;
             }
         }
@@ -425,6 +452,7 @@ public sealed class CombatPlan
             catch (DefinitionException)
             {
                 Gap($"{key} is no single value, left out");
+
                 return "";
             }
         }

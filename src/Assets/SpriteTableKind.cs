@@ -49,8 +49,10 @@ public sealed class SpriteTableKind : AssetKind
                     t = Read(files, Path.GetFileName(other), System.Array.Empty<SpriteTable>());
                 }
                 catch (InvalidDataException) { }
+
                 cache[other] = t;
             }
+
             if (t != null)
             {
                 yield return t;
@@ -70,6 +72,7 @@ public sealed class SpriteTableKind : AssetKind
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var table = (SpriteTable)Load(files, name);
+
         return table
             .Sprites.Where(s => s.Material != null && !ModelRules.IsRenderType(s.Material))
             .Select(s =>

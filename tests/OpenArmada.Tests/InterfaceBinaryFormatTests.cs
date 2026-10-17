@@ -56,6 +56,7 @@ public class InterfaceBinaryFormatTests
             {
                 data[table + i * 4 + k] = offset[k];
             }
+
             if (i == 65)
             {
                 data.AddRange(U32(3));
@@ -66,6 +67,7 @@ public class InterfaceBinaryFormatTests
                 data.AddRange(U32(0));
             }
         }
+
         return data.Take(data.Count - truncate).ToArray();
     }
 
@@ -135,6 +137,7 @@ public class InterfaceBinaryFormatTests
         {
             head.AddRange(head.Skip(6).Take(16).ToArray()); // a second entry naming the same image
         }
+
         return head.Concat(dib).ToArray();
     }
 

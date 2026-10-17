@@ -89,6 +89,7 @@ public partial class UnitSelection : Node3D
             mark.Ring.QueueFree();
             mark.Name.QueueFree();
         }
+
         if (_nodes.Remove(unit, out var node))
         {
             node.QueueFree();
@@ -113,6 +114,7 @@ public partial class UnitSelection : Node3D
                 if (Extent(pair.Value) is not { } box)
                     return (pair.Key, (float?)null, false, false, (float?)null);
                 var radius = Math.Max(box.Size.X, Math.Max(box.Size.Y, box.Size.Z)) / 2;
+
                 return (
                     pair.Key,
                     Enters(box, origin, direction),
@@ -127,6 +129,7 @@ public partial class UnitSelection : Node3D
                 );
             })
         );
+
         return hit != null && _units.TryGetValue(hit, out var unit) ? unit : null;
     }
 
@@ -138,6 +141,7 @@ public partial class UnitSelection : Node3D
         var entries = _units.Values.Select(u =>
         {
             var position = _nodes[u.Object].GlobalPosition;
+
             return (u, ToNumerics(camera.UnprojectPosition(position)), !camera.IsPositionBehind(position));
         });
         Select(BoxSelect.Inside(entries, ToNumerics(from), ToNumerics(to)));
@@ -150,6 +154,7 @@ public partial class UnitSelection : Node3D
             ring.QueueFree();
             name.QueueFree();
         }
+
         _marks.Clear();
         foreach (var unit in units)
         {
@@ -202,11 +207,14 @@ public partial class UnitSelection : Node3D
             {
                 if (origin[axis] < box.Position[axis] || origin[axis] > box.End[axis])
                     return null;
+
                 continue;
             }
+
             near = Math.Max(near, Math.Min(from, to));
             far = Math.Min(far, Math.Max(from, to));
         }
+
         return near <= far ? near : null;
     }
 

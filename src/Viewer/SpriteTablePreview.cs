@@ -63,6 +63,7 @@ public sealed class SpriteTablePreview : KindPreview
             cell.AddChild(new Label { Text = $"{s.Name} ({frames.Count} frames)" });
             flow.AddChild(cell);
         }
+
         box.AddChild(flow);
         foreach (var group in table.Sprites.GroupBy(s => s.Texture, System.StringComparer.OrdinalIgnoreCase))
         {
@@ -80,12 +81,14 @@ public sealed class SpriteTablePreview : KindPreview
                 box.AddChild(new SpriteSheetView(t.Image, group));
             }
         }
+
         var scroll = new ScrollContainer
         {
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
         scroll.AddChild(box);
+
         return scroll;
     }
 }

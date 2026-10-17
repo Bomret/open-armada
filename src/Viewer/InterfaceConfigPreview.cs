@@ -30,6 +30,7 @@ public sealed class InterfaceConfigPreview : KindPreview
                 {
                     textures[s.Texture] = loaded = TryLoadTexture(files, s.Texture);
                 }
+
                 if (loaded is { } l)
                 {
                     (texture, region) = (
@@ -38,6 +39,7 @@ public sealed class InterfaceConfigPreview : KindPreview
                     );
                 }
             }
+
             items.Add((e, texture, region));
         }
 
@@ -66,6 +68,7 @@ public sealed class InterfaceConfigPreview : KindPreview
             }
         );
         box.AddChild(row);
+
         return box;
     }
 
@@ -75,6 +78,7 @@ public sealed class InterfaceConfigPreview : KindPreview
         try
         {
             var image = GodotDecoders.Tga(new TextureKind().LoadBase(files, texture + ".tga").Data, texture);
+
             return (image, ImageTexture.CreateFromImage(image));
         }
         catch (System.Exception ex)
@@ -109,6 +113,7 @@ public sealed class InterfaceConfigPreview : KindPreview
             catch (System.Exception ex)
                 when (ex is System.IO.IOException or System.IO.InvalidDataException or UnsupportedFormatException) { }
         }
+
         return result;
     }
 }

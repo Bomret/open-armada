@@ -50,6 +50,7 @@ public sealed class GameConstants
         {
             c.ReadLine(StripComment(lines[i]).Trim(), i + 1);
         }
+
         return c;
     }
 
@@ -68,6 +69,7 @@ public sealed class GameConstants
         {
             value = n;
         }
+
         return problem.Length == 0;
     }
 
@@ -84,6 +86,7 @@ public sealed class GameConstants
             else if (!quoted && line[i] == '/' && i + 1 < line.Length && line[i + 1] == '/')
                 return line[..i];
         }
+
         return line;
     }
 
@@ -95,22 +98,29 @@ public sealed class GameConstants
         if (Include.Match(line) is { Success: true } inc)
         {
             _includes.Add(inc.Groups[1].Value);
+
             return;
         }
+
         if (Define.Match(line) is { Success: true } def)
         {
             Add(def.Groups[1].Value, "define", def.Groups[2].Value.TrimEnd(), number);
+
             return;
         }
+
         if (Declaration.Match(line) is { Success: true } decl && decl.Groups[3].Value.Length > 0)
         {
             if (decl.Groups[4].Value.Length == 0)
             {
                 _notes.Add($"{at}: {decl.Groups[2].Value} lacks the closing ';'");
             }
+
             Add(decl.Groups[2].Value, decl.Groups[1].Value, decl.Groups[3].Value, number);
+
             return;
         }
+
         _notes.Add($"{at}: unrecognized line '{line}'");
     }
 
@@ -131,12 +141,15 @@ public sealed class GameConstants
             c = new(name, type, null, value, false, line);
             _notes.Add($"{at}: {name} is not a literal, kept as text: {value}");
         }
+
         var at0 = _values.FindIndex(v => v.Name == name);
         if (at0 < 0)
         {
             _values.Add(c);
+
             return;
         }
+
         _notes.Add($"{at}: {name} is declared again (line {_values[at0].Line}); the later value wins");
         _values[at0] = c;
     }

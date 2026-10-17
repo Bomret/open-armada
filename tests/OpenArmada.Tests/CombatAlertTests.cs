@@ -29,6 +29,7 @@ public class CombatAlertTests
             1,
             () => 0
         );
+
         return (world, poses);
     }
 

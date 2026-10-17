@@ -74,6 +74,7 @@ public sealed record AsteroidField(
                 )
             );
         }
+
         return rocks;
     }
 
@@ -82,6 +83,7 @@ public sealed record AsteroidField(
     public (Vector3 Min, Vector3 Max) DrawBox(float largestExtent)
     {
         var reach = Vector3.One * (Radius + largestExtent);
+
         return (Center - reach, Center + reach);
     }
 
@@ -144,9 +146,11 @@ public sealed record AsteroidField(
                 {
                     gaps.Add(MissingKey, $"{o.Class}: {key}", o);
                     bad = true;
+
                     return default!;
                 }
             }
+
             var min = Read("minAsteroids", d.GetInt);
             var max = Read("maxAsteroids", d.GetInt);
             var radius = Read("fieldRadius", d.GetFloat);
@@ -157,27 +161,36 @@ public sealed record AsteroidField(
             if (min < 0 || max < 0 || max > MaxRocksPerField)
             {
                 gaps.Add(BadCount, o.Class, o);
+
                 continue;
             }
+
             if (min > max)
             {
                 gaps.Add(MinAboveMax, o.Class, o);
+
                 continue;
             }
+
             if (!(radius > 0))
             {
                 gaps.Add(BadRadius, o.Class, o);
+
                 continue;
             }
+
             foreach (var missing in ModelNames.Except(present))
             {
                 gaps.Add(MissingModel, missing, o);
             }
+
             if (present.Count == 0)
             {
                 gaps.Add(NoModel, o.Class, o);
+
                 continue;
             }
+
             fields.Add(
                 new AsteroidField(
                     new Vector3(o.Position.X, o.Position.Y, -o.Position.Z),
@@ -191,6 +204,7 @@ public sealed record AsteroidField(
                 )
             );
         }
+
         return (fields, gaps.Entries);
     }
 
@@ -208,6 +222,7 @@ public sealed record AsteroidField(
         {
             hash = (hash ^ b) * 16777619u;
         }
+
         return hash;
     }
 }

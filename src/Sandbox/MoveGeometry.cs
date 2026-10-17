@@ -15,6 +15,7 @@ public static class MoveGeometry
         if (!float.IsFinite(along) || along <= 0)
             return null;
         var point = origin + direction * along;
+
         return new Vector2(point.X, point.Z);
     }
 

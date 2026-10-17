@@ -40,9 +40,11 @@ public class CameraRigTests
             {
                 var edit = edits.FirstOrDefault(e => e.Name == d.Name);
                 var value = edit.Name == null ? d.Value : edit.Value;
+
                 return value == null ? "" : $"{(d.Int ? "int" : "float")} {d.Name} = {value};\n";
             })
         );
+
         return GameConstants.Read("RTS_CFG.h", Encoding.ASCII.GetBytes(text));
     }
 
@@ -90,11 +92,13 @@ public class CameraRigTests
         {
             rig.ChangeHeight(0.1);
         }
+
         Near(700, rig.Pose.Eye.Y);
         for (var i = 0; i < 200; i++)
         {
             rig.ChangeHeight(-0.1);
         }
+
         Near(10, rig.Pose.Eye.Y);
     }
 
@@ -198,6 +202,7 @@ public class CameraRigTests
             {
                 rig.Pan(new Vector2(1, 1));
             }
+
             var t = rig.Pose.Target;
             Assert.IsTrue(t.X >= 0 && t.X <= 1000 && t.Z >= 0 && t.Z <= 600, $"{t}");
         }
@@ -216,6 +221,7 @@ public class CameraRigTests
         {
             rig.Scroll(cursor, size, true, Vector2.Zero, 0.1);
         }
+
         Assert.AreEqual(10, rig.ScrollSpeed, 1e-9);
         rig.Scroll(new Vector2(400, 300), size, true, Vector2.Zero, 0.1);
         Assert.AreEqual(0.5, rig.ScrollSpeed, 1e-9);
@@ -385,6 +391,7 @@ public class CameraRigTests
         {
             Assert.IsTrue(float.IsFinite(v));
         }
+
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("bounds")));
     }
 
@@ -414,6 +421,7 @@ public class CameraRigTests
         {
             Assert.IsTrue(float.IsFinite(v));
         }
+
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("OVERVIEW_PARABOLA_FOCUS")));
         Assert.IsTrue(rig.Problems.Any(p => p.Contains("OVERVIEW_MIN_HEIGHT")));
         Near(300, MathF.Sqrt((eye.X - target.X) * (eye.X - target.X) + (eye.Z - target.Z) * (eye.Z - target.Z)));

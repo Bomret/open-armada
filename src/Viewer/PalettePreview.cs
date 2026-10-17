@@ -17,6 +17,7 @@ public sealed class PalettePreview : KindPreview
         {
             image.SetPixel(i % 16, i / 16, Color.Color8(colors[i].R, colors[i].G, colors[i].B));
         }
+
         var swatches = new TextureRect
         {
             Texture = ImageTexture.CreateFromImage(image),
@@ -28,6 +29,7 @@ public sealed class PalettePreview : KindPreview
         var box = new VBoxContainer();
         box.AddChild(new Label { Text = $"{colors.Count} colors, 8 bits per channel" });
         box.AddChild(swatches);
+
         return box;
     }
 }

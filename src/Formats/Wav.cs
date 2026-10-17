@@ -66,10 +66,13 @@ public static class Wav
                     throw new InvalidDataException(
                         $"WAV data of {size} bytes is not a whole number of {channels * bits / 8}-byte frames"
                     );
+
                 return new WavInfo(rate, channels, bits, d[(int)body..(int)(body + size)]);
             }
+
             pos = body + size + (size & 1); // chunks are padded to an even size
         }
+
         throw new InvalidDataException(haveFmt ? "WAV has no data chunk" : "WAV has no fmt chunk");
     }
 

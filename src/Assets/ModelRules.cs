@@ -59,6 +59,7 @@ public sealed record TextureAnimation(int Columns, int Rows, int Count, double F
     {
         var frame = FrameSeconds > 0 ? (int)Math.Floor((time + Offset) / FrameSeconds) : 0;
         frame = ((frame % Count) + Count) % Count;
+
         return new Vector2((float)(frame % Columns) / Columns, (float)(frame / Columns) / Rows);
     }
 }
@@ -109,6 +110,7 @@ public static class ModelRules
         {
             if (mesh.TextureMaterial.Length == 0)
                 return new(mesh.Texture, Named["default"], null);
+
             return Named.TryGetValue(mesh.TextureMaterial, out var named)
                 ? new(mesh.Texture, named, null)
                 : new(
@@ -117,6 +119,7 @@ public static class ModelRules
                     $"texture material '{mesh.TextureMaterial}' is not a render type the engine knows"
                 );
         }
+
         if (mesh.Texture.Length == 0)
             return new(mesh.Texture, Named["default"], null);
         var entry = sod.TextureMaterials.FirstOrDefault(t =>
@@ -134,6 +137,7 @@ public static class ModelRules
             (One, Zero) => BlendMode.Cutout,
             _ => null,
         };
+
         return mode is { } m
             ? new(
                 entry.Texture,
@@ -173,9 +177,11 @@ public static class ModelRules
         {
             problem = $"animation '{a.Name}' has no frames";
         }
+
         if (problem != null)
             return null;
         var (columns, rows) = SpriteTable.Grid(a);
+
         return new TextureAnimation(columns, rows, a.Count, a.FrameSeconds, offset);
     }
 
@@ -189,6 +195,7 @@ public static class ModelRules
             if (t.Animations.TryGetValue(name, out var found))
                 return found;
         }
+
         foreach (var t in tables)
         {
             var sprite = t.Sprites.FirstOrDefault(s =>
@@ -202,6 +209,7 @@ public static class ModelRules
                     return played;
             }
         }
+
         return null;
     }
 
@@ -234,6 +242,7 @@ public static class ModelRules
                             or System.IO.InvalidDataException
                 ) { }
         }
+
         return table;
     }
 
@@ -271,6 +280,7 @@ public static class ModelRules
             {
                 problems.Add($"node '{n.Name}': {look.Problem}");
             }
+
             unnamed += n.Mesh!.Groups.Count(g => g.Material.Length == 0);
             foreach (var g in n.Mesh!.Groups.Select(g => g.Material).Where(g => g.Length > 0).Distinct())
             {
@@ -289,6 +299,7 @@ public static class ModelRules
                 }
             }
         }
+
         // The game gives a group without a lighting material its default material (FUN_0058e850); its
         // values are not decoded, so the engine stands in with Lambert white.
         if (unnamed > 0)
@@ -297,13 +308,16 @@ public static class ModelRules
                 $"{unnamed} groups name no lighting material; drawn Lambert white as the engine's stand-in for the game's default material"
             );
         }
+
         foreach (var r in sod.References)
         {
             if (r.Type != AnimationReferenceType)
             {
                 problems.Add($"animation reference to '{r.Node}' has type {r.Type}, which the engine does not know");
+
                 continue;
             }
+
             var targets = sod.Nodes.Where(n => n.Mesh != null && n.Name == r.Node).ToList();
             var anim = FindAnimation(files, r.Animation);
             TextureAnimation? flipbook = null;
@@ -312,6 +326,7 @@ public static class ModelRules
             {
                 flipbook = Animation(anim, r.Offset, out why);
             }
+
             string? line = null;
             if (targets.Count == 0)
             {
@@ -331,11 +346,13 @@ public static class ModelRules
             {
                 runs.AddRange(targets.Select(t => (t, flipbook)));
             }
+
             if (anim == null)
             {
                 missing.Add((r.Animation, line));
             }
         }
+
         return new Analysis(problems, runs, missing);
     }
 

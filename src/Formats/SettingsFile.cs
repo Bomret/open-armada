@@ -43,6 +43,7 @@ public sealed class SettingsFile
                 notes.Add($"{name}:{i + 1}: unrecognized line '{text}' (expected a .bzn name or none)");
             }
         }
+
         return new SettingsFile(name, entries, notes);
     }
 }

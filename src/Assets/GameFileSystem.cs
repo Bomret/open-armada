@@ -107,8 +107,10 @@ public sealed class GameFileSystem
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
         {
             _faults.Add($"index/startrek.zix: {e.Message}");
+
             return;
         }
+
         _faults.AddRange(_index.Faults.Select(f => $"index/{f}"));
         foreach (var dir in _index.Dirs)
         {
@@ -133,8 +135,10 @@ public sealed class GameFileSystem
                     _faults.Add($"index/{dir}: folder is missing");
                 }
             }
+
             _sources.Add(new Source(folder, archive));
         }
+
         foreach (var (name, dir) in _index.Entries)
         {
             if (
@@ -157,11 +161,13 @@ public sealed class GameFileSystem
         {
             var zfs = ZfsArchive.Open(File.ReadAllBytes(path));
             _faults.AddRange(zfs.Faults.Select(f => $"archive/{rel}/{f}"));
+
             return _opened[rel] = new Archive(rel, path, zfs);
         }
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
         {
             _faults.Add($"archive/{rel}: {e.Message}");
+
             return _opened[rel] = null;
         }
     }
@@ -189,6 +195,7 @@ public sealed class GameFileSystem
         if (Locate(name) is not { } hit)
             return null;
         var parts = Parts(name);
+
         return parts.Length == 1 && FromAddon(parts[0]) != null ? FromAddon(sibling)
             : hit.Archive is { } a
                 ? (a.Zfs.Contains(ZixIndex.MemberKey(sibling)) ? new Hit(null, a, ZixIndex.MemberKey(sibling)) : null)
@@ -230,6 +237,7 @@ public sealed class GameFileSystem
             if (Resolve(folder.Append(parts[0]).ToArray()) is { } found)
                 return new Hit(found);
         }
+
         return null;
     }
 
@@ -249,6 +257,7 @@ public sealed class GameFileSystem
             if (a.Zfs.Contains(ZixIndex.MemberKey(name)))
                 return new Hit(null, a, ZixIndex.MemberKey(name));
         }
+
         return null;
     }
 
@@ -261,6 +270,7 @@ public sealed class GameFileSystem
             return a.Zfs.Contains(ZixIndex.MemberKey(name)) ? new Hit(null, a, ZixIndex.MemberKey(name)) : null;
         if (source.Folder is { } folder && Entries(folder).TryGetValue(name, out var path) && File.Exists(path))
             return new Hit(path);
+
         return null;
     }
 
@@ -291,6 +301,7 @@ public sealed class GameFileSystem
                 }
             }
         }
+
         return names.Values.ToList();
     }
 
@@ -309,6 +320,7 @@ public sealed class GameFileSystem
         var path = ResolveDir(parts[..^1]);
         if (path == null)
             return null;
+
         return Entries(path).TryGetValue(parts[^1], out var real) && File.Exists(real) ? real : null;
     }
 
@@ -321,6 +333,7 @@ public sealed class GameFileSystem
                 return null;
             path = next;
         }
+
         return path;
     }
 
@@ -334,6 +347,7 @@ public sealed class GameFileSystem
         {
             map.TryAdd(Path.GetFileName(e), e);
         }
+
         return _entries[dir] = map;
     }
 }

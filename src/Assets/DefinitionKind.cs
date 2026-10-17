@@ -25,6 +25,7 @@ public sealed class DefinitionKind : AssetKind
         var def = ResolvedDefinition.Resolve(files, name);
         if (def.Failures.Count > 0)
             throw new InvalidDataException(string.Join("; ", def.Failures));
+
         return def.Notes;
     }
 
@@ -77,6 +78,7 @@ public sealed class DefinitionKind : AssetKind
             && definitions.Value.Contains(Bare(includer))
             && at == files.Entry(Bare(includer));
         var ownMissing = def.MissingIncludes.Where(m => !OtherDefinition(m.IncludedBy)).Select(m => m.Name);
+
         return AssetReferences
             .Missing(ownMissing, _ => false)
             .Concat(

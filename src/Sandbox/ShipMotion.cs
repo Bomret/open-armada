@@ -80,6 +80,7 @@ public sealed class ShipMotion
                 TurnToFace(facing, (float)seconds);
             }
         }
+
         return Pose;
     }
 
@@ -89,8 +90,10 @@ public sealed class ShipMotion
         if (offset.Length() <= Reached)
         {
             Stop();
+
             return;
         }
+
         var (_, error) = Turn(offset, seconds);
         if (error == 0)
         {
@@ -107,6 +110,7 @@ public sealed class ShipMotion
         var turn = MathF.Abs(error) <= most ? error : MathF.CopySign(most, error);
         _heading = Wrap(_heading + turn);
         _bank = _physics.MaxRoll is { } roll ? -(float)(roll * Math.PI / 180) * Math.Clamp(turn / most, -1, 1) : 0; // stand-in: no bank without maxRoll (the Borg physics definitions have none)
+
         return (turn, error - turn);
     }
 
@@ -120,6 +124,7 @@ public sealed class ShipMotion
         if (distance <= Reached)
         {
             Arrive(target);
+
             return;
         }
 
@@ -141,13 +146,16 @@ public sealed class ShipMotion
                 return;
             driving = MathF.Max(0, driving - MathF.Abs(turn) / (float)_physics.YawRotationRate); // float rounding can leave it an ulp below 0
         }
+
         // never farther along the heading than the foot of the target's perpendicular, so the distance only shrinks
         var travel = MathF.Min((float)_physics.ImpulseSpeed * driving, distance * MathF.Cos(error));
         if (travel >= distance)
         {
             Arrive(target);
+
             return;
         }
+
         _position += new Vector3(MathF.Sin(_heading), 0, MathF.Cos(_heading)) * travel;
     }
 
@@ -155,6 +163,7 @@ public sealed class ShipMotion
     static float Wrap(float angle)
     {
         var wrapped = MathF.IEEERemainder(angle, 2 * MathF.PI);
+
         return wrapped <= -MathF.PI ? wrapped + 2 * MathF.PI : wrapped;
     }
 

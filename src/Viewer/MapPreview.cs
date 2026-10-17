@@ -40,6 +40,7 @@ public sealed class MapPreview : KindPreview
         var box = new VBoxContainer();
         box.AddChild(legend);
         box.AddChild(pictures);
+
         return box;
     }
 }

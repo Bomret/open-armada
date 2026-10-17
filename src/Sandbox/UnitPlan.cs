@@ -55,6 +55,7 @@ public sealed class UnitPlan
                         gaps.Add(BadName, o.Class);
                     }
                 }
+
                 var station = false;
                 if (definition.Has("is_starbase"))
                 {
@@ -67,8 +68,10 @@ public sealed class UnitPlan
                         gaps.Add(BadStarbase, o.Class);
                     }
                 }
+
                 unit = station ? new Station(name) : new Ship(name);
             }
+
             if (unit == null)
                 continue;
             bool movable;
@@ -85,8 +88,10 @@ public sealed class UnitPlan
                 movable = false;
                 gaps.Add(BadPhysics, o.Class);
             }
+
             units.Add(new SelectableUnit(o, unit, movable));
         }
+
         return new UnitPlan(units, gaps.Entries);
     }
 }

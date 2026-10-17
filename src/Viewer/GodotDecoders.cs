@@ -11,12 +11,14 @@ public static class GodotDecoders
     public static Image Tga(byte[] data, string name)
     {
         var image = new Image();
+
         return Decode(image, image.LoadTgaFromBuffer(data), name);
     }
 
     public static Image Bmp(byte[] data, string name)
     {
         var image = new Image();
+
         return Decode(image, image.LoadBmpFromBuffer(data), name);
     }
 
@@ -35,18 +37,22 @@ public static class GodotDecoders
                 {
                     Tga(mip.Data, mip.Name);
                 }
+
                 break;
             case BitmapKind.KindName:
                 Bmp(files.ReadAllBytes(name), name);
+
                 break;
             case MapKind.KindName:
                 if (((MapAsset)kind.Load(files, name)).Overview is { } overview)
                 {
                     Bmp(files.ReadAllBytes(overview), overview);
                 }
+
                 break;
             case SoundKind.KindName:
                 Wav(files.ReadAllBytes(name), name);
+
                 break;
         }
     }

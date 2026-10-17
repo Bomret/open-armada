@@ -44,6 +44,7 @@ internal sealed class BznBuilder
         t[1] = t[2] = t[3] = 0xCD; // the writer leaves these uninitialised
         BitConverter.GetBytes((uint)payload.Length).CopyTo(t, 4);
         payload.CopyTo(t, 8);
+
         return t;
     }
 
@@ -59,6 +60,7 @@ internal sealed class BznBuilder
     {
         var b = new byte[size];
         Encoding.Latin1.GetBytes(s).CopyTo(b, 0);
+
         return Token(2, b);
     }
 
@@ -66,6 +68,7 @@ internal sealed class BznBuilder
     {
         var b = new byte[8];
         Encoding.Latin1.GetBytes(s).CopyTo(b, 0);
+
         return Token(7, b);
     }
 
@@ -116,6 +119,7 @@ internal sealed class BznBuilder
                 Str("federation", 64),
             }
         );
+
         return tokens.SelectMany(t => t).ToArray();
     }
 
@@ -154,6 +158,7 @@ internal sealed class BznBuilder
                 }.SelectMany(t => t)
             );
         }
+
         body.AddRange(
             new[]
             {
@@ -173,11 +178,13 @@ internal sealed class BznBuilder
             {
                 body.AddRange(Token(2, Encoding.Latin1.GetBytes(name)));
             }
+
             body.AddRange(Int(points.Length));
             body.AddRange(Token(9, Floats(points.SelectMany(p => new[] { p.X, p.Y, p.Z }).ToArray())));
             body.AddRange(Token(0, new byte[4]));
             body.AddRange(Float(0.01f));
         }
+
         if (Extra != null)
         {
             foreach (var t in Extra)
@@ -185,6 +192,7 @@ internal sealed class BznBuilder
                 body.AddRange(t);
             }
         }
+
         return Encoding.Latin1.GetBytes(text).Concat(body).ToArray();
     }
 }

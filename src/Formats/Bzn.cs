@@ -22,6 +22,7 @@ public sealed record MapBounds(float MinX, float MaxX, float MinY, float MaxY, f
     public (float Col, float Row) ToImage(float x, float z, float size)
     {
         var longest = Math.Max(Width, Depth);
+
         return (
             (x - MinX + (longest - Width) / 2) / longest * size,
             size - (z - MinZ + (longest - Depth) / 2) / longest * size
@@ -137,8 +138,10 @@ public static class Bzn
                 throw new InvalidDataException($"not a BZN map: the text preamble is cut off (offset {d.Length})");
             var s = Encoding.ASCII.GetString(d, p, end - p).TrimEnd('\r');
             p = end + 1;
+
             return s;
         }
+
         if (Line() != "version [1] =" || !int.TryParse(Line(), out var version))
             throw new InvalidDataException("not a BZN map: no version line");
         if (version is < FirstVersion or > LastVersion)
@@ -157,6 +160,7 @@ public static class Bzn
         {
             throw new InvalidDataException("BZN saveGameDesc is not hex text");
         }
+
         if (Line() != "binarySave [1] =")
             throw new InvalidDataException("BZN has no binarySave line");
         if (Line() != "true")
@@ -173,6 +177,7 @@ public static class Bzn
         {
             b[i] = c.Float("map bounds");
         }
+
         if (c.Bool("bounds rescale"))
             throw new UnsupportedFormatException("BZN with a bounds remap (rescale true) is not read");
         var bounds = new MapBounds(b[0], b[1], b[2], b[3], b[4], b[5]);
@@ -232,6 +237,7 @@ public static class Bzn
             c.Next(5, 4, "path float");
             paths.Add(new MapPath(name, Enumerable.Range(0, n).Select(k => Vec(raw, k * 12)).ToList()));
         }
+
         c.End();
 
         return new BznMap(
@@ -269,6 +275,7 @@ public static class Bzn
             {
                 skip++;
             }
+
             if (skip > MaxPrefix || !c.Matches(TailSig, skip))
                 throw new InvalidDataException(
                     $"object {k} ({Cursor.Text(h[0].Data)}) at offset {offset}: no object tail before the next object or within {MaxPrefix} tokens, an unrecognized class record"
@@ -308,6 +315,7 @@ public static class Bzn
                 )
             );
         }
+
         return objects;
     }
 
@@ -355,6 +363,7 @@ public static class Bzn
                     $"{what}: expected type {type} of {size} bytes, found type {k.Type} of {k.Data.Length} bytes at offset {k.Offset}"
                 );
             pos++;
+
             return k;
         }
 
@@ -371,6 +380,7 @@ public static class Bzn
                 if (k.Type != sig[i].Type || k.Data.Length != sig[i].Size)
                     return false;
             }
+
             return true;
         }
 
@@ -378,6 +388,7 @@ public static class Bzn
         {
             var r = t.GetRange(pos, n).ToArray();
             pos += n;
+
             return r;
         }
 
@@ -389,6 +400,7 @@ public static class Bzn
             var n = Int(what);
             if (n < 0 || n > (t.Count - pos) / minTokens)
                 throw new InvalidDataException($"{what} {n} does not fit in the rest of the file (offset {Offset})");
+
             return n;
         }
 
@@ -406,6 +418,7 @@ public static class Bzn
         public static string Text(byte[] b)
         {
             var end = Array.IndexOf(b, (byte)0);
+
             return Windows1252.Encoding.GetString(b, 0, end < 0 ? b.Length : end);
         }
 

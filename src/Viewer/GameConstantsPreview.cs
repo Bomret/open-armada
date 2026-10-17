@@ -20,6 +20,7 @@ public sealed class GameConstantsPreview : KindPreview
         var values = c.Values.Select(v =>
             $"{v.Type, -6} {v.Name.PadRight(width)}  {(v.Number is { } n ? n.ToString(CultureInfo.InvariantCulture) : v.IsString ? $"\"{v.Text}\"" : v.Text)}"
         );
+
         return ReadOnlyText(NotesBlock(c.Notes) + includes + string.Join("\n", values), true);
     }
 }

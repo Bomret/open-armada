@@ -43,6 +43,7 @@ public sealed class SodBuilder
         {
             _teamColor = teamColor.Value;
         }
+
         _team.Clear();
         _byNode.Clear();
         var analysis = ModelRules.Analyze(_files, sod);
@@ -54,6 +55,7 @@ public sealed class SodBuilder
             node.Transform = ToGodot(n.Transform);
             nodes.Add((n, node));
         }
+
         // The first node of a name is the parent; a node with no known parent, or in a parent cycle (reported
         // in Problems), hangs from the root.
         var byName = new Dictionary<string, Node3D>();
@@ -61,6 +63,7 @@ public sealed class SodBuilder
         {
             byName.TryAdd(data.Name, node);
         }
+
         Node3D? root = null;
         foreach (var (data, node) in nodes)
         {
@@ -77,6 +80,7 @@ public sealed class SodBuilder
                 root.AddChild(node);
             }
         }
+
         root ??= new Node3D();
 
         // Damage and borgification overlays only appear in those game states.
@@ -104,8 +108,10 @@ public sealed class SodBuilder
         {
             animator.Add(_byNode[node], flipbook);
         }
+
         root.AddChild(animator);
         Problems = analysis.Problems;
+
         return root;
     }
 
@@ -143,10 +149,12 @@ public sealed class SodBuilder
                     st.AddVertex(new Vector3(p.X, p.Y, -p.Z));
                 }
             }
+
             if (!blend.Wireframe)
             {
                 st.GenerateNormals();
             }
+
             var surface = SurfaceOf(sod, group.Material);
             // Lines carry no normals, so a wireframe shades constant whatever the lighting material says
             // (the game keeps the material's model and shades the lines with it).
@@ -154,17 +162,21 @@ public sealed class SodBuilder
             {
                 surface = surface with { Model = LightingModel.Constant };
             }
+
             var material = SurfaceMaterial.Create(surface, blend, texture, mesh.BackfaceCull);
             if (surface.Team)
             {
                 _team.Add((material, surface));
                 SurfaceMaterial.Apply(material, surface.WithTeam(_teamColor));
             }
+
             materials.Add(material);
             st.SetMaterial(material);
             st.Commit(array);
         }
+
         _byNode[data] = materials;
+
         return new MeshInstance3D { Mesh = array };
     }
 
@@ -175,6 +187,7 @@ public sealed class SodBuilder
     {
         var material = ModelRules.FindLightingMaterial(_files, sod, name);
         var surface = material == null ? null : ModelRules.Lighting(material);
+
         return surface
             ?? new Surface(
                 LightingModel.Lambert,
@@ -220,10 +233,12 @@ public sealed class SodBuilder
         {
             why = e.Message;
         }
+
         if (tex == null)
         {
             GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
         }
+
         return _textures[name] = tex;
     }
 
@@ -233,6 +248,7 @@ public sealed class SodBuilder
         var x = new Vector3(m.Right.X, m.Right.Y, -m.Right.Z);
         var y = new Vector3(m.Up.X, m.Up.Y, -m.Up.Z);
         var z = new Vector3(-m.Front.X, -m.Front.Y, m.Front.Z);
+
         return new Transform3D(new Basis(x, y, z), new Vector3(m.Position.X, m.Position.Y, -m.Position.Z));
     }
 }

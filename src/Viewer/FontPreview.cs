@@ -33,8 +33,10 @@ public sealed class FontPreview : KindPreview
                 }
             }
         }
+
         image.Resize(image.GetWidth() * Scale, image.GetHeight() * Scale, Image.Interpolation.Nearest);
         var drawn = System.Linq.Enumerable.Count(font.Glyphs, g => g.Width > 0);
+
         return new ImagePane(
             $"{font.Glyphs.Count} characters ({drawn} drawn), {font.Height} rows high, widest {cellW} columns",
             new[] { (name, image) }

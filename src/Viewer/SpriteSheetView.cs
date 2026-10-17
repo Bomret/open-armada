@@ -26,6 +26,7 @@ public partial class SpriteSheetView : Control
     {
         var sx = s.ReferenceWidth > 0 ? (float)texture.X / s.ReferenceWidth : 1f;
         var sy = s.ReferenceHeight > 0 ? (float)texture.Y / s.ReferenceHeight : 1f;
+
         return new Rect2(f.U * sx, f.V * sy, f.W * sx, f.H * sy);
     }
 

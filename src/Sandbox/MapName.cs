@@ -15,6 +15,7 @@ public static class MapName
     {
         var wanted = Bare(requested);
         var hit = installMaps.FirstOrDefault(m => Bare(m).Equals(wanted, StringComparison.OrdinalIgnoreCase));
+
         return hit != null
             ? new MapChoice(hit, null)
             : new MapChoice(
@@ -26,6 +27,7 @@ public static class MapName
     static string Bare(string name)
     {
         var file = name[(name.LastIndexOfAny(new[] { '/', '\\' }) + 1)..];
+
         return file.EndsWith(".bzn", StringComparison.OrdinalIgnoreCase) ? file[..^4] : file;
     }
 }

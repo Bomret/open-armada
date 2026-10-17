@@ -33,6 +33,7 @@ public static class BoxSelect
                 hit = item;
             }
         }
+
         return hit;
     }
 
@@ -47,6 +48,7 @@ public static class BoxSelect
         if (half < 0 || toCenter.LengthSquared() <= radius * radius)
             return null;
         var entry = along - MathF.Sqrt(half);
+
         return entry >= 0 ? entry : null;
     }
 
@@ -60,6 +62,7 @@ public static class BoxSelect
     {
         var min = Vector2.Min(from, to);
         var max = Vector2.Max(from, to);
+
         return entries
             .Where(e =>
                 e.InFront && e.Point.X >= min.X && e.Point.X <= max.X && e.Point.Y >= min.Y && e.Point.Y <= max.Y

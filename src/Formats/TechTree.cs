@@ -34,6 +34,7 @@ public sealed class TechTree
                 );
             entries.Add(new TechEntry(parts[0], parts.Skip(2).ToList()));
         }
+
         return new TechTree(entries);
     }
 }

@@ -39,6 +39,7 @@ public class UnitPlanTests
         {
             map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
         }
+
         var asset = new MapAsset(
             "bzn/t.bzn",
             Bzn.Read(map.Build()),
@@ -47,6 +48,7 @@ public class UnitPlanTests
             Array.Empty<MapPath>()
         );
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
+
         return UnitPlan.Build(install, plan, selectable);
     }
 

@@ -30,6 +30,7 @@ public sealed class CursorPreview : KindPreview
                 );
             }
         }
+
         // A hotspot outside the image (a note) is drawn at the nearest edge pixel.
         var (hx, hy) = (
             System.Math.Clamp(cursor.HotspotX, 0, cursor.Width - 1) * Scale,
@@ -47,6 +48,7 @@ public sealed class CursorPreview : KindPreview
         {
             image.FillRect(edge, Colors.Cyan);
         }
+
         return new ImagePane(
             $"{cursor.Width}x{cursor.Height}, hotspot at ({cursor.HotspotX}, {cursor.HotspotY}){string.Concat(cursor.Notes.Select(n => " - " + n))}",
             new[] { (name, image) }

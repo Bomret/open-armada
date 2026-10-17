@@ -50,6 +50,7 @@ public class CombatRulesTests
     {
         var state = State(Profile());
         state.Crew = crew;
+
         return state;
     }
 
@@ -306,6 +307,7 @@ public class CombatRulesTests
         target.Systems["Engines"].HitPoints = hitPoints;
         target.Systems["Engines"].Destroyed = destroyed;
         target.Crew = crew;
+
         return target;
     }
 
@@ -360,6 +362,7 @@ public class CombatRulesTests
     {
         var target = State(Profile(systems: new[] { Sys("LifeSupport") }, crew: (float)crew, lifeSupportLoss: loss));
         target.Systems["LifeSupport"].Destroyed = true;
+
         return target;
     }
 
@@ -555,6 +558,7 @@ public class CombatRulesTests
         var target = State(Profile(maxHealth: 100, shieldRate: 10));
         target.Shields = shields;
         target.ShieldDown = down;
+
         return target;
     }
 

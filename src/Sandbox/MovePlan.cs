@@ -36,8 +36,10 @@ public sealed class MovePlan
             catch (Exception) // a physics definition the install holds but that cannot be read is a gap, whatever the reason (INV-0002)
             {
                 gaps.Add("physics definition cannot be read, ships cannot move", o.Class);
+
                 continue;
             }
+
             var speed = Positive(definition, "impulseSpeed", o.Class, gaps);
             var yaw = Positive(definition, "yawRotationRate", o.Class, gaps);
             if (speed == null || yaw == null)
@@ -56,13 +58,16 @@ public sealed class MovePlan
                     }
                 }
                 catch (DefinitionException) { }
+
                 if (roll == null)
                 {
                     gaps.Add("physics definition's maxRoll is no number of 0 or more, ships do not bank", o.Class);
                 }
             }
+
             physics[o] = new PhysicsValues(speed.Value, yaw.Value, roll);
         }
+
         return new MovePlan(physics, gaps.Entries);
     }
 
@@ -72,15 +77,19 @@ public sealed class MovePlan
         if (!definition.Has(key))
         {
             gaps.Add($"physics definition lacks {key}, ships cannot move", unitClass);
+
             return null;
         }
+
         try
         {
             if (definition.GetFloat(key) is var value and > 0)
                 return value;
         }
         catch (DefinitionException) { }
+
         gaps.Add($"physics definition's {key} is no number above 0, ships cannot move", unitClass);
+
         return null;
     }
 }

@@ -17,6 +17,7 @@ public class UnitRulesTests
     Unit? Classify(string odf)
     {
         var files = new GameFileSystem(temp.MakeInstall(("addon/u.odf", odf)));
+
         return UnitRules.Classify(ResolvedDefinition.Resolve(files, "u.odf"));
     }
 

@@ -40,9 +40,11 @@ public class WavTests
         {
             w.Write((byte)0);
         }
+
         w.Write("data"u8.ToArray());
         w.Write(declared);
         w.Write(new byte[actual]);
+
         return ms.ToArray();
     }
 

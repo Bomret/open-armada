@@ -66,6 +66,7 @@ public sealed class MapFile
                 {
                     value = l.Groups[1].Value;
                 }
+
                 m._entries.Add(new MapEntry(section, it.Groups[1].Value, it.Groups[2].Value, value, i + 1));
             }
             else
@@ -73,10 +74,12 @@ public sealed class MapFile
                 m._notes.Add($"{at}: unrecognized line '{line}' in block '{section}'");
             }
         }
+
         if (section != null)
         {
             m._notes.Add($"{name}:{openedAt}: block '{section}' is not closed");
         }
+
         return m;
     }
 }

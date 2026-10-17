@@ -65,6 +65,7 @@ public sealed class ZixIndex
                 }
             }
         }
+
         var entries = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var byKey = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         while (lines.MoveNext())
@@ -87,6 +88,7 @@ public sealed class ZixIndex
                 }
             }
         }
+
         return new ZixIndex(dirs, entries, byKey, faults);
     }
 }

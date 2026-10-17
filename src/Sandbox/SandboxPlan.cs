@@ -11,7 +11,8 @@ namespace OpenArmada.Sandbox;
 /// <summary>
 /// One map object to show. Position and the axes are in Godot's frame (Z mirrored, as the model builder
 /// does), so the node's transform is Basis(AxisX, AxisY, AxisZ) at Position. Slot indexes
-/// TeamColors.SlotNames.
+/// TeamColors.SlotNames. Each object is equal only to itself: a map can stack two objects of the same
+/// values, and each is its own unit.
 /// </summary>
 public sealed record PlacedObject
 {
@@ -44,6 +45,12 @@ public sealed record PlacedObject
 
     /// <summary>The basis's Z axis, from the map object's Front axis in Godot's frame; <see cref="Vector3.UnitZ"/> for a degenerate orientation.</summary>
     public required Vector3 AxisZ { get; init; }
+
+    /// <summary>Whether <c>other</c> is this same object; two objects of equal values are not equal.</summary>
+    public bool Equals(PlacedObject? other) => ReferenceEquals(this, other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
 }
 
 /// <summary>One gap of the map, shown once: the cause, the distinct names it touches, and how many objects it touches.</summary>

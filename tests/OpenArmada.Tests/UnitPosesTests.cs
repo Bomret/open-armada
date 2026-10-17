@@ -38,6 +38,27 @@ public class UnitPosesTests
             new UnitPoses(Array.Empty<PlacedObject>()).Pose(Placed("x", 0))
         );
 
+    // A map can stack two objects of the same values; each is its own unit.
+    [TestMethod]
+    public void TwoIdenticalObjectsAreTwoUnits()
+    {
+        var (ship, twin) = (Placed("ship", 0), Placed("ship", 0));
+        var poses = new UnitPoses(new[] { ship, twin });
+        var motion = new ShipMotion(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 10,
+                YawRotationRate = 1,
+                MaxRoll = 30,
+            },
+            ship.Position,
+            MoveGeometry.BowHeading(ship.AxisZ)
+        );
+        motion.SetTarget(0, -100);
+        poses.Advance(ship, motion, 1);
+        Assert.AreEqual(MoveGeometry.PlacedPose(twin.Position, twin.AxisZ), poses.Pose(twin));
+    }
+
     [TestMethod]
     public void AMovingShipReadsItsPoseAfterEachStep()
     {

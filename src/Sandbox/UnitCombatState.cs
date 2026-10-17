@@ -121,8 +121,9 @@ public sealed class UnitCombatState(
     }
 
     /// <summary>
-    /// Restores the system <c>name</c> and gives it its own hit percent back (0x467600), taken evenly from the other
-    /// working systems down to their own percents.
+    /// Restores the system <c>name</c> and gives it its own hit percent back (0x467600), so the total is conserved.
+    /// The other working systems give it up in proportion to their excess over their own percents; what their
+    /// excess does not cover comes out of the critical share.
     /// </summary>
     public void RestoreSystem(string name)
     {
@@ -130,9 +131,16 @@ public sealed class UnitCombatState(
         system.Destroyed = false;
         system.HitPercent = system.Profile.HitPercent;
         var donors = Systems.Values.Where(s => s != system && !s.Destroyed).ToList();
+        var totalExcess = donors.Sum(s => Math.Max(0, s.HitPercent - s.Profile.HitPercent));
+        if (totalExcess <= 0)
+        {
+            return;
+        }
+
+        var factor = Math.Min(1, system.HitPercent / totalExcess);
         foreach (var s in donors)
         {
-            s.HitPercent -= Math.Min(s.HitPercent - s.Profile.HitPercent, system.HitPercent / donors.Count);
+            s.HitPercent -= Math.Max(0, s.HitPercent - s.Profile.HitPercent) * factor;
         }
     }
 

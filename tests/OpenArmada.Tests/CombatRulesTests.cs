@@ -215,6 +215,51 @@ public class CombatRulesTests
     }
 
     [TestMethod]
+    public void RestoringEveryDestroyedSystemInAnyOrderReturnsEverySystemToItsOwnPercent()
+    {
+        var target = WithSystems(Sys("Engines"), Sys("LifeSupport"), Sys("Weapons"), Sys("Sensors"));
+        target.DestroySystem("Engines");
+        target.DestroySystem("LifeSupport");
+        target.RestoreSystem("LifeSupport");
+        target.RestoreSystem("Engines");
+        foreach (var s in target.Systems.Values)
+        {
+            Assert.AreEqual(s.Profile.HitPercent, s.HitPercent, 1e-6, s.Profile.Name);
+        }
+    }
+
+    [TestMethod]
+    public void ADestroyingHitOnADerelictUnitFreesItsPercentForCriticalAndACriticalHitDestroysTheUnit()
+    {
+        // percents sum to 100: engines 40 and hull 60
+        var target = State(Profile(systems: new[] { Sys("Engines", hitPoints: 3, percent: 40) }, hull: 60));
+        target.Shields = 0;
+        target.Crew = 0;
+        target.Derelict = true;
+        Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 99));
+        CombatRules.Apply(target, Beam(), 3, HitLocation.Engines, 1);
+        Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 59));
+        Assert.AreEqual(HitLocation.Critical, CombatRules.Location(target, 60));
+        Assert.IsTrue(CombatRules.Apply(target, Beam(), 1, HitLocation.Critical, 1).Destroyed);
+        Assert.IsTrue(target.Destroyed);
+    }
+
+    [TestMethod]
+    public void RepairToFullGivesTheDestroyedSystemItsPercentBackAndConservesTheTotal()
+    {
+        var target = Damaged(0);
+        target.Shields = 0;
+        CombatRules.Apply(target, Beam(), 5, HitLocation.Engines, 1);
+        // engines 10 and hull 100: destroyed engines leave their 10 to the critical share
+        Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 99));
+        Assert.AreEqual(HitLocation.Critical, CombatRules.Location(target, 100));
+        CombatRules.Repair(target, 100);
+        Assert.AreEqual(HitLocation.Engines, CombatRules.Location(target, 9));
+        Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 109));
+        Assert.AreEqual(HitLocation.Critical, CombatRules.Location(target, 110));
+    }
+
+    [TestMethod]
     public void ASystemWithNoHitPointsInItsDefinitionIsNeverHit()
     {
         var target = WithSystems(Sys("Engines", hitPoints: 0, percent: 50), Sys("Weapons", percent: 10));
@@ -298,7 +343,7 @@ public class CombatRulesTests
             )
         );
         zero.Systems["Engines"].HitPoints = 0;
-        zero.Systems["Engines"].Destroyed = true;
+        zero.DestroySystem("Engines");
         CombatRules.Repair(zero, 100);
         Assert.IsTrue(zero.Systems["Engines"].Destroyed);
     }
@@ -371,7 +416,10 @@ public class CombatRulesTests
             )
         );
         target.Systems["Engines"].HitPoints = hitPoints;
-        target.Systems["Engines"].Destroyed = destroyed;
+        if (destroyed)
+        {
+            target.DestroySystem("Engines");
+        }
         target.Crew = crew;
 
         return target;
@@ -427,7 +475,7 @@ public class CombatRulesTests
     static UnitCombatState Suffocating(double crew, float loss = 10)
     {
         var target = State(Profile(systems: new[] { Sys("LifeSupport") }, crew: (float)crew, lifeSupportLoss: loss));
-        target.Systems["LifeSupport"].Destroyed = true;
+        target.DestroySystem("LifeSupport");
 
         return target;
     }
@@ -444,7 +492,7 @@ public class CombatRulesTests
     public void WorkingLifeSupportCostsNoCrew()
     {
         var target = Suffocating(100);
-        target.Systems["LifeSupport"].Destroyed = false;
+        target.RestoreSystem("LifeSupport");
         CombatRules.Sustain(target, 5);
         Assert.AreEqual(100, target.Crew, 1e-6);
     }
@@ -472,7 +520,7 @@ public class CombatRulesTests
     {
         var target = State(Profile(maxHealth: 100, shieldRate: 10, systems: new[] { Sys("ShieldGenerator") }));
         target.Shields = 50;
-        target.Systems["ShieldGenerator"].Destroyed = true;
+        target.DestroySystem("ShieldGenerator");
         CombatRules.RegainShields(target, 5);
         Assert.AreEqual(50, target.Shields, 1e-6);
     }

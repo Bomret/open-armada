@@ -749,8 +749,8 @@ public class CombatWorldTests
         var b = WithSystems("b", 2, 400, Weapon(range: 500, hitChance: 0.1f), Sys("Engines"));
         var world = World(() => 0.9, a, b);
         world.Attack(a.Object, b.Object);
-        world.State(a.Object)!.Systems["Engines"].Destroyed = true;
-        world.State(b.Object)!.Systems["Engines"].Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Engines");
+        world.State(b.Object)!.DestroySystem("Engines");
         var events = world.Step(0.02);
         Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
         Assert.IsTrue(events.OfType<ShotFired>().Where(e => e.Shot.Target.Unit == b.Object).All(e => e.Shot.Hits));
@@ -774,7 +774,7 @@ public class CombatWorldTests
         var b = WithSystems("b", 2, 100, null);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        world.State(a.Object)!.Systems["Weapons"].Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Weapons");
         Assert.AreEqual(0, Fired(world.Step(3), "a"));
     }
 
@@ -786,7 +786,7 @@ public class CombatWorldTests
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
         var weapons = world.State(a.Object)!.Systems["Weapons"];
-        weapons.Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Weapons");
         weapons.HitPoints = 0;
         Assert.AreEqual(0, Fired(world.Step(1), "a"));
         Assert.IsTrue(Fired(world.Step(3), "a") > 0); // 1 s per point at crew ratio 1: whole again after 2 s
@@ -849,7 +849,7 @@ public class CombatWorldTests
         var b = WithSystems("b", 2, 400, null);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        world.State(a.Object)!.Systems["Engines"].Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Engines");
         world.Step(1);
         Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
     }
@@ -911,7 +911,7 @@ public class CombatWorldTests
         var world = World(null, a);
         var state = world.State(a.Object)!;
         state.Shields = 40;
-        state.Systems["ShieldGenerator"].Destroyed = true;
+        state.DestroySystem("ShieldGenerator");
         world.Step(2);
         Assert.AreEqual(40, state.Shields, 1e-6);
     }
@@ -930,7 +930,7 @@ public class CombatWorldTests
         };
         var world = World(null, a);
         var state = world.State(a.Object)!;
-        state.Systems["LifeSupport"].Destroyed = true;
+        state.DestroySystem("LifeSupport");
         state.Systems["LifeSupport"].HitPoints = 0;
         state.Systems["Sensors"].HitPoints = 1;
 

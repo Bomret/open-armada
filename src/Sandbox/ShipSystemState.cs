@@ -23,5 +23,5 @@ public sealed class ShipSystemState(SystemProfile profile, double bonus)
     public double HitPercent { get; set; } = profile.HitPercent;
 
     /// <summary>Whether the system is destroyed; set at zero hit points and cleared once repair reaches <see cref="Max"/>.</summary>
-    public bool Destroyed { get; set; }
+    public bool Destroyed { get; internal set; }
 }

@@ -133,7 +133,9 @@ live percent, its own and the shares it took before, is shared evenly among the 
 as working (0x466ca0), so a system destroyed there sends its live percent to the critical share, and the
 systems that are still intact keep theirs. A system destroyed before the unit went derelict keeps its
 shares with the systems that took them until those are destroyed. A repaired system takes its own percent
-back (0x467600); we take it evenly from the other working systems down to their own percents (stand-in:
+back (0x467600). The other working systems give it up in proportion to their excess over their own
+percents, and what their excess does not cover comes out of the critical share, so repairing every
+destroyed system of a unit that is not derelict returns every system to its own percent (**stand-in**:
 the addresses do not show which systems give it up).
 
 ### Applying a hit

@@ -72,8 +72,25 @@ public sealed class UnitCombatState(
     public bool Immobile => Derelict || SystemDestroyed("Engines");
     public List<WeaponState> Weapons { get; } = profile.Weapons.Select(w => new WeaponState(w)).ToList();
 
+    // The unit's alert stance.
+    public AlertStance Alert { get; set; } = profile.DefaultGreenAlert ? AlertStance.Green : AlertStance.Red;
+
+    // The unit that last hit this one; a red idle unit moves toward it until it picks a target.
+    // stand-in: the last attacker counts until it is invalid or the unit picks a target; the game's time window for
+    // "recently" is not known.
+    public UnitCombatState? Attacker { get; set; }
+
     // The unit the attack order names; null without an order.
     public UnitCombatState? Order { get; set; }
+
+    // Whether the attack order was given by the alert stance (red) and not by the player; it ends with red.
+    public bool AutoOrder { get; set; }
+
+    // Whether the unit's move intent is the red walk toward an attacker and not a player's move order.
+    public bool AutoMove { get; set; }
+
+    // The point (X, Z) of the player's move order, until the unit arrives; null without one.
+    public (float X, float Z)? PlayerMove { get; set; }
 
     // The unit the weapons fire at this tick.
     public UnitCombatState? Target { get; set; }

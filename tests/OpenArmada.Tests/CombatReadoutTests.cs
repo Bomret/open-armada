@@ -14,9 +14,17 @@ public class CombatReadoutTests
         state.Shields = 45.6;
         state.Crew = 79.2;
         Assert.AreEqual(
-            "Defiant  shields 46/120  crew 79  engines -  life support -  weapons -  shield generator -  sensors -",
+            "Defiant  shields 46/120  crew 79  alert red  engines -  life support -  weapons -  shield generator -  sensors -",
             CombatReadout.Line("Defiant", state)
         );
+    }
+
+    [TestMethod]
+    public void TheLineShowsTheAlertStance()
+    {
+        var state = State(Profile());
+        state.Alert = AlertStance.Yellow;
+        StringAssert.Contains(CombatReadout.Line("Defiant", state), "  alert yellow  ");
     }
 
     [TestMethod]

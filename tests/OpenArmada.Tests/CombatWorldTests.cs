@@ -364,7 +364,7 @@ public class CombatWorldTests
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
         world.Step(0.02);
-        world.ClearOrder(a.Object);
+        world.Move(a.Object, -500, 0);
         Assert.IsNull(world.State(a.Object)!.Order);
         Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind);
     }

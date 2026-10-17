@@ -126,6 +126,7 @@ public partial class MapSandboxView : Node3D
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
+        AddChild(new AlertKeys(AlertBindings.Read(files, AddGap), selection, orders.Combat));
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.

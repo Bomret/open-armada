@@ -125,7 +125,7 @@ public partial class UnitOrders : Node3D
                 || Motion(unit.Object) is not { } motion
             )
                 continue;
-            _world.ClearOrder(unit.Object);
+            _world.Move(unit.Object, to.X, to.Y);
             motion.SetTarget(to.X, to.Y);
         }
     }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
@@ -113,6 +114,9 @@ public sealed class CombatArt
     readonly Dictionary<string, Dictionary<string, string>> _nodesOfModel = new(StringComparer.OrdinalIgnoreCase);
     Dictionary<string, (SpriteTable Table, Sprite Sprite)>? _rows;
 
+    // Per model: each node name, matched without regard to case, to the node's offset in the model.
+    readonly Dictionary<string, Dictionary<string, Vector3>> _offsetsOfModel = new(StringComparer.OrdinalIgnoreCase);
+
     CombatArt(GameFileSystem files) => _files = files;
 
     /// <summary>
@@ -184,6 +188,19 @@ public sealed class CombatArt
     /// </summary>
     public string? Hardpoint(PlacedObject unit, string name) => NodesOf(unit.Model).GetValueOrDefault(name);
 
+    /// <summary>
+    /// Where the hardpoint is in the world when the unit stands in <paramref name="pose"/> (take it from the same
+    /// tick as the unit's position). A hardpoint the model lacks, or a model that cannot be read, gives the unit's
+    /// center; that is the gap <see cref="Build"/> reports.
+    /// </summary>
+    public Vector3 HardpointPosition(PlacedObject unit, string name, ShipPose pose)
+    {
+        // stand-in: a hardpoint the model lacks, or a model that cannot be read, sits at the unit's center.
+        var offset = OffsetsOf(unit.Model).GetValueOrDefault(name);
+
+        return HardpointGeometry.WorldPosition(unit, pose, offset);
+    }
+
     /// <summary>A failure of the view (a texture or a sound that cannot be decoded) joins the gaps, once per cause.</summary>
     public void Report(string cause, string name) => _gaps.Add(cause, name);
 
@@ -203,22 +220,35 @@ public sealed class CombatArt
     // The nodes of a model by name; none when the model cannot be read (the sandbox reports that).
     Dictionary<string, string> NodesOf(string model)
     {
-        if (!_nodesOfModel.TryGetValue(model, out var nodes))
+        Load(model);
+
+        return _nodesOfModel[model];
+    }
+
+    // The offsets of a model's nodes by name; none when the model cannot be read.
+    Dictionary<string, Vector3> OffsetsOf(string model)
+    {
+        Load(model);
+
+        return _offsetsOfModel[model];
+    }
+
+    // Reads a model once, filling both per-model caches.
+    void Load(string model)
+    {
+        if (_nodesOfModel.ContainsKey(model))
+            return;
+
+        var nodes = _nodesOfModel[model] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        _offsetsOfModel[model] = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
+        try
         {
-            nodes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                foreach (var node in Sod.Read(_files.ReadAllBytes(model + ".sod")).Nodes)
-                {
-                    nodes.TryAdd(node.Name, NodeName.Of(node.Name));
-                }
-            }
-            catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
-
-            _nodesOfModel[model] = nodes;
+            var sod = Sod.Read(_files.ReadAllBytes(model + ".sod"));
+            foreach (var node in sod.Nodes)
+                nodes.TryAdd(node.Name, NodeName.Of(node.Name));
+            _offsetsOfModel[model] = HardpointGeometry.Offsets(sod);
         }
-
-        return nodes;
+        catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
     }
 
     void ResolveSprite(WeaponProfile weapon, PlacedObject unit)

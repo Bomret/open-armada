@@ -33,7 +33,7 @@ public partial class AsteroidFieldsView : Node3D
         public required Transform3D[] Pose { get; init; }
     }
 
-    // A sprite node of a model, taken from its built quad.
+    /// <summary>A sprite node of a model, taken from its built quad.</summary>
     sealed record SpritePart
     {
         /// <summary>The quad mesh at the node's size.</summary>
@@ -52,7 +52,7 @@ public partial class AsteroidFieldsView : Node3D
         public required Texture2D Texture { get; init; }
     }
 
-    // The draw of one sprite node over all rocks of its model.
+    /// <summary>The draw of one sprite node over all rocks of its model.</summary>
     sealed record SpriteDraw
     {
         /// <summary>The instance that draws the sprite node over the rocks.</summary>

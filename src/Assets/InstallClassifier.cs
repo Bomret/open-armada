@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace OpenArmada.Assets;
 
 // What the asset check does with an install file: some asset kind loads it, it is out of scope (video,
-// help, AI plans, compiled code, install, network, copy protection), the engine knows what it is but
+// help, AI plans, compiled code, install, network, copy protection, GOG wrapper), the engine knows what it is but
 // reads it with no kind, or no rule places it.
 public enum FileClass
 {
@@ -142,6 +142,7 @@ public static class InstallClassifier
             "uninstall" => Out("install"),
             "ico" or "url" => Out("launcher shortcuts"),
             "logs" => Out("logs"),
+            "__redist" or "__support" or "commonappdata" or "tmp" or "app" => Out("GOG wrapper"),
             _ => Unknown,
         };
     }
@@ -191,8 +192,20 @@ public static class InstallClassifier
             ("net.ini", _) => Known("network settings, consumer unknown"),
             ("texture.dat", _) => Out("copy protection"),
             ("credits.txt" or "credits2.txt", _) => Known("credits text"),
+            ("armada.prf", _) => Known("display preferences"),
+            ("scrnthms" or "dcphr", _) => Known("launcher resources"),
+            ("manual.pdf", _) => Out("help"),
+            _ when Gog(name) => Out("GOG wrapper"),
             _ => Unknown,
         };
+
+    // The files a GOG install adds at its root: its own metadata, the IPX and DirectDraw wrappers, and
+    // their setup scripts. Armada.exe names none of them.
+    static bool Gog(string name) =>
+        name.StartsWith("goggame-", StringComparison.Ordinal)
+        || name.StartsWith("ipxwrapper-", StringComparison.Ordinal)
+        || name.StartsWith("directplay-", StringComparison.Ordinal)
+        || name is "firewall.cmd" or "firewall_u.cmd" or "dxcfg.ini";
 
     static (FileClass, string) Misc(string name, string ext) =>
         name.StartsWith("gui_", StringComparison.Ordinal) && ext == ".cfg" ? Loaded("interface configurations")

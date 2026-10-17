@@ -9,7 +9,7 @@ namespace OpenArmada.Tests;
 
 /// <summary>
 /// Finds the lines of one engine source that break INV-0004. A parser is a file under <c>Formats/</c>; an asset
-/// kind is any file declaring a subclass of <c>AssetKind</c>. <c>ViewerLog</c> and <c>RepeatedFaults</c> count as
+/// kind is any file declaring <c>AssetKind</c> or a subclass of it.<c>ViewerLog</c> and <c>RepeatedFaults</c> count as
 /// <c>Log</c> because they only forward to it.
 /// </summary>
 static class EngineLogScan
@@ -25,23 +25,31 @@ static class EngineLogScan
     static readonly Regex Output = new(
         @"\bConsole\s*\.|using\s+static\s+(System\.)?Console\b|\bGD\s*\.\s*(Print\w*|Push(Error|Warning))\b"
             + @"|using\s+static\s+Godot\.GD\b|\b(Debug|Trace)\s*\.\s*Write\w*"
+            + @"|using\s+\w+\s*=\s*(System\.Console|Godot\.GD)\b"
     );
 
-    static readonly Regex LogUse = new(@"\b(Log|ViewerLog)\s*\.|\bRepeatedFaults\b|using\s+static\s+[\w.]*\bLog\b");
+    static readonly Regex LogUse = new(
+        @"\b(Log|ViewerLog)\s*\.|\bRepeatedFaults\b|using\s+static\s+[\w.]*\b(Log|ViewerLog|RepeatedFaults)\b"
+    );
 
-    static readonly Regex KindDeclaration = new(@"\bclass\s+\w+\s*:\s*AssetKind\b");
+    // The abstract base counts too: its virtual methods run for every kind that does not override them.
+    static readonly Regex KindDeclaration = new(@"\bclass\s+\w+\s*:\s*AssetKind\b|\babstract\s+class\s+AssetKind\b");
 
     /// <summary>One message per offending line, naming the file (relative to <c>src/</c>) and line.</summary>
     public static List<string> Violations(string path, string text)
     {
         var mustNotLog = path.StartsWith("Formats/") || KindDeclaration.IsMatch(text);
         var found = new List<string>();
+        var sinksSeen = new HashSet<string>();
         var lines = text.Split('\n');
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i].Trim();
             // simplicity: only whole-line comments are skipped; a trailing comment is still scanned.
-            if (line.StartsWith("//") || Sinks.Contains((path, line)))
+            if (line.StartsWith("//"))
+                continue;
+            // Each sink line is allowed once per file; a verbatim copy is flagged.
+            if (Sinks.Contains((path, line)) && sinksSeen.Add(line))
                 continue;
             if (Output.IsMatch(line))
                 found.Add($"{path}:{i + 1}: console or Godot print call outside the sinks: {line}");
@@ -101,6 +109,8 @@ public class EngineLoggingTests
     [DataRow("using static Godot.GD;")]
     [DataRow("Debug.WriteLine(x);")]
     [DataRow("Trace.WriteLine(x);")]
+    [DataRow("using C = System.Console;")]
+    [DataRow("using G = Godot.GD;")]
     public void EverySpellingOfAnOutputCallIsCaught(string line)
     {
         Assert.AreEqual(1, EngineLogScan.Violations("Viewer/Foo.cs", line).Count, line);
@@ -125,10 +135,21 @@ public class EngineLoggingTests
     }
 
     [TestMethod]
+    [DataRow("Diagnostics/Log.cs", "_sink = value ?? Console.Out.WriteLine;")]
+    [DataRow("Viewer/AssetBrowserView.cs", "Log.Sink = line => GD.Print(line);")]
+    public void ASinkLineIsAllowedOnceAFile(string path, string line)
+    {
+        Assert.AreEqual(0, EngineLogScan.Violations(path, line).Count);
+        Assert.AreEqual(1, EngineLogScan.Violations(path, line + "\n    " + line).Count);
+    }
+
+    [TestMethod]
     [DataRow("Formats/Bzn.cs", "Log.Warn(Area.Assets, \"x\");")]
     [DataRow("Formats/Bzn.cs", "ViewerLog.Failed(x);")]
     [DataRow("Formats/Bzn.cs", "var f = new RepeatedFaults(Area.Assets);")]
     [DataRow("Formats/Bzn.cs", "using static OpenArmada.Diagnostics.Log;")]
+    [DataRow("Formats/Bzn.cs", "using static OpenArmada.Diagnostics.ViewerLog;")]
+    [DataRow("Assets/AssetKind.cs", "public abstract class AssetKind { void F() { Log.Warn(Area.Assets, \"x\"); } }")]
     [DataRow(
         "Assets/FooKind.cs",
         "public sealed class FooKind : AssetKind { void F() { Log.Error(Area.Assets, \"x\"); } }"

@@ -2,6 +2,7 @@ using System;
 using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenArmada.Diagnostics;
 using OpenArmada.Sandbox;
 
 namespace OpenArmada.Tests;
@@ -66,6 +67,70 @@ public class MapSandboxTests
         var sandbox = MapSandbox.Open(Install(), null, new[] { "--map needs a value" });
         StringAssert.Contains(sandbox.Problem, "--map needs a value");
         Assert.IsNull(sandbox.Plan);
+    }
+
+    [TestMethod]
+    public void ASandboxThatCannotOpenIsOneErrorEntry()
+    {
+        using var log = new CapturedLog();
+        var sandbox = MapSandbox.Open(Install(), "nope", NoProblems);
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.Contains(line, " ERROR sandbox: ");
+        StringAssert.EndsWith(line, sandbox.Problem!);
+    }
+
+    [TestMethod]
+    public void ACommandLineProblemIsNotLoggedAgainBySandbox()
+    {
+        using var log = new CapturedLog();
+        MapSandbox.Open(Install(), null, new[] { "--map needs a value" });
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.Contains(line, " ERROR sandbox: ");
+        Assert.DoesNotContain("--map needs a value", line);
+    }
+
+    [TestMethod]
+    public void AnOpenedMapIsOneInfoEntryWithItsNameAndCounts()
+    {
+        var sandbox = MapSandbox.Open(Install(), "2duel", NoProblems);
+        using var log = new CapturedLog();
+        sandbox.LogOpened(units: 1);
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.EndsWith(line, " INFO sandbox: map opened: bzn/2duel.bzn, 1 objects, 1 units");
+    }
+
+    [TestMethod]
+    public void AModelThatCannotBeReadIsOneErrorEntryWithItsNameAndReasonAndTheLabelLine()
+    {
+        using var log = new CapturedLog();
+        var text = MapSandbox.LogUnreadableModel("fdreadnought", "bad magic");
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.EndsWith(line, " ERROR sandbox: " + text);
+        StringAssert.Contains(text, "fdreadnought");
+        StringAssert.Contains(text, "bad magic");
+    }
+
+    [TestMethod]
+    public void ASavedScreenshotIsOneInfoEntryWithItsAbsolutePath()
+    {
+        using var log = new CapturedLog();
+        MapSandbox.LogScreenshot("shot.png", null);
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.EndsWith(
+            line,
+            " INFO sandbox: screenshot saved: " + Log.Quote(System.IO.Path.GetFullPath("shot.png"))
+        );
+    }
+
+    [TestMethod]
+    public void AScreenshotThatFailedToSaveIsOneErrorEntryWithPathAndReason()
+    {
+        using var log = new CapturedLog();
+        MapSandbox.LogScreenshot("shot.png", "ERR_FILE_CANT_WRITE");
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.Contains(line, " ERROR sandbox: ");
+        StringAssert.Contains(line, Log.Quote(System.IO.Path.GetFullPath("shot.png")));
+        StringAssert.Contains(line, "ERR_FILE_CANT_WRITE");
     }
 
     [TestMethod]

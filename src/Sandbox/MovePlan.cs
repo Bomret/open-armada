@@ -82,7 +82,7 @@ public sealed class MovePlan
             };
         }
 
-        return new MovePlan(physics, gaps.Entries);
+        return new MovePlan(physics, Gaps.Logged(gaps.Entries));
     }
 
     // The key's value when it is a number above 0; otherwise null, and a gap of the cause and class is added.

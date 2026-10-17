@@ -109,6 +109,15 @@ public class MovePlanTests
     }
 
     [TestMethod]
+    public void AGroupedMovementGapIsOneWarnEntryWithTheLabelLine()
+    {
+        using var log = new CapturedLog();
+        var plan = Plan(new[] { "a", "b", "a" }, new[] { ("a", Ship), ("b", Ship) }, "yawRotationRate = 1");
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.EndsWith(line, " WARN sandbox: " + plan.Reports.Single().Text);
+    }
+
+    [TestMethod]
     public void EachMissingValueIsItsOwnCause()
     {
         var plan = Plan(new[] { "a" }, new[] { ("a", Ship) }, "");

@@ -108,6 +108,15 @@ public class UnitPlanTests
     }
 
     [TestMethod]
+    public void AGroupedUnitGapIsOneWarnEntryWithTheLabelLine()
+    {
+        using var log = new CapturedLog();
+        var plan = Plan(new[] { "a", "b", "a" }, new[] { ("a", Physics), ("b", Physics) });
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.EndsWith(line, " WARN sandbox: " + plan.Reports.Single().Text);
+    }
+
+    [TestMethod]
     public void AStarbaseValueThatIsNoNumberIsReportedAndTheUnitIsAShip()
     {
         var plan = Plan(

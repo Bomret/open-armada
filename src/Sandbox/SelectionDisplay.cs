@@ -52,10 +52,11 @@ public static class SelectionDisplay
 
     /// <summary>
     /// The point the cursor hovers: the mouse position while the cursor is inside the window of a run that has a
-    /// mouse; null otherwise, such as in a screenshot or headless run.
+    /// mouse; null otherwise, such as in a screenshot or headless run. Inside follows the edge scroll's rule,
+    /// CameraRig.CursorInside.
     /// </summary>
-    public static Vector2? HoverPoint(Vector2 mouse, bool inWindow, bool hasMouse) =>
-        inWindow && hasMouse ? mouse : null;
+    public static Vector2? HoverPoint(Vector2 mouse, bool mouseInWindow, bool confined, bool hasMouse) =>
+        hasMouse && CameraRig.CursorInside(mouseInWindow, confined) ? mouse : null;
 
     /// <summary>
     /// The screen box around a unit's box corners as projected to a screen of <c>screen</c> pixels (null: the corner

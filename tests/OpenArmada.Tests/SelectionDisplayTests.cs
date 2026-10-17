@@ -162,9 +162,24 @@ public class SelectionDisplayTests
     public void TheCursorHoversOnlyInsideTheWindowOfARunWithAMouse()
     {
         var mouse = new System.Numerics.Vector2(10, 20);
-        Assert.AreEqual(mouse, SelectionDisplay.HoverPoint(mouse, inWindow: true, hasMouse: true));
-        Assert.IsNull(SelectionDisplay.HoverPoint(mouse, inWindow: false, hasMouse: true));
-        Assert.IsNull(SelectionDisplay.HoverPoint(mouse, inWindow: true, hasMouse: false));
+        Assert.AreEqual(
+            mouse,
+            SelectionDisplay.HoverPoint(mouse, mouseInWindow: true, confined: false, hasMouse: true)
+        );
+        Assert.IsNull(SelectionDisplay.HoverPoint(mouse, mouseInWindow: false, confined: false, hasMouse: true));
+        Assert.IsNull(SelectionDisplay.HoverPoint(mouse, mouseInWindow: true, confined: false, hasMouse: false));
+    }
+
+    [TestMethod]
+    public void AConfinedCursorHoversAfterTheWindowReportsTheMouseExited()
+    {
+        // The same rule as the edge scroll: on macOS a confined cursor on the right or bottom boundary lies
+        // outside the view's tracking area, and a focused launch with the cursor outside confines it unreported.
+        var mouse = new System.Numerics.Vector2(800, 300);
+        Assert.AreEqual(
+            mouse,
+            SelectionDisplay.HoverPoint(mouse, mouseInWindow: false, confined: true, hasMouse: true)
+        );
     }
 
     [TestMethod]

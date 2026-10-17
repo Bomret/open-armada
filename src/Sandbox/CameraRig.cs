@@ -256,12 +256,18 @@ public sealed class CameraRig
     }
 
     /// <summary>
-    /// The cursor the view passes to Scroll: the mouse position while the window holds the mouse or confines the
-    /// cursor, else a negative position (outside). A confined cursor is inside even when the window reports the
-    /// mouse exited: on macOS the right and bottom boundaries it reaches lie outside the view's tracking area.
+    /// The cursor the view passes to Scroll: the mouse position while the cursor is inside the window (see
+    /// CursorInside), else a negative position (outside).
     /// </summary>
     public static Vector2 EdgeCursor(Vector2 mouse, bool mouseInWindow, bool confined) =>
-        mouseInWindow || confined ? mouse : new Vector2(-1, -1);
+        CursorInside(mouseInWindow, confined) ? mouse : new Vector2(-1, -1);
+
+    /// <summary>
+    /// Whether the cursor is inside the window: the window holds the mouse or confines the cursor. A confined cursor
+    /// is inside even when the window reports the mouse exited: on macOS the right and bottom boundaries it reaches
+    /// lie outside the view's tracking area.
+    /// </summary>
+    public static bool CursorInside(bool mouseInWindow, bool confined) => mouseInWindow || confined;
 
     // Strength 0..1 of a cursor `distance` pixels from an edge: 1 on the edge pixel, 0 at the border width.
     float Edge(float distance) => _border > 0 ? (float)Math.Clamp((_border - distance) / _border, 0, 1) : 0;

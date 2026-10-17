@@ -243,7 +243,12 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         var mouse = GetViewport().GetMousePosition();
 
         return
-            SelectionDisplay.HoverPoint(new System.Numerics.Vector2(mouse.X, mouse.Y), _mouseInWindow, HasMouse)
+            SelectionDisplay.HoverPoint(
+                new System.Numerics.Vector2(mouse.X, mouse.Y),
+                _mouseInWindow,
+                Input.MouseMode == Input.MouseModeEnum.Confined,
+                HasMouse
+            )
                 is { } p
             ? new Vector2(p.X, p.Y)
             : null;

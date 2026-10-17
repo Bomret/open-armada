@@ -34,14 +34,25 @@ width is `right - left + 1`.
 
 ## Which units show it
 
+The display holds a hovered unit, a group key, and a display fade, updated once per frame (0x499f70):
+
+- The hovered unit is the unit the pick finds under the cursor. A pick of another unit hovers that unit at
+  once. When the pick finds no unit, the last hovered unit stays hovered until 0.4 seconds have passed
+  (0x60d7f0).
+- The group key is the hovered unit's team, the number at field 0x194; without a hovered unit it is 0.
+  That field is the team is shown by target validity (0x42faa0), which uses it as a bit index into the
+  target's ally mask.
+- The display fade starts at 0 and grows each frame by that frame's time, up to 1. It starts over at 0
+  on the frame the group key changes, and keeps growing while the hover moves between units of one team.
+
 The display walks every object each frame (0x49b6a0). An object that is not shown, or that is off
 screen, gets nothing. Of the rest:
 
-- The unit under the cursor shows the shield bar at full opacity.
-- A unit whose owner matches the one the display holds shows the shield bar at the display's own
-  opacity. A cloaked craft does not. That the matched value is the owner is **inferred**.
+- The hovered unit shows the shield bar at full opacity.
+- Every other unit of the hovered unit's team shows the shield bar at the display fade. A hovered unit of
+  team 0 shows only its own bar. A cloaked craft does not show it.
 - A selected unit among those also shows the energy bar, the crew dot, and the system icons, at the
-  display's opacity.
+  display fade. A selected unit outside that group shows nothing.
 
 A part draws only while its opacity is above 0.5. Its colors are scaled by the opacity minus 0.5
 (0x49abf0, 0x49ad50, 0x49afe0). Read literally, a part at full opacity draws at half its color's
@@ -70,6 +81,7 @@ times the energy ratio. Energy belongs to special weapons, which the engine does
 ## Crew dot
 
 The crew dot is a square of 7 by 7 pixels. Its top-left corner is at `right`, `bottom - 8` (0x49afe0).
+It draws only for a unit whose `maximumCrew` is not 0.
 
 Its color depends on the crew ratio, the current crew over `maximumCrew`:
 
@@ -88,17 +100,22 @@ shows the state of its system is **unknown**: its draw method was not read.
 
 ## What the engine draws
 
-The map sandbox draws the shield bar and the crew dot of each selected unit, and the shield bar of the unit
-under the cursor, by the rules above, redrawn every frame. The unit under the cursor is the one a click there
-would select. No unit shows a hover bar while the cursor is outside the window, or in a run without a mouse,
-such as a `--screenshot` run. The cursor counts as inside while the window confines it. The engine draws no
-energy bar, no system icons, and no reticle, and it does not show the display for the units whose owner
-matches. The engine does not model the display's opacity.
+The map sandbox draws the shield bar and the crew dot by the rules above, redrawn every frame: the hovered
+unit, the units of its team, and the crew dots of the selected among them, with the hold and the display
+fade. With no hovered unit, no unit shows either part, whatever is selected. The engine's pick is the one a
+click there would select. No unit is picked while the cursor is outside the window, or in a run without a
+mouse, such as a `--screenshot` run, so there the display shows nothing once the hold has passed. The cursor
+counts as inside while the window confines it. A destroyed unit ends the hover on the frame it is removed.
+The engine draws no energy bar, no system icons, and no reticle, and it has no cloaking.
 
-The engine fills four gaps with stand-ins:
+The engine fills these gaps with stand-ins:
 
 - The screen box comes from the box around the unit's meshes in world axes.
+- The pick is the click pick, the nearest object under the cursor, in place of the game's own pick.
 - A unit shows the shield bar when its `maxHealth` is above 0, in place of the game's own flag and value.
+  The crew dot takes the same gate. The game's own gate, `maximumCrew` not 0, always holds in the engine,
+  because a `maximumCrew` missing or 0 takes the stand-in `crewCost`, at least 1.
 - A game pixel is as large as the display scale of the screen the window is on, so the display keeps its
   size on a high-density screen.
-- Every part draws in full-intensity colors, because the game's display brightness is **unknown**.
+- A part draws in full-intensity colors at the alpha (opacity − 0.5) × 2, kept within 0 and 1, because the
+  game's display brightness is **unknown**. It shows only while its opacity is above 0.5, as in the game.

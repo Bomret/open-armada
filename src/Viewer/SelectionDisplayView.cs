@@ -1,13 +1,14 @@
 using System;
+using System.Linq;
 using Godot;
 using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
 /// <summary>
-/// The game's in-world selection display over the map sandbox (docs/selection-display.md): the shield bar and the
-/// crew dot of each selected unit, and the shield bar of the unit under <c>hoverPoint</c> (null: none), redrawn
-/// every frame from the units' current combat state.
+/// The game's in-world selection display over the map sandbox (docs/selection-display.md), through the unit under
+/// <c>hoverPoint</c> (null: none): the shield bars of the hovered unit and its team, and the crew dots of the selected
+/// among them, redrawn every frame from the units' current combat state.
 /// </summary>
 public partial class SelectionDisplayView(UnitSelection selection, CombatWorld world, Func<Vector2?> hoverPoint)
     : CanvasLayer
@@ -15,6 +16,7 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
     static readonly Color Back = new(0.2f, 0.2f, 0.2f);
 
     readonly Control _canvas = new();
+    HoverState _hover = new();
 
     /// <inheritdoc/>
     public override void _Ready()
@@ -26,32 +28,40 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
     }
 
     /// <inheritdoc/>
-    public override void _Process(double delta) => _canvas.QueueRedraw();
+    public override void _Process(double delta)
+    {
+        // The hover steps here, once per frame: the draw callback can run zero or several times a frame.
+        // ponytail: the hover pick walks every placed object's meshes each frame (O(objects × meshes)); skip
+        // it while neither the mouse nor the camera moved, or cache the pick, when maps grow large.
+        var pick = hoverPoint() is { } point ? selection.UnitAt(point)?.Object : null;
+        _hover = _hover.Step(pick, selection.Units.Select(u => u.Object), delta);
+        _canvas.QueueRedraw();
+    }
 
-    // Units are looked up afresh each frame: a destroyed or deselected unit is simply no longer listed.
+    // Units are looked up afresh each frame: a destroyed unit is simply no longer listed.
     void Paint()
     {
         // stand-in: the display scale of the screen the window is on stands for the game's pixel size
         var scale = DisplayServer.ScreenGetScale(DisplayServer.WindowGetCurrentScreen());
-        // ponytail: the hover pick walks every placed object's meshes each frame (O(objects × meshes)); skip
-        // it while neither the mouse nor the camera moved, or cache the pick, when maps grow large.
-        var hovered = hoverPoint() is { } point ? selection.UnitAt(point) : null;
-        // stand-in: every part draws in full-intensity colors. The game scales its colors by the opacity minus 0.5,
-        // half intensity at full opacity, and whether its renderer brightens them again is unknown.
-        foreach (var (unit, withDot) in SelectionDisplay.Shown(selection.Selected, hovered))
+        var units = selection.Units.ToDictionary(u => u.Object);
+        var selected = selection.Selected.Select(u => u.Object);
+        foreach (var shown in SelectionDisplay.Shown(_hover, units.Keys, selected))
         {
-            if (world.State(unit.Object) is not { } state || selection.ScreenBoxOf(unit) is not { } box)
+            if (world.State(shown.Unit) is not { } state || selection.ScreenBoxOf(units[shown.Unit]) is not { } box)
                 continue;
-            if (SelectionDisplay.ShieldBarOf(box, state, scale) is { } bar)
+            // stand-in: each part draws at alpha (opacity − 0.5) × 2 kept within 0 and 1 (SelectionDisplay.AlphaOf)
+            var alpha = SelectionDisplay.AlphaOf(shown.Opacity);
+            if (alpha > 0 && SelectionDisplay.ShieldBarOf(box, state, scale) is { } bar)
             {
-                _canvas.DrawRect(ToRect(bar.Back), Back);
-                _canvas.DrawRect(ToRect(bar.Fill), new Color(bar.Color.X, bar.Color.Y, bar.Color.Z));
+                _canvas.DrawRect(ToRect(bar.Back), Back with { A = alpha });
+                _canvas.DrawRect(ToRect(bar.Fill), new Color(bar.Color.X, bar.Color.Y, bar.Color.Z, alpha));
             }
 
-            if (!withDot)
-                continue;
-            var dot = SelectionDisplay.CrewDotOf(box, state, scale);
-            _canvas.DrawRect(ToRect(dot.Rect), ColorOf(dot.Status));
+            var dotAlpha = SelectionDisplay.AlphaOf(_hover.Fade);
+            if (shown.Dot && dotAlpha > 0 && SelectionDisplay.CrewDotOf(box, state, scale) is { } dot)
+            {
+                _canvas.DrawRect(ToRect(dot.Rect), ColorOf(dot.Status) with { A = dotAlpha });
+            }
         }
     }
 

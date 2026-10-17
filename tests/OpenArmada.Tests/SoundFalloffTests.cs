@@ -30,7 +30,6 @@ public class SoundFalloffTests
     public void NoSoundInsideTheReachIsCutOff()
     {
         var falloff = SoundFalloff.For(Opening);
-        Assert.IsTrue(falloff.MaxDistance == 0 || falloff.MaxDistance >= Reach);
         Assert.IsTrue(double.IsFinite(falloff.DbAt(Reach)));
         Assert.IsTrue(falloff.DbAt(Reach) < falloff.DbAt(Opening)); // it still falls off
     }

@@ -158,26 +158,6 @@ public partial class CombatView : Node3D
         player.Play();
     }
 
-    // The sprite's draw state from its render type, as the models' are (ModelRules).
-    // stand-in: a render type the engine does not know is drawn alpha blended.
-    static void Blend(StandardMaterial3D material, string? renderType)
-    {
-        var blend = (renderType == null ? null : ModelRules.Blend(renderType)) ?? new BlendState(BlendMode.Alpha, 1f);
-        material.Transparency = blend.Mode switch
-        {
-            BlendMode.Opaque => BaseMaterial3D.TransparencyEnum.Disabled,
-            BlendMode.Cutout => BaseMaterial3D.TransparencyEnum.AlphaScissor,
-            _ => BaseMaterial3D.TransparencyEnum.Alpha,
-        };
-        material.AlphaScissorThreshold = 128f / 255f;
-        material.BlendMode =
-            blend.Mode == BlendMode.Add ? BaseMaterial3D.BlendModeEnum.Add : BaseMaterial3D.BlendModeEnum.Mix;
-        material.AlbedoColor = new Color(1, 1, 1, blend.Opacity);
-        material.TextureFilter = blend.Nearest
-            ? BaseMaterial3D.TextureFilterEnum.Nearest
-            : BaseMaterial3D.TextureFilterEnum.Linear;
-    }
-
     void Draw(Shot shot)
     {
         var name = shot.Weapon.Ordnance.Sprite;
@@ -195,7 +175,7 @@ public partial class CombatView : Node3D
             AlbedoTexture = tex,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
         };
-        Blend(material, art.Sprite.Material);
+        SpriteMaterial.Blend(material, art.Sprite.Material);
         var root = new Node3D();
         if (shot.Kind == ShotKind.Beam)
             // two crossed quads: the beam shows from any side
@@ -245,13 +225,7 @@ public partial class CombatView : Node3D
     void Place(Drawn d)
     {
         var shot = d.Shot;
-        var frames = d.Art.Frames;
-        var age = d.Missed ? d.Age : shot.Age;
-        var frame = d.Art.FrameSeconds > 0 ? frames[(int)(age / d.Art.FrameSeconds) % frames.Count] : frames[0];
-        var size = new Vector2I(d.Texture.GetWidth(), d.Texture.GetHeight());
-        var region = SpriteSheetView.Region(d.Art.Sprite, frame, size);
-        d.Material.Uv1Scale = new Vector3(region.Size.X / size.X, region.Size.Y / size.Y, 1);
-        d.Material.Uv1Offset = new Vector3(region.Position.X / size.X, region.Position.Y / size.Y, 0);
+        SpriteMaterial.ShowFrame(d.Material, d.Art.Sprite, d.Art.FrameAt(d.Missed ? d.Age : shot.Age), d.Texture);
         if (shot.Kind == ShotKind.Beam)
         {
             if (At(shot.Target.Unit) is not { } target)

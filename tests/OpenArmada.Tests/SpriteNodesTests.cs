@@ -130,6 +130,20 @@ public class SpriteNodesTests
         Assert.AreEqual(1f, resolved.Nodes.Single(n => n.Node.Name == "Dup").Width);
     }
 
+    // Ship models carry several instances of one light as "greenconst", "greenconst_2", "greenconst_3".
+    [TestMethod]
+    public void NumberedInstanceOfANodeTakesItsSpriteNode()
+    {
+        var files = Install(
+            ("Sprites/lights.spr", "sprite_table\n@sprite_node critical1_2 sparkball1 const (5,5) (1,1,1)\n")
+        );
+        var resolved = SpriteNodes.For(files, Model("critical1_3", "critical1_2", "critical1_x"));
+        Assert.AreEqual(40f, resolved.Nodes.Single(n => n.Node.Name == "critical1_3").Width);
+        Assert.AreEqual(5f, resolved.Nodes.Single(n => n.Node.Name == "critical1_2").Width); // an exact name wins
+        Assert.IsFalse(resolved.Nodes.Any(n => n.Node.Name == "critical1_x"));
+    }
+
+    // An unreadable line is reported for a model that has the node it names; one naming no node of the model is silent.
     [TestMethod]
     public void UnreadableSpriteNodeLineIsReportedAndCostsTheTableNothing()
     {
@@ -137,11 +151,24 @@ public class SpriteNodesTests
             (
                 "Sprites/lights.spr",
                 "sprite_table\n@sprite_node a sparkball1 const (1,x) (1,1,1)\n@sprite_node b sparkball1 const (1,1) (1,1,1)\n"
+                    + "@sprite_node zzz sparkball1 const (1,x) (1,1,1)\n@sprite_node\n"
             )
         );
         var resolved = SpriteNodes.For(files, Model("a", "b"));
         Assert.AreEqual("b", resolved.Nodes.Single().Node.Name);
         StringAssert.Contains(resolved.Reports.Single().Names.Single(), "lights.spr:2");
+    }
+
+    [TestMethod]
+    public void SpriteFlipbookFrameFollowsElapsedTime()
+    {
+        var nodes = SpriteNodes.For(Install(), Model("critical1", "critical2")).Nodes;
+        var flip = nodes.Single(n => n.Node.Name == "critical1").Sprite; // four frames of 0.1 s
+        Assert.AreEqual(flip.Frames[0], flip.FrameAt(0.05));
+        Assert.AreEqual(flip.Frames[2], flip.FrameAt(0.25));
+        Assert.AreEqual(flip.Frames[1], flip.FrameAt(0.55)); // the flipbook loops
+        var still = nodes.Single(n => n.Node.Name == "critical2").Sprite;
+        Assert.AreEqual(still.Frames[0], still.FrameAt(7.3));
     }
 
     [TestMethod]

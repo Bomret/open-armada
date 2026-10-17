@@ -439,8 +439,9 @@ public class SpriteTableTests
         Assert.IsTrue(t.Animations.ContainsKey("f"));
         CollectionAssert.AreEqual(
             new[] { "a.spr:6", "a.spr:7", "a.spr:8" },
-            t.UnreadSpriteNodes.Select(s => s[..s.IndexOf(": ", System.StringComparison.Ordinal)]).ToArray()
+            t.UnreadSpriteNodes.Select(u => u.Note[..u.Note.IndexOf(": ", System.StringComparison.Ordinal)]).ToArray()
         );
-        CollectionAssert.IsSubsetOf(t.UnreadSpriteNodes.ToArray(), t.Notes.ToArray());
+        CollectionAssert.AreEqual(new[] { "bad", "", "short" }, t.UnreadSpriteNodes.Select(u => u.Node).ToArray());
+        CollectionAssert.IsSubsetOf(t.UnreadSpriteNodes.Select(u => u.Note).ToArray(), t.Notes.ToArray());
     }
 }

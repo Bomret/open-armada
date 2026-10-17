@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
+using System.Text.RegularExpressions;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
 
@@ -27,7 +29,8 @@ public sealed record SpriteNode(
 }
 
 // The sprite nodes the install's sprite tables attach to a model, and the gaps on the way, once per cause with the
-// names and the number of nodes each touches (INV-0002). A sprite node no model node names is silent.
+// names and the number of nodes each touches (INV-0002). A sprite node no model node names is silent, and so is an
+// unreadable line naming no node of the model.
 public sealed class SpriteNodes
 {
     const string Unread = "sprite node line cannot be read, it is not drawn";
@@ -45,22 +48,34 @@ public sealed class SpriteNodes
 
     // Names match ignoring case, through the name the built node carries (NodeName), as hardpoints do; when two
     // tables define a sprite node of one name, the first table in name order wins, as shot-sprite rows do.
+    // stand-in: a node with no sprite node of its own name takes the one of its name without a trailing "_<digits>":
+    // ship models number the instances of one light ("greenconst", "greenconst_2", "greenconst_3").
     public static SpriteNodes For(GameFileSystem files, Sod model)
     {
         var gaps = new Gaps();
         var lines = new Dictionary<string, (SpriteTable Table, SpriteNodeLine Line)>(StringComparer.OrdinalIgnoreCase);
+        var unread = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var table in new SpriteTableKind().Loaded(files))
         {
             foreach (var line in table.SpriteNodes)
                 lines.TryAdd(NodeName.Of(line.Node), (table, line));
-            foreach (var note in table.UnreadSpriteNodes)
-                gaps.Add(Unread, note);
+            foreach (var (name, note) in table.UnreadSpriteNodes.Where(u => u.Node.Length > 0))
+            {
+                if (!unread.TryGetValue(NodeName.Of(name), out var notes))
+                    unread[NodeName.Of(name)] = notes = new List<string>();
+                notes.Add(note);
+            }
         }
         var nodes = new List<SpriteNode>();
         Dictionary<string, (SpriteTable Table, Sprite Sprite)>? rows = null;
         foreach (var node in model.Nodes)
         {
-            if (!lines.TryGetValue(NodeName.Of(node.Name), out var hit))
+            foreach (var note in unread.GetValueOrDefault(NodeName.Of(node.Name)) ?? new List<string>())
+                gaps.Add(Unread, note, node);
+            if (
+                !lines.TryGetValue(NodeName.Of(node.Name), out var hit)
+                && !lines.TryGetValue(Unnumbered(NodeName.Of(node.Name)), out hit)
+            )
                 continue;
             var line = hit.Line;
             rows ??= SpriteArt.Rows(files);
@@ -88,4 +103,6 @@ public sealed class SpriteNodes
         }
         return new SpriteNodes(nodes, gaps.Entries);
     }
+
+    static string Unnumbered(string name) => Regex.Replace(name, @"_[0-9]+$", "");
 }

@@ -22,6 +22,10 @@ public sealed record SpriteArt(Sprite Sprite, IReadOnlyList<SpriteFrame> Frames,
         return new SpriteArt(sprite, frames, seconds);
     }
 
+    // The frame shown `seconds` after the sprite appeared: the flipbook loops; a still sprite shows its one frame.
+    public SpriteFrame FrameAt(double seconds) =>
+        FrameSeconds > 0 ? Frames[(int)(Math.Max(seconds, 0) / FrameSeconds) % Frames.Count] : Frames[0];
+
     // Every sprite of the install's tables by name. Each table is read with the animations of all the others, as
     // the sprite table kind does; the tables go in name order (ignoring case), and the first row of a name wins.
     // A table that cannot be read adds none.

@@ -81,7 +81,7 @@ public sealed class SpriteTable
     readonly Dictionary<string, SpriteAnimation> _animations = new(StringComparer.OrdinalIgnoreCase);
     readonly List<SpriteEmitter> _emitters = new();
     readonly List<SpriteNodeLine> _nodes = new();
-    readonly List<string> _unreadNodes = new();
+    readonly List<(string Node, string Note)> _unreadNodes = new();
     readonly List<string> _notes = new();
 
     public string Name { get; }
@@ -90,8 +90,8 @@ public sealed class SpriteTable
     public IReadOnlyList<SpriteEmitter> Emitters => _emitters;
     public IReadOnlyList<SpriteNodeLine> SpriteNodes => _nodes;
 
-    // The @sprite_node lines that cannot be read, one note each; Notes holds them too.
-    public IReadOnlyList<string> UnreadSpriteNodes => _unreadNodes;
+    // The @sprite_node lines that cannot be read: the node each names ("" when none) and a note; Notes holds the notes too.
+    public IReadOnlyList<(string Node, string Note)> UnreadSpriteNodes => _unreadNodes;
 
     // What does not fail the table: a sprite naming an animation no read table defines, an unreadable @sprite_node line.
     public IReadOnlyList<string> Notes => _notes;
@@ -351,7 +351,7 @@ public sealed class SpriteTable
                         else
                         {
                             var note = $"{table}:{n}: @sprite_node line '{string.Join(" ", t)}' cannot be read";
-                            _unreadNodes.Add(note);
+                            _unreadNodes.Add((t.Length > 1 ? t[1] : "", note));
                             _notes.Add(note);
                         }
                         break;

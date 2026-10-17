@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using OpenArmada.Rendering;
 
 namespace OpenArmada.Viewer;
 
 // The visible meshes of a built model, each with its transform in the root's own frame (the root's transform
-// left out). A hidden node hides its whole subtree.
+// left out). A hidden node hides its whole subtree. Sprite-node quads are no part of the model's geometry.
 public static class VisibleMeshes
 {
     public static List<(Mesh Mesh, Transform3D Transform)> Of(Node3D root)
@@ -17,7 +18,7 @@ public static class VisibleMeshes
                 return;
             if (node != root)
                 transform *= node.Transform;
-            if (node is MeshInstance3D m && m.Mesh != null)
+            if (node is MeshInstance3D m && m.Mesh != null && node is not SpriteNodeQuad)
                 found.Add((m.Mesh, transform));
             foreach (var child in node.GetChildren().OfType<Node3D>())
                 Walk(child, transform);

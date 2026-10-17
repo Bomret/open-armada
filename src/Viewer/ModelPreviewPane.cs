@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Godot;
+using OpenArmada.Rendering;
 
 namespace OpenArmada.Viewer;
 
@@ -46,13 +47,17 @@ public partial class ModelPreviewPane : SubViewportContainer
         UpdateCamera();
     }
 
+    // The box around the visible meshes; a model made only of sprite nodes is framed by its sprites.
     static Aabb Bounds(Node3D root)
     {
+        var meshes = root.FindChildren("*", nameof(MeshInstance3D), true, false)
+            .OfType<MeshInstance3D>()
+            .Where(m => m.IsVisibleInTree())
+            .ToList();
+        var geometry = meshes.Where(m => m is not SpriteNodeQuad).ToList();
         Aabb? box = null;
-        foreach (var m in root.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>())
+        foreach (var m in geometry.Count > 0 ? geometry : meshes)
         {
-            if (!m.IsVisibleInTree())
-                continue;
             var b = m.GlobalTransform * m.GetAabb();
             box = box?.Merge(b) ?? b;
         }

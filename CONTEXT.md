@@ -153,8 +153,10 @@ The player sets it with a key chord.
 _Avoid_: alert level, stance, combat mode
 
 **Attack order**
-An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target and
-fires at it, and the order ends when the target is destroyed.
+An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target
+until one of its weapons is within that weapon's range of the target's center, measured from the weapon's
+mount point on the model (see `docs/combat-rules.md`, §Firing). Keep-closing past the closing distance is an
+engine stand-in (see `docs/combat-rules.md`, §Attack order). The order ends when the target is destroyed.
 _Avoid_: attack command, focus fire
 
 **Key chord**

@@ -16,6 +16,12 @@ public sealed class ShipSystemState(SystemProfile profile, double bonus)
     /// <summary>The hit points left; starts at <see cref="Max"/>.</summary>
     public double HitPoints { get; set; } = profile.HitPoints + bonus;
 
+    /// <summary>
+    /// The live hit percent the location roll reads (0x464dd0); starts at the profile's, grows by shares of destroyed
+    /// systems, and is 0 once the system is destroyed.
+    /// </summary>
+    public double HitPercent { get; set; } = profile.HitPercent;
+
     /// <summary>Whether the system is destroyed; set at zero hit points and cleared once repair reaches <see cref="Max"/>.</summary>
-    public bool Destroyed { get; set; }
+    public bool Destroyed { get; internal set; }
 }

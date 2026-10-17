@@ -132,6 +132,9 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             Note(problem);
         }
 
+        // The art is built from the world's units, after the world; the world reads hardpoints through it from its
+        // first step on.
+        CombatArt? art = null;
         var orders = new UnitOrders(
             files,
             plan,
@@ -140,7 +143,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             (float)_rig.CombatPlaneHeight,
             bounds,
             combat,
-            gap => AddGap(gap)
+            gap => AddGap(gap),
+            (unit, name, pose) => art!.HardpointPosition(unit, name, pose)
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
@@ -149,7 +153,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.
-        var art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
+        art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
         var (eye, target) = _rig.Pose; // the camera's opening pose: no input has moved it yet
         var falloff = SoundFalloff.For(System.Numerics.Vector3.Distance(eye, target));
         AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, gap => AddGap(gap)));

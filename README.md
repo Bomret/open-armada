@@ -55,6 +55,33 @@ The sandbox behaves as follows:
 
 These rules apply to every map the sandbox opens.
 
+## Run a play script
+
+A play run opens the map sandbox, runs the steps of a play script in file order on simulated time, and quits after the last step. It runs under Godot's Movie Maker, which writes a PNG per frame and one WAV of the mixed audio and forces a fixed time step. Clear the output folder before a run, and create it: Movie Maker writes its files into it from the first frame, and the run itself deletes nothing there.
+
+```sh
+rm -rf play-out/duel && mkdir -p play-out/duel
+godot-mono --path . --write-movie play-out/duel/frame.png --fixed-fps 30 -- --game "/path/to/Star Trek - Armada" --map 2blue --play duel.play
+```
+
+`play-out/<script name>/` holds the frames, the WAV, and the state dumps of the run; the script name is the script's file name without its extension. Git ignores `play-out/`. The run creates the folder for a dump when it is missing.
+
+`--play <file>` is only accepted under Movie Maker (`--write-movie` with `--fixed-fps`), with `--map`, and without `--screenshot`. Anything else is a problem: one `ERROR` log entry, exit code 1, and no window.
+
+A play script is a text file with one step per line. Blank lines and lines that start with `#` are skipped. Steps:
+
+- `wait <seconds>` lets that much simulated time pass. The combat runs meanwhile.
+- `dump <name>` writes a state dump to `play-out/<script name>/<name>.txt`.
+- `expect <unit> <field> <op> <value>` checks one value of a unit's state. The fields are `shields`, `crew`, a system's hit points (`Engines`, `LifeSupport`, `Weapons`, `ShieldGenerator`, or `Sensors`), `destroyed` (`true` or `false`), and `target` (a unit name or `none`). The operators are `<`, `<=`, `=`, `>=`, and `>`; `destroyed` and `target` take only `=`. A number compares to the unit's value exactly, so use `>=` or `<=` for a value that changes.
+
+A unit is named by its map label, or by its class when the label is empty. When several units share a name, `name#k` is the k-th of them in map order, and the bare name is a problem. A unit that is destroyed leaves the fight: only `expect <unit> destroyed = true` can still ask about it, and every other step that names it is a problem.
+
+A state dump has one line per unit, destroyed units included, in map order. The fields are separated by spaces: the unit's name, `team=`, `pos=` (x,y,z), `shields=`, `crew=`, one `<System>=<hit points>/<maximum>/<intact or destroyed>` for each system the unit has (in the order Engines, LifeSupport, Weapons, ShieldGenerator, Sensors), `derelict=`, `immobile=`, `destroyed=`, `alert=`, `order=`, and `target=` (a unit name or `none`). A unit without combat state shows `state=none` after its position. Numbers have two decimals and no thousands separator, whatever the system's culture, and a dump holds no time of day.
+
+The combat random source is seeded with a fixed number and the asteroids animate on frame time, so two runs of one map and one script at one frame rate write byte-identical dumps.
+
+Each problem is one `ERROR` log entry that names the script and the line, and, for a failed `expect`, the expected and the actual value. A problem is a script that is missing, a line that cannot be read, a unit that cannot be found, a failed expectation, or a dump that cannot be written. The run then quits with exit code 1. A run that finishes quits with exit code 0.
+
 ## Read the log
 
 Every run writes log entries to Godot's own log, `godot.log`, beside Godot's own lines. The same entries go to standard output. The log of the latest run is:
@@ -92,7 +119,7 @@ A fault that repeats, such as a combat step that fails each frame, is logged at 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
 - `src/Rendering/` — converts parsed data into Godot nodes.
 - `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene. The scene handles selection, the selection display, orders, alert keys, and the drawing and sound of the fight.
-- `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
+- `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The play part holds the play script parser, the unit names, the state dump, and the play run. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
 - `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.
 

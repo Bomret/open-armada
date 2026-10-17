@@ -13,6 +13,7 @@ namespace OpenArmada.Viewer;
 /// asset.
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; [--model Fente] [--screenshot out.png]
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]   (the map sandbox)
+///   godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; --map &lt;name&gt; --play &lt;file&gt;   (a play run)
 ///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
 /// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--map</c>.
 /// </summary>
@@ -84,6 +85,13 @@ public partial class AssetBrowserView : Control
 
             _checkCode = code;
             GetTree().Quit(code);
+
+            return;
+        }
+
+        if (args.Has("--play"))
+        {
+            StartPlayRun(args, game);
 
             return;
         }
@@ -225,6 +233,52 @@ public partial class AssetBrowserView : Control
             var message = AssetBrowser.FailureMessage(name, e);
             ViewerLog.Failed(message);
             ShowMessage(message);
+        }
+    }
+
+    // Starts a play run of the map sandbox, or logs why it cannot and quits with exit code 1 (INV-0007); the window
+    // never stays open. Every problem here is one log entry, except a bare --play, whose entry the run start wrote.
+    void StartPlayRun(LaunchArgs args, string? game)
+    {
+        var problem = PlayRun.LaunchProblem(OS.HasFeature("movie"), args.Has("--map"), args.Has("--screenshot"));
+        var file = args.Value("--play");
+        if (problem != null)
+        {
+            Log.Error(Area.Run, problem);
+        }
+
+        if (problem != null || file == null)
+        {
+            GetTree().Quit(1);
+
+            return;
+        }
+
+        var script = PlayScript.Read(file);
+        foreach (var scriptProblem in script.Problems)
+        {
+            Log.Error(Area.Sandbox, scriptProblem);
+        }
+
+        // MapSandbox.Open logs a map that fails to open.
+        var sandbox = MapSandbox.Open(game, args.Value("--map"), args.Problems);
+        if (script.Problems.Count > 0 || sandbox.Problem != null)
+        {
+            GetTree().Quit(1);
+
+            return;
+        }
+
+        // See the map branch of _Ready: a full-window Control would stop the sandbox's mouse events.
+        MouseFilter = MouseFilterEnum.Ignore;
+        var view = new MapSandboxView(sandbox, null, script);
+        AddChild(view);
+
+        // The view adds the driver last; a scene that failed to build has none, and would stay open forever.
+        if (!view.GetChildren().Any(c => c is PlayDriver))
+        {
+            Log.Error(Area.Sandbox, $"{script.Path}: play run cannot start, the map sandbox failed to build its scene");
+            GetTree().Quit(1);
         }
     }
 

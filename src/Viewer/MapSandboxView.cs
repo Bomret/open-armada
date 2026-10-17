@@ -13,11 +13,13 @@ namespace OpenArmada.Viewer;
 /// <summary>
 /// The map sandbox: one map of the install as a live 3D scene, built from the scene plan.
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]
+/// With a play script (<c>--play</c>, under Movie Maker) the sandbox adds a PlayDriver that runs the script's steps
+/// and quits, and seeds the combat random source with PlayScript.Seed.
 /// Each later feature of the sandbox is one more node added in _Ready (the camera, the asteroid fields, the
 /// selection, the orders). A gap of the map or of the sandbox is printed and counted on screen; the map
 /// still opens (INV-0002).
 /// </summary>
-public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : Node3D
+public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, PlayScript? play = null) : Node3D
 {
     readonly Dictionary<string, Sod> _sods = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<(string Model, int Slot), Node3D> _templates = new();
@@ -140,7 +142,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             (float)_rig.CombatPlaneHeight,
             bounds,
             combat,
-            gap => AddGap(gap)
+            gap => AddGap(gap),
+            play == null ? null : PlayScript.Seed
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
@@ -174,6 +177,19 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         if (plan.Background != null)
         {
             AddBackground(files, builder, team, plan.Background, camera, reach);
+        }
+
+        if (play != null)
+        {
+            // The units a script can address are those at the start; a destroyed unit leaves the selection. The
+            // driver comes after the orders node, so each frame's combat step runs before the script's steps.
+            var state = new PlayState(
+                new UnitNames(selection.Units.Select(u => u.Object)),
+                orders.Pose,
+                orders.Combat.Units.ToList()
+            );
+            var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
+            AddChild(new PlayDriver(new PlayRun(play, state, folder)));
         }
 
         sandbox.LogOpened(selection.Units.Count);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Rendering;
 using OpenArmada.Sandbox;
@@ -61,7 +62,12 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         var plan = sandbox.Plan!;
         var team = TeamColors.Load(files);
         var builder = new SodBuilder(files);
-        _gaps.AddRange(team.Notes);
+        foreach (var note in team.Notes)
+        {
+            Note(note);
+        }
+
+        // The plans log their own reports when complete; the label only shows them.
         _gaps.AddRange(plan.Reports.Select(r => r.Text));
 
         // The scene's ambient light is the map's. stand-in: the directional light (its direction and
@@ -110,13 +116,13 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         }
         catch (Exception e) // no readable RTS_CFG.h: the camera uses its stand-ins (INV-0002)
         {
-            AddGap($"{GameConstantsKind.FileName} cannot be read: {e.Message}");
+            Note($"{GameConstantsKind.FileName} cannot be read: {e.Message}");
             _rig = new CameraRig(null, bounds);
         }
 
         foreach (var problem in _rig.Problems)
         {
-            AddGap(problem);
+            Note(problem);
         }
 
         var orders = new UnitOrders(
@@ -141,7 +147,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, AddGap));
         _gaps.AddRange(art.Reports.Select(r => r.Text));
 
-        AddChild(new AsteroidFieldsView(files, plan, AddGap));
+        AddChild(new AsteroidFieldsView(files, plan, Note, Unreadable));
 
         // The sandbox's reach: no camera is farther from an object than the rig's greatest eye distance from its
         // look-at point (which stays within the map) plus the map's diagonal.
@@ -162,6 +168,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             AddBackground(files, builder, team, plan.Background, camera, reach);
         }
 
+        sandbox.LogOpened(selection.Units.Count);
         Show(null);
     }
 
@@ -183,7 +190,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             var node = builder.Build(sod, team.Color(TeamColors.SlotNames[slot]));
             foreach (var problem in builder.Problems)
             {
-                AddGap($"{model}: {problem}");
+                Note($"{model}: {problem}");
             }
 
             _templates[(model, slot)] = node;
@@ -193,12 +200,14 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         catch (Exception e) // a model that cannot be read is a gap, whatever the reason, and is read once (INV-0002)
         {
             _unreadable.Add(model);
-            AddGap($"model '{model}' cannot be read: {e.Message}");
+            Unreadable(model, e.Message);
 
             return null;
         }
     }
 
+    // Shows a gap on the label once. The producers that pass this (the orders, the combat view, the alert keys)
+    // log their own findings.
     void AddGap(string gap)
     {
         if (!_gaps.Contains(gap))
@@ -206,6 +215,19 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             _gaps.Add(gap);
         }
     }
+
+    // A finding only the view gathers: shown once and logged once, as WARN.
+    void Note(string gap)
+    {
+        if (!_gaps.Contains(gap))
+        {
+            Log.Warn(Area.Sandbox, gap);
+            _gaps.Add(gap);
+        }
+    }
+
+    // A model that cannot be read: an asset failed, so ERROR; shown on the label like any gap.
+    void Unreadable(string model, string reason) => AddGap(MapSandbox.LogUnreadableModel(model, reason));
 
     // The background model sits behind every other object: it is scaled until its origin's nearest distance to
     // a face of its box passes the sandbox's reach, kept with its box center (its origin when inside) on the camera, and the far plane
@@ -259,15 +281,11 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         _camera = camera;
     }
 
-    // Prints the gaps and shows them on a label with their count, or a problem in place of the scene.
+    // Shows the gaps on a label with their count, or a problem in place of the scene. The log has each of them
+    // already (MapSandbox.Open logs the problem).
     void Show(string? problem)
     {
         var text = problem ?? (_gaps.Count == 0 ? "" : $"{_gaps.Count} gaps:\n{string.Join("\n", _gaps)}");
-        if (text.Length > 0)
-        {
-            GD.PrintErr(text);
-        }
-
         var layer = new CanvasLayer();
         AddChild(layer);
         layer.AddChild(
@@ -359,7 +377,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         // Wait a few frames so textures are uploaded before capturing.
         if (screenshot == null || ++_frames < 5)
             return;
-        GetViewport().GetTexture().GetImage().SavePng(screenshot);
+        var saved = GetViewport().GetTexture().GetImage().SavePng(screenshot);
+        MapSandbox.LogScreenshot(screenshot, saved == Error.Ok ? null : saved.ToString());
         GetTree().Quit();
     }
 }

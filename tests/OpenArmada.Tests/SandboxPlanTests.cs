@@ -279,6 +279,38 @@ public class SandboxPlanTests
     }
 
     [TestMethod]
+    public void AGapOfOneCauseOnManyObjectsIsOneWarnEntryWithTheLabelLine()
+    {
+        using var log = new CapturedLog();
+        var plan = Plan(
+            MapOf(Ship(), Ship(), Ship("fother")),
+            Fbattle.Append(("fother", "baseName = fdreadnought")).ToArray()
+        );
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.Contains(line, " WARN sandbox: " + plan.Reports.Single().Text);
+        Assert.AreEqual(1, log.Lines.Count);
+    }
+
+    [TestMethod]
+    public void AnAsteroidFieldsGapIsLoggedOnceBySandboxPlanAndNotAgain()
+    {
+        const string odf =
+            "classLabel = AsteroidField\nminAsteroids = 1\nmaxAsteroids = 2\nfieldRadius = 50\nrotationSpeed = 1\norbitingSpeed = 1";
+        using var log = new CapturedLog();
+        var plan = Plan(MapOf(Ship("mafield")), new[] { ("mafield", odf) }, "master", "master1");
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.EndsWith(line, plan.Reports.Single().Text);
+    }
+
+    [TestMethod]
+    public void APlanWithoutGapsLogsNothing()
+    {
+        using var log = new CapturedLog();
+        Plan(MapOf(Ship()), Fbattle, "fdreadnought");
+        Assert.AreEqual(0, log.Lines.Count);
+    }
+
+    [TestMethod]
     public void ATeamUsesTheSlotItsMapRecordGives()
     {
         var map = MapOf(Ship(team: 2));

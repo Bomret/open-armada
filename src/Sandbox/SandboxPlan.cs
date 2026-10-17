@@ -209,7 +209,7 @@ public sealed class SandboxPlan
 
         return new SandboxPlan(
             placed,
-            gaps.Entries.Concat(fieldReports).ToList(),
+            Gaps.Logged(gaps.Entries.Concat(fieldReports).ToList()),
             map.Ambient,
             background,
             map.Bounds,

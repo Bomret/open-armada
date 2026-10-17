@@ -114,6 +114,6 @@ public sealed class UnitPlan
             );
         }
 
-        return new UnitPlan(units, gaps.Entries);
+        return new UnitPlan(units, Gaps.Logged(gaps.Entries));
     }
 }

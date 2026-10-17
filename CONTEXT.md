@@ -153,8 +153,9 @@ The player sets it with a key chord.
 _Avoid_: alert level, stance, combat mode
 
 **Attack order**
-An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target and
-fires at it, and the order ends when the target is destroyed.
+An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target
+until a weapon hardpoint is within the weapon's range of the target's center, and the order ends when the
+target is destroyed.
 _Avoid_: attack command, focus fire
 
 **Key chord**

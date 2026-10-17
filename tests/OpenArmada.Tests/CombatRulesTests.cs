@@ -291,6 +291,24 @@ public class CombatRulesTests
     }
 
     [TestMethod]
+    public void DonorsHoldingUnequalExcessGiveBackInProportionAndNotEvenly()
+    {
+        var target = WithSystems(Sys("Engines"), Sys("LifeSupport"), Sys("Weapons"), Sys("Sensors"));
+        target.DestroySystem("Engines");
+        target.DestroySystem("LifeSupport");
+        target.RestoreSystem("LifeSupport");
+        target.DestroySystem("Weapons");
+        // life support holds 10 + 7.5 and sensors 15 + 7.5, so the excess is 7.5 against 12.5
+        Assert.AreEqual(17.5, Live(target, "LifeSupport"), 1e-6);
+        Assert.AreEqual(22.5, Live(target, "Sensors"), 1e-6);
+        // engines take 10 of the 20 excess, half from each donor: 3.75 and 6.25 (an even split would give 5 each)
+        target.RestoreSystem("Engines");
+        Assert.AreEqual(10, Live(target, "Engines"), 1e-6);
+        Assert.AreEqual(13.75, Live(target, "LifeSupport"), 1e-6);
+        Assert.AreEqual(16.25, Live(target, "Sensors"), 1e-6);
+    }
+
+    [TestMethod]
     public void ASystemRestoredWhileAnotherIsStillDestroyedTakesItsPercentFromTheCriticalShareWhenNoSystemHoldsExcess()
     {
         var target = WithSystems(Sys("Engines", percent: 20), Sys("Weapons", percent: 10));

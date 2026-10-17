@@ -29,7 +29,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
 
     // Null while the map shows a problem instead of the scene (_Ready returns before the rig is built).
     CameraRig? _rig;
-    bool _mouseInWindow = true;
+    bool _mouseInWindow;
     int _frames;
 
     /// <inheritdoc/>
@@ -43,6 +43,10 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         }
 
         var window = GetWindow();
+        // The window reports only a later enter or exit, so the start state comes from the cursor's place on screen.
+        _mouseInWindow = new Rect2I(DisplayServer.WindowGetPosition(), DisplayServer.WindowGetSize()).HasPoint(
+            DisplayServer.MouseGetPosition()
+        );
         window.MouseEntered += () => _mouseInWindow = true;
         window.MouseExited += () => _mouseInWindow = false;
         // stand-in: the game ran full screen, where the screen edge holds the cursor in the scroll border; the

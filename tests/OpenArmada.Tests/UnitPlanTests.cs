@@ -165,4 +165,14 @@ public class UnitPlanTests
         var plan = Plan(new[] { "x" }, new[] { ("x", Physics) }, ("addon/p.odf", ""));
         Assert.AreEqual(new Ship { Name = "x" }, plan.Units.Single().Unit);
     }
+
+    // The map holds two objects of the same class, team, position, and label.
+    [TestMethod]
+    public void TwoIdenticalObjectsAreTwoUnits()
+    {
+        var plan = Plan(new[] { "ship", "ship" }, new[] { ("ship", Physics) }, ("addon/p.odf", "maxRoll = 1"));
+        Assert.AreEqual(2, plan.Units.Count);
+        Assert.AreNotEqual(plan.Units[0], plan.Units[1]);
+        Assert.AreNotSame(plan.Units[0].Object, plan.Units[1].Object);
+    }
 }

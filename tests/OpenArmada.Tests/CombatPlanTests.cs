@@ -405,4 +405,19 @@ public class CombatPlanTests
         var r = Plan(new[] { "s", "s" }, new[] { ("s", odf), ("fed", Race) }, ("RTS_CFG.h", Constants));
         Assert.AreEqual(2, r.Plan.Reports.Single(g => g.Cause.StartsWith("crewCost missing")).Count);
     }
+
+    // The map holds two objects of the same class, team, position, and label.
+    [TestMethod]
+    public void TwoIdenticalUnitsGetAProfileEach()
+    {
+        var r = Plan(
+            new[] { "s", "s" },
+            new[] { ("s", Ship), ("fed", Race), ("beam", Beam), ("beamo", BeamOrd) },
+            ("RTS_CFG.h", Constants)
+        );
+        Assert.AreEqual(2, r.Units.Length);
+        Assert.AreNotSame(r.Units[0].Object, r.Units[1].Object);
+        Assert.AreEqual(2, r.Plan.Profiles.Count);
+        Assert.IsTrue(r.Units.All(u => r.Plan.Profiles.ContainsKey(u.Object)));
+    }
 }

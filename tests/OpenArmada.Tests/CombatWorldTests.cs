@@ -489,6 +489,55 @@ public class CombatWorldTests
         Assert.IsFalse(events.OfType<ShotLanded>().Any(e => e.Shot.Target.Unit == b.Object && e.Hit.Points == 0));
     }
 
+    // Two units of identical fields on one spot, on a team hostile to `a`. Tell them apart by reference only:
+    // they share a label.
+    static (Spec One, Spec Two) Twins(CombatProfile profile) =>
+        (
+            new Spec { Object = Placed("t", 2, 100), Profile = profile },
+            new Spec { Object = Placed("t", 2, 100), Profile = profile }
+        );
+
+    [TestMethod]
+    public void TwoIdenticalUnitsAreTwoUnitsOfTheWorld()
+    {
+        var (one, two) = Twins(Profile());
+        var world = World(null, Fighter("a", 1, 0, Weapon()), one, two);
+        Assert.AreEqual(3, world.Units.Count());
+        Assert.AreNotSame(world.State(one.Object), world.State(two.Object));
+        Assert.IsTrue(world.Units.Any(u => ReferenceEquals(u.Unit, two.Object)));
+    }
+
+    [TestMethod]
+    public void DamagingOneOfTwoIdenticalUnitsLeavesTheOtherUntouched()
+    {
+        var (one, two) = Twins(Profile(maxHealth: 100, systems: new[] { Sys("Engines") }));
+        var a = Fighter("a", 1, 0, Weapon(Beam(damage: 10, life: 0.1f), delay: 100, range: 200));
+        var world = World(null, a, one, two);
+        world.Attack(a.Object, one.Object);
+        world.Step(1);
+        Assert.AreEqual(90, world.State(one.Object)!.Shields, 1e-6);
+        var other = world.State(two.Object)!;
+        Assert.AreEqual(100, other.Shields, 1e-6);
+        Assert.AreEqual(100, other.Crew, 1e-6);
+        Assert.AreEqual(other.Systems["Engines"].Max, other.Systems["Engines"].HitPoints, 1e-6);
+    }
+
+    [TestMethod]
+    public void DestroyingOneOfTwoIdenticalUnitsLeavesTheOtherInTheFight()
+    {
+        var (one, two) = Twins(Profile(maxHealth: 0, hull: 0));
+        var a = Fighter("a", 1, 0, Weapon(Beam(damage: 200, life: 0.1f), delay: 1, range: 200));
+        var world = World(null, a, one, two);
+        world.Attack(a.Object, one.Object);
+        var destroyed = world.Step(0.5).OfType<UnitDestroyed>().Single();
+        Assert.AreSame(one.Object, destroyed.Unit);
+        Assert.IsNull(world.State(one.Object));
+        Assert.IsNotNull(world.State(two.Object));
+        Assert.IsTrue(world.Units.Any(u => ReferenceEquals(u.Unit, two.Object)));
+        Assert.IsTrue(world.Attack(a.Object, two.Object));
+        Assert.IsTrue(world.Step(2).OfType<ShotLanded>().Any(e => ReferenceEquals(e.Shot.Target.Unit, two.Object)));
+    }
+
     [TestMethod]
     public void AMoveOrderCancelsAnAttackOrder()
     {

@@ -180,4 +180,14 @@ public class MovePlanTests
         Assert.AreEqual(0, plan.Physics.Count);
         Assert.AreEqual(0, plan.Reports.Count);
     }
+
+    // The map holds two objects of the same class, team, position, and label.
+    [TestMethod]
+    public void TwoIdenticalShipsGetAPhysicsEntryEach()
+    {
+        var plan = Plan(new[] { "ship", "ship" }, new[] { ("ship", Ship) }, "impulseSpeed = 12\r\nyawRotationRate = 1");
+        Assert.AreEqual(2, plan.Physics.Count);
+        var keys = plan.Physics.Keys.ToArray();
+        Assert.AreNotSame(keys[0], keys[1]);
+    }
 }

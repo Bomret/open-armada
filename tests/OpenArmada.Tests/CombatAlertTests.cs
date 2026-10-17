@@ -44,7 +44,8 @@ public class CombatAlertTests
                 Mobile = s.Mobile,
             }),
             1,
-            () => 0
+            () => 0,
+            (_, _, pose) => pose.Position
         );
 
         return (world, poses);

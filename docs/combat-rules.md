@@ -71,8 +71,10 @@ An attack order (0x4294e0) names one target unit.
 
 - The closing range is the longest range of the unit's weapons (0x429616). While the surface distance is
   more than the closing range less 50, the unit moves toward the target.
-- Within that distance, the unit holds position and turns toward the target (**stand-in**; the game runs
-  an attack maneuver that was not traced).
+- Within that distance, the unit holds position and turns toward the target once at least one of its
+  weapons has a hardpoint within the weapon's range of the target's center (see Firing). Until then it keeps
+  moving toward the target, so a target with a large radius is not out of reach (**stand-in**; the game
+  runs an attack maneuver that was not traced).
 - The weapons fire at the ordered target only while it is within the longest weapon range. Until then
   they fire at the nearest valid target in range, as target selection picks it (0x42fd6f).
 - The order ends, and the unit becomes idle, when the target is destroyed (0x429903). A derelict target
@@ -81,10 +83,22 @@ An attack order (0x4294e0) names one target unit.
 
 ## Firing
 
-A weapon fires when its reload delay has passed and its unit holds a target (0x509bd0). It fires from
-each hardpoint its `weaponHardpointsN` key names. No order is needed beyond the target the unit holds. A
-weapon whose `weaponHardpointsN` key names no hardpoint is reported and left out, so it does not count as a
-weapon of its unit.
+A weapon fires when its reload delay has passed and its unit holds a target (0x509bd0). No order is needed
+beyond the target the unit holds. Each reload gives one shot, from one hardpoint of the weapon's
+`weaponHardpointsN` key, never one shot from each.
+
+The weapon fires only when one of its hardpoints is within the weapon's own `range` of the target's center
+(0x50a520, 0x50a290). The distance runs from the hardpoint to the target's center, not surface to surface,
+so a target that unit selection picked can still be out of every weapon's reach. The shot leaves from the
+nearest hardpoint in range, and a torpedo or pulse starts its flight at that hardpoint's world position. The
+first listed hardpoint wins a tie (**inferred**: the tie order follows the
+key's list order). Each weapon of a unit is judged by its own `range`, so a short-range weapon stays silent
+while a longer one fires. A weapon with no hardpoint in range fires nothing, makes no sound, and stays ready,
+so it fires on the first tick a hardpoint comes in range. A weapon whose `weaponHardpointsN` key names no
+hardpoint is reported and left out, so it does not count as a weapon of its unit.
+
+The game can also restrict a weapon's fire to an arc (`restrictFireArc`, 0x50a170). The arc is not built:
+every weapon fires in any direction (**stand-in**).
 
 After each shot the reload delay is `shotDelay`, multiplied by a crew factor when the weapon sets
 `crewAffectsWeaponDelay` (0x506452, 0x50b690). With the crew ratio as current crew over `maximumCrew`,
@@ -101,7 +115,9 @@ The to-hit roll happens when the weapon fires (0x50a3b0):
   stopped, plus `toHitStopModifier` when the target is stopped. The slow modifiers are not used.
 - The shot hits when a uniform random number from 0 to 1 is at most the chance.
 
-A missed shot is aimed beside the target (0x50a7c0) and hits nothing (**stand-in**).
+A missed shot is aimed by the miss path (0x50aab0), which leads the target and offsets the aim by the target's
+radius; 0x50a7c0 is the aim of a shot that hits. The missed shot hits nothing. The sandbox aims a miss beside
+the target without the lead (**stand-in**).
 
 ## Shots
 

@@ -269,20 +269,12 @@ public sealed class CombatWorld
                 continue;
             }
             var delay = CombatRules.ReloadDelay(weapon.Profile, u);
-            // A delay below a tick fires several rounds in one tick; a delay of zero fires one round per tick.
+            // A delay below a tick fires several rounds in one tick; a delay of zero fires one round per tick. A
+            // round is one shot per hardpoint, so a weapon without hardpoints fires nothing.
             while (weapon.Cooldown <= Epsilon)
             {
-                for (var i = 0; i < Math.Max(1, weapon.Profile.Hardpoints.Count); i++)
-                    events.Add(
-                        new ShotFired(
-                            Launch(
-                                u,
-                                weapon.Profile,
-                                target,
-                                i < weapon.Profile.Hardpoints.Count ? weapon.Profile.Hardpoints[i] : null
-                            )
-                        )
-                    );
+                foreach (var hardpoint in weapon.Profile.Hardpoints)
+                    events.Add(new ShotFired(Launch(u, weapon.Profile, target, hardpoint)));
                 weapon.Cooldown += delay;
                 if (delay <= Epsilon)
                 {

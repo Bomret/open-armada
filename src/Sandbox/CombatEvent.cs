@@ -45,7 +45,7 @@ public sealed class Shot(
     string? hardpoint = null
 )
 {
-    // The name of the hardpoint node the weapon fires this shot from; null when the weapon names none.
+    // The name of the hardpoint node the weapon fires this shot from; null for a hardpoint entry without a name.
     public string? Hardpoint { get; } = hardpoint;
 
     public ShotKind Kind { get; } = kind;

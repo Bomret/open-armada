@@ -135,6 +135,16 @@ public class CombatWorldTests
     }
 
     [TestMethod]
+    public void AWeaponWithoutHardpointsFiresNoShot()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 200, hardpoints: 0));
+        var b = Fighter("b", 2, 100);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.AreEqual(0, Fired(world.Step(1), "a"));
+    }
+
+    [TestMethod]
     public void EachShotNamesTheHardpointItLeavesFrom()
     {
         var weapon = Weapon(range: 200) with { Hardpoints = new[] { "hp01", "hp02" } };

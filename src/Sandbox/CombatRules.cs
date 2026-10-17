@@ -51,17 +51,64 @@ public static class CombatRules
 
     // The location a roll of 0 to 99 hits: the roll is reduced by the hit percent of engines, life support,
     // weapons, shield generator, sensors, and hull in turn; the location that takes it below zero is hit, and a
-    // roll that no location takes is a critical hit. A system the unit lacks has no percent.
-    public static HitLocation Location(CombatProfile profile, int roll)
+    // roll that no location takes is a critical hit. A system the unit lacks has no percent; a destroyed system's
+    // percent is shared evenly among the systems still working, and goes to the critical share (the part no
+    // location takes) when none works.
+    public static HitLocation Location(UnitCombatState target, int roll)
     {
+        var present = SystemOrder.Where(target.Systems.ContainsKey).ToList();
+        var working = present.Count(n => !target.Systems[n].Destroyed);
+        var share = working == 0 ? 0 : present.Where(target.SystemDestroyed).Sum(n => target.Systems[n].Profile.HitPercent) / working;
         var left = (double)roll;
         for (var i = 0; i < SystemOrder.Length; i++)
         {
-            left -= profile.Systems.FirstOrDefault(s => s.Name == SystemOrder[i])?.HitPercent ?? 0;
+            if (target.Systems.TryGetValue(SystemOrder[i], out var s) && !s.Destroyed)
+                left -= s.Profile.HitPercent + share;
             if (left < 0)
                 return (HitLocation)i;
         }
-        return left - profile.HullHitPercent < 0 ? HitLocation.Hull : HitLocation.Critical;
+        return left - target.Profile.HullHitPercent < 0 ? HitLocation.Hull : HitLocation.Critical;
+    }
+
+    // Repairs the unit's damaged systems for `seconds` (the rules' "Repair"). A derelict unit repairs nothing.
+    // stand-in: the officer factor is 1.
+    public static void Repair(UnitCombatState unit, double seconds)
+    {
+        if (unit.Derelict)
+            return;
+        var race = unit.Profile.Race;
+        var ratio = unit.Crew / unit.Profile.MaximumCrew;
+        var factor =
+            ratio <= race.CrewRedStatus ? race.RepairRed
+            : ratio <= race.CrewYellowStatus ? race.RepairYellow
+            : 1;
+        foreach (var s in unit.Systems.Values.Where(s => s.HitPoints < s.Max))
+        {
+            // seconds one hit point takes
+            var perPoint = s.Profile.RepairTime / s.Max * race.RepairStrength * factor;
+            s.HitPoints = perPoint <= 0 ? s.Max : Math.Min(s.Max, s.HitPoints + seconds / perPoint);
+            if (s.HitPoints >= s.Max)
+                s.Destroyed = false;
+        }
+    }
+
+    // Life support loss for `seconds`: the crew of a unit with destroyed life support falls by 1 plus
+    // lifeSupportLoss percent of the crew per second. A derelict unit loses none.
+    public static void Sustain(UnitCombatState unit, double seconds)
+    {
+        if (unit.Derelict || !unit.SystemDestroyed("LifeSupport"))
+            return;
+        unit.Crew -= (1 + unit.Crew * unit.Profile.LifeSupportLoss / 100) * seconds;
+        CheckCrew(unit);
+    }
+
+    // The crew below one is set to zero and the unit becomes derelict.
+    static void CheckCrew(UnitCombatState unit)
+    {
+        if (unit.Crew >= 1)
+            return;
+        unit.Crew = 0;
+        unit.Derelict = true;
     }
 
     // Applies a landed hit of `damage` at `location` to the unit (the rules' "Applying a hit"). The crew loss
@@ -110,12 +157,21 @@ public static class CombatRules
                     destroyed = true;
                     break;
                 default:
-                    target.SystemDamage[location.ToString()] =
-                        target.SystemDamage.GetValueOrDefault(location.ToString()) + points;
+                    if (target.Systems.TryGetValue(location.ToString(), out var system) && !system.Destroyed)
+                    {
+                        system.HitPoints = Math.Max(0, system.HitPoints - points);
+                        if (system.HitPoints <= 0)
+                        {
+                            system.Destroyed = true;
+                            if (!target.Derelict)
+                                crewLoss += 1 + target.Crew * system.Profile.CrewLoss / 100;
+                        }
+                    }
                     break;
             }
-        // simplicity: crew below one does nothing yet; a later slice makes the unit derelict
         target.Crew = Math.Max(0, target.Crew - crewLoss);
+        if (crewLoss > 0)
+            CheckCrew(target);
         target.Destroyed |= destroyed;
         return new Hit(location, damage, shieldLoss, crewLoss, points, destroyed);
     }
@@ -124,6 +180,8 @@ public static class CombatRules
     // rate per second up to the maximum.
     public static void RegainShields(UnitCombatState unit, double seconds)
     {
+        if (unit.Derelict || unit.SystemDestroyed("ShieldGenerator"))
+            return;
         var down = Math.Min(unit.ShieldDown, seconds);
         unit.ShieldDown -= down;
         unit.Shields = Math.Min(unit.Profile.MaxHealth, unit.Shields + unit.Profile.ShieldRate * (seconds - down));

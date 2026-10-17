@@ -40,14 +40,22 @@ public sealed class CombatWorld
         UnitPoses poses,
         IEnumerable<CombatUnit> units,
         double shieldDamageProtection,
-        Func<double> random
+        Func<double> random,
+        double systemHitpointsBonus = 0
     )
     {
         _poses = poses;
         _protection = shieldDamageProtection;
         _random = random;
         foreach (var u in units)
-            _units[u.Unit] = new UnitCombatState(u.Unit, u.Profile, u.DefinitionName, u.Radius, u.Mobile);
+            _units[u.Unit] = new UnitCombatState(
+                u.Unit,
+                u.Profile,
+                u.DefinitionName,
+                u.Radius,
+                u.Mobile,
+                systemHitpointsBonus
+            );
     }
 
     // The shots in flight.
@@ -302,7 +310,7 @@ public sealed class CombatWorld
     {
         var target = shot.Target;
         var damage = CombatRules.Damage(shot.Weapon.Ordnance, target.DefinitionName, _random());
-        var location = CombatRules.Location(target.Profile, Math.Min(99, (int)(_random() * 100)));
+        var location = CombatRules.Location(target,Math.Min(99, (int)(_random() * 100)));
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
         events.Add(new ShotLanded(shot, hit));
         if (!hit.Destroyed)

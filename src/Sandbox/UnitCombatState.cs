@@ -30,7 +30,8 @@ public sealed class UnitCombatState(
     CombatProfile profile,
     string definitionName,
     float radius,
-    bool mobile
+    bool mobile,
+    double systemHitpointsBonus = 0
 )
 {
     public PlacedObject Unit { get; } = unit;
@@ -54,8 +55,17 @@ public sealed class UnitCombatState(
     // The part of damage that has not yet made a whole point.
     public double SystemsRemainder { get; set; }
 
-    // Whole points of damage each ship system (by SystemProfile.Name) has taken; they have no effect yet.
-    public Dictionary<string, int> SystemDamage { get; } = new();
+    // The ship systems the unit has, by SystemProfile.Name (a system with no hit points is absent).
+    public Dictionary<string, ShipSystemState> Systems { get; } =
+        profile.Systems.Where(s => s.HitPoints > 0).ToDictionary(s => s.Name, s => new ShipSystemState(s, systemHitpointsBonus));
+
+    // A derelict unit has no crew: it never moves, fires nothing, regains nothing, and stays on the map.
+    public bool Derelict { get; set; }
+
+    public bool SystemDestroyed(string name) => Systems.TryGetValue(name, out var s) && s.Destroyed;
+
+    // Whether the unit cannot move: derelict, or with its engines destroyed.
+    public bool Immobile => Derelict || SystemDestroyed("Engines");
     public List<WeaponState> Weapons { get; } = profile.Weapons.Select(w => new WeaponState(w)).ToList();
 
     // The unit the attack order names; null without an order.

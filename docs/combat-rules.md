@@ -178,7 +178,8 @@ reading is not known). A destroyed system works again only once it is back at fu
 
 ## Crew, derelicts, and destruction
 
-A unit starts with `crewCost` crew. When the crew falls below one (0x466ca0), the crew is set to zero
+A unit starts with `crewCost` crew; a unit that starts below one is derelict from the start. When the
+crew falls below one (0x466ca0), the crew is set to zero
 and the unit becomes **derelict**: all its systems go offline and its shields go down. A derelict
 unit regains no shields, loses no crew to life support, fires no weapon, and is no valid target for
 target selection. It stays on the map.

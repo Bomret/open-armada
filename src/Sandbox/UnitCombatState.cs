@@ -46,8 +46,10 @@ public sealed class UnitCombatState(
     // Whether the unit moves at all: false for stations and ships without a physics definition.
     public bool Mobile { get; } = mobile;
     public int Team => Unit.Team;
-    public double Shields { get; set; } = profile.MaxHealth;
-    public double Crew { get; set; } = profile.CrewCost;
+
+    // A unit that starts with crew below one is derelict from the start: no crew, shields down.
+    public double Shields { get; set; } = profile.CrewCost < 1 ? 0 : profile.MaxHealth;
+    public double Crew { get; set; } = profile.CrewCost < 1 ? 0 : profile.CrewCost;
 
     // Seconds the shields stay down after reaching zero.
     public double ShieldDown { get; set; }
@@ -62,7 +64,7 @@ public sealed class UnitCombatState(
             .ToDictionary(s => s.Name, s => new ShipSystemState(s, systemHitpointsBonus));
 
     // A derelict unit has no crew: it never moves, fires nothing, regains nothing, and stays on the map.
-    public bool Derelict { get; set; }
+    public bool Derelict { get; set; } = profile.CrewCost < 1;
 
     public bool SystemDestroyed(string name) => Systems.TryGetValue(name, out var s) && s.Destroyed;
 

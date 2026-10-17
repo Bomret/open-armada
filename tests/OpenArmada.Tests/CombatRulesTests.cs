@@ -233,6 +233,35 @@ public class CombatRulesTests
     }
 
     [TestMethod]
+    public void AUnitThatStartsWithCrewBelowOneIsDerelictFromTheStartWithNoCrewAndNoShields()
+    {
+        var target = Target(shields: 50, crew: 0.5f);
+        Assert.IsTrue(target.Derelict);
+        Assert.AreEqual(0, target.Crew, 1e-6);
+        Assert.AreEqual(0, target.Shields, 1e-6);
+    }
+
+    [TestMethod]
+    public void ARaceWithRepairRedZeroDoesNotRepairAtRedCrewStatus()
+    {
+        var target = State(
+            Profile(
+                systems: new[] { Sys("Engines", hitPoints: 5, repairTime: 10) },
+                crew: 100,
+                maximumCrew: 100,
+                race: RepairRace with
+                {
+                    RepairRed = 0,
+                }
+            )
+        );
+        target.Systems["Engines"].HitPoints = 1;
+        target.Crew = 25;
+        CombatRules.Repair(target, 100);
+        Assert.AreEqual(1, target.Systems["Engines"].HitPoints, 1e-6);
+    }
+
+    [TestMethod]
     public void CrewStayingAtOrAboveOneLeavesTheUnitAlive()
     {
         var target = Target(shields: 0, crew: 3);

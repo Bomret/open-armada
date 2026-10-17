@@ -118,7 +118,6 @@ public static class CombatRules
         // stand-in: the game can destroy the unit instead, by a flag whose source is unknown (docs/combat-rules.md).
         unit.Derelict = true;
         unit.Shields = 0;
-        unit.ShieldDown = unit.Profile.ShieldDelay;
     }
 
     // Applies a landed hit of `damage` at `location` to the unit (the rules' "Applying a hit"). The crew loss

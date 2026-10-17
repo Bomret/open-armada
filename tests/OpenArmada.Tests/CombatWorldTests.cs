@@ -133,6 +133,76 @@ public class CombatWorldTests
         Assert.AreEqual(MoveKind.Face, world.State(a.Object)!.Intent.Kind);
     }
 
+    [TestMethod]
+    public void ARedAlertIdleShipKeepsClosingOnALargeTargetUntilAHardpointIsInRangeThenFires()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 200));
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 250),
+            Profile = Profile(null, maxHealth: 100, hull: 100),
+            Radius = 100,
+        };
+        var world = World(out var poses, null, a, b);
+        world.State(a.Object)!.Alert = AlertStance.Red;
+        // surface distance 150 is within 200 - 50, but the hardpoint is 250 from the center, out of range
+        Assert.AreEqual(0, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        poses.Advance(a.Object, MovingTo(a.Object, 60, 0), 1000);
+        Assert.AreEqual(1, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(MoveKind.Face, world.State(a.Object)!.Intent.Kind);
+    }
+
+    [TestMethod]
+    public void ARearHardpointShipHoldsWithoutFlippingOnceAHardpointIsInRange()
+    {
+        // The hardpoint trails the center by 80: surface distance allows holding from x = 150, the hardpoint is in
+        // range of the target's center from x = 180.
+        var a = Fighter("a", 1, 0, OnHardpoints(200, "rear"));
+        var b = Fighter("b", 2, 300);
+        var poses = new UnitPoses(new[] { a.Object, b.Object });
+        var world = new CombatWorld(
+            poses,
+            new[] { a, b }.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = s.Radius,
+                Mobile = s.Mobile,
+            }),
+            1,
+            () => 0,
+            hardpointPosition: (_, _, pose) => pose.Position + new Vector3(-80, 0, 0)
+        );
+        world.Attack(a.Object, b.Object);
+        var kinds = new List<MoveKind>();
+        var fired = new List<int>();
+        foreach (var x in new float[] { 150, 170, 179, 180, 181, 190, 180, 181 })
+        {
+            poses.Advance(a.Object, MovingTo(a.Object, x, 0), 1000);
+            fired.Add(Fired(world.Step(0.02), "a"));
+            kinds.Add(world.State(a.Object)!.Intent.Kind);
+        }
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                MoveKind.MoveTo,
+                MoveKind.MoveTo,
+                MoveKind.MoveTo,
+                MoveKind.Face,
+                MoveKind.Face,
+                MoveKind.Face,
+                MoveKind.Face,
+                MoveKind.Face,
+            },
+            kinds
+        );
+        Assert.AreEqual(0, fired.Take(3).Sum());
+        Assert.AreEqual(1, fired.Skip(3).Sum());
+    }
+
     static ShipMotion MovingTo(PlacedObject o, float x, float z)
     {
         var motion = new ShipMotion(

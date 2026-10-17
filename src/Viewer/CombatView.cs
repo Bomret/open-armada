@@ -83,11 +83,9 @@ public partial class CombatView : Node3D
         foreach (var name in art.ExplosionModels)
             try
             {
-                {
-                    _models[name] = builder.Build(Sod.Read(files.ReadAllBytes(name + ".sod")));
-                    foreach (var problem in builder.Problems)
-                        gap($"{name}: {problem}");
-                }
+                _models[name] = builder.Build(Sod.Read(files.ReadAllBytes(name + ".sod")));
+                foreach (var problem in builder.Problems)
+                    gap($"{name}: {problem}");
             }
             catch (Exception e) // a model that cannot be read is a gap, whatever the reason (INV-0002)
             {
@@ -168,7 +166,6 @@ public partial class CombatView : Node3D
             Position = at,
             UnitSize = _falloff.UnitSize,
             MaxDb = _falloff.MaxDb,
-            MaxDistance = _falloff.MaxDistance,
             AttenuationFilterCutoffHz = 20500,
         };
         player.Finished += player.QueueFree;

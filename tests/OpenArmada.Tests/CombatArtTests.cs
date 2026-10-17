@@ -341,6 +341,21 @@ public class CombatArtTests
 
         var entry = log.Lines.Single(l => l.Contains("xfc"));
         StringAssert.Contains(entry, " ERROR combat: explosion definition xfc: ");
+        Assert.IsTrue(entry.Split("xfc: ")[1].Length > 0, entry);
+        Assert.IsFalse(log.Lines.Any(l => l.Contains(" WARN ") && l.Contains("explosion definition cannot be read")));
+        StringAssert.Contains(art.Reports.Single().Cause, "explosion definition cannot be read");
+    }
+
+    [TestMethod]
+    public void AnExplosionDefinitionWithANonNumericLengthIsOneErrorEntryWithItsNameAndReason()
+    {
+        using var log = new CapturedLog();
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01"), "xfc");
+        var art = CombatArt.Build(Install(("addon/xfc.odf", Explosion.Replace("3.5", "\"long\""))), new[] { unit });
+
+        var entry = log.Lines.Single(l => l.Contains("xfc"));
+        StringAssert.Contains(entry, " ERROR combat: explosion definition xfc: ");
+        Assert.IsTrue(entry.Split("xfc: ")[1].Length > 0, entry);
         Assert.IsFalse(log.Lines.Any(l => l.Contains(" WARN ") && l.Contains("explosion definition cannot be read")));
         StringAssert.Contains(art.Reports.Single().Cause, "explosion definition cannot be read");
     }

@@ -24,7 +24,9 @@ public sealed class SodBuilder
 
     // Why a texture did not load, and the textures already logged as unavailable.
     readonly Dictionary<string, string?> _why = new(System.StringComparer.OrdinalIgnoreCase);
-    readonly HashSet<string> _logged = new(System.StringComparer.OrdinalIgnoreCase);
+
+    // Mesh textures that failed to load (name to reason); logged after the sprite pass, see Build.
+    readonly Dictionary<string, string?> _meshMisses = new(System.StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
     readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
     readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
@@ -127,6 +129,7 @@ public sealed class SodBuilder
         // A sprite node's gaps, and a sprite texture that cannot be read, are problems; the model still builds.
         var sprites = SpriteNodes.For(_files, sod);
         var gaps = new Gaps();
+        var spriteMisses = new List<string>();
         var built = nodes.ToDictionary(n => n.Data, n => n.Node);
         foreach (var sprite in sprites.Nodes)
         {
@@ -137,11 +140,16 @@ public sealed class SodBuilder
             else
             {
                 var name = sprite.Sprite.Sprite.Texture;
+                spriteMisses.Add(name);
                 gaps.Add(NoSpriteTexture, _why.TryGetValue(name, out var why) ? $"{name} ({why})" : name, sprite.Node);
             }
         }
 
         Problems = analysis.Problems.Concat(sprites.Reports.Concat(gaps.Entries).Select(r => r.Text)).ToList();
+
+        // A mesh texture that is also a sprite texture became a Problems entry, which the preview logs.
+        ViewerLog.TexturesUnavailable(_meshMisses, spriteMisses);
+        _meshMisses.Clear();
 
         return root;
     }
@@ -156,10 +164,10 @@ public sealed class SodBuilder
         // A blend the engine does not know is listed in Problems (ModelRules.Check) and drawn opaque.
         var blend = look.Blend ?? new BlendState { Mode = BlendMode.Opaque, Opacity = 1f };
         var texture = Texture(look.Texture);
-        // An untextured model is logged here, once per texture; a sprite node's texture is a Problems entry.
-        if (texture == null && _why.TryGetValue(look.Texture, out var reason) && _logged.Add(look.Texture))
+        // An untextured model is logged once per texture after the sprite pass (Build).
+        if (texture == null && _why.TryGetValue(look.Texture, out var reason))
         {
-            ViewerLog.TextureUnavailable(look.Texture, reason);
+            _meshMisses[look.Texture] = reason;
         }
 
         var materials = new List<ShaderMaterial>();

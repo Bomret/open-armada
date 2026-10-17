@@ -127,6 +127,34 @@ public class ViewerLogTests
     }
 
     [TestMethod]
+    public void A_viewport_with_no_image_is_a_failed_capture_naming_the_cause()
+    {
+        StringAssert.Contains(ViewerLog.CaptureFailure(false, null), "no viewport image");
+    }
+
+    [TestMethod]
+    public void A_captured_image_fails_only_with_the_save_error()
+    {
+        Assert.IsNull(ViewerLog.CaptureFailure(true, null));
+        Assert.AreEqual("Cannot open file", ViewerLog.CaptureFailure(true, "Cannot open file"));
+    }
+
+    [TestMethod]
+    public void A_mesh_texture_that_is_also_a_problem_gets_no_render_warn()
+    {
+        using var log = new CapturedLog();
+        var misses = new System.Collections.Generic.Dictionary<string, string?>
+        {
+            ["hull01"] = "not a readable TGA",
+            ["glow"] = "missing",
+        };
+        ViewerLog.TexturesUnavailable(misses, new System.Collections.Generic.HashSet<string> { "HULL01" });
+        Assert.AreEqual(1, log.Lines.Count);
+        StringAssert.Contains(log.Text, " WARN render: ");
+        StringAssert.Contains(log.Text, "glow");
+    }
+
+    [TestMethod]
     public void Failed_screenshot_is_one_error_with_path_and_reason()
     {
         using var log = new CapturedLog();

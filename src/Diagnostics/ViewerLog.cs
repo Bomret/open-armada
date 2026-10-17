@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace OpenArmada.Diagnostics;
 
@@ -57,6 +58,28 @@ public static class ViewerLog
     /// <summary>WARN in area render: the model builder cannot use texture <c>name</c> and draws untextured.</summary>
     public static void TextureUnavailable(string name, string? reason) =>
         Log.Warn(Area.Render, $"texture {Log.Quote(name)} unavailable ({reason}), rendering untextured");
+
+    /// <summary>
+    /// WARN in area render, one entry per texture in <c>misses</c> (name to reason) that is not in
+    /// <c>problems</c>: a texture that became a Problems entry is logged by the preview, not twice.
+    /// </summary>
+    public static void TexturesUnavailable(IReadOnlyDictionary<string, string?> misses, IEnumerable<string> problems)
+    {
+        foreach (var (name, reason) in misses)
+        {
+            if (!problems.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                TextureUnavailable(name, reason);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Why a screenshot was not saved, or null when it was: a viewport with no image (a headless run has no
+    /// renderer) fails before any save, else <c>saveError</c> is the save's own error.
+    /// </summary>
+    public static string? CaptureFailure(bool captured, string? saveError) =>
+        captured ? saveError : "no viewport image to capture (a headless run has no renderer)";
 
     /// <summary>
     /// A screenshot run's result: INFO with the absolute path when <c>failure</c> is null, else ERROR with the

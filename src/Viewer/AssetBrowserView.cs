@@ -242,9 +242,27 @@ public partial class AssetBrowserView : Control
         // Wait a few frames so textures are uploaded before capturing.
         if (_screenshot == null || ++_frames < 5)
             return;
-        var saved = GetViewport().GetTexture().GetImage().SavePng(_screenshot);
+        // A viewport can have no image (a headless run has no renderer); that and a failed save are one ERROR.
+        string? saveError = null;
+        var captured = false;
+        try
+        {
+            var image = GetViewport().GetTexture().GetImage();
+            if (image != null)
+            {
+                captured = true;
+                var saved = image.SavePng(_screenshot);
+                saveError = saved == Error.Ok ? null : saved.ToString();
+            }
+        }
+        catch (Exception e) // a capture that throws is a failed save, never an endless retry
+        {
+            captured = true;
+            saveError = e.Message;
+        }
+
         // user:// and res:// paths are Godot's; the log names the file on disk.
-        ViewerLog.Screenshot(ProjectSettings.GlobalizePath(_screenshot), saved == Error.Ok ? null : saved.ToString());
+        ViewerLog.Screenshot(ProjectSettings.GlobalizePath(_screenshot), ViewerLog.CaptureFailure(captured, saveError));
         GetTree().Quit();
     }
 }

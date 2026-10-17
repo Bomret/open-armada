@@ -159,6 +159,28 @@ public class SpriteNodesTests
         StringAssert.Contains(resolved.Reports.Single().Names.Single(), "lights.spr:2");
     }
 
+    // An unreadable line reaches a numbered instance of its node as a readable line does.
+    [TestMethod]
+    public void UnreadableLineIsReportedForANumberedInstanceOfItsNode()
+    {
+        var files = Install(("Sprites/lights.spr", "sprite_table\n@sprite_node x sparkball1 const (1,x) (1,1,1)\n"));
+        var resolved = SpriteNodes.For(files, Model("x_2"));
+        StringAssert.Contains(resolved.Reports.Single().Names.Single(), "lights.spr:2");
+    }
+
+    // A node a readable line draws is not reported for an unreadable line of its name in another table.
+    [TestMethod]
+    public void UnreadableLineIsSilentForANodeAReadableLineDraws()
+    {
+        var files = Install(
+            ("Sprites/a.spr", "sprite_table\n@sprite_node y sparkball1 const (1,1) (1,1,1)\n"),
+            ("Sprites/b.spr", "sprite_table\n@sprite_node y sparkball1 const (1,x) (1,1,1)\n")
+        );
+        var resolved = SpriteNodes.For(files, Model("y"));
+        Assert.AreEqual("y", resolved.Nodes.Single().Node.Name);
+        Assert.AreEqual(0, resolved.Reports.Count);
+    }
+
     [TestMethod]
     public void SpriteFlipbookFrameFollowsElapsedTime()
     {

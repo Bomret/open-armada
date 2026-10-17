@@ -30,7 +30,8 @@ public sealed record SpriteNode(
 
 // The sprite nodes the install's sprite tables attach to a model, and the gaps on the way, once per cause with the
 // names and the number of nodes each touches (INV-0002). A sprite node no model node names is silent, and so is an
-// unreadable line naming no node of the model.
+// unreadable line naming no node of the model or naming a node a readable line draws. Unreadable lines match nodes by
+// the same rule as readable ones.
 public sealed class SpriteNodes
 {
     const string Unread = "sprite node line cannot be read, it is not drawn";
@@ -70,13 +71,14 @@ public sealed class SpriteNodes
         Dictionary<string, (SpriteTable Table, Sprite Sprite)>? rows = null;
         foreach (var node in model.Nodes)
         {
-            foreach (var note in unread.GetValueOrDefault(NodeName.Of(node.Name)) ?? new List<string>())
-                gaps.Add(Unread, note, node);
-            if (
-                !lines.TryGetValue(NodeName.Of(node.Name), out var hit)
-                && !lines.TryGetValue(Unnumbered(NodeName.Of(node.Name)), out hit)
-            )
+            var name = NodeName.Of(node.Name);
+            if (!lines.TryGetValue(name, out var hit) && !lines.TryGetValue(Unnumbered(name), out hit))
+            {
+                if (unread.TryGetValue(name, out var notes) || unread.TryGetValue(Unnumbered(name), out notes))
+                    foreach (var note in notes)
+                        gaps.Add(Unread, note, node);
                 continue;
+            }
             var line = hit.Line;
             rows ??= SpriteArt.Rows(files);
             if (!rows.TryGetValue(line.Sprite, out var row))

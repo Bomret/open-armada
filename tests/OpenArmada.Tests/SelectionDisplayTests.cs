@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Sandbox;
 using static OpenArmada.Tests.CombatFixtures;
@@ -131,6 +132,39 @@ public class SelectionDisplayTests
         Assert.IsNull(SelectionDisplay.BoxOf(right, Screen));
         Assert.IsNull(SelectionDisplay.BoxOf(above, Screen));
         Assert.IsNotNull(SelectionDisplay.BoxOf(partly, Screen));
+    }
+
+    [TestMethod]
+    public void TheHoveredUnitShowsTheShieldBarWithoutTheCrewDot()
+    {
+        CollectionAssert.AreEqual(
+            new[] { ("a", true), ("b", true), ("c", false) },
+            SelectionDisplay.Shown(new[] { "a", "b" }, "c").ToArray()
+        );
+    }
+
+    [TestMethod]
+    public void ASelectedAndHoveredUnitIsShownOnceWithItsDot()
+    {
+        CollectionAssert.AreEqual(
+            new[] { ("a", true), ("b", true) },
+            SelectionDisplay.Shown(new[] { "a", "b" }, "b").ToArray()
+        );
+    }
+
+    [TestMethod]
+    public void WithoutAHoveredUnitOnlyTheSelectedAreShown()
+    {
+        CollectionAssert.AreEqual(new[] { ("a", true) }, SelectionDisplay.Shown(new[] { "a" }, null).ToArray());
+    }
+
+    [TestMethod]
+    public void TheCursorHoversOnlyInsideTheWindowOfARunWithAMouse()
+    {
+        var mouse = new System.Numerics.Vector2(10, 20);
+        Assert.AreEqual(mouse, SelectionDisplay.HoverPoint(mouse, inWindow: true, hasMouse: true));
+        Assert.IsNull(SelectionDisplay.HoverPoint(mouse, inWindow: false, hasMouse: true));
+        Assert.IsNull(SelectionDisplay.HoverPoint(mouse, inWindow: true, hasMouse: false));
     }
 
     [TestMethod]

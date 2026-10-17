@@ -46,6 +46,31 @@ public static class SelectionDisplay
     const float DotRise = 8;
 
     /// <summary>
+    /// The units that show the display, each with whether it shows the crew dot: every selected unit with its dot,
+    /// then the hovered unit, when it is not selected, with the shield bar alone.
+    /// </summary>
+    public static IEnumerable<(T Unit, bool Dot)> Shown<T>(IEnumerable<T> selected, T? hovered)
+        where T : class
+    {
+        var any = false;
+        foreach (var unit in selected)
+        {
+            any |= unit == hovered;
+            yield return (unit, true);
+        }
+
+        if (hovered != null && !any)
+            yield return (hovered, false);
+    }
+
+    /// <summary>
+    /// The point the cursor hovers: the mouse position while the cursor is inside the window of a run that has a
+    /// mouse; null otherwise, such as in a screenshot or headless run.
+    /// </summary>
+    public static Vector2? HoverPoint(Vector2 mouse, bool inWindow, bool hasMouse) =>
+        inWindow && hasMouse ? mouse : null;
+
+    /// <summary>
     /// The screen box around a unit's box corners as projected to a screen of <c>screen</c> pixels (null: the corner
     /// lies behind the camera). Null when a corner lies behind the camera or the box lies wholly off screen.
     /// </summary>

@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using OpenArmada.Sandbox;
 
@@ -5,9 +6,11 @@ namespace OpenArmada.Viewer;
 
 /// <summary>
 /// The game's in-world selection display over the map sandbox (docs/selection-display.md): the shield bar and the
-/// crew dot of each selected unit, redrawn every frame from the units' current combat state.
+/// crew dot of each selected unit, and the shield bar of the unit under <c>hoverPoint</c> (null: none), redrawn
+/// every frame from the units' current combat state.
 /// </summary>
-public partial class SelectionDisplayView(UnitSelection selection, CombatWorld world) : CanvasLayer
+public partial class SelectionDisplayView(UnitSelection selection, CombatWorld world, Func<Vector2?> hoverPoint)
+    : CanvasLayer
 {
     static readonly Color Back = new(0.2f, 0.2f, 0.2f);
 
@@ -30,7 +33,8 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
     {
         // stand-in: the display scale of the screen the window is on stands for the game's pixel size
         var scale = DisplayServer.ScreenGetScale(DisplayServer.WindowGetCurrentScreen());
-        foreach (var unit in selection.Selected)
+        var hovered = hoverPoint() is { } point ? selection.UnitAt(point) : null;
+        foreach (var (unit, withDot) in SelectionDisplay.Shown(selection.Selected, hovered))
         {
             if (world.State(unit.Object) is not { } state || selection.ScreenBoxOf(unit) is not { } box)
                 continue;
@@ -40,6 +44,8 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
                 _canvas.DrawRect(ToRect(bar.Fill), new Color(bar.Color.X, bar.Color.Y, bar.Color.Z));
             }
 
+            if (!withDot)
+                continue;
             var dot = SelectionDisplay.CrewDotOf(box, state, scale);
             _canvas.DrawRect(ToRect(dot.Rect), ColorOf(dot.Status));
         }

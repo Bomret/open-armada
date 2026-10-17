@@ -14,8 +14,15 @@ namespace OpenArmada.Sandbox;
 //   sandbox lets each rock circle the field's center about the vertical axis at the field's orbitingSpeed and
 //   spin about its own vertical axis at the field's rotationSpeed. Both units are radians per second (the
 //   game's unit of these two values is not known).
-public sealed record Rock(string Model, Vector3 Center, Vector3 Offset, Quaternion Initial, float Spin, float Orbit)
+public sealed record Rock
 {
+    public required string Model { get; init; }
+    public required Vector3 Center { get; init; }
+    public required Vector3 Offset { get; init; }
+    public required Quaternion Initial { get; init; }
+    public required float Spin { get; init; }
+    public required float Orbit { get; init; }
+
     public (Vector3 Position, Quaternion Orientation) Pose(double t) =>
         (
             Center + Vector3.Transform(Offset, Quaternion.CreateFromAxisAngle(Vector3.UnitY, (float)(Orbit * t))),
@@ -25,17 +32,17 @@ public sealed record Rock(string Model, Vector3 Center, Vector3 Offset, Quaterni
 
 // The values of one asteroid field, from its definition and the map: Center is in Godot's frame (Z mirrored),
 // Models are the asteroid models the install holds.
-public sealed record AsteroidField(
-    Vector3 Center,
-    int Min,
-    int Max,
-    float Radius,
-    float RotationSpeed,
-    float OrbitingSpeed,
-    uint Seed,
-    IReadOnlyList<string> Models
-)
+public sealed record AsteroidField
 {
+    public required Vector3 Center { get; init; }
+    public required int Min { get; init; }
+    public required int Max { get; init; }
+    public required float Radius { get; init; }
+    public required float RotationSpeed { get; init; }
+    public required float OrbitingSpeed { get; init; }
+    public required uint Seed { get; init; }
+    public required IReadOnlyList<string> Models { get; init; }
+
     // The game's eight hard-coded asteroid models (Armada.exe, REA: FUN_0044b200); master8 is not used.
     public static readonly IReadOnlyList<string> ModelNames = new[]
     {
@@ -64,14 +71,15 @@ public sealed record AsteroidField(
             // stand-in: the flatten factor 0.5 in height (the install defines none and the game's own spread is not known)
             var offset = direction * (reach * MathF.Cbrt((float)random.NextDouble())) * new Vector3(1, 0.5f, 1);
             rocks.Add(
-                new Rock(
-                    model,
-                    Center,
-                    offset,
-                    Quaternion.Normalize(new Quaternion(Unit(random), (float)random.NextDouble() * 2 - 1)),
-                    RotationSpeed,
-                    OrbitingSpeed
-                )
+                new Rock
+                {
+                    Model = model,
+                    Center = Center,
+                    Offset = offset,
+                    Initial = Quaternion.Normalize(new Quaternion(Unit(random), (float)random.NextDouble() * 2 - 1)),
+                    Spin = RotationSpeed,
+                    Orbit = OrbitingSpeed,
+                }
             );
         }
 
@@ -192,16 +200,17 @@ public sealed record AsteroidField(
             }
 
             fields.Add(
-                new AsteroidField(
-                    new Vector3(o.Position.X, o.Position.Y, -o.Position.Z),
-                    min,
-                    max,
-                    radius,
-                    spin,
-                    orbit,
-                    SeedOf(map, o),
-                    present
-                )
+                new AsteroidField
+                {
+                    Center = new Vector3(o.Position.X, o.Position.Y, -o.Position.Z),
+                    Min = min,
+                    Max = max,
+                    Radius = radius,
+                    RotationSpeed = spin,
+                    OrbitingSpeed = orbit,
+                    Seed = SeedOf(map, o),
+                    Models = present,
+                }
             );
         }
 

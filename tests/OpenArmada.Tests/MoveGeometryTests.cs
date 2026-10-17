@@ -48,7 +48,12 @@ public class MoveGeometryTests
     public void AnUnrotatedShipOrderedToPlusZTurnsItsBowToPlusZ()
     {
         var ship = new ShipMotion(
-            new PhysicsValues(10, 1, 30),
+            new PhysicsValues
+            {
+                ImpulseSpeed = 10,
+                YawRotationRate = 1,
+                MaxRoll = 30,
+            },
             new Vector3(0, 5, 0),
             MoveGeometry.BowHeading(Vector3.UnitZ)
         );
@@ -104,7 +109,16 @@ public class MoveGeometryTests
         // SandboxPlan's AxisZ for Front = (1, 0, 0) is (-1, 0, 0), so the bow points to +X
         var heading = MoveGeometry.BowHeading(new Vector3(-1, 0, 0));
         Assert.AreEqual(MathF.PI / 2, heading, 1e-5);
-        var ship = new ShipMotion(new PhysicsValues(10, 1, 30), new Vector3(0, 5, 0), heading);
+        var ship = new ShipMotion(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 10,
+                YawRotationRate = 1,
+                MaxRoll = 30,
+            },
+            new Vector3(0, 5, 0),
+            heading
+        );
         ship.SetTarget(100, 0);
         var pose = ship.Step(1);
         Assert.AreEqual(heading, pose.Heading, 1e-5);
@@ -114,7 +128,15 @@ public class MoveGeometryTests
 
     // A map twice as wide as deep, not centred on zero, so a swapped axis or a missing Z mirror shows. In Godot's
     // frame its X runs 0..6400 and its Z runs -3200 (north) to 0 (south).
-    static readonly MapBounds Map = new(0, 6400, -28.5f, 105.5f, 0, 3200);
+    static readonly MapBounds Map = new()
+    {
+        MinX = 0,
+        MaxX = 6400,
+        MinY = -28.5f,
+        MaxY = 105.5f,
+        MinZ = 0,
+        MaxZ = 3200,
+    };
 
     [TestMethod]
     public void AClickFromAHighCameraThatHitsThePlaneBeyondTheMapIsClampedOntoItsEdge()
@@ -146,7 +168,15 @@ public class MoveGeometryTests
     }
 
     // The same map with each pair inverted; the camera swaps an inverted pair, so the clamp does too.
-    static readonly MapBounds InvertedMap = new(6400, 0, -28.5f, 105.5f, 3200, 0);
+    static readonly MapBounds InvertedMap = new()
+    {
+        MinX = 6400,
+        MaxX = 0,
+        MinY = -28.5f,
+        MaxY = 105.5f,
+        MinZ = 3200,
+        MaxZ = 0,
+    };
 
     [TestMethod]
     [DataRow(7000f, -1000f, 6400f, -1000f)] // beyond the east edge
@@ -177,6 +207,14 @@ public class MoveGeometryTests
     public void APlacedUnitsPoseIsItsPositionAndBowHeadingWithoutBank()
     {
         var pose = MoveGeometry.PlacedPose(new Vector3(1, 2, 3), new Vector3(-1, 0, 0));
-        Assert.AreEqual(new ShipPose(new Vector3(1, 2, 3), MathF.PI / 2, 0), pose);
+        Assert.AreEqual(
+            new ShipPose
+            {
+                Position = new Vector3(1, 2, 3),
+                Heading = MathF.PI / 2,
+                Bank = 0,
+            },
+            pose
+        );
     }
 }

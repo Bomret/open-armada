@@ -3,7 +3,12 @@ using System.IO;
 
 namespace OpenArmada.Formats;
 
-public sealed record BmpInfo(int Width, int Height, int BitsPerPixel);
+public sealed record BmpInfo
+{
+    public required int Width { get; init; }
+    public required int Height { get; init; }
+    public required int BitsPerPixel { get; init; }
+}
 
 // Header and size check of the uncompressed Windows BMPs the game ships. Godot decodes the pixels.
 public static class Bmp
@@ -32,6 +37,11 @@ public static class Bmp
         if (need > d.Length)
             throw new InvalidDataException($"BMP is cut off ({d.Length} of {need} bytes)");
 
-        return new BmpInfo(width, Math.Abs(height), bpp);
+        return new BmpInfo
+        {
+            Width = width,
+            Height = Math.Abs(height),
+            BitsPerPixel = bpp,
+        };
     }
 }

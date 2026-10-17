@@ -14,7 +14,16 @@ public class ShipMotionTests
         Yaw = 1;
 
     static ShipMotion Ship(double? maxRoll = 30, float heading = 0, float y = 5) =>
-        new(new PhysicsValues(Speed, Yaw, maxRoll), new Vector3(0, y, 0), heading);
+        new(
+            new PhysicsValues
+            {
+                ImpulseSpeed = Speed,
+                YawRotationRate = Yaw,
+                MaxRoll = maxRoll,
+            },
+            new Vector3(0, y, 0),
+            heading
+        );
 
     // Runs the ship for `seconds` in steps of `dt` and returns the last pose and the largest bank and turn seen.
     static (ShipPose Pose, float MaxBank, float MaxTurn) Run(ShipMotion ship, double seconds, double dt)
@@ -224,7 +233,15 @@ public class ShipMotionTests
     public void AShipThatIsNotOrderedReadsItsStartingPose()
     {
         var ship = Ship(heading: 0.5f);
-        Assert.AreEqual(new ShipPose(new Vector3(0, 5, 0), 0.5f, 0), ship.Pose);
+        Assert.AreEqual(
+            new ShipPose
+            {
+                Position = new Vector3(0, 5, 0),
+                Heading = 0.5f,
+                Bank = 0,
+            },
+            ship.Pose
+        );
     }
 
     [TestMethod]
@@ -279,7 +296,15 @@ public class ShipMotionTests
     {
         var ship = Ship(heading: 0);
         ship.Face(0, 50);
-        Assert.AreEqual(new ShipPose(new Vector3(0, 5, 0), 0, 0), ship.Step(1));
+        Assert.AreEqual(
+            new ShipPose
+            {
+                Position = new Vector3(0, 5, 0),
+                Heading = 0,
+                Bank = 0,
+            },
+            ship.Step(1)
+        );
     }
 
     [TestMethod]
@@ -287,7 +312,15 @@ public class ShipMotionTests
     {
         var ship = Ship(heading: 0.5f);
         ship.Face(0, 0);
-        Assert.AreEqual(new ShipPose(new Vector3(0, 5, 0), 0.5f, 0), ship.Step(1));
+        Assert.AreEqual(
+            new ShipPose
+            {
+                Position = new Vector3(0, 5, 0),
+                Heading = 0.5f,
+                Bank = 0,
+            },
+            ship.Step(1)
+        );
     }
 
     [TestMethod]

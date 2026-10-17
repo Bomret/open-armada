@@ -11,18 +11,23 @@ namespace OpenArmada.Assets;
 
 // A start location of a multiplayer map: its number (1..8) and the .mdf cell; the ground position is
 // MapBounds.FromStartCell.
-public sealed record MapStart(int Number, StartCell Cell);
+public sealed record MapStart
+{
+    public required int Number { get; init; }
+    public required StartCell Cell { get; init; }
+}
 
 // A map and its companions. Starts is empty for a map without an .mdf (campaign maps); Overview is the
 // install name of the map's .bmp or null. ScriptedPaths are the install's 3D_Paths (points relative to the
 // first point), the same for every map.
-public sealed record MapAsset(
-    string Name,
-    BznMap Map,
-    IReadOnlyList<MapStart> Starts,
-    string? Overview,
-    IReadOnlyList<MapPath> ScriptedPaths
-);
+public sealed record MapAsset
+{
+    public required string Name { get; init; }
+    public required BznMap Map { get; init; }
+    public required IReadOnlyList<MapStart> Starts { get; init; }
+    public required string? Overview { get; init; }
+    public required IReadOnlyList<MapPath> ScriptedPaths { get; init; }
+}
 
 // Maps: the .bzn files of bzn/, each with its .mdf (start positions), .bmp (overview image), and the
 // scripted camera paths. Names carry their folder ("bzn/2duel.bzn").
@@ -67,7 +72,7 @@ public sealed class MapKind : AssetKind
             var cells = Mdf.Read(Windows1252.Encoding.GetString(files.ReadAllBytes(stem + ".mdf")));
             for (var i = 0; i < cells.Count; i++)
             {
-                starts.Add(new MapStart(i + 1, cells[i]));
+                starts.Add(new MapStart { Number = i + 1, Cell = cells[i] });
             }
         }
 
@@ -79,10 +84,17 @@ public sealed class MapKind : AssetKind
                 && f.EndsWith(".pth", StringComparison.OrdinalIgnoreCase)
             )
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .Select(f => new MapPath(f[PathFolder.Length..], ReadPth(files, f)))
+            .Select(f => new MapPath { Name = f[PathFolder.Length..], Points = ReadPth(files, f) })
             .ToList();
 
-        return new MapAsset(name, map, starts, overview, paths);
+        return new MapAsset
+        {
+            Name = name,
+            Map = map,
+            Starts = starts,
+            Overview = overview,
+            ScriptedPaths = paths,
+        };
     }
 
     // A broken .pth fails every map, so its error names the file.

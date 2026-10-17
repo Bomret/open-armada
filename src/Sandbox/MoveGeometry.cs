@@ -33,7 +33,13 @@ public static class MoveGeometry
     public static float BowHeading(Vector3 axisZ) => MathF.Atan2(-axisZ.X, -axisZ.Z);
 
     // The pose of a unit standing where the map placed it: its position, its bow heading, no bank.
-    public static ShipPose PlacedPose(Vector3 position, Vector3 axisZ) => new(position, BowHeading(axisZ), 0);
+    public static ShipPose PlacedPose(Vector3 position, Vector3 axisZ) =>
+        new()
+        {
+            Position = position,
+            Heading = BowHeading(axisZ),
+            Bank = 0,
+        };
 
     // The orientation of a ship that started at `initial` and has since changed its heading by `headingChange`
     // and banks by `bank` (ShipMotion's pose). The heading turns about the world's Y; the bank rolls about the

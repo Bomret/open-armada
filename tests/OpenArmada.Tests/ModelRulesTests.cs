@@ -25,7 +25,7 @@ public class ModelRulesTests
     {
         var look = ModelRules.Look(V17(), MeshOf(name));
         Assert.IsNull(look.Problem);
-        Assert.AreEqual(new BlendState(mode, opacity), look.Blend);
+        Assert.AreEqual(new BlendState { Mode = mode, Opacity = opacity }, look.Blend);
     }
 
     [TestMethod]
@@ -73,7 +73,7 @@ public class ModelRulesTests
     {
         var look = ModelRules.Look(Old(0.2f, 2, 2), MeshOf("", "fx"));
         Assert.AreEqual("fxtex", look.Texture);
-        Assert.AreEqual(new BlendState(BlendMode.Add, 0.8f), look.Blend);
+        Assert.AreEqual(new BlendState { Mode = BlendMode.Add, Opacity = 0.8f }, look.Blend);
     }
 
     [TestMethod]
@@ -81,14 +81,30 @@ public class ModelRulesTests
     {
         // The alpha test is on for every entry but one/one (FUN_0059b230): texels below 128/255 are dropped.
         var look = ModelRules.Look(Old(0.25f, 5, 6), MeshOf("", "fx"));
-        Assert.AreEqual(new BlendState(BlendMode.Alpha, 0.75f, AlphaTest: true), look.Blend);
+        Assert.AreEqual(
+            new BlendState
+            {
+                Mode = BlendMode.Alpha,
+                Opacity = 0.75f,
+                AlphaTest = true,
+            },
+            look.Blend
+        );
     }
 
     [TestMethod]
     public void OldEntryWithSourceAlphaAndHighTransparencyKeepsItsOpacityAndAlphaTests()
     {
         var look = ModelRules.Look(Old(0.75f, 5, 6), MeshOf("", "fx"));
-        Assert.AreEqual(new BlendState(BlendMode.Alpha, 0.25f, AlphaTest: true), look.Blend);
+        Assert.AreEqual(
+            new BlendState
+            {
+                Mode = BlendMode.Alpha,
+                Opacity = 0.25f,
+                AlphaTest = true,
+            },
+            look.Blend
+        );
     }
 
     [TestMethod]
@@ -180,7 +196,16 @@ public class ModelRulesTests
     }
 
     static SpriteAnimation Flipbook(string auto, int count, double length, string field = "offset") =>
-        new("anim", field, count, length, "step", auto, System.Array.Empty<string[]>());
+        new()
+        {
+            Name = "anim",
+            Field = field,
+            Count = count,
+            Length = length,
+            Method = "step",
+            Auto = auto,
+            Keyframes = System.Array.Empty<string[]>(),
+        };
 
     [TestMethod]
     public void SquareFlipbookStepsThroughTheCellsAtItsFrameTime()

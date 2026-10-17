@@ -29,7 +29,7 @@ public class CombatArtTests
         Latin1(
             new SodBytes(1.8f)
                 .Lighting(("lit", 1f, 1))
-                .Nodes(nodes.Select(n => new NodeSpec(n, n == "root" ? "" : "root")).ToArray())
+                .Nodes(nodes.Select(n => new NodeSpec { Name = n, Parent = n == "root" ? "" : "root" }).ToArray())
                 .End()
         );
 

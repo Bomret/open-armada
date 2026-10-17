@@ -6,7 +6,11 @@ namespace OpenArmada.Formats;
 
 // A glyph: Width columns by the font's Height rows of palette values, row by row; a Width of 0 is a
 // character the font does not draw.
-public sealed record FontGlyph(int Width, byte[] Pixels);
+public sealed record FontGlyph
+{
+    public required int Width { get; init; }
+    public required byte[] Pixels { get; init; }
+}
 
 // A bitmap font (.FNT, BZONE.FNT): "1.\0\0", glyph count, height, the transparent pixel value (0xff), a
 // table of one file offset per glyph, and per glyph a u32 width followed by width x height pixel bytes.
@@ -55,7 +59,9 @@ public sealed class BitmapFont
             var width = BitConverter.ToUInt32(data, (int)at);
             if (width > MaxWidth || at + 4 + width * height > data.Length)
                 throw new InvalidDataException($"{name}: glyph {i} (width {width}) runs past the end of the file");
-            glyphs.Add(new FontGlyph((int)width, data[(int)(at + 4)..(int)(at + 4 + width * height)]));
+            glyphs.Add(
+                new FontGlyph { Width = (int)width, Pixels = data[(int)(at + 4)..(int)(at + 4 + width * height)] }
+            );
         }
 
         return new BitmapFont((int)height, (int)BitConverter.ToUInt32(data, 12), glyphs);

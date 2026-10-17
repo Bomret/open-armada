@@ -34,16 +34,25 @@ public class MovePlanTests
         var map = new BznBuilder { Background = "" };
         foreach (var c in classes)
         {
-            map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
+            map.Objects.Add(
+                new BznBuilder.Obj
+                {
+                    Class = c,
+                    Team = 1,
+                    Position = new Vector3(1, 2, 3),
+                    Label = c,
+                }
+            );
         }
 
-        var asset = new MapAsset(
-            "bzn/t.bzn",
-            Bzn.Read(map.Build()),
-            Array.Empty<MapStart>(),
-            null,
-            Array.Empty<MapPath>()
-        );
+        var asset = new MapAsset
+        {
+            Name = "bzn/t.bzn",
+            Map = Bzn.Read(map.Build()),
+            Starts = Array.Empty<MapStart>(),
+            Overview = null,
+            ScriptedPaths = Array.Empty<MapPath>(),
+        };
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
 
         return MovePlan.Build(plan, UnitPlan.Build(install, plan, _ => true).Units, install);
@@ -57,7 +66,15 @@ public class MovePlanTests
             new[] { ("ship", Ship) },
             "impulseSpeed = 12.5\r\nyawRotationRate = 0.75\r\nmaxRoll = 30"
         );
-        Assert.AreEqual(new PhysicsValues(12.5, 0.75, 30), plan.Physics.Values.Single());
+        Assert.AreEqual(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 12.5,
+                YawRotationRate = 0.75,
+                MaxRoll = 30,
+            },
+            plan.Physics.Values.Single()
+        );
         Assert.AreEqual(0, plan.Reports.Count);
     }
 

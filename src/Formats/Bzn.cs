@@ -8,11 +8,23 @@ using System.Text;
 namespace OpenArmada.Formats;
 
 // One value of the binary part of a map: type code, offset of the token in the file, payload bytes.
-public readonly record struct MapToken(byte Type, int Offset, byte[] Data);
+public readonly record struct MapToken
+{
+    public required byte Type { get; init; }
+    public required int Offset { get; init; }
+    public required byte[] Data { get; init; }
+}
 
 // The playable area. X and Z are the ground plane, Y is up. The bounds start at 0 in every shipped map.
-public sealed record MapBounds(float MinX, float MaxX, float MinY, float MaxY, float MinZ, float MaxZ)
+public sealed record MapBounds
 {
+    public required float MinX { get; init; }
+    public required float MaxX { get; init; }
+    public required float MinY { get; init; }
+    public required float MaxY { get; init; }
+    public required float MinZ { get; init; }
+    public required float MaxZ { get; init; }
+
     public float Width => MaxX - MinX;
     public float Depth => MaxZ - MinZ;
 
@@ -39,56 +51,63 @@ public sealed record MapBounds(float MinX, float MaxX, float MinY, float MaxY, f
 
 // One game object. Prefix holds the class-specific tokens before the shared tail, Tail the 20 shared
 // tokens, both raw: the meaning of most of them is unknown (see the BZN maps page).
-public sealed record MapObject(
-    string Class,
-    uint Handle,
-    int Team,
-    string Label,
-    uint Id,
-    Vector3 Position,
-    Vector3 Right,
-    Vector3 Up,
-    Vector3 Front,
-    string DisplayName,
-    string Race,
-    IReadOnlyList<MapToken> Prefix,
-    IReadOnlyList<MapToken> Tail,
-    int Offset
-);
+public sealed record MapObject
+{
+    public required string Class { get; init; }
+    public required uint Handle { get; init; }
+    public required int Team { get; init; }
+    public required string Label { get; init; }
+    public required uint Id { get; init; }
+    public required Vector3 Position { get; init; }
+    public required Vector3 Right { get; init; }
+    public required Vector3 Up { get; init; }
+    public required Vector3 Front { get; init; }
+    public required string DisplayName { get; init; }
+    public required string Race { get; init; }
+    public required IReadOnlyList<MapToken> Prefix { get; init; }
+    public required IReadOnlyList<MapToken> Tail { get; init; }
+    public required int Offset { get; init; }
+}
 
 // One of the 9 team records. Fields named Unknown are read but their meaning is not known.
-public sealed record MapTeam(
-    float Unknown1,
-    float Unknown2,
-    int Unknown3,
-    float Unknown4,
-    float Unknown5,
-    int Color,
-    int SecondaryColor
-);
+public sealed record MapTeam
+{
+    public required float Unknown1 { get; init; }
+    public required float Unknown2 { get; init; }
+    public required int Unknown3 { get; init; }
+    public required float Unknown4 { get; init; }
+    public required float Unknown5 { get; init; }
+    public required int Color { get; init; }
+    public required int SecondaryColor { get; init; }
+}
 
 // A named path of points in the map (AiPath), e.g. Camera_1.
-public sealed record MapPath(string Name, IReadOnlyList<Vector3> Points);
+public sealed record MapPath
+{
+    public required string Name { get; init; }
+    public required IReadOnlyList<Vector3> Points { get; init; }
+}
 
-public sealed record BznMap(
-    int Version,
-    string Description,
-    string MissionFile,
-    string TerrainName,
-    MapBounds Bounds,
-    Vector3 Ambient,
-    string BackgroundArt,
-    string TechTree,
-    string Race,
-    IReadOnlyList<MapObject> Objects,
-    IReadOnlyList<MapTeam> Teams,
-    string MissionClass,
-    string MissionScript,
-    string MissionRules,
-    string MissionName,
-    IReadOnlyList<IReadOnlyList<MapToken>> Aois,
-    IReadOnlyList<MapPath> Paths
-);
+public sealed record BznMap
+{
+    public required int Version { get; init; }
+    public required string Description { get; init; }
+    public required string MissionFile { get; init; }
+    public required string TerrainName { get; init; }
+    public required MapBounds Bounds { get; init; }
+    public required Vector3 Ambient { get; init; }
+    public required string BackgroundArt { get; init; }
+    public required string TechTree { get; init; }
+    public required string Race { get; init; }
+    public required IReadOnlyList<MapObject> Objects { get; init; }
+    public required IReadOnlyList<MapTeam> Teams { get; init; }
+    public required string MissionClass { get; init; }
+    public required string MissionScript { get; init; }
+    public required string MissionRules { get; init; }
+    public required string MissionName { get; init; }
+    public required IReadOnlyList<IReadOnlyList<MapToken>> Aois { get; init; }
+    public required IReadOnlyList<MapPath> Paths { get; init; }
+}
 
 // Reader of the .bzn map (layout: the BZN maps page of the knowledge base, REA report in the scope).
 // Throws InvalidDataException for a corrupt or cut-off file, naming the offset; UnsupportedFormatException
@@ -180,7 +199,15 @@ public static class Bzn
 
         if (c.Bool("bounds rescale"))
             throw new UnsupportedFormatException("BZN with a bounds remap (rescale true) is not read");
-        var bounds = new MapBounds(b[0], b[1], b[2], b[3], b[4], b[5]);
+        var bounds = new MapBounds
+        {
+            MinX = b[0],
+            MaxX = b[1],
+            MinY = b[2],
+            MaxY = b[3],
+            MinZ = b[4],
+            MaxZ = b[5],
+        };
         if (b.Any(f => !float.IsFinite(f)) || bounds.Width <= 0 || bounds.Depth <= 0)
             throw new InvalidDataException($"map bounds are not a finite, non-empty area (offset {c.Offset})");
 
@@ -195,15 +222,16 @@ public static class Bzn
         {
             var t = c.Sig(TeamSig, $"team {i}");
             teams.Add(
-                new MapTeam(
-                    Cursor.F(t[0]),
-                    Cursor.F(t[1]),
-                    Cursor.I(t[2]),
-                    Cursor.F(t[3]),
-                    Cursor.F(t[4]),
-                    Cursor.I(t[5]),
-                    Cursor.I(t[6])
-                )
+                new MapTeam
+                {
+                    Unknown1 = Cursor.F(t[0]),
+                    Unknown2 = Cursor.F(t[1]),
+                    Unknown3 = Cursor.I(t[2]),
+                    Unknown4 = Cursor.F(t[3]),
+                    Unknown5 = Cursor.F(t[4]),
+                    Color = Cursor.I(t[5]),
+                    SecondaryColor = Cursor.I(t[6]),
+                }
             );
         }
 
@@ -235,30 +263,33 @@ public static class Bzn
             var raw = c.Next(9, n * 12, "path points").Data;
             c.Next(0, 4, "path field");
             c.Next(5, 4, "path float");
-            paths.Add(new MapPath(name, Enumerable.Range(0, n).Select(k => Vec(raw, k * 12)).ToList()));
+            paths.Add(
+                new MapPath { Name = name, Points = Enumerable.Range(0, n).Select(k => Vec(raw, k * 12)).ToList() }
+            );
         }
 
         c.End();
 
-        return new BznMap(
-            version,
-            Cursor.Text(descBytes),
-            missionFile,
-            terrain,
-            bounds,
-            ambient,
-            background,
-            tech,
-            race,
-            objects,
-            teams,
-            missionClass,
-            script,
-            rules,
-            missionName,
-            aois,
-            paths
-        );
+        return new BznMap
+        {
+            Version = version,
+            Description = Cursor.Text(descBytes),
+            MissionFile = missionFile,
+            TerrainName = terrain,
+            Bounds = bounds,
+            Ambient = ambient,
+            BackgroundArt = background,
+            TechTree = tech,
+            Race = race,
+            Objects = objects,
+            Teams = teams,
+            MissionClass = missionClass,
+            MissionScript = script,
+            MissionRules = rules,
+            MissionName = missionName,
+            Aois = aois,
+            Paths = paths,
+        };
     }
 
     static List<MapObject> ReadObjects(Cursor c)
@@ -297,22 +328,23 @@ public static class Bzn
                     $"object {k} '{label}' ({cls}) at offset {offset} has team {team}; the game's teams are 0..{TeamCount - 1}"
                 );
             objects.Add(
-                new MapObject(
-                    cls,
-                    BitConverter.ToUInt32(h[1].Data),
-                    team,
-                    label,
-                    BitConverter.ToUInt32(h[5].Data),
-                    Vec(m, 36),
-                    Vec(m, 0),
-                    Vec(m, 12),
-                    Vec(m, 24),
-                    Cursor.Text(tail[6].Data),
-                    Cursor.Text(tail[19].Data),
-                    prefix,
-                    tail,
-                    offset
-                )
+                new MapObject
+                {
+                    Class = cls,
+                    Handle = BitConverter.ToUInt32(h[1].Data),
+                    Team = team,
+                    Label = label,
+                    Id = BitConverter.ToUInt32(h[5].Data),
+                    Position = Vec(m, 36),
+                    Right = Vec(m, 0),
+                    Up = Vec(m, 12),
+                    Front = Vec(m, 24),
+                    DisplayName = Cursor.Text(tail[6].Data),
+                    Race = Cursor.Text(tail[19].Data),
+                    Prefix = prefix,
+                    Tail = tail,
+                    Offset = offset,
+                }
             );
         }
 
@@ -345,7 +377,14 @@ public static class Bzn
                 var size = BitConverter.ToUInt32(d, p + 4);
                 if (size > d.Length - p - 8)
                     throw new InvalidDataException($"map is cut off in a token of {size} bytes at offset {p}");
-                t.Add(new MapToken(type, p, d[(p + 8)..(p + 8 + (int)size)]));
+                t.Add(
+                    new MapToken
+                    {
+                        Type = type,
+                        Offset = p,
+                        Data = d[(p + 8)..(p + 8 + (int)size)],
+                    }
+                );
                 p += 8 + (int)size;
             }
         }

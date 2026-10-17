@@ -7,7 +7,12 @@ namespace OpenArmada.Formats;
 // One `key = value` pair of an object definition. Tokens are the value split on whitespace; a quoted
 // string is one token with its quotes removed. Numbers stay text: the typed lookups of the resolved
 // definition convert them.
-public sealed record OdfEntry(string Key, IReadOnlyList<string> Tokens, string? Section);
+public sealed record OdfEntry
+{
+    public required string Key { get; init; }
+    public required IReadOnlyList<string> Tokens { get; init; }
+    public required string? Section { get; init; }
+}
 
 // The text of one object definition (.odf), parsed without resolving includes. Lines are
 // `key = value`, `[Section]`, `#include "parent.odf"`, `//` comments (full-line or trailing) and
@@ -66,7 +71,14 @@ public sealed class Odf
                     continue;
                 }
 
-                odf._entries.Add(new OdfEntry(m.Groups[1].Value, tokens, section));
+                odf._entries.Add(
+                    new OdfEntry
+                    {
+                        Key = m.Groups[1].Value,
+                        Tokens = tokens,
+                        Section = section,
+                    }
+                );
                 current = tokens;
             }
             else if (current != null && (char.IsWhiteSpace(line[0]) || trimmed[0] == '"')) // the game also writes quoted names flush left

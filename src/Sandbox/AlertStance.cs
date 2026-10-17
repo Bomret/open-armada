@@ -9,4 +9,10 @@ public enum AlertStance
 }
 
 // A key and the modifiers held with it, as an Input.map binding names them. Key is the key's name in upper case.
-public readonly record struct KeyChord(string Key, bool Shift = false, bool Control = false, bool Alt = false);
+public readonly record struct KeyChord
+{
+    public required string Key { get; init; }
+    public bool Shift { get; init; }
+    public bool Control { get; init; }
+    public bool Alt { get; init; }
+}

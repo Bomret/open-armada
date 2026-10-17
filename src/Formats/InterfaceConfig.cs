@@ -7,20 +7,28 @@ using System.Text.RegularExpressions;
 namespace OpenArmada.Formats;
 
 // One "key = value" line: Values are the quoted text (IsText) or the numbers as written.
-public sealed record ConfigEntry(string Key, string[] Values, bool IsText, string File, int Line);
+public sealed record ConfigEntry
+{
+    public required string Key { get; init; }
+    public required string[] Values { get; init; }
+    public required bool IsText { get; init; }
+    public required string File { get; init; }
+    public required int Line { get; init; }
+}
 
 // A rectangle of the interface in screen pixels (Sprite: the sprite name the cfg gives it, if any).
 // A panel is a screen area with a cursor of its own; the other elements are positioned inside a panel
 // and are listed here already moved by the panel's position.
-public sealed record LayoutElement(
-    string Name,
-    float X,
-    float Y,
-    float Width,
-    float Height,
-    string? Sprite,
-    bool IsPanel
-);
+public sealed record LayoutElement
+{
+    public required string Name { get; init; }
+    public required float X { get; init; }
+    public required float Y { get; init; }
+    public required float Width { get; init; }
+    public required float Height { get; init; }
+    public required string? Sprite { get; init; }
+    public required bool IsPanel { get; init; }
+}
 
 // An interface configuration (the misc/gui_*.cfg files): "key = value" lines where a value is one
 // quoted text or numbers, "//" comments, and "#include" of another configuration, expanded where it
@@ -124,7 +132,16 @@ public sealed class InterfaceConfig
                 var q = Quoted.Match(value);
                 if (q.Success)
                 {
-                    _entries.Add(new ConfigEntry(key, new[] { q.Groups[1].Value }, true, file, i + 1));
+                    _entries.Add(
+                        new ConfigEntry
+                        {
+                            Key = key,
+                            Values = new[] { q.Groups[1].Value },
+                            IsText = true,
+                            File = file,
+                            Line = i + 1,
+                        }
+                    );
                 }
                 else
                 {
@@ -147,7 +164,16 @@ public sealed class InterfaceConfig
             }
             else
             {
-                _entries.Add(new ConfigEntry(key, tokens, false, file, i + 1));
+                _entries.Add(
+                    new ConfigEntry
+                    {
+                        Key = key,
+                        Values = tokens,
+                        IsText = false,
+                        File = file,
+                        Line = i + 1,
+                    }
+                );
             }
         }
     }
@@ -199,15 +225,16 @@ public sealed class InterfaceConfig
                 var o = isPanel ? (X: 0f, Y: 0f) : Origin(e.Key);
                 var stem = e.Key[..^4];
                 _elements.Add(
-                    new LayoutElement(
-                        e.Key,
-                        n[0] + o.X,
-                        n[1] + o.Y,
-                        n[2],
-                        n[3],
-                        Text(stem) ?? Text(stem + "Image"),
-                        isPanel
-                    )
+                    new LayoutElement
+                    {
+                        Name = e.Key,
+                        X = n[0] + o.X,
+                        Y = n[1] + o.Y,
+                        Width = n[2],
+                        Height = n[3],
+                        Sprite = Text(stem) ?? Text(stem + "Image"),
+                        IsPanel = isPanel,
+                    }
                 );
             }
             else if (Piece.Match(e.Key) is { Success: true } p && Text(p.Groups[1].Value) is { } sprite)
@@ -221,7 +248,16 @@ public sealed class InterfaceConfig
 
                 var o = Origin(e.Key);
                 _elements.Add(
-                    new LayoutElement(e.Key, r[0] + o.X, r[1] + o.Y, r[2], r[3], $"{sprite}.{p.Groups[2].Value}", false)
+                    new LayoutElement
+                    {
+                        Name = e.Key,
+                        X = r[0] + o.X,
+                        Y = r[1] + o.Y,
+                        Width = r[2],
+                        Height = r[3],
+                        Sprite = $"{sprite}.{p.Groups[2].Value}",
+                        IsPanel = false,
+                    }
                 );
             }
         }

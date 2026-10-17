@@ -7,50 +7,65 @@ using System.Linq;
 namespace OpenArmada.Formats;
 
 // One cell of a sprite on its texture, in reference pixels.
-public readonly record struct SpriteFrame(int U, int V, int W, int H);
+public readonly record struct SpriteFrame
+{
+    public required int U { get; init; }
+    public required int V { get; init; }
+    public required int W { get; init; }
+    public required int H { get; init; }
+}
 
 // One sprite row. Reference sizes are 0 while no @reference is in force: the region is then in the
 // texture's own pixels. Table and Line say where the row stands (the included table, not the root).
-public sealed record Sprite(
-    string Name,
-    string Texture,
-    int U,
-    int V,
-    int W,
-    int H,
-    int ReferenceWidth,
-    int ReferenceHeight,
-    string? Material,
-    string? Skip,
-    string? Anim,
-    bool Cursor,
-    (int X, int Y)? Origin,
-    string Table,
-    int Line
-);
+public sealed record Sprite
+{
+    public required string Name { get; init; }
+    public required string Texture { get; init; }
+    public required int U { get; init; }
+    public required int V { get; init; }
+    public required int W { get; init; }
+    public required int H { get; init; }
+    public required int ReferenceWidth { get; init; }
+    public required int ReferenceHeight { get; init; }
+    public required string? Material { get; init; }
+    public required string? Skip { get; init; }
+    public required string? Anim { get; init; }
+    public required bool Cursor { get; init; }
+    public required (int X, int Y)? Origin { get; init; }
+    public required string Table { get; init; }
+    public required int Line { get; init; }
+}
 
 // An @animation: Field is what it animates (offset, colour, draw, width), Count its keyframes and
 // Length its seconds. Auto ("square", "row", "column") generates the keyframes of an offset animation
 // as a flipbook over the texture grid; otherwise Keyframes holds the explicit lines, split on blanks.
-public sealed record SpriteAnimation(
-    string Name,
-    string Field,
-    int Count,
-    double Length,
-    string Method,
-    string? Auto,
-    IReadOnlyList<string[]> Keyframes
-)
+public sealed record SpriteAnimation
 {
+    public required string Name { get; init; }
+    public required string Field { get; init; }
+    public required int Count { get; init; }
+    public required double Length { get; init; }
+    public required string Method { get; init; }
+    public required string? Auto { get; init; }
+    public required IReadOnlyList<string[]> Keyframes { get; init; }
+
     public double FrameSeconds => Count > 0 ? Length / Count : 0;
 }
 
 // An @emitter block: its name and its lines up to @end_emitter, kept as written (comments removed,
 // blanks collapsed) and not interpreted.
-public sealed record SpriteEmitter(string Name, IReadOnlyList<string> Body);
+public sealed record SpriteEmitter
+{
+    public required string Name { get; init; }
+    public required IReadOnlyList<string> Body { get; init; }
+}
 
 // A @sprite_node line: its name and the remaining tokens, kept as written and not interpreted.
-public sealed record SpriteNode(string Name, IReadOnlyList<string> Arguments);
+public sealed record SpriteNode
+{
+    public required string Name { get; init; }
+    public required IReadOnlyList<string> Arguments { get; init; }
+}
 
 // A sprite table (.spr): "sprite_table" on the first line, '#' comments, @include of other tables,
 // directives and rows "Name Texture U V W H" with trailing directives. An include's sprites and
@@ -146,7 +161,13 @@ public sealed class SpriteTable
     // The frames of a sprite in play order: the cells of its flipbook animation, else its own region.
     public IReadOnlyList<SpriteFrame> Frames(Sprite s)
     {
-        var own = new SpriteFrame(s.U, s.V, s.W, s.H);
+        var own = new SpriteFrame
+        {
+            U = s.U,
+            V = s.V,
+            W = s.W,
+            H = s.H,
+        };
         if (s.Anim == null || !_animations.TryGetValue(s.Anim, out var a) || a.Auto == null || a.Count < 1)
             return new[] { own };
         var columns = Grid(a).Columns; // the cells lie inside the reference area: Read checked
@@ -250,7 +271,7 @@ public sealed class SpriteTable
             {
                 if (t[0] == "@end_emitter")
                 {
-                    _emitters.Add(new SpriteEmitter(emitter, emitterBody.ToArray()));
+                    _emitters.Add(new SpriteEmitter { Name = emitter, Body = emitterBody.ToArray() });
                     emitter = null;
                     emitterBody.Clear();
                 }
@@ -309,7 +330,16 @@ public sealed class SpriteTable
                             throw Bad(table, n, "@animation names no animation");
                         CloseAnimation();
                         animLine = n;
-                        anim = new SpriteAnimation(value, "", 0, 0, "", null, new List<string[]>());
+                        anim = new SpriteAnimation
+                        {
+                            Name = value,
+                            Field = "",
+                            Count = 0,
+                            Length = 0,
+                            Method = "",
+                            Auto = null,
+                            Keyframes = new List<string[]>(),
+                        };
 
                         break;
                     case "@auto":
@@ -334,7 +364,7 @@ public sealed class SpriteTable
                     case "@sprite_node":
                         _nodes.Add(
                             t.Length > 1
-                                ? new SpriteNode(t[1], t[2..])
+                                ? new SpriteNode { Name = t[1], Arguments = t[2..] }
                                 : throw Bad(table, n, "@sprite_node names no node")
                         );
 
@@ -415,23 +445,24 @@ public sealed class SpriteTable
             }
 
             _sprites.Add(
-                new Sprite(
-                    t[0],
-                    t[1],
-                    Int(table, n, t[2], "U"),
-                    Int(table, n, t[3], "V"),
-                    Int(table, n, t[4], "W"),
-                    Int(table, n, t[5], "H"),
-                    refW,
-                    refH,
-                    material,
-                    skip,
-                    spriteAnim,
-                    cursor,
-                    origin,
-                    table,
-                    n
-                )
+                new Sprite
+                {
+                    Name = t[0],
+                    Texture = t[1],
+                    U = Int(table, n, t[2], "U"),
+                    V = Int(table, n, t[3], "V"),
+                    W = Int(table, n, t[4], "W"),
+                    H = Int(table, n, t[5], "H"),
+                    ReferenceWidth = refW,
+                    ReferenceHeight = refH,
+                    Material = material,
+                    Skip = skip,
+                    Anim = spriteAnim,
+                    Cursor = cursor,
+                    Origin = origin,
+                    Table = table,
+                    Line = n,
+                }
             );
         }
 

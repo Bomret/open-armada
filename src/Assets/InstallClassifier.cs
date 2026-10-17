@@ -19,7 +19,12 @@ public enum FileClass
 
 // One install file (an Inventory entry), its class, and the group that class names ("models", "video",
 // "input device maps"); for an unclassified file the reason a rule failed on it, or empty.
-public sealed record Classified(string Entry, FileClass Class, string Group);
+public sealed record Classified
+{
+    public required string Entry { get; init; }
+    public required FileClass Class { get; init; }
+    public required string Group { get; init; }
+}
 
 // The classification rules: the one place that says which install file belongs to which class. Godot-free.
 // The "Loaded" rules mirror the enumeration scope of the asset kinds, and with the install opened the kinds
@@ -45,18 +50,27 @@ public static class InstallClassifier
             {
                 var (c, g) = Safe(e.ToLowerInvariant(), all, reads);
 
-                return new Classified(e, c, g);
+                return new Classified
+                {
+                    Entry = e,
+                    Class = c,
+                    Group = g,
+                };
             })
             .ToList();
     }
 
     // The entries the kinds read, each with the name of a kind that reads it, and the bare names of those
     // entries. A kind that cannot list its assets adds nothing; the asset check reports it.
-    sealed record KindReads(Dictionary<string, string> Entries, HashSet<string> Names);
+    sealed record KindReads
+    {
+        public required Dictionary<string, string> Entries { get; init; }
+        public required HashSet<string> Names { get; init; }
+    }
 
     static KindReads Reads(GameFileSystem files)
     {
-        var reads = new KindReads(new(), new());
+        var reads = new KindReads { Entries = new(), Names = new() };
         foreach (var kind in AssetKind.Discover())
         {
             try

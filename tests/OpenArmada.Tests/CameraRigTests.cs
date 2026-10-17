@@ -48,7 +48,15 @@ public class CameraRigTests
         return GameConstants.Read("RTS_CFG.h", Encoding.ASCII.GetBytes(text));
     }
 
-    static readonly MapBounds Bounds = new(0, 1000, 0, 100, 0, 600);
+    static readonly MapBounds Bounds = new()
+    {
+        MinX = 0,
+        MaxX = 1000,
+        MinY = 0,
+        MaxY = 100,
+        MinZ = 0,
+        MaxZ = 600,
+    };
 
     static CameraRig Rig(params (string Name, string? Value)[] edits) => new CameraRig(Constants(edits), Bounds);
 
@@ -384,7 +392,18 @@ public class CameraRigTests
     [TestMethod]
     public void InvertedMapBoundsGiveAFinitePoseAndAreReported()
     {
-        var rig = new CameraRig(Constants(), new MapBounds(1000, 0, 0, 100, 600, 0));
+        var rig = new CameraRig(
+            Constants(),
+            new MapBounds
+            {
+                MinX = 1000,
+                MaxX = 0,
+                MinY = 0,
+                MaxY = 100,
+                MinZ = 600,
+                MaxZ = 0,
+            }
+        );
         rig.Pan(new Vector2(1, 1));
         var (eye, target) = rig.Pose;
         foreach (var v in new[] { eye.X, eye.Y, eye.Z, target.X, target.Y, target.Z })

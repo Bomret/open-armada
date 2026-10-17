@@ -5,11 +5,14 @@ namespace OpenArmada.Sandbox;
 
 // A map object that ships or stations are: its definition names a physics definition. Name is the
 // definition's unitName.
-public abstract record Unit(string Name);
+public abstract record Unit
+{
+    public required string Name { get; init; }
+}
 
-public sealed record Ship(string Name) : Unit(Name);
+public sealed record Ship : Unit;
 
-public sealed record Station(string Name) : Unit(Name);
+public sealed record Station : Unit;
 
 public static class UnitRules
 {
@@ -24,7 +27,7 @@ public static class UnitRules
             : definition.Name.Replace(".odf", "", StringComparison.OrdinalIgnoreCase);
 
         return definition.Has("is_starbase") && definition.GetInt("is_starbase") != 0
-            ? new Station(name)
-            : new Ship(name);
+            ? new Station { Name = name }
+            : new Ship { Name = name };
     }
 }

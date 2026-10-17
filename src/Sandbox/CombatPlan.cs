@@ -113,7 +113,16 @@ public sealed class CombatPlan
 
         // stand-in: a middling race for a race definition the install lacks: no delay and repair factors,
         // middling crew thresholds.
-        static readonly RaceValues StandInRace = new(0.5f, 0.25f, 1, 1, 1, 1, 1);
+        static readonly RaceValues StandInRace = new()
+        {
+            CrewYellowStatus = 0.5f,
+            CrewRedStatus = 0.25f,
+            WeaponYellow = 1,
+            WeaponRed = 1,
+            RepairYellow = 1,
+            RepairRed = 1,
+            RepairStrength = 1,
+        };
 
         // Each definition once: the definition, or null with the cause it could not be read.
         readonly Dictionary<string, (ResolvedDefinition? Definition, string Cause)> _resolved = new(
@@ -143,32 +152,34 @@ public sealed class CombatPlan
                 if (hitPoints > 0)
                 {
                     systems.Add(
-                        new SystemProfile(
-                            name,
-                            hitPoints,
-                            r.Num(key + "HitPercent", 0),
-                            r.Num(key + "CrewLoss", 0),
-                            r.Num(key + "RepairTime", 0)
-                        )
+                        new SystemProfile
+                        {
+                            Name = name,
+                            HitPoints = hitPoints,
+                            HitPercent = r.Num(key + "HitPercent", 0),
+                            CrewLoss = r.Num(key + "CrewLoss", 0),
+                            RepairTime = r.Num(key + "RepairTime", 0),
+                        }
                     );
                 }
             }
 
-            return new CombatProfile(
-                ReadWeapons(d, r, gaps),
-                r.Num("maxHealth", 0, report: true), // stand-in: no shields
-                r.Num("shieldRate", 0, report: true), // stand-in: no shield regain
-                r.Num("shieldDelay", 0),
-                crewCost,
-                maximumCrew,
-                systems,
-                r.Num("hullHitPercent", 0),
-                r.Num("lifeSupportLoss", 0),
-                r.Flag("defaultGreenAlert", false),
-                r.Flag("canAttack", true),
-                r.Str("fireball"),
-                ReadRace(d, r, gaps)
-            );
+            return new CombatProfile
+            {
+                Weapons = ReadWeapons(d, r, gaps),
+                MaxHealth = r.Num("maxHealth", 0, report: true),
+                ShieldRate = r.Num("shieldRate", 0, report: true),
+                ShieldDelay = r.Num("shieldDelay", 0),
+                CrewCost = crewCost,
+                MaximumCrew = maximumCrew,
+                Systems = systems,
+                HullHitPercent = r.Num("hullHitPercent", 0),
+                LifeSupportLoss = r.Num("lifeSupportLoss", 0),
+                DefaultGreenAlert = r.Flag("defaultGreenAlert", false),
+                CanAttack = r.Flag("canAttack", true),
+                Fireball = r.Str("fireball"),
+                Race = ReadRace(d, r, gaps),
+            };
         }
 
         IReadOnlyList<WeaponProfile> ReadWeapons(
@@ -231,33 +242,35 @@ public sealed class CombatPlan
                 }
 
                 weapons.Add(
-                    new WeaponProfile(
-                        n,
-                        name,
-                        hardpoints,
-                        w.Num("shotDelay", 1, report: true), // stand-in: one second between shots
-                        w.Num("range", 0, report: true), // stand-in: no range, so the weapon never fires
-                        w.Target("hitChance", 1, report: true), // stand-in: a sure hit
-                        w.Num("warpToHitModifier", 0),
-                        w.Num("toHitWarpModifier", 0),
-                        w.Num("stopToHitModifier", 0),
-                        w.Num("toHitStopModifier", 0),
-                        w.Flag("crewAffectsWeaponDelay", false),
-                        w.Str("fireSound"),
-                        new OrdnanceProfile(
-                            o.Str("classLabel"),
-                            o.Target("damageBase", 0, report: true), // stand-in: no damage
-                            o.Target("damageVariance", 0),
-                            o.Target("damageThreshold", 0),
-                            o.Target("shieldCrewModifier", 0),
-                            o.Target("hullCrewModifier", 0),
-                            o.Num("lifeSpan", 0, report: true), // stand-in: the shot ends at once
-                            o.Num("shotSpeed", 0),
-                            o.Num("omegaTurn", 0),
-                            o.Num("seekTime", 0),
-                            o.Str("Sprite")
-                        )
-                    )
+                    new WeaponProfile
+                    {
+                        Slot = n,
+                        Name = name,
+                        Hardpoints = hardpoints,
+                        ShotDelay = w.Num("shotDelay", 1, report: true),
+                        Range = w.Num("range", 0, report: true),
+                        HitChance = w.Target("hitChance", 1, report: true),
+                        WarpToHitModifier = w.Num("warpToHitModifier", 0),
+                        ToHitWarpModifier = w.Num("toHitWarpModifier", 0),
+                        StopToHitModifier = w.Num("stopToHitModifier", 0),
+                        ToHitStopModifier = w.Num("toHitStopModifier", 0),
+                        CrewAffectsWeaponDelay = w.Flag("crewAffectsWeaponDelay", false),
+                        FireSound = w.Str("fireSound"),
+                        Ordnance = new OrdnanceProfile
+                        {
+                            ClassLabel = o.Str("classLabel"),
+                            DamageBase = o.Target("damageBase", 0, report: true),
+                            DamageVariance = o.Target("damageVariance", 0),
+                            DamageThreshold = o.Target("damageThreshold", 0),
+                            ShieldCrewModifier = o.Target("shieldCrewModifier", 0),
+                            HullCrewModifier = o.Target("hullCrewModifier", 0),
+                            LifeSpan = o.Num("lifeSpan", 0, report: true),
+                            ShotSpeed = o.Num("shotSpeed", 0),
+                            OmegaTurn = o.Num("omegaTurn", 0),
+                            SeekTime = o.Num("seekTime", 0),
+                            Sprite = o.Str("Sprite"),
+                        },
+                    }
                 );
             }
 
@@ -307,15 +320,16 @@ public sealed class CombatPlan
 
                 // The unit-level weaponYellow and weaponRed are not read: docs/combat-rules.md names the race as
                 // the source of the delay factors.
-                return new RaceValues(
-                    r.Num("crewYellowStatus", 0.5f, report: true), // stand-in: crew thresholds of a middling race
-                    r.Num("crewRedStatus", 0.25f, report: true),
-                    r.Num("weaponYellow", 1, report: true), // stand-in: no delay factor
-                    r.Num("weaponRed", 1, report: true),
-                    r.Num("repairYellow", 1, report: true), // stand-in: no repair factor
-                    r.Num("repairRed", 1, report: true),
-                    r.Num("repairStrength", 1, report: true)
-                );
+                return new RaceValues
+                {
+                    CrewYellowStatus = r.Num("crewYellowStatus", 0.5f, report: true),
+                    CrewRedStatus = r.Num("crewRedStatus", 0.25f, report: true),
+                    WeaponYellow = r.Num("weaponYellow", 1, report: true),
+                    WeaponRed = r.Num("weaponRed", 1, report: true),
+                    RepairYellow = r.Num("repairYellow", 1, report: true),
+                    RepairRed = r.Num("repairRed", 1, report: true),
+                    RepairStrength = r.Num("repairStrength", 1, report: true),
+                };
             }
             else if (_racesProblem != null)
             {

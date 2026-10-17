@@ -18,17 +18,23 @@ public enum BlendMode
 
 // A texture material's draw state. Opacity is 1 - transparency; Nearest is point texture filtering.
 // AlphaTest drops texels below 128/255 before an Alpha blend (Cutout always does).
-public sealed record BlendState(
-    BlendMode Mode,
-    float Opacity,
-    bool Wireframe = false,
-    bool Nearest = false,
-    bool AlphaTest = false
-);
+public sealed record BlendState
+{
+    public required BlendMode Mode { get; init; }
+    public required float Opacity { get; init; }
+    public bool Wireframe { get; init; } = false;
+    public bool Nearest { get; init; } = false;
+    public bool AlphaTest { get; init; } = false;
+}
 
 // What a model's mesh draws with: its texture (the entry's own for versions before 1.7), the blend
 // state, or the reason the blend is not known. Exactly one of Blend and Problem is set.
-public sealed record MeshLook(string Texture, BlendState? Blend, string? Problem);
+public sealed record MeshLook
+{
+    public required string Texture { get; init; }
+    public required BlendState? Blend { get; init; }
+    public required string? Problem { get; init; }
+}
 
 public enum LightingModel
 {
@@ -38,23 +44,29 @@ public enum LightingModel
 }
 
 // A lighting material as the surface is shaded. Team marks a material whose name starts "team".
-public sealed record Surface(
-    LightingModel Model,
-    Vector3 Ambient,
-    Vector3 Diffuse,
-    Vector3 Specular,
-    float Power,
-    bool Team
-)
+public sealed record Surface
 {
+    public required LightingModel Model { get; init; }
+    public required Vector3 Ambient { get; init; }
+    public required Vector3 Diffuse { get; init; }
+    public required Vector3 Specular { get; init; }
+    public required float Power { get; init; }
+    public required bool Team { get; init; }
+
     // The game replaces a team material's ambient with black and its diffuse and specular with the team
     // color; power and model stay (Armada.exe FUN_005a5b00, see reports of the asset-layer scope).
     public Surface WithTeam(Vector3 color) => this with { Ambient = Vector3.Zero, Diffuse = color, Specular = color };
 }
 
 // A texture flipbook: the node's texture coordinates are offset by one cell per frame.
-public sealed record TextureAnimation(int Columns, int Rows, int Count, double FrameSeconds, double Offset)
+public sealed record TextureAnimation
 {
+    public required int Columns { get; init; }
+    public required int Rows { get; init; }
+    public required int Count { get; init; }
+    public required double FrameSeconds { get; init; }
+    public required double Offset { get; init; }
+
     public Vector2 UvOffset(double time)
     {
         var frame = FrameSeconds > 0 ? (int)Math.Floor((time + Offset) / FrameSeconds) : 0;
@@ -84,15 +96,25 @@ public static class ModelRules
     // and alpha_nof; no installed file uses them, so one that appears is reported as unknown.
     static readonly Dictionary<string, BlendState> Named = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["default"] = new(BlendMode.Opaque, 1f),
-        ["additive"] = new(BlendMode.Add, 1f),
-        ["add_nomipf"] = new(BlendMode.Add, 1f),
-        ["translucent"] = new(BlendMode.Alpha, 0.5f),
-        ["alphathreshold"] = new(BlendMode.Cutout, 1f),
-        ["wireframe"] = new(BlendMode.Opaque, 1f, Wireframe: true),
-        ["interface"] = new(BlendMode.Cutout, 1f, Nearest: true),
-        ["wormhole"] = new(BlendMode.Alpha, 1f),
-        ["alpha"] = new(BlendMode.Alpha, 1f),
+        ["default"] = new() { Mode = BlendMode.Opaque, Opacity = 1f },
+        ["additive"] = new() { Mode = BlendMode.Add, Opacity = 1f },
+        ["add_nomipf"] = new() { Mode = BlendMode.Add, Opacity = 1f },
+        ["translucent"] = new() { Mode = BlendMode.Alpha, Opacity = 0.5f },
+        ["alphathreshold"] = new() { Mode = BlendMode.Cutout, Opacity = 1f },
+        ["wireframe"] = new()
+        {
+            Mode = BlendMode.Opaque,
+            Opacity = 1f,
+            Wireframe = true,
+        },
+        ["interface"] = new()
+        {
+            Mode = BlendMode.Cutout,
+            Opacity = 1f,
+            Nearest = true,
+        },
+        ["wormhole"] = new() { Mode = BlendMode.Alpha, Opacity = 1f },
+        ["alpha"] = new() { Mode = BlendMode.Alpha, Opacity = 1f },
     };
 
     // Whether a sprite's or mesh's texture material names a render type the engine draws.
@@ -109,24 +131,45 @@ public static class ModelRules
         if (sod.Version >= 1.65f)
         {
             if (mesh.TextureMaterial.Length == 0)
-                return new(mesh.Texture, Named["default"], null);
+                return new()
+                {
+                    Texture = mesh.Texture,
+                    Blend = Named["default"],
+                    Problem = null,
+                };
 
             return Named.TryGetValue(mesh.TextureMaterial, out var named)
-                ? new(mesh.Texture, named, null)
-                : new(
-                    mesh.Texture,
-                    null,
-                    $"texture material '{mesh.TextureMaterial}' is not a render type the engine knows"
-                );
+                ? new()
+                {
+                    Texture = mesh.Texture,
+                    Blend = named,
+                    Problem = null,
+                }
+                : new()
+                {
+                    Texture = mesh.Texture,
+                    Blend = null,
+                    Problem = $"texture material '{mesh.TextureMaterial}' is not a render type the engine knows",
+                };
         }
 
         if (mesh.Texture.Length == 0)
-            return new(mesh.Texture, Named["default"], null);
+            return new()
+            {
+                Texture = mesh.Texture,
+                Blend = Named["default"],
+                Problem = null,
+            };
         var entry = sod.TextureMaterials.FirstOrDefault(t =>
             t.Name.Equals(mesh.Texture, StringComparison.OrdinalIgnoreCase)
         );
         if (entry == null)
-            return new(mesh.Texture, null, $"texture material '{mesh.Texture}' is not in the model's table");
+            return new()
+            {
+                Texture = mesh.Texture,
+                Blend = null,
+                Problem = $"texture material '{mesh.Texture}' is not in the model's table",
+            };
 
         var opacity = Math.Clamp(1f - entry.Transparency, 0f, 1f);
         // The game turns alpha test on for every entry whose blend is not one/one (FUN_0059b230).
@@ -139,16 +182,25 @@ public static class ModelRules
         };
 
         return mode is { } m
-            ? new(
-                entry.Texture,
-                new BlendState(m, opacity, Nearest: entry.Filter == 1, AlphaTest: m == BlendMode.Alpha),
-                null
-            )
-            : new(
-                entry.Texture,
-                null,
-                $"texture material '{entry.Name}' has blend {entry.SrcBlend}/{entry.DstBlend}, which the engine does not know"
-            );
+            ? new()
+            {
+                Texture = entry.Texture,
+                Blend = new BlendState
+                {
+                    Mode = m,
+                    Opacity = opacity,
+                    Nearest = entry.Filter == 1,
+                    AlphaTest = m == BlendMode.Alpha,
+                },
+                Problem = null,
+            }
+            : new()
+            {
+                Texture = entry.Texture,
+                Blend = null,
+                Problem =
+                    $"texture material '{entry.Name}' has blend {entry.SrcBlend}/{entry.DstBlend}, which the engine does not know",
+            };
     }
 
     public static bool IsTeam(string materialName) =>
@@ -158,7 +210,15 @@ public static class ModelRules
     public static Surface? Lighting(Sod.LightingMaterial m) =>
         m.Model > (byte)LightingModel.Phong
             ? null
-            : new Surface((LightingModel)m.Model, m.Ambient, m.Diffuse, m.Specular, m.SpecularPower, IsTeam(m.Name));
+            : new Surface
+            {
+                Model = (LightingModel)m.Model,
+                Ambient = m.Ambient,
+                Diffuse = m.Diffuse,
+                Specular = m.Specular,
+                Power = m.SpecularPower,
+                Team = IsTeam(m.Name),
+            };
 
     // A flipbook of the sprite tables as a texture animation shifted by a reference's time offset.
     // Null, with the reason, for the animations that are not UV flipbooks.
@@ -182,7 +242,14 @@ public static class ModelRules
             return null;
         var (columns, rows) = SpriteTable.Grid(a);
 
-        return new TextureAnimation(columns, rows, a.Count, a.FrameSeconds, offset);
+        return new TextureAnimation
+        {
+            Columns = columns,
+            Rows = rows,
+            Count = a.Count,
+            FrameSeconds = a.FrameSeconds,
+            Offset = offset,
+        };
     }
 
     // The animation an animation reference names: a table's animation, or the animation of a sprite of
@@ -261,11 +328,12 @@ public static class ModelRules
     // the referenced name). MissingAnimations holds each animation reference no sprite table answers, with
     // the line it adds to Problems (null when the reference names no mesh node, so it adds none);
     // ModelKind lists such an animation as an unresolved reference and leaves the line out of its check.
-    public sealed record Analysis(
-        IReadOnlyList<string> Problems,
-        IReadOnlyList<(Sod.Node Node, TextureAnimation Flipbook)> Runs,
-        IReadOnlyList<(string Animation, string? Problem)> MissingAnimations
-    );
+    public sealed record Analysis
+    {
+        public required IReadOnlyList<string> Problems { get; init; }
+        public required IReadOnlyList<(Sod.Node Node, TextureAnimation Flipbook)> Runs { get; init; }
+        public required IReadOnlyList<(string Animation, string? Problem)> MissingAnimations { get; init; }
+    }
 
     public static Analysis Analyze(GameFileSystem files, Sod sod)
     {
@@ -353,7 +421,12 @@ public static class ModelRules
             }
         }
 
-        return new Analysis(problems, runs, missing);
+        return new Analysis
+        {
+            Problems = problems,
+            Runs = runs,
+            MissingAnimations = missing,
+        };
     }
 
     public static IReadOnlyList<string> Check(GameFileSystem files, Sod sod) => Analyze(files, sod).Problems;

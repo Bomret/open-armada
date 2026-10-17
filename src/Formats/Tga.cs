@@ -3,7 +3,13 @@ using System.IO;
 
 namespace OpenArmada.Formats;
 
-public sealed record TgaInfo(int Width, int Height, int BitsPerPixel, bool Indexed);
+public sealed record TgaInfo
+{
+    public required int Width { get; init; }
+    public required int Height { get; init; }
+    public required int BitsPerPixel { get; init; }
+    public required bool Indexed { get; init; }
+}
 
 // Header and size check of the uncompressed TGAs the game ships (true color and 8-bit color-mapped).
 // The pixels are decoded by Godot's own loader; this reader only decides whether the file is sound.
@@ -41,6 +47,12 @@ public static class Tga
         if (need > data.Length)
             throw new InvalidDataException($"TGA is cut off ({data.Length} of {need} bytes)");
 
-        return new TgaInfo(width, height, bpp, type == 1);
+        return new TgaInfo
+        {
+            Width = width,
+            Height = height,
+            BitsPerPixel = bpp,
+            Indexed = type == 1,
+        };
     }
 }

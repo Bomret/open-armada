@@ -8,10 +8,21 @@ namespace OpenArmada.Formats;
 
 // A block of a text table: Path is the names of its enclosing blocks and its own, dot separated
 // ("switch.Default"). Parent is the name after ':' in its header, if any.
-public sealed record TextTableBlock(string Path, string? Parent);
+public sealed record TextTableBlock
+{
+    public required string Path { get; init; }
+    public required string? Parent { get; init; }
+}
 
 // One `string key "value"` entry of a block; File and Line say where it was written.
-public sealed record TextTableEntry(string Block, string Key, string Value, string File, int Line);
+public sealed record TextTableEntry
+{
+    public required string Block { get; init; }
+    public required string Key { get; init; }
+    public required string Value { get; init; }
+    public required string File { get; init; }
+    public required int Line { get; init; }
+}
 
 // A text table (.ldl): the launcher's (splash.exe) configuration script, per the REA report of splash.exe.
 // The file is each byte XOR a fixed 400-byte key (plain[i] = file[i] ^ key[i % 400], restarting for every
@@ -144,7 +155,16 @@ public sealed class TextTable
                 }
                 else
                 {
-                    _entries.Add(new TextTableEntry(blocks[^1].Path, name, value, file, line));
+                    _entries.Add(
+                        new TextTableEntry
+                        {
+                            Block = blocks[^1].Path,
+                            Key = name,
+                            Value = value,
+                            File = file,
+                            Line = line,
+                        }
+                    );
                 }
             }
             else if (k + 1 < tokens.Count && tokens[k + 1].Text == "{")
@@ -154,7 +174,7 @@ public sealed class TextTable
                 var path = blocks.Count == 0 ? blockName : blocks[^1].Path + "." + blockName;
                 if (_blocks.FirstOrDefault(b => b.Path == path) is not { } first)
                 {
-                    _blocks.Add(new TextTableBlock(path, parent));
+                    _blocks.Add(new TextTableBlock { Path = path, Parent = parent });
                 }
                 else if (parent != null && parent != first.Parent)
                 {

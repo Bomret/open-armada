@@ -32,7 +32,18 @@ public class AsteroidFieldTests
         float radius = 100,
         float spin = 0.5f,
         float orbit = 0.25f
-    ) => new(new Vector3(10, 20, 30), min, max, radius, spin, orbit, seed, Eight);
+    ) =>
+        new()
+        {
+            Center = new Vector3(10, 20, 30),
+            Min = min,
+            Max = max,
+            Radius = radius,
+            RotationSpeed = spin,
+            OrbitingSpeed = orbit,
+            Seed = seed,
+            Models = Eight,
+        };
 
     [TestMethod]
     public void TheRockCountLiesInTheRangeAndReachesBothEnds()
@@ -156,7 +167,15 @@ public class AsteroidFieldTests
         Assert.AreEqual(1f, spun, 1e-3f); // spin 0.5 rad/s over 2 s
     }
 
-    static BznBuilder.Obj Obj(string cls, uint handle) => new(cls, 0, new Vector3(100, 0, 200), "f" + handle, handle);
+    static BznBuilder.Obj Obj(string cls, uint handle) =>
+        new()
+        {
+            Class = cls,
+            Team = 0,
+            Position = new Vector3(100, 0, 200),
+            Label = "f" + handle,
+            Pointer = handle,
+        };
 
     static (IReadOnlyList<AsteroidField> Fields, IReadOnlyList<ReportEntry> Reports) Collect(
         BznBuilder map,
@@ -169,7 +188,14 @@ public class AsteroidFieldTests
         {
             var install = new GameFileSystem(temp.MakeInstall(("addon/mafield.odf", odf)));
             var parsed = Bzn.Read(map.Build());
-            var asset = new MapAsset("bzn/t.bzn", parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+            var asset = new MapAsset
+            {
+                Name = "bzn/t.bzn",
+                Map = parsed,
+                Starts = Array.Empty<MapStart>(),
+                Overview = null,
+                ScriptedPaths = Array.Empty<MapPath>(),
+            };
 
             return AsteroidField.Collect(
                 parsed,
@@ -287,7 +313,14 @@ public class AsteroidFieldTests
         {
             var install = new GameFileSystem(temp.MakeInstall(("addon/mafield.odf", Good)));
             var parsed = Bzn.Read(MapOf(description, Obj("mafield", 1)).Build());
-            var asset = new MapAsset(path, parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+            var asset = new MapAsset
+            {
+                Name = path,
+                Map = parsed,
+                Starts = Array.Empty<MapStart>(),
+                Overview = null,
+                ScriptedPaths = Array.Empty<MapPath>(),
+            };
 
             return SandboxPlan
                 .Build(asset, SandboxPlan.Definitions(install, asset), m => Eight.Contains(m))

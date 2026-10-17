@@ -10,17 +10,18 @@ namespace OpenArmada.Tests;
 // type byte, 3 filler bytes, u32 payload size, payload.
 internal sealed class BznBuilder
 {
-    internal sealed record Obj(
-        string Class,
-        int Team,
-        Vector3 Position,
-        string Label = "obj",
-        uint Pointer = 1,
-        byte[][]? Prefix = null,
-        float Yaw = 0,
-        bool NoTail = false,
-        float[]? Axes = null
-    );
+    internal sealed record Obj
+    {
+        public required string Class { get; init; }
+        public required int Team { get; init; }
+        public required Vector3 Position { get; init; }
+        public string Label { get; init; } = "obj";
+        public uint Pointer { get; init; } = 1;
+        public byte[][]? Prefix { get; init; } = null;
+        public float Yaw { get; init; } = 0;
+        public bool NoTail { get; init; } = false;
+        public float[]? Axes { get; init; } = null;
+    }
 
     internal int Version = 2051;
     internal string Description = "Test Map";

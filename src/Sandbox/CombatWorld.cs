@@ -7,13 +7,14 @@ namespace OpenArmada.Sandbox;
 
 // One unit as the combat world takes it: the placed object, its combat values, the name per-target values know
 // it by, its radius, and whether it can move at all.
-public sealed record CombatUnit(
-    PlacedObject Unit,
-    CombatProfile Profile,
-    string DefinitionName,
-    float Radius,
-    bool Mobile
-);
+public sealed record CombatUnit
+{
+    public required PlacedObject Unit { get; init; }
+    public required CombatProfile Profile { get; init; }
+    public required string DefinitionName { get; init; }
+    public required float Radius { get; init; }
+    public required bool Mobile { get; init; }
+}
 
 // The fight of a map in plain C#: every unit's combat state, the orders, and the shots in flight. Step advances
 // it and returns what happened. Unit positions come from the pose source; randomness from the injected source, a
@@ -156,7 +157,7 @@ public sealed class CombatWorld
             Think(u);
             if (u.Mobile && u.Immobile)
             {
-                u.Intent = new MoveIntent(MoveKind.Stop); // no order moves a derelict ship or one with dead engines
+                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a derelict ship or one with dead engines
                 u.PlayerMove = null;
             }
 
@@ -187,7 +188,7 @@ public sealed class CombatWorld
         {
             u.Order = null;
             u.AutoOrder = false;
-            u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
+            u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
         }
 
         // stand-in: what red gave the unit ends with red, the auto order and the walk toward an attacker (a
@@ -200,7 +201,7 @@ public sealed class CombatWorld
             }
 
             u.AutoOrder = u.AutoMove = false;
-            u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
+            u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
         }
 
         var range = LongestRange(u);
@@ -225,7 +226,12 @@ public sealed class CombatWorld
             else if (u.Mobile && u.Attacker is { } attacker && Valid(u, attacker))
             {
                 var at = Position(attacker); // else go to where the unit that hit it is
-                u.Intent = new MoveIntent(MoveKind.MoveTo, at.X, at.Z);
+                u.Intent = new MoveIntent
+                {
+                    Kind = MoveKind.MoveTo,
+                    X = at.X,
+                    Z = at.Z,
+                };
                 u.AutoMove = true;
 
                 return;
@@ -235,7 +241,7 @@ public sealed class CombatWorld
                 u.Attacker = null;
                 if (u.AutoMove)
                 {
-                    u.Intent = new MoveIntent(MoveKind.Stop);
+                    u.Intent = new MoveIntent { Kind = MoveKind.Stop };
                 }
 
                 u.AutoMove = false;
@@ -251,7 +257,12 @@ public sealed class CombatWorld
             var there = Position(order);
             // stand-in: the game's attack maneuver was not traced; the unit follows its target to the closing
             // range, then holds position and turns toward it.
-            u.Intent = new MoveIntent(distance > range - 50 ? MoveKind.MoveTo : MoveKind.Face, there.X, there.Z);
+            u.Intent = new MoveIntent
+            {
+                Kind = distance > range - 50 ? MoveKind.MoveTo : MoveKind.Face,
+                X = there.X,
+                Z = there.Z,
+            };
         }
 
         if (distance <= range)
@@ -307,7 +318,7 @@ public sealed class CombatWorld
             {
                 foreach (var hardpoint in weapon.Profile.Hardpoints)
                 {
-                    events.Add(new ShotFired(Launch(u, weapon.Profile, target, hardpoint)));
+                    events.Add(new ShotFired { Shot = Launch(u, weapon.Profile, target, hardpoint) });
                 }
 
                 weapon.Cooldown += delay;
@@ -454,13 +465,13 @@ public sealed class CombatWorld
         var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
         target.Attacker = shot.Shooter;
-        events.Add(new ShotLanded(shot, hit));
+        events.Add(new ShotLanded { Shot = shot, Hit = hit });
         if (!hit.Destroyed)
             return;
         _units.Remove(target.Unit);
         _shots.RemoveAll(s => s.Target == target);
         target.Order = null;
         target.Target = null;
-        events.Add(new UnitDestroyed(target.Unit));
+        events.Add(new UnitDestroyed { Unit = target.Unit });
     }
 }

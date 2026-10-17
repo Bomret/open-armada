@@ -15,10 +15,20 @@ namespace OpenArmada.Viewer;
 public partial class AsteroidFieldsView : Node3D
 {
     // One draw: a mesh of a model, the rocks that show it, and the buffer of their transforms.
-    sealed record Draw(MultiMesh Multi, Transform3D Part, Transform3D[] Pose, float[] Buffer);
+    sealed record Draw
+    {
+        public required MultiMesh Multi { get; init; }
+        public required Transform3D Part { get; init; }
+        public required Transform3D[] Pose { get; init; }
+        public required float[] Buffer { get; init; }
+    }
 
     // The rocks of one model and their poses at the current time; every draw of the model reads the poses.
-    sealed record Group(List<Rock> Rocks, Transform3D[] Pose);
+    sealed record Group
+    {
+        public required List<Rock> Rocks { get; init; }
+        public required Transform3D[] Pose { get; init; }
+    }
 
     readonly List<Draw> _draws = new();
     readonly List<Group> _groups = new();
@@ -90,7 +100,7 @@ public partial class AsteroidFieldsView : Node3D
 
         foreach (var (model, rocks) in byModel)
         {
-            var group = new Group(rocks, new Transform3D[rocks.Count]);
+            var group = new Group { Rocks = rocks, Pose = new Transform3D[rocks.Count] };
             _groups.Add(group);
             foreach (var (mesh, transform) in parts[model])
             {
@@ -102,7 +112,15 @@ public partial class AsteroidFieldsView : Node3D
                     CustomAabb = bounds!.Value,
                 };
                 AddChild(new MultiMeshInstance3D { Multimesh = multi });
-                _draws.Add(new Draw(multi, transform, group.Pose, new float[rocks.Count * 12]));
+                _draws.Add(
+                    new Draw
+                    {
+                        Multi = multi,
+                        Part = transform,
+                        Pose = group.Pose,
+                        Buffer = new float[rocks.Count * 12],
+                    }
+                );
             }
         }
 

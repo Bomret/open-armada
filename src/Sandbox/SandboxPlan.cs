@@ -11,21 +11,26 @@ namespace OpenArmada.Sandbox;
 // One map object to show. Position and the axes are in Godot's frame (Z mirrored, as the model builder
 // does), so the node's transform is Basis(AxisX, AxisY, AxisZ) at Position. Slot indexes
 // TeamColors.SlotNames.
-public sealed record PlacedObject(
-    string Label,
-    string Class,
-    string Model,
-    int Team,
-    int Slot,
-    Vector3 Position,
-    Vector3 AxisX,
-    Vector3 AxisY,
-    Vector3 AxisZ
-);
+public sealed record PlacedObject
+{
+    public required string Label { get; init; }
+    public required string Class { get; init; }
+    public required string Model { get; init; }
+    public required int Team { get; init; }
+    public required int Slot { get; init; }
+    public required Vector3 Position { get; init; }
+    public required Vector3 AxisX { get; init; }
+    public required Vector3 AxisY { get; init; }
+    public required Vector3 AxisZ { get; init; }
+}
 
 // One gap of the map, shown once: the cause, the distinct names it touches, and how many objects it touches.
-public sealed record ReportEntry(string Cause, IReadOnlyList<string> Names, int Count)
+public sealed record ReportEntry
 {
+    public required string Cause { get; init; }
+    public required IReadOnlyList<string> Names { get; init; }
+    public required int Count { get; init; }
+
     public string Text => $"{Cause}: {string.Join(", ", Names)} ({Count} {(Count == 1 ? "object" : "objects")})";
 }
 
@@ -138,17 +143,18 @@ public sealed class SandboxPlan
                 continue;
             var (x, y, z) = Orientation(o, gaps);
             placed.Add(
-                new PlacedObject(
-                    o.Label,
-                    o.Class,
-                    model,
-                    o.Team,
-                    Slot(map, o.Team, gaps),
-                    new Vector3(o.Position.X, o.Position.Y, -o.Position.Z),
-                    x,
-                    y,
-                    z
-                )
+                new PlacedObject
+                {
+                    Label = o.Label,
+                    Class = o.Class,
+                    Model = model,
+                    Team = o.Team,
+                    Slot = Slot(map, o.Team, gaps),
+                    Position = new Vector3(o.Position.X, o.Position.Y, -o.Position.Z),
+                    AxisX = x,
+                    AxisY = y,
+                    AxisZ = z,
+                }
             );
         }
 

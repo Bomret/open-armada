@@ -6,7 +6,14 @@ namespace OpenArmada.Formats;
 // One binding or label. Gamekey.map lines "NAME KEYS" have no Section and Sign; the blocks of Input.map
 // and label.map ("name {" ... "}") hold "+ key value" and "- key value" lines, a label's value read
 // without its braces.
-public sealed record MapEntry(string Section, string Sign, string Key, string Value, int Line);
+public sealed record MapEntry
+{
+    public required string Section { get; init; }
+    public required string Sign { get; init; }
+    public required string Key { get; init; }
+    public required string Value { get; init; }
+    public required int Line { get; init; }
+}
 
 // A key map or label map (.map): '#' comments, flat "NAME KEYS" lines and blocks (the grammar of
 // Armada.exe's input parser 0x474440 as seen in the install's files). A line that fits none of these is a
@@ -48,7 +55,16 @@ public sealed class MapFile
                 }
                 else if (Flat.Match(line) is { Success: true } f)
                 {
-                    m._entries.Add(new MapEntry("", "", f.Groups[1].Value, f.Groups[2].Value, i + 1));
+                    m._entries.Add(
+                        new MapEntry
+                        {
+                            Section = "",
+                            Sign = "",
+                            Key = f.Groups[1].Value,
+                            Value = f.Groups[2].Value,
+                            Line = i + 1,
+                        }
+                    );
                 }
                 else
                 {
@@ -67,7 +83,16 @@ public sealed class MapFile
                     value = l.Groups[1].Value;
                 }
 
-                m._entries.Add(new MapEntry(section, it.Groups[1].Value, it.Groups[2].Value, value, i + 1));
+                m._entries.Add(
+                    new MapEntry
+                    {
+                        Section = section,
+                        Sign = it.Groups[1].Value,
+                        Key = it.Groups[2].Value,
+                        Value = value,
+                        Line = i + 1,
+                    }
+                );
             }
             else
             {

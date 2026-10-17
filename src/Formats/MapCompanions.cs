@@ -8,7 +8,11 @@ using System.Numerics;
 namespace OpenArmada.Formats;
 
 // A start location of the .mdf: a cell of the 118 x 118 grid (0..117 on both axes) the map is stretched onto.
-public readonly record struct StartCell(int X, int Y);
+public readonly record struct StartCell
+{
+    public required int X { get; init; }
+    public required int Y { get; init; }
+}
 
 // The .mdf next to a multiplayer map: `StartLocations = n`, then `Start1 = x y` to `Startn = x y`.
 public static class Mdf
@@ -54,7 +58,7 @@ public static class Mdf
                 || y is < 0 or > MaxCell
             )
                 throw new InvalidDataException($"mdf {key} is not two cells of 0..{MaxCell}: '{v}'");
-            cells.Add(new StartCell(x, y));
+            cells.Add(new StartCell { X = x, Y = y });
         }
 
         if (values.Count > 0)

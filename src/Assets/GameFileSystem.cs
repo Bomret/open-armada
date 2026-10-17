@@ -41,17 +41,30 @@ public sealed class GameFileSystem
     static readonly string[][] RootFolder = { Array.Empty<string>() };
 
     // An opened archive: Rel is its path in the install (forward slashes), Path its real path.
-    sealed record Archive(string Rel, string Path, ZfsArchive Zfs);
+    sealed record Archive
+    {
+        public required string Rel { get; init; }
+        public required string Path { get; init; }
+        public required ZfsArchive Zfs { get; init; }
+    }
 
     // A resolved file: a loose file, or a member of Archive.
-    sealed record Hit(string? Loose = null, Archive? Archive = null, string? Member = null)
+    sealed record Hit
     {
+        public string? Loose { get; init; } = null;
+        public Archive? Archive { get; init; } = null;
+        public string? Member { get; init; } = null;
+
         public string Path => Archive?.Path ?? Loose!;
         public string Display => Archive == null ? Path : $"{Archive.Rel}::{Member}";
     }
 
     // Where an index dir is read from: a loose folder or an archive (both null when it did not resolve).
-    sealed record Source(string? Folder, Archive? Archive);
+    sealed record Source
+    {
+        public required string? Folder { get; init; }
+        public required Archive? Archive { get; init; }
+    }
 
     readonly string Root;
     readonly Dictionary<string, Dictionary<string, string>> _entries = new(StringComparer.Ordinal);
@@ -136,7 +149,7 @@ public sealed class GameFileSystem
                 }
             }
 
-            _sources.Add(new Source(folder, archive));
+            _sources.Add(new Source { Folder = folder, Archive = archive });
         }
 
         foreach (var (name, dir) in _index.Entries)
@@ -162,7 +175,12 @@ public sealed class GameFileSystem
             var zfs = ZfsArchive.Open(File.ReadAllBytes(path));
             _faults.AddRange(zfs.Faults.Select(f => $"archive/{rel}/{f}"));
 
-            return _opened[rel] = new Archive(rel, path, zfs);
+            return _opened[rel] = new Archive
+            {
+                Rel = rel,
+                Path = path,
+                Zfs = zfs,
+            };
         }
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
         {
@@ -198,9 +216,18 @@ public sealed class GameFileSystem
 
         return parts.Length == 1 && FromAddon(parts[0]) != null ? FromAddon(sibling)
             : hit.Archive is { } a
-                ? (a.Zfs.Contains(ZixIndex.MemberKey(sibling)) ? new Hit(null, a, ZixIndex.MemberKey(sibling)) : null)
+                ? (
+                    a.Zfs.Contains(ZixIndex.MemberKey(sibling))
+                        ? new Hit
+                        {
+                            Loose = null,
+                            Archive = a,
+                            Member = ZixIndex.MemberKey(sibling),
+                        }
+                        : null
+                )
             : Entries(Path.GetDirectoryName(hit.Loose)!).TryGetValue(sibling, out var path) && File.Exists(path)
-                ? new Hit(path)
+                ? new Hit { Loose = path }
             : null;
     }
 
@@ -221,7 +248,7 @@ public sealed class GameFileSystem
         if (parts.Length == 0)
             return null;
         if (parts.Length > 1)
-            return Resolve(parts) is { } p ? new Hit(p) : null;
+            return Resolve(parts) is { } p ? new Hit { Loose = p } : null;
         if ((FromAddon(parts[0]) ?? FromIndex(parts[0])) is { } layered)
             return layered;
         var folders = Path.GetExtension(parts[0]).ToLowerInvariant() switch
@@ -235,7 +262,7 @@ public sealed class GameFileSystem
         foreach (var folder in folders)
         {
             if (Resolve(folder.Append(parts[0]).ToArray()) is { } found)
-                return new Hit(found);
+                return new Hit { Loose = found };
         }
 
         return null;
@@ -251,11 +278,16 @@ public sealed class GameFileSystem
             && Entries(addon).TryGetValue(name, out var loose)
             && File.Exists(loose)
         )
-            return new Hit(loose);
+            return new Hit { Loose = loose };
         foreach (var a in _addonArchives)
         {
             if (a.Zfs.Contains(ZixIndex.MemberKey(name)))
-                return new Hit(null, a, ZixIndex.MemberKey(name));
+                return new Hit
+                {
+                    Loose = null,
+                    Archive = a,
+                    Member = ZixIndex.MemberKey(name),
+                };
         }
 
         return null;
@@ -267,9 +299,16 @@ public sealed class GameFileSystem
             return null;
         var source = _sources[dir - 1];
         if (source.Archive is { } a)
-            return a.Zfs.Contains(ZixIndex.MemberKey(name)) ? new Hit(null, a, ZixIndex.MemberKey(name)) : null;
+            return a.Zfs.Contains(ZixIndex.MemberKey(name))
+                ? new Hit
+                {
+                    Loose = null,
+                    Archive = a,
+                    Member = ZixIndex.MemberKey(name),
+                }
+                : null;
         if (source.Folder is { } folder && Entries(folder).TryGetValue(name, out var path) && File.Exists(path))
-            return new Hit(path);
+            return new Hit { Loose = path };
 
         return null;
     }

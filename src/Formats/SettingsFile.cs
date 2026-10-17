@@ -5,7 +5,11 @@ using System.Linq;
 namespace OpenArmada.Formats;
 
 // One line of a settings file, trimmed.
-public sealed record SettingsEntry(int Line, string Text);
+public sealed record SettingsEntry
+{
+    public required int Line { get; init; }
+    public required string Text { get; init; }
+}
 
 // A settings file (.set) in its text form: the shell's list of missions, one ".bzn" name or "none" per line
 // (mshell.set). A line of anything else is a Note naming file:line (INV-0002). The binary form (shell.set, a
@@ -34,7 +38,7 @@ public sealed class SettingsFile
             var text = lines[i].Trim();
             if (text.Length == 0)
                 continue;
-            entries.Add(new SettingsEntry(i + 1, text));
+            entries.Add(new SettingsEntry { Line = i + 1, Text = text });
             if (
                 !text.Equals("none", System.StringComparison.OrdinalIgnoreCase)
                 && !text.EndsWith(".bzn", System.StringComparison.OrdinalIgnoreCase)

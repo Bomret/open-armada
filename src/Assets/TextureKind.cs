@@ -6,11 +6,21 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-public sealed record TextureLevel(string Name, TgaInfo Info, byte[] Data);
+public sealed record TextureLevel
+{
+    public required string Name { get; init; }
+    public required TgaInfo Info { get; init; }
+    public required byte[] Data { get; init; }
+}
 
 // A texture with its mip levels (smaller copies, level 1 first). Notes lists what the asset check
 // reports without failing: the level that ended the chain by its size.
-public sealed record TextureAsset(TextureLevel Base, IReadOnlyList<TextureLevel> Mips, IReadOnlyList<string> Notes);
+public sealed record TextureAsset
+{
+    public required TextureLevel Base { get; init; }
+    public required IReadOnlyList<TextureLevel> Mips { get; init; }
+    public required IReadOnlyList<string> Notes { get; init; }
+}
 
 // Textures: the .tga files of Textures/RGB (full color), Textures/Index8 (8-bit) and the override layer,
 // each with its mip levels, read from the source the texture itself comes from (its folder, its archive,
@@ -37,7 +47,12 @@ public sealed class TextureKind : AssetKind
     {
         var data = files.ReadAllBytes(name);
 
-        return new TextureLevel(name, Tga.Read(data), data);
+        return new TextureLevel
+        {
+            Name = name,
+            Info = Tga.Read(data),
+            Data = data,
+        };
     }
 
     // The last texture loaded, with its install and name. The asset check's decode step loads the texture
@@ -91,11 +106,23 @@ public sealed class TextureKind : AssetKind
                 break;
             }
 
-            mips.Add(new TextureLevel(mipName, info, bytes));
+            mips.Add(
+                new TextureLevel
+                {
+                    Name = mipName,
+                    Info = info,
+                    Data = bytes,
+                }
+            );
             previous = info;
         }
 
-        return new TextureAsset(baseLevel, mips, notes);
+        return new TextureAsset
+        {
+            Base = baseLevel,
+            Mips = mips,
+            Notes = notes,
+        };
     }
 
     public override IReadOnlyList<string> Check(GameFileSystem files, string name) =>

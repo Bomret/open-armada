@@ -9,10 +9,20 @@ namespace OpenArmada.Tests;
 // 36-byte entries, and file data XORed with the key over whole 4-byte words.
 internal static class ZfsBuilder
 {
-    internal sealed record Member(string Name, byte[] Data, uint Flags = 0);
+    internal sealed record Member
+    {
+        public required string Name { get; init; }
+        public required byte[] Data { get; init; }
+        public uint Flags { get; init; } = 0;
+    }
 
     internal static Member M(string name, string text, uint flags = 0) =>
-        new(name, Encoding.Latin1.GetBytes(text), flags);
+        new()
+        {
+            Name = name,
+            Data = Encoding.Latin1.GetBytes(text),
+            Flags = flags,
+        };
 
     internal static byte[] Build(uint key, params Member[] members)
     {

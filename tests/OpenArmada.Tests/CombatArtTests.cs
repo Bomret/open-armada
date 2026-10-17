@@ -93,17 +93,10 @@ public class CombatArtTests
         );
 
     [TestMethod]
-    public void FireSoundTheInstallHoldsResolves()
-    {
-        var art = CombatArt.Build(Install(), new[] { Unit(Armed("phaser", "ph.wav", "hp01")) });
-        Assert.AreEqual("ph.wav", art.Sound("ph.wav"));
-    }
-
-    [TestMethod]
-    public void FireSoundTheInstallLacksIsOneGapAndNoSound()
+    public void FireSoundTheInstallLacksIsOneGapAndNotListed()
     {
         var art = CombatArt.Build(Install(), new[] { Unit(Armed("phaser", "gone.wav", "hp01")) });
-        Assert.IsNull(art.Sound("gone.wav"));
+        CollectionAssert.DoesNotContain(art.Sounds.ToArray(), "gone.wav");
         CollectionAssert.AreEqual(new[] { "gone.wav" }, art.Reports.Single().Names.ToArray());
     }
 
@@ -112,9 +105,18 @@ public class CombatArtTests
     {
         var unit = Unit(Armed("phaser", "ph.wav", "hp01", "hp99"));
         var art = CombatArt.Build(Install(), new[] { unit });
-        Assert.IsTrue(art.Hardpoint(unit.Unit, "hp01"));
-        Assert.IsFalse(art.Hardpoint(unit.Unit, "hp99"));
+        Assert.AreEqual("hp01", art.Hardpoint(unit.Unit, "hp01"));
+        Assert.IsNull(art.Hardpoint(unit.Unit, "hp99"));
         CollectionAssert.AreEqual(new[] { "hp99" }, art.Reports.Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void HardpointOfAnotherCaseResolvesToTheNodesExactName()
+    {
+        var unit = Unit(Armed("phaser", "ph.wav", "HP01"));
+        var art = CombatArt.Build(Install(), new[] { unit });
+        Assert.AreEqual("hp01", art.Hardpoint(unit.Unit, "HP01"));
+        Assert.AreEqual(0, art.Reports.Count);
     }
 
     [TestMethod]
@@ -125,10 +127,47 @@ public class CombatArtTests
             {
                 Model = "nomodel",
             },
-            Profile(new[] { Armed("phaser", "ph.wav", "hp01") })
+            Profile(new[] { Armed("phaser", "ph.wav", "hp01") }) with
+            {
+                Fireball = "xfb",
+            }
         );
         var art = CombatArt.Build(Install(), new[] { unit });
-        Assert.IsFalse(art.Hardpoint(unit.Item1, "hp01"));
+        Assert.IsNull(art.Hardpoint(unit.Item1, "hp01"));
+        CollectionAssert.AreEqual(new[] { "hp01" }, art.Reports.Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void SpriteUsesAnAnimationAnotherTableDefines()
+    {
+        var art = CombatArt.Build(
+            Install(
+                (
+                    "Sprites/weapon.spr",
+                    "sprite_table\n@reference=128\n@tmaterial=additive\ntorp tex2 0 0 32 32 @anim=flip\n"
+                ),
+                (
+                    "Sprites/anims.spr",
+                    "sprite_table\n@animation flip\noffset 4 0.5 step\n@auto=column\n@keyframes\nother tex 0 0 8 8\n"
+                )
+            ),
+            new[] { Unit(Armed("torp", "ph.wav", "hp01")) }
+        );
+        Assert.AreEqual(4, art.Sprite("torp")!.Frames.Count);
+        Assert.AreEqual(0.125, art.Sprite("torp")!.FrameSeconds, 1e-9);
+    }
+
+    [TestMethod]
+    public void SpriteNamedInTwoTablesTakesTheTableFirstInNameOrder()
+    {
+        var art = CombatArt.Build(
+            Install(
+                ("Sprites/b.spr", "sprite_table\nphaser texb 0 0 1 1\n"),
+                ("Sprites/a.spr", "sprite_table\nphaser texa 0 0 1 1\n")
+            ),
+            new[] { Unit(Armed("phaser", "ph.wav", "hp01")) }
+        );
+        Assert.AreEqual("texa", art.Sprite("phaser")!.Sprite.Texture);
     }
 
     [TestMethod]
@@ -156,7 +195,9 @@ public class CombatArtTests
         var unit = Unit(Armed("phaser", "ph.wav", "hp01"), "");
         var art = CombatArt.Build(Install(), new[] { unit });
         Assert.IsNull(art.Explosion(unit.Unit));
-        Assert.AreEqual(1, art.Reports.Count);
+        var gap = art.Reports.Single();
+        StringAssert.Contains(gap.Cause, "fireball");
+        CollectionAssert.AreEqual(new[] { unit.Unit.Class }, gap.Names.ToArray());
     }
 
     [TestMethod]
@@ -170,7 +211,18 @@ public class CombatArtTests
         var explosion = art.Explosion(unit.Unit)!;
         Assert.IsNull(explosion.Sound);
         Assert.AreEqual("xplode", explosion.Model);
-        CollectionAssert.AreEqual(new[] { "none.wav" }, art.Reports.Single().Names.ToArray());
+        var gap = art.Reports.Single();
+        StringAssert.Contains(gap.Cause, "explosion");
+        CollectionAssert.AreEqual(new[] { "none.wav" }, gap.Names.ToArray());
+    }
+
+    [TestMethod]
+    public void ExplosionNamingNoSoundIsAGapOfItsOwnCause()
+    {
+        var unit = Unit(Armed("phaser", "", "hp01"));
+        var art = CombatArt.Build(Install(("addon/xfb.odf", "dbName = \"xplode\"\r\nlength = 2\r\n")), new[] { unit });
+        Assert.AreEqual(2, art.Reports.Count); // the weapon's silence and the explosion's are two causes
+        StringAssert.Contains(art.Reports.Single(r => r.Cause.Contains("explosion")).Cause, "sound");
     }
 
     [TestMethod]

@@ -218,8 +218,8 @@ public sealed class CombatWorld
             target.Stopped
         );
         var hits = _random() <= chance;
-        // The world's shot flies from the shooter's center (it knows no model); the view offsets what it draws to
-        // the shot's hardpoint.
+        // stand-in: the world's shot flies from the shooter's center (it knows no model); the view offsets what it
+        // draws to the shot's hardpoint.
         var from = Position(shooter);
         var toward = Position(target) - from;
         var kind = weapon.Ordnance.ClassLabel switch

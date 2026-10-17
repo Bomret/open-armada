@@ -11,7 +11,8 @@ namespace OpenArmada.Viewer;
 
 // Draws and sounds the fight on the combat events of the orders node: a beam from the firing hardpoint to its
 // target for its life, a torpedo along its flight, each with the sprite its ordnance names; the weapon's fire
-// sound at the firing unit; the explosion of a destroyed unit where it was. Everything the install may lack is
+// sound at the firing unit, once per weapon volley; the explosion of a destroyed unit where it was. A shot that
+// missed is drawn too, aimed beside its target, for its ordnance's life. Everything the install may lack is
 // read once when the node is built and reported through the CombatArt (INV-0002); a shot or a destruction
 // without its art still resolves.
 public partial class CombatView : Node3D
@@ -21,29 +22,29 @@ public partial class CombatView : Node3D
     const float BeamThickness = 6f;
     const float TorpedoSize = 16f;
 
-    sealed record Tex(ImageTexture Texture, Vector2I Size);
-
     sealed class Drawn
     {
         public required Shot Shot;
         public required SpriteArt Art;
-        public required Tex Tex;
+        public required ImageTexture Texture;
         public required Node3D Root;
         public required StandardMaterial3D Material;
         public Vector3 Offset; // a flying shot: the hardpoint's offset from the center at launch
         public Vector3 Start; // a flying shot: where it was first drawn
         public float Distance; // a flying shot: its distance to the target then
-        public bool Placed;
+        public bool Missed; // the world dropped the shot; the view draws it on its own clock
+        public double Age; // a missed shot: seconds drawn
+        public Vector3 AimOffset; // a missed beam: where it ends, from the target's center
+        public Vector3 Direction; // a missed torpedo or pulse: its straight flight
     }
 
     readonly CombatArt _art;
     readonly CombatWorld _world;
     readonly Dictionary<PlacedObject, Node3D> _nodes;
-    readonly Dictionary<string, Tex?> _textures = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, ImageTexture?> _textures = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, AudioStreamWav> _sounds = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, Node3D> _models = new(StringComparer.OrdinalIgnoreCase);
     readonly List<Drawn> _drawn = new();
-    readonly List<(Node3D Node, double Left)> _explosions = new();
     readonly GameFileSystem _files;
 
     // Reads every texture, sound, and model the fight can show now, so what fails is reported with the map's
@@ -70,7 +71,8 @@ public partial class CombatView : Node3D
             }
             catch (Exception e) // a sound that cannot be decoded is a gap, whatever the reason (INV-0002)
             {
-                art.Report($"sound cannot be decoded, it is not played ({e.Message})", name);
+                art.Report("sound cannot be decoded, it is not played", name);
+                GD.PrintErr($"sound {name}: {e.Message}");
             }
         foreach (var name in art.ExplosionModels)
             try
@@ -79,38 +81,41 @@ public partial class CombatView : Node3D
             }
             catch (Exception e) // a model that cannot be read is a gap, whatever the reason (INV-0002)
             {
-                art.Report($"explosion model cannot be read, it shows no model ({e.Message})", name);
+                art.Report("explosion model cannot be read, it shows no model", name);
+                GD.PrintErr($"explosion model {name}: {e.Message}");
             }
         orders.Stepped += OnStep;
     }
 
-    Tex? Texture(string name)
+    ImageTexture? Texture(string name)
     {
         if (_textures.TryGetValue(name, out var known))
             return known;
         try
         {
             var image = GodotDecoders.Tga(new TextureKind().LoadBase(_files, name + ".tga").Data, name);
-            return _textures[name] = new Tex(ImageTexture.CreateFromImage(image), image.GetSize());
+            return _textures[name] = ImageTexture.CreateFromImage(image);
         }
         catch (Exception e) // a texture that cannot be read is a gap, whatever the reason (INV-0002)
         {
-            _art.Report($"sprite texture cannot be read, its shots are not drawn ({e.Message})", name);
+            _art.Report("sprite texture cannot be read, its shots are not drawn", name);
+            GD.PrintErr($"sprite texture {name}: {e.Message}");
             return _textures[name] = null;
         }
     }
 
     void OnStep(IReadOnlyList<CombatEvent> events)
     {
+        var sounded = new HashSet<(UnitCombatState, int)>(); // the weapons whose fire sound this step played
         foreach (var e in events)
             try
             {
                 switch (e)
                 {
                     case ShotFired { Shot: var shot }:
-                        PlaySound(shot.Weapon.FireSound, At(shot.Shooter.Unit));
-                        if (shot.Hits)
-                            Draw(shot);
+                        if (sounded.Add((shot.Shooter, shot.Weapon.Slot)) && At(shot.Shooter.Unit) is { } at)
+                            PlaySound(shot.Weapon.FireSound, at);
+                        Draw(shot);
                         break;
                     case UnitDestroyed { Unit: var unit }:
                         Explode(unit);
@@ -123,22 +128,27 @@ public partial class CombatView : Node3D
             }
     }
 
-    Vector3 At(PlacedObject unit) =>
-        _nodes.TryGetValue(unit, out var node) && IsInstanceValid(node) ? node.GlobalPosition : Vector3.Zero;
+    // A unit's place in the world; null when its node is gone, so nothing is drawn or sounded there.
+    Vector3? At(PlacedObject unit) =>
+        _nodes.TryGetValue(unit, out var node) && IsInstanceValid(node) ? node.GlobalPosition : null;
 
     // The hardpoint's place in the world; the unit's center when the model lacks the node (reported when built).
-    Vector3 HardpointAt(PlacedObject unit, string? name)
+    Vector3? HardpointAt(PlacedObject unit, string? name)
     {
         if (
             name != null
-            && _art.Hardpoint(unit, name)
+            && _art.Hardpoint(unit, name) is { } exact
             && _nodes.TryGetValue(unit, out var node)
             && IsInstanceValid(node)
-            && node.FindChild(name, true, false) is Node3D hardpoint
+            && node.FindChild(exact, true, false) is Node3D hardpoint
         )
             return hardpoint.GlobalPosition;
         return At(unit);
     }
+
+    static System.Numerics.Vector3 Num(Vector3 v) => new(v.X, v.Y, v.Z);
+
+    static Vector3 Gd(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
 
     void PlaySound(string name, Vector3 at)
     {
@@ -150,23 +160,43 @@ public partial class CombatView : Node3D
         player.Play();
     }
 
+    // The sprite's draw state from its render type, as the models' are (ModelRules).
+    // stand-in: a render type the engine does not know is drawn alpha blended.
+    static void Blend(StandardMaterial3D material, string? renderType)
+    {
+        var blend = (renderType == null ? null : ModelRules.Blend(renderType)) ?? new BlendState(BlendMode.Alpha, 1f);
+        material.Transparency = blend.Mode switch
+        {
+            BlendMode.Opaque => BaseMaterial3D.TransparencyEnum.Disabled,
+            BlendMode.Cutout => BaseMaterial3D.TransparencyEnum.AlphaScissor,
+            _ => BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+        material.AlphaScissorThreshold = 128f / 255f;
+        material.BlendMode =
+            blend.Mode == BlendMode.Add ? BaseMaterial3D.BlendModeEnum.Add : BaseMaterial3D.BlendModeEnum.Mix;
+        material.AlbedoColor = new Color(1, 1, 1, blend.Opacity);
+        material.TextureFilter = blend.Nearest
+            ? BaseMaterial3D.TextureFilterEnum.Nearest
+            : BaseMaterial3D.TextureFilterEnum.Linear;
+    }
+
     void Draw(Shot shot)
     {
         var name = shot.Weapon.Ordnance.Sprite;
         if (_art.Sprite(name) is not { } art || Texture(art.Sprite.Texture) is not { } tex)
             return;
-        // stand-in: a sprite row of another render type than additive is drawn alpha blended.
+        var from = shot.Shooter.Unit;
+        if (At(from) is not { } center || HardpointAt(from, shot.Hardpoint) is not { } hardpoint)
+            return;
+        if (At(shot.Target.Unit) is not { } targetAt)
+            return;
         var material = new StandardMaterial3D
         {
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            AlbedoTexture = tex.Texture,
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            BlendMode = art.Sprite.Material is "additive" or "add_nomipf"
-                ? BaseMaterial3D.BlendModeEnum.Add
-                : BaseMaterial3D.BlendModeEnum.Mix,
+            AlbedoTexture = tex,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.Linear,
         };
+        Blend(material, art.Sprite.Material);
         var root = new Node3D();
         if (shot.Kind == ShotKind.Beam)
             // two crossed quads: the beam shows from any side
@@ -188,16 +218,25 @@ public partial class CombatView : Node3D
                 }
             );
         }
-        var from = shot.Shooter.Unit;
+        var at = new Vector3(shot.Position.X, shot.Position.Y, shot.Position.Z);
         var drawn = new Drawn
         {
             Shot = shot,
             Art = art,
-            Tex = tex,
+            Texture = tex,
             Root = root,
             Material = material,
-            Offset = HardpointAt(from, shot.Hardpoint) - At(from),
+            Offset = hardpoint - center,
+            Start = at,
+            Distance = (targetAt - at).Length(),
+            Missed = !shot.Hits,
         };
+        if (drawn.Missed)
+        {
+            // The world drops a missed shot at once; it is drawn aimed beside the target and flies on straight.
+            drawn.AimOffset = Gd(ShotGeometry.MissAim(Num(center), Num(targetAt), shot.Target.Radius)) - targetAt;
+            drawn.Direction = (targetAt + drawn.AimOffset - at).Normalized();
+        }
         AddChild(root);
         _drawn.Add(drawn);
         Place(drawn);
@@ -207,71 +246,60 @@ public partial class CombatView : Node3D
     {
         var shot = d.Shot;
         var frames = d.Art.Frames;
-        var frame = d.Art.FrameSeconds > 0 ? frames[(int)(shot.Age / d.Art.FrameSeconds) % frames.Count] : frames[0];
-        var region = SpriteSheetView.Region(d.Art.Sprite, frame, d.Tex.Size);
-        d.Material.Uv1Scale = new Vector3(region.Size.X / d.Tex.Size.X, region.Size.Y / d.Tex.Size.Y, 1);
-        d.Material.Uv1Offset = new Vector3(region.Position.X / d.Tex.Size.X, region.Position.Y / d.Tex.Size.Y, 0);
+        var age = d.Missed ? d.Age : shot.Age;
+        var frame = d.Art.FrameSeconds > 0 ? frames[(int)(age / d.Art.FrameSeconds) % frames.Count] : frames[0];
+        var size = new Vector2I(d.Texture.GetWidth(), d.Texture.GetHeight());
+        var region = SpriteSheetView.Region(d.Art.Sprite, frame, size);
+        d.Material.Uv1Scale = new Vector3(region.Size.X / size.X, region.Size.Y / size.Y, 1);
+        d.Material.Uv1Offset = new Vector3(region.Position.X / size.X, region.Position.Y / size.Y, 0);
+        if (At(shot.Target.Unit) is not { } target)
+            return;
         if (shot.Kind == ShotKind.Beam)
         {
-            var start = HardpointAt(shot.Shooter.Unit, shot.Hardpoint);
-            var end = At(shot.Target.Unit);
-            var along = end - start;
-            if (along.LengthSquared() < 1e-6f)
+            if (HardpointAt(shot.Shooter.Unit, shot.Hardpoint) is not { } start)
                 return;
-            var x = along.Normalized();
-            var up = Mathf.Abs(x.Y) > 0.99f ? Vector3.Forward : Vector3.Up;
-            var z = x.Cross(up).Normalized();
-            d.Root.Basis = new Basis(x, z.Cross(x), z).Scaled(new Vector3(along.Length(), 1, 1));
-            d.Root.Position = (start + end) / 2;
+            if (ShotGeometry.Beam(Num(start), Num(d.Missed ? target + d.AimOffset : target)) is not { } pose)
+                return;
+            d.Root.Basis = new Basis(Gd(pose.X), Gd(pose.Y), Gd(pose.Z));
+            d.Root.Position = Gd(pose.Center);
+            return;
+        }
+        if (d.Missed)
+        {
+            d.Root.Position = d.Start + d.Offset + d.Direction * shot.Weapon.Ordnance.ShotSpeed * (float)d.Age;
             return;
         }
         var at = new Vector3(shot.Position.X, shot.Position.Y, shot.Position.Z);
-        if (!d.Placed)
-        {
-            d.Placed = true;
-            d.Start = at;
-            d.Distance = (At(shot.Target.Unit) - at).Length();
-        }
-        // The launch offset fades as the shot closes on its target, so it arrives at the target's center.
+        // stand-in: the launch offset fades as the shot closes on its target, so it arrives at the target's center.
         var left = d.Distance > 0 ? 1 - Mathf.Clamp((at - d.Start).Length() / d.Distance, 0, 1) : 0;
         d.Root.Position = at + d.Offset * left;
     }
 
     void Explode(PlacedObject unit)
     {
-        if (_art.Explosion(unit) is not { } explosion)
+        if (_art.Explosion(unit) is not { } explosion || At(unit) is not { } at)
             return;
-        var at = At(unit);
         PlaySound(explosion.Sound ?? "", at);
         if (explosion.Model == null || !_models.TryGetValue(explosion.Model, out var template))
             return;
         var node = (Node3D)template.Duplicate();
         node.Position = at;
         AddChild(node);
-        _explosions.Add((node, explosion.Length));
+        GetTree().CreateTimer(explosion.Length).Timeout += () =>
+        {
+            if (IsInstanceValid(node))
+                node.QueueFree();
+        };
     }
 
-    public override void _Process(double delta)
-    {
-        var flying = _world.Shots.ToHashSet();
-        foreach (var d in _drawn.ToList())
-            if (!flying.Contains(d.Shot))
-            {
+    public override void _Process(double delta) =>
+        _drawn.RemoveAll(d =>
+        {
+            var gone = d.Missed ? (d.Age += delta) >= d.Shot.Weapon.Ordnance.LifeSpan : !_world.Shots.Contains(d.Shot);
+            if (gone)
                 d.Root.QueueFree();
-                _drawn.Remove(d);
-            }
             else
                 Place(d);
-        for (var i = _explosions.Count - 1; i >= 0; i--)
-        {
-            var (node, left) = _explosions[i];
-            if (left - delta > 0)
-                _explosions[i] = (node, left - delta);
-            else
-            {
-                node.QueueFree();
-                _explosions.RemoveAt(i);
-            }
-        }
-    }
+            return gone;
+        });
 }

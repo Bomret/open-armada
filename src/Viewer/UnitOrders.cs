@@ -82,8 +82,8 @@ public partial class UnitOrders : Node3D
                 }),
             combat.ShieldDamageProtection,
             random.NextDouble,
-            combat.SystemHitpointsBonus,
-            hardpointPosition
+            hardpointPosition,
+            combat.SystemHitpointsBonus
         );
         _fighting = _world.Units.Select(u => u.Unit).ToHashSet();
     }

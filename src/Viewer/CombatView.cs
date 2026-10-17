@@ -33,9 +33,7 @@ public partial class CombatView : Node3D
         public required Node3D Root;
         public required StandardMaterial3D Material;
         public required Node3D Source; // the node the shot leaves from, resolved once when drawn
-        public Vector3 Offset; // a flying shot: the hardpoint's offset from the center at launch
-        public Vector3 Start; // a flying shot: where it was first drawn
-        public float Distance; // a flying shot: its distance to the target then
+        public Vector3 Start; // a missed shot: where it leaves from, the chosen hardpoint's position
         public bool Missed; // the world dropped the shot; the view draws it on its own clock
         public double Age; // a missed shot: seconds drawn
         public Vector3 AimOffset; // a missed beam: where it ends, from the target's center
@@ -225,7 +223,6 @@ public partial class CombatView : Node3D
         var from = shot.Shooter.Unit;
         if (At(from) is not { } center || Source(from, shot.Hardpoint) is not { } source)
             return;
-        var hardpoint = source.GlobalPosition;
         if (At(shot.Target.Unit) is not { } targetAt)
             return;
         var material = new StandardMaterial3D
@@ -270,16 +267,14 @@ public partial class CombatView : Node3D
             Root = root,
             Material = material,
             Source = source,
-            Offset = hardpoint - center,
             Start = at,
-            Distance = (targetAt - at).Length(),
             Missed = !shot.Hits,
         };
         if (drawn.Missed)
         {
             // The world drops a missed shot at once; it is drawn aimed beside the target and flies on straight.
             drawn.AimOffset = Gd(ShotGeometry.MissAim(Num(center), Num(targetAt), shot.Target.Radius)) - targetAt;
-            drawn.Direction = (targetAt + drawn.AimOffset - (at + drawn.Offset)).Normalized(); // from where it is drawn
+            drawn.Direction = (targetAt + drawn.AimOffset - at).Normalized();
         }
 
         AddChild(root);
@@ -308,15 +303,13 @@ public partial class CombatView : Node3D
 
         if (d.Missed)
         {
-            d.Root.Position = d.Start + d.Offset + d.Direction * shot.Weapon.Ordnance.ShotSpeed * (float)d.Age;
+            d.Root.Position = d.Start + d.Direction * shot.Weapon.Ordnance.ShotSpeed * (float)d.Age;
 
             return;
         }
 
-        var at = new Vector3(shot.Position.X, shot.Position.Y, shot.Position.Z);
-        // stand-in: the launch offset fades as the shot closes on its target, so it arrives at the target's center.
-        var left = d.Distance > 0 ? 1 - Mathf.Clamp((at - d.Start).Length() / d.Distance, 0, 1) : 0;
-        d.Root.Position = at + d.Offset * left;
+        // the world's shot starts at the hardpoint, so it is drawn at its own position
+        d.Root.Position = new Vector3(shot.Position.X, shot.Position.Y, shot.Position.Z);
     }
 
     void Explode(PlacedObject unit)

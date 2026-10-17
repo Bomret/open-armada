@@ -60,6 +60,7 @@ public sealed class CombatWorld
     /// <summary>
     /// A world of the units, without orders. <c>shieldDamageProtection</c> and
     /// <c>systemHitpointsBonus</c> are the RTS_CFG.h constants; <c>random</c> returns a number in [0, 1) per call.
+    /// <c>hardpointPosition</c> gives the world position of a unit's named hardpoint at a pose.
     /// A later unit with the same placed object replaces an earlier one.
     /// </summary>
     public CombatWorld(
@@ -67,11 +68,11 @@ public sealed class CombatWorld
         IEnumerable<CombatUnit> units,
         double shieldDamageProtection,
         Func<double> random,
-        double systemHitpointsBonus = 0,
-        Func<PlacedObject, string, ShipPose, Vector3>? hardpointPosition = null
+        Func<PlacedObject, string, ShipPose, Vector3> hardpointPosition,
+        double systemHitpointsBonus = 0
     )
     {
-        _hardpointPosition = hardpointPosition ?? ((_, _, pose) => pose.Position);
+        _hardpointPosition = hardpointPosition;
         _poses = poses;
         _protection = shieldDamageProtection;
         _random = random;
@@ -282,10 +283,14 @@ public sealed class CombatWorld
         {
             var there = Position(order);
             // stand-in: the game's attack maneuver was not traced; the unit follows its target to the closing
-            // range, then holds position and turns toward it.
+            // range, then holds position and turns toward it once a weapon has a hardpoint within its range of the
+            // target's center. Until then it keeps closing, so a target with a large radius is not out of reach.
             u.Intent = new MoveIntent
             {
-                Kind = distance > range - 50 ? MoveKind.MoveTo : MoveKind.Face,
+                Kind =
+                    distance > range - 50 || !u.Weapons.Any(w => NearestHardpoint(u, w.Profile, order) != null)
+                        ? MoveKind.MoveTo
+                        : MoveKind.Face,
                 X = there.X,
                 Z = there.Z,
             };
@@ -330,7 +335,12 @@ public sealed class CombatWorld
         {
             weapon.Cooldown -= Tick;
             // a derelict unit and one with destroyed weapons fire nothing
-            if (u.Derelict || u.SystemDestroyed(SystemNames.Weapons) || u.Target is not { } target)
+            var target = u.Derelict || u.SystemDestroyed(SystemNames.Weapons) ? null : u.Target;
+            // A weapon fires from the nearest hardpoint within its own range of the target's center (0x509bd0,
+            // 0x50a520, 0x50a290), the first listed on a tie; with none in range it fires nothing and stays ready.
+            // Units do not move within a step, so every round of the tick makes the same check.
+            var hardpoint = target == null ? null : NearestHardpoint(u, weapon.Profile, target);
+            if (target == null || hardpoint == null)
             {
                 weapon.Cooldown = Math.Max(0, weapon.Cooldown); // an idle weapon does not store shots
 
@@ -338,16 +348,6 @@ public sealed class CombatWorld
             }
 
             var delay = CombatRules.ReloadDelay(weapon.Profile, u);
-            // A weapon fires from the nearest hardpoint within its own range of the target's center (0x509bd0,
-            // 0x50a520, 0x50a290), the first listed on a tie; with none in range it fires nothing and stays ready.
-            // Units do not move within a step, so every round of the tick makes the same check.
-            if (NearestHardpoint(u, weapon.Profile, target) is not { } hardpoint)
-            {
-                weapon.Cooldown = Math.Max(0, weapon.Cooldown);
-
-                continue;
-            }
-
             // A delay below a tick fires several rounds in one tick; a delay of zero fires one round per tick. A
             // round is one shot from one hardpoint.
             while (weapon.Cooldown <= Epsilon)
@@ -364,17 +364,18 @@ public sealed class CombatWorld
         }
     }
 
+    // The world position of the unit's hardpoint, with the unit at its position as of the current Step call.
+    Vector3 HardpointAt(UnitCombatState unit, string name) =>
+        _hardpointPosition(unit.Unit, name, _poses.Pose(unit.Unit) with { Position = Position(unit) });
+
     // The listed hardpoint nearest to the target's center within the weapon's range; null when none is. OrderBy is
     // stable, so the first listed wins a tie.
     string? NearestHardpoint(UnitCombatState shooter, WeaponProfile weapon, UnitCombatState target)
     {
-        var pose = _poses.Pose(shooter.Unit) with { Position = Position(shooter) };
         var center = Position(target);
 
         return weapon
-            .Hardpoints.Select(name =>
-                (Name: name, Distance: Vector3.Distance(_hardpointPosition(shooter.Unit, name, pose), center))
-            )
+            .Hardpoints.Select(name => (Name: name, Distance: Vector3.Distance(HardpointAt(shooter, name), center)))
             .Where(x => x.Distance <= weapon.Range)
             .OrderBy(x => x.Distance)
             .Select(x => x.Name)
@@ -395,9 +396,8 @@ public sealed class CombatWorld
             target.Stopped
         );
         var hits = target.Derelict || target.SystemDestroyed(SystemNames.Engines) || _random() <= chance;
-        // stand-in: the world's shot flies from the shooter's center (it knows no model); the view offsets what it
-        // draws to the shot's hardpoint.
-        var from = Position(shooter);
+        // The shot leaves from the chosen hardpoint's world position.
+        var from = HardpointAt(shooter, hardpoint);
         var toward = Position(target) - from;
         var kind = weapon.Ordnance.ClassLabel switch
         {

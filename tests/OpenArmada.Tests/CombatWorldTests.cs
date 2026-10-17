@@ -45,7 +45,8 @@ public class CombatWorldTests
                 Mobile = s.Mobile,
             }),
             1,
-            random ?? (() => 0)
+            random ?? (() => 0),
+            (_, _, pose) => pose.Position
         );
     }
 
@@ -110,6 +111,26 @@ public class CombatWorldTests
             },
             world.State(a.Object)!.Intent
         );
+    }
+
+    [TestMethod]
+    public void AnAttackingShipKeepsClosingOnALargeTargetUntilAHardpointIsInRangeThenFires()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 200));
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 250),
+            Profile = Profile(null, maxHealth: 100, hull: 100),
+            Radius = 100,
+        };
+        var world = World(out var poses, null, a, b);
+        world.Attack(a.Object, b.Object);
+        // surface distance 150 is within 200 - 50, but the hardpoint is 250 from the center, out of range
+        Assert.AreEqual(0, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        poses.Advance(a.Object, MovingTo(a.Object, 60, 0), 1000);
+        Assert.AreEqual(1, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(MoveKind.Face, world.State(a.Object)!.Intent.Kind);
     }
 
     static ShipMotion MovingTo(PlacedObject o, float x, float z)
@@ -245,6 +266,17 @@ public class CombatWorldTests
         var world = WorldWithHardpoints(new() { ["far"] = -5, ["near"] = 20 }, a, b);
         world.Attack(a.Object, b.Object);
         CollectionAssert.AreEqual(new[] { "near" }, Origins(world, 0.02));
+    }
+
+    [TestMethod]
+    public void AShotStartsAtTheChosenHardpointsWorldPosition()
+    {
+        var a = Fighter("a", 1, 0, OnHardpoints(50, "far", "near"));
+        var b = Fighter("b", 2, 40);
+        var world = WorldWithHardpoints(new() { ["far"] = -5, ["near"] = 20 }, a, b);
+        world.Attack(a.Object, b.Object);
+        var shot = world.Step(0.02).OfType<ShotFired>().Single().Shot;
+        Assert.AreEqual(new System.Numerics.Vector3(20, 0, 0), shot.Position);
     }
 
     [TestMethod]
@@ -942,7 +974,8 @@ public class CombatWorldTests
                 Mobile = true,
             }),
             0.5,
-            () => 0
+            () => 0,
+            (_, _, pose) => pose.Position
         );
         var state = world.State(b.Object)!;
         state.Crew = 1;
@@ -1096,6 +1129,7 @@ public class CombatWorldTests
             },
             1,
             () => 0,
+            (_, _, pose) => pose.Position,
             2
         );
         Assert.AreEqual(5, world.State(a.Object)!.Systems["Engines"].Max, 1e-6);

@@ -65,8 +65,10 @@ An attack order (0x4294e0) names one target unit.
 
 - The closing range is the longest range of the unit's weapons (0x429616). While the surface distance is
   more than the closing range less 50, the unit moves toward the target.
-- Within that distance, the unit holds position and turns toward the target (**stand-in**; the game runs
-  an attack maneuver that was not traced).
+- Within that distance, the unit holds position and turns toward the target once at least one of its
+  weapons has a hardpoint within the weapon's range of the target's center (see Firing). Until then it keeps
+  moving toward the target, so a target with a large radius is not out of reach (**stand-in**; the game
+  runs an attack maneuver that was not traced).
 - The weapons fire at the ordered target only while it is within the longest weapon range. Until then
   they fire at the nearest valid target in range, as target selection picks it (0x42fd6f).
 - The order ends, and the unit becomes idle, when the target is destroyed (0x429903). A derelict target
@@ -82,7 +84,8 @@ beyond the target the unit holds. Each reload gives one shot, from one hardpoint
 The weapon fires only when one of its hardpoints is within the weapon's own `range` of the target's center
 (0x50a520, 0x50a290). The distance runs from the hardpoint to the target's center, not surface to surface,
 so a target that unit selection picked can still be out of every weapon's reach. The shot leaves from the
-nearest hardpoint in range, and the first listed hardpoint wins a tie (**inferred**: the tie order follows the
+nearest hardpoint in range, and a torpedo or pulse starts its flight at that hardpoint's world position. The
+first listed hardpoint wins a tie (**inferred**: the tie order follows the
 key's list order). Each weapon of a unit is judged by its own `range`, so a short-range weapon stays silent
 while a longer one fires. A weapon with no hardpoint in range fires nothing, makes no sound, and stays ready,
 so it fires on the first tick a hardpoint comes in range. A weapon whose `weaponHardpointsN` key names no

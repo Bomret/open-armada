@@ -293,7 +293,8 @@ public class CombatPlanTests
                 },
             },
             1,
-            () => 0
+            () => 0,
+            (_, _, pose) => pose.Position
         );
 
         return (world, ship, foe);

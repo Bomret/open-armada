@@ -14,10 +14,8 @@ namespace OpenArmada.Viewer;
 // Each later feature of the sandbox is one more node added in _Ready (the camera, the asteroid fields, the
 // selection, the orders). A gap of the map or of the sandbox is printed and counted on screen; the map
 // still opens (INV-0002).
-public partial class MapSandboxView : Node3D
+public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : Node3D
 {
-    readonly MapSandbox _sandbox;
-    readonly string? _screenshot;
     readonly Dictionary<string, Sod> _sods = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<(string Model, int Slot), Node3D> _templates = new();
     readonly List<string> _gaps = new();
@@ -31,17 +29,11 @@ public partial class MapSandboxView : Node3D
     bool _mouseInWindow = true;
     int _frames;
 
-    public MapSandboxView(MapSandbox sandbox, string? screenshot)
-    {
-        _sandbox = sandbox;
-        _screenshot = screenshot;
-    }
-
     public override void _Ready()
     {
-        if (_sandbox.Problem != null)
+        if (sandbox.Problem != null)
         {
-            Show(_sandbox.Problem);
+            Show(sandbox.Problem);
 
             return;
         }
@@ -52,7 +44,7 @@ public partial class MapSandboxView : Node3D
         // stand-in: the game ran full screen, where the screen edge holds the cursor in the scroll border; the
         // sandbox confines the cursor to its window while the window has focus. Losing focus releases it; Esc
         // releases it until the window gains focus again. A headless or screenshot run never confines.
-        if (DisplayServer.GetName() != "headless" && _screenshot == null)
+        if (DisplayServer.GetName() != "headless" && screenshot == null)
         {
             window.FocusEntered += () => Input.MouseMode = Input.MouseModeEnum.Confined;
             window.FocusExited += () => Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -62,8 +54,8 @@ public partial class MapSandboxView : Node3D
             }
         }
 
-        var files = _sandbox.Files!;
-        var plan = _sandbox.Plan!;
+        var files = sandbox.Files!;
+        var plan = sandbox.Plan!;
         var team = TeamColors.Load(files);
         var builder = new SodBuilder(files);
         _gaps.AddRange(team.Notes);
@@ -357,9 +349,9 @@ public partial class MapSandboxView : Node3D
         }
 
         // Wait a few frames so textures are uploaded before capturing.
-        if (_screenshot == null || ++_frames < 5)
+        if (screenshot == null || ++_frames < 5)
             return;
-        GetViewport().GetTexture().GetImage().SavePng(_screenshot);
+        GetViewport().GetTexture().GetImage().SavePng(screenshot);
         GetTree().Quit();
     }
 }

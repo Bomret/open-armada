@@ -4,19 +4,8 @@ using OpenArmada.Sandbox;
 namespace OpenArmada.Viewer;
 
 // Sets the alert stance of every selected unit when the key chord of an alert binding is pressed.
-public partial class AlertKeys : Node
+public partial class AlertKeys(AlertBindings bindings, UnitSelection selection, CombatWorld world) : Node
 {
-    readonly AlertBindings _bindings;
-    readonly UnitSelection _selection;
-    readonly CombatWorld _world;
-
-    public AlertKeys(AlertBindings bindings, UnitSelection selection, CombatWorld world)
-    {
-        _bindings = bindings;
-        _selection = selection;
-        _world = world;
-    }
-
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is not InputEventKey { Pressed: true, Echo: false } key)
@@ -31,11 +20,11 @@ public partial class AlertKeys : Node
             Control = key.CtrlPressed,
             Alt = key.AltPressed,
         };
-        if (_bindings.For(chord) is not { } stance)
+        if (bindings.For(chord) is not { } stance)
             return;
-        foreach (var unit in _selection.Selected)
+        foreach (var unit in selection.Selected)
         {
-            if (_world.State(unit.Object) is { } state)
+            if (world.State(unit.Object) is { } state)
             {
                 state.Alert = stance;
             }

@@ -17,5 +17,7 @@ sealed class CapturedLog : IDisposable
     /// <summary>All lines joined by a line feed.</summary>
     public string Text => string.Join("\n", Lines);
 
+    public override string ToString() => Text;
+
     public void Dispose() => _redirect.Dispose();
 }

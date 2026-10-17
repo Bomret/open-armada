@@ -140,8 +140,8 @@ public class CrossReferenceTests
     public void MissingParentIsAnUnresolvedReferenceAndTheDefinitionStillResolves()
     {
         var root = temp.MakeInstall(("addon/c.odf", "#include \"gone.odf\"\r\nbaseName = \"nomodel\"\r\n"));
-        var w = new StringWriter();
-        var code = AssetCheck.Run(root, new AssetKind[] { new DefinitionKind() }, w);
+        using var w = new CapturedLog();
+        var code = AssetCheck.Run(root, new AssetKind[] { new DefinitionKind() });
         var output = w.ToString();
         StringAssert.Contains(output, "UNRESOLVED definitions/c.odf: gone.odf");
         StringAssert.Contains(output, "UNRESOLVED definitions/c.odf: nomodel");
@@ -155,8 +155,8 @@ public class CrossReferenceTests
             ("addon/a.odf", "#include \"b.odf\"\r\n"),
             ("addon/b.odf", "#include \"a.odf\"\r\n")
         );
-        var w = new StringWriter();
-        Assert.AreEqual(1, AssetCheck.Run(root, new AssetKind[] { new DefinitionKind() }, w), w.ToString());
+        using var w = new CapturedLog();
+        Assert.AreEqual(1, AssetCheck.Run(root, new AssetKind[] { new DefinitionKind() }), w.ToString());
     }
 
     [TestMethod]
@@ -241,9 +241,9 @@ public class CrossReferenceTests
             ("SOD/m.sod", Model("", (4, "hull", "spin", 0f))),
             ("Sprites/t.spr", "sprite_table\n@reference=128\na gone 0 0 32 32\n")
         );
-        var w = new StringWriter();
-        AssetCheck.Run(root, new AssetKind[] { new ModelKind(), new SpriteTableKind() }, w);
-        var lines = w.ToString().Split('\n');
+        using var w = new CapturedLog();
+        AssetCheck.Run(root, new AssetKind[] { new ModelKind(), new SpriteTableKind() });
+        var lines = w.Lines;
         Assert.AreEqual(1, lines.Count(l => l.Contains("'spin'") || l.Contains(": spin")), w.ToString());
         Assert.AreEqual(1, lines.Count(l => l.Contains("'gone'") || l.Contains(": gone")), w.ToString());
     }
@@ -303,8 +303,8 @@ public class CrossReferenceTests
             ("addon/real.odf", "baseName = \"nomodel\""),
             ("SOD/mod.sod", Model("notex"))
         );
-        var w = new StringWriter();
-        var code = AssetCheck.Run(root, new AssetKind[] { new MapKind(), new DefinitionKind(), new ModelKind() }, w);
+        using var w = new CapturedLog();
+        var code = AssetCheck.Run(root, new AssetKind[] { new MapKind(), new DefinitionKind(), new ModelKind() });
         var output = w.ToString();
         StringAssert.Contains(output, "UNRESOLVED maps/bzn/m.bzn: ghost.odf");
         StringAssert.Contains(output, "UNRESOLVED definitions/real.odf: nomodel");
@@ -317,8 +317,8 @@ public class CrossReferenceTests
     public void CheckPrintsClassificationCounts()
     {
         var root = temp.MakeInstall(("SOD/a.sod", Model("")), ("help/h.htm", ""), ("giddi/j.std", ""));
-        var w = new StringWriter();
-        var code = AssetCheck.Run(root, new AssetKind[] { new ModelKind() }, w);
+        using var w = new CapturedLog();
+        var code = AssetCheck.Run(root, new AssetKind[] { new ModelKind() });
         StringAssert.Contains(w.ToString(), "files: 1 loaded, 1 out of scope, 1 known but not loaded, 0 unclassified");
         StringAssert.Contains(w.ToString(), "NOT LOADED giddi/j.std");
         Assert.AreEqual(0, code);
@@ -328,8 +328,8 @@ public class CrossReferenceTests
     public void FileNoRuleClassifiesFailsTheCheckAndIsNamed()
     {
         var root = temp.MakeInstall(("SOD/a.sod", Model("")), ("mystery/new.thing", ""));
-        var w = new StringWriter();
-        var code = AssetCheck.Run(root, new AssetKind[] { new ModelKind() }, w);
+        using var w = new CapturedLog();
+        var code = AssetCheck.Run(root, new AssetKind[] { new ModelKind() });
         Assert.AreEqual(1, code);
         StringAssert.Contains(w.ToString(), "UNCLASSIFIED mystery/new.thing");
     }

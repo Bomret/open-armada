@@ -132,4 +132,18 @@ public class SodModelDataTests
         );
         Assert.AreEqual(0, sod.Problems.Count);
     }
+
+    [TestMethod]
+    public void CutOffFileIsInvalidData()
+    {
+        var whole = new SodBytes(1.7f)
+            .Lighting(("lit", 1f, 1))
+            .Nodes(new NodeSpec { Name = "root", Parent = "" })
+            .End((0, "root", "spin", 0f));
+        // Cut inside a value, and inside the last name.
+        foreach (var cut in new[] { 20, whole.Length - 2 })
+        {
+            Assert.ThrowsExactly<System.IO.InvalidDataException>(() => Sod.Read(whole[..cut]));
+        }
+    }
 }

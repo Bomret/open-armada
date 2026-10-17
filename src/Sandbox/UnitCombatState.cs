@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -100,6 +101,40 @@ public sealed class UnitCombatState(
 
     /// <summary>Whether the unit has the system <c>name</c> and it is destroyed; false for a system the unit lacks.</summary>
     public bool SystemDestroyed(string name) => Systems.TryGetValue(name, out var s) && s.Destroyed;
+
+    /// <summary>
+    /// Destroys the system <c>name</c> and hands its live hit percent, shares included, evenly to the systems still
+    /// working (0x467620); with none working, or on a derelict unit where no system counts as working (0x466ca0),
+    /// the percent goes to the critical share (0x467b70), which is the part of the roll no location takes.
+    /// </summary>
+    public void DestroySystem(string name)
+    {
+        var system = Systems[name];
+        system.Destroyed = true;
+        var heirs = Derelict ? [] : Systems.Values.Where(s => !s.Destroyed).ToList();
+        foreach (var s in heirs)
+        {
+            s.HitPercent += system.HitPercent / heirs.Count;
+        }
+
+        system.HitPercent = 0;
+    }
+
+    /// <summary>
+    /// Restores the system <c>name</c> and gives it its own hit percent back (0x467600), taken evenly from the other
+    /// working systems down to their own percents.
+    /// </summary>
+    public void RestoreSystem(string name)
+    {
+        var system = Systems[name];
+        system.Destroyed = false;
+        system.HitPercent = system.Profile.HitPercent;
+        var donors = Systems.Values.Where(s => s != system && !s.Destroyed).ToList();
+        foreach (var s in donors)
+        {
+            s.HitPercent -= Math.Min(s.HitPercent - s.Profile.HitPercent, system.HitPercent / donors.Count);
+        }
+    }
 
     /// <summary>Whether the unit cannot move: derelict, or with its engines destroyed.</summary>
     public bool Immobile => Derelict || SystemDestroyed(SystemNames.Engines);

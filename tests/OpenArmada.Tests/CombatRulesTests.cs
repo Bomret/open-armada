@@ -153,7 +153,7 @@ public class CombatRulesTests
             Sys("LifeSupport", percent: 10),
             Sys("Weapons", percent: 10)
         );
-        target.Systems["Engines"].Destroyed = true;
+        target.DestroySystem("Engines");
         Assert.AreEqual(HitLocation.LifeSupport, CombatRules.Location(target, 0));
         Assert.AreEqual(HitLocation.LifeSupport, CombatRules.Location(target, 19));
         Assert.AreEqual(HitLocation.Weapons, CombatRules.Location(target, 20));
@@ -163,11 +163,42 @@ public class CombatRulesTests
     }
 
     [TestMethod]
+    public void OnADerelictUnitADestroyedSystemsWholePercentGoesToTheCriticalShare()
+    {
+        // life support 10 went to engines and weapons before the unit went derelict; engines now holds 25, all for critical
+        var target = WithSystems(
+            Sys("LifeSupport", percent: 10),
+            Sys("Engines", percent: 20),
+            Sys("Weapons", percent: 10)
+        );
+        target.DestroySystem("LifeSupport");
+        target.Derelict = true;
+        target.DestroySystem("Engines");
+        Assert.AreEqual(HitLocation.Weapons, CombatRules.Location(target, 14));
+        Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 15));
+        Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 24));
+        Assert.AreEqual(HitLocation.Critical, CombatRules.Location(target, 25));
+    }
+
+    [TestMethod]
+    public void ADestroyedSystemKeepsItsSharesWithTheSystemsThatTookThemUntilThoseAreDestroyed()
+    {
+        var target = WithSystems(Sys("Engines", percent: 20), Sys("Weapons", percent: 10), Sys("Sensors", percent: 10));
+        target.DestroySystem("Engines");
+        target.Derelict = true;
+        Assert.AreEqual(HitLocation.Weapons, CombatRules.Location(target, 19));
+        Assert.AreEqual(HitLocation.Sensors, CombatRules.Location(target, 20));
+        target.DestroySystem("Weapons");
+        Assert.AreEqual(HitLocation.Sensors, CombatRules.Location(target, 0));
+        Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 20));
+    }
+
+    [TestMethod]
     public void WithNoSystemWorkingTheDestroyedPercentsGoToTheCriticalShare()
     {
         var target = WithSystems(Sys("Engines", percent: 20), Sys("Weapons", percent: 10));
-        target.Systems["Engines"].Destroyed = true;
-        target.Systems["Weapons"].Destroyed = true;
+        target.DestroySystem("Engines");
+        target.DestroySystem("Weapons");
         Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 9));
         Assert.AreEqual(HitLocation.Critical, CombatRules.Location(target, 10));
     }
@@ -176,9 +207,9 @@ public class CombatRulesTests
     public void ASystemRepairedToFullTakesItsPercentBack()
     {
         var target = WithSystems(Sys("Engines", percent: 20), Sys("Weapons", percent: 10));
-        target.Systems["Engines"].Destroyed = true;
+        target.DestroySystem("Engines");
         Assert.AreEqual(HitLocation.Weapons, CombatRules.Location(target, 29));
-        target.Systems["Engines"].Destroyed = false;
+        target.RestoreSystem("Engines");
         Assert.AreEqual(HitLocation.Engines, CombatRules.Location(target, 19));
         Assert.AreEqual(HitLocation.Weapons, CombatRules.Location(target, 20));
     }

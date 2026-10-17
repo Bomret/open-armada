@@ -127,8 +127,14 @@ location whose percent takes the number below zero is hit. When none does, the h
 The percents are the definition's `enginesHitPercent` and its siblings and `hullHitPercent`;
 `criticalHitPercent` is not used.
 
-When a system is destroyed, its percent is shared evenly among the systems still working, or added to
-the critical share when none works. A repaired system takes its own percent back (0x467600).
+The roll reads a live percent per system and never a working flag. When a system is destroyed, its whole
+live percent, its own and the shares it took before, is shared evenly among the systems still working
+(0x467620), or goes to the critical share when none works (0x467b70). On a derelict unit no system counts
+as working (0x466ca0), so a system destroyed there sends its live percent to the critical share, and the
+systems that are still intact keep theirs. A system destroyed before the unit went derelict keeps its
+shares with the systems that took them until those are destroyed. A repaired system takes its own percent
+back (0x467600); we take it evenly from the other working systems down to their own percents (stand-in:
+the addresses do not show which systems give it up).
 
 ### Applying a hit
 

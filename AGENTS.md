@@ -10,6 +10,8 @@ format notes.
 - Combat rules and their recovered values: `docs/combat-rules.md`.
 - Decisions: `docs/adr/`. Invariants: `docs/invariants.md`.
 - Source layout, controls, and the asset check: `README.md`.
+- The log of a run: `godot.log` in Godot's user-data folder; its path per system, entry format, levels, and areas are in `README.md`, "Read the log". The asset check's report appears there and on standard output. After a run, read its `WARN` and `ERROR` entries first.
+- Logging rules: `docs/invariants.md` (INV-0004, INV-0005) and `docs/adr/0005-runs-log-into-godots-own-log.md`. All output goes through `Log` in `src/Diagnostics/`; parsers and asset kinds never log.
 
 ## Agent skills
 

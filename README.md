@@ -54,6 +54,38 @@ The sandbox behaves as follows:
 
 These rules apply to every map the sandbox opens.
 
+## Read the log
+
+Every run writes log entries to Godot's own log, `godot.log`, beside Godot's own lines. The same entries go to standard output. The log of the latest run is:
+
+| System | Path |
+|---|---|
+| macOS | `~/Library/Application Support/Godot/app_userdata/Open Armada/logs/godot.log` |
+| Linux | `~/.local/share/godot/app_userdata/Open Armada/logs/godot.log` |
+| Windows | `%APPDATA%\Godot\app_userdata\Open Armada\logs\godot.log` |
+
+Godot keeps the logs of earlier runs beside it as dated copies (`godot<date>T<time>.log`) and deletes the oldest. A run's first entry names the absolute path of its log.
+
+An entry is one line:
+
+```text
+2026-10-17T19:08:38.710+02:00 INFO run: ...
+```
+
+The line holds the local time (ISO 8601, with milliseconds and the UTC offset), the level, the area, and the text. Text with line breaks becomes one line per text line.
+
+Levels:
+
+- `ERROR`: something broke. An asset failed to load, the engine caught a fault, or a mode failed to open.
+- `WARN`: the engine went on by design, with a stand-in, absent data, a skip, or an unsupported asset.
+- `INFO`: context, such as the run start and each selection.
+
+Areas: `run` (start, end, launch arguments), `check` (the asset check), `browser`, `sandbox`, `combat`, and `render` (models and their textures).
+
+Each run starts with an `INFO` entry that names the mode, the install, and the arguments. A run that quits normally ends with an `INFO` entry that counts its `WARN` and `ERROR` entries; the asset check's also gives its exit code. A crash or SIGINT writes no run end; Godot's backtrace stays in `godot.log`. To list the problems of a run, search the log for ` WARN ` and ` ERROR `.
+
+A fault that repeats, such as a combat step that fails each frame, is logged at its first occurrence, and its further occurrences are counted in one entry before the run ends. A texture that fails is logged once per run: `WARN` when it is missing, `ERROR` when it cannot be read. A later use by a named asset adds an `INFO` entry that points back to the first one.
+
 ## Layout
 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
@@ -71,7 +103,7 @@ C# is formatted with CSharpier: run `dotnet tool restore` once, then `dotnet csh
 godot-mono --headless --path . -- --check --game "/path/to/Star Trek - Armada"
 ```
 
-Loads every asset and prints each failure with its name and reason. Classifies every file of the install and lists references that do not resolve. Exits non-zero when any asset failed or any file is unclassified. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
+Loads every asset and logs each failure with its name and reason. The report is log entries, on standard output and in the log (see "Read the log"); each line keeps its marker word (`FAIL`, `UNCLASSIFIED`, `NOTE`, `UNRESOLVED`, `UNSUPPORTED`, `MISSING`) at the start of its text. Classifies every file of the install and lists references that do not resolve. Exits non-zero when any asset failed or any file is unclassified. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
 
 ## SOD format notes
 

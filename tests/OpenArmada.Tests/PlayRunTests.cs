@@ -19,7 +19,12 @@ public class PlayRunTests
         readonly PlayRun _run;
         public readonly PlayState State;
 
-        public Fight(PlayScript script, string folder, bool lethal = false)
+        public Fight(
+            PlayScript script,
+            string folder,
+            bool lethal = false,
+            Func<PlayStep, string?>? input = null
+        )
         {
             var a = Placed("a", 1, 0);
             var b = Placed("b", 2, 10);
@@ -49,7 +54,7 @@ public class PlayRunTests
             _world.Attack(a, b);
             _world.Attack(b, a);
             State = new PlayState(new UnitNames([a, b]), poses.Pose, _world.Units);
-            _run = new PlayRun(script, State, folder);
+            _run = new PlayRun(script, State, folder, input);
         }
 
         public PlayRun Run => _run;
@@ -180,6 +185,60 @@ public class PlayRunTests
         {
             File.Delete(blocker);
         }
+    }
+
+    [TestMethod]
+    public void AHeldKeyIsPressedWhenItsStepIsDueAndReleasedWhenItsTimeHasPassed()
+    {
+        var log = new System.Collections.Generic.List<string>();
+        var script = PlayScript.Parse("select a\nhold Left 1\npress Escape\n", "x.play");
+        var fight = new Fight(
+            script,
+            Temp(),
+            input: step =>
+            {
+                log.Add(step switch
+                {
+                    SelectStep s => $"select {s.Unit}",
+                    HoldStep h => $"down {h.Key}",
+                    ReleaseStep r => $"up {r.Key}",
+                    PressStep p => $"press {p.Key}",
+                    _ => "?",
+                });
+
+                return null;
+            }
+        );
+
+        var frames = fight.Play();
+
+        CollectionAssert.AreEqual(new[] { "select a", "down Left", "up Left", "press Escape" }, log.ToArray());
+        Assert.AreEqual(30, frames);
+    }
+
+    [TestMethod]
+    public void AnInputStepThatFailsEndsTheRunWithItsProblemNamingTheLine()
+    {
+        var script = PlayScript.Parse("wait 0\nselect a\nwait 5\n", "x.play");
+        var fight = new Fight(script, Temp(), input: _ => "unit 'a' is off screen");
+
+        fight.Play();
+
+        CollectionAssert.AreEqual(
+            new[] { "x.play line 2: unit 'a' is off screen" },
+            fight.Run.Problems.ToArray()
+        );
+    }
+
+    [TestMethod]
+    public void AnInputStepWithoutAnExecutorIsAProblemNamingTheLine()
+    {
+        var fight = new Fight(PlayScript.Parse("select a\n", "x.play"), Temp());
+
+        fight.Play();
+
+        Assert.AreEqual(1, fight.Run.Problems.Count);
+        StringAssert.StartsWith(fight.Run.Problems[0], "x.play line 1: ");
     }
 
     [TestMethod]

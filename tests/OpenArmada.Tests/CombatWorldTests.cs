@@ -214,6 +214,81 @@ public class CombatWorldTests
         Assert.AreEqual(1, fired.Skip(3).Sum());
     }
 
+    [TestMethod]
+    public void ASideHardpointShipThatTurnsItsHardpointOutOfRangeClosesAgainThenHoldsWithoutFlipping()
+    {
+        // The hardpoint sits 80 to the side of the center and starts pointing at the target, 160 from its center and
+        // in range. Facing the target swings it 80 off the line of approach, out of range, until the center is within
+        // 183 of the target's center.
+        var a = Fighter("a", 1, 0, OnHardpoints(200, "side"));
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 240),
+            Profile = Profile(null, maxHealth: 100, hull: 100),
+            Radius = 100,
+        };
+        var poses = new UnitPoses(new[] { a.Object, b.Object });
+        var start = MoveGeometry.BowHeading(Vector3.UnitZ);
+        var world = new CombatWorld(
+            poses,
+            new[] { a, b }.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = s.Radius,
+                Mobile = s.Mobile,
+            }),
+            1,
+            () => 0,
+            // the placed ships have identity axes, so the pose's orientation is its heading change from the start
+            hardpointPosition: (_, _, pose) =>
+                pose.Position
+                + Vector3.Transform(
+                    new Vector3(80, 0, 0),
+                    MoveGeometry.Orientation(Quaternion.Identity, pose.Heading - start, pose.Bank)
+                )
+        );
+        world.Attack(a.Object, b.Object);
+        var motion = new ShipMotion(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 100,
+                YawRotationRate = 2,
+                MaxRoll = null,
+            },
+            a.Object.Position,
+            start
+        );
+        var kinds = new List<MoveKind>();
+        var fired = 0;
+        // the sandbox's frame: the world's intent drives the motion, the motion moves the unit, then combat steps
+        for (var tick = 0; tick < 300; tick++)
+        {
+            var intent = world.State(a.Object)!.Intent;
+            switch (intent.Kind)
+            {
+                case MoveKind.MoveTo:
+                    motion.SetTarget(intent.X, intent.Z);
+
+                    break;
+                case MoveKind.Face:
+                    motion.Face(intent.X, intent.Z);
+
+                    break;
+            }
+
+            poses.Advance(a.Object, motion, 0.02);
+            fired += Fired(world.Step(0.02), "a");
+            kinds.Add(world.State(a.Object)!.Intent.Kind);
+        }
+
+        // holds, closes once the turn takes the hardpoint out of range, then holds for good
+        var runs = kinds.Where((k, i) => i == 0 || k != kinds[i - 1]).ToList();
+        CollectionAssert.AreEqual(new[] { MoveKind.Face, MoveKind.MoveTo, MoveKind.Face }, runs);
+        Assert.IsTrue(fired > 0);
+    }
+
     static ShipMotion MovingTo(PlacedObject o, float x, float z)
     {
         var motion = new ShipMotion(

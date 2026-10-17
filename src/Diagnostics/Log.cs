@@ -21,10 +21,7 @@ public enum Area
     /// <summary>The combat world.</summary>
     Combat,
 
-    /// <summary>Asset loading and decoding.</summary>
-    Assets,
-
-    /// <summary>Rendering of models, textures, and the camera.</summary>
+    /// <summary>The model builder: models and their textures.</summary>
     Render,
 }
 

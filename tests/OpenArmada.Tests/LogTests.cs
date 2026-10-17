@@ -91,10 +91,7 @@ public class LogTests
     public void AreasAreTheFixedLowercaseSet()
     {
         var names = Enum.GetValues<Area>().Select(Log.AreaName).ToArray();
-        CollectionAssert.AreEquivalent(
-            new[] { "run", "check", "browser", "sandbox", "combat", "assets", "render" },
-            names
-        );
+        CollectionAssert.AreEquivalent(new[] { "run", "check", "browser", "sandbox", "combat", "render" }, names);
     }
 
     [TestMethod]

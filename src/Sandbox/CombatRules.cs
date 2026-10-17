@@ -34,12 +34,18 @@ public static class CombatRules
         if (!weapon.CrewAffectsWeaponDelay)
             return weapon.ShotDelay;
         var race = shooter.Profile.Race;
-        var ratio = shooter.Crew / shooter.Profile.MaximumCrew;
-        var factor =
-            ratio <= race.CrewRedStatus ? race.WeaponRed
-            : ratio <= race.CrewYellowStatus ? race.WeaponYellow
+        return weapon.ShotDelay * CrewFactor(shooter, race.WeaponYellow, race.WeaponRed);
+    }
+
+    // The race factor for the unit's crew ratio (current crew over maximumCrew): `red` at or below the race's
+    // crewRedStatus, else `yellow` at or below its crewYellowStatus, else 1.
+    static float CrewFactor(UnitCombatState unit, float yellow, float red)
+    {
+        var race = unit.Profile.Race;
+        var ratio = unit.Crew / unit.Profile.MaximumCrew;
+        return ratio <= race.CrewRedStatus ? red
+            : ratio <= race.CrewYellowStatus ? yellow
             : 1;
-        return weapon.ShotDelay * factor;
     }
 
     // The damage of a landing shot: damageBase plus up to damageVariance either way, for a `random` in [0, 1].
@@ -48,7 +54,15 @@ public static class CombatRules
     public static double Damage(OrdnanceProfile ordnance, string target, double random) =>
         Math.Max(0, ordnance.DamageBase.For(target) + ordnance.DamageVariance.For(target) * (2 * random - 1));
 
-    static readonly string[] SystemOrder = { "Engines", "LifeSupport", "Weapons", "ShieldGenerator", "Sensors" };
+    // In the order of HitLocation, so the index of a system is its location.
+    static readonly string[] SystemOrder =
+    {
+        SystemNames.Engines,
+        SystemNames.LifeSupport,
+        SystemNames.Weapons,
+        SystemNames.ShieldGenerator,
+        SystemNames.Sensors,
+    };
 
     // The location a roll of 0 to 99 hits: the roll is reduced by the hit percent of engines, life support,
     // weapons, shield generator, sensors, and hull in turn; the location that takes it below zero is hit, and a
@@ -81,11 +95,7 @@ public static class CombatRules
         if (unit.Derelict)
             return;
         var race = unit.Profile.Race;
-        var ratio = unit.Crew / unit.Profile.MaximumCrew;
-        var factor =
-            ratio <= race.CrewRedStatus ? race.RepairRed
-            : ratio <= race.CrewYellowStatus ? race.RepairYellow
-            : 1;
+        var factor = CrewFactor(unit, race.RepairYellow, race.RepairRed);
         foreach (var s in unit.Systems.Values.Where(s => s.HitPoints < s.Max))
         {
             // seconds one hit point takes
@@ -104,7 +114,7 @@ public static class CombatRules
     // lifeSupportLoss percent of the crew per second. A derelict unit loses none.
     public static void Sustain(UnitCombatState unit, double seconds)
     {
-        if (unit.Derelict || !unit.SystemDestroyed("LifeSupport"))
+        if (unit.Derelict || !unit.SystemDestroyed(SystemNames.LifeSupport))
             return;
         unit.Crew -= (1 + unit.Crew * unit.Profile.LifeSupportLoss / 100) * seconds;
         CheckCrew(unit);
@@ -167,7 +177,7 @@ public static class CombatRules
                     destroyed = true;
                     break;
                 default:
-                    if (target.Systems.TryGetValue(location.ToString(), out var system) && !system.Destroyed)
+                    if (target.Systems.TryGetValue(SystemOrder[(int)location], out var system) && !system.Destroyed)
                     {
                         system.HitPoints = Math.Max(0, system.HitPoints - points);
                         if (system.HitPoints <= 0)
@@ -190,7 +200,7 @@ public static class CombatRules
     // rate per second up to the maximum.
     public static void RegainShields(UnitCombatState unit, double seconds)
     {
-        if (unit.Derelict || unit.SystemDestroyed("ShieldGenerator"))
+        if (unit.Derelict || unit.SystemDestroyed(SystemNames.ShieldGenerator))
             return;
         var down = Math.Min(unit.ShieldDown, seconds);
         unit.ShieldDown -= down;

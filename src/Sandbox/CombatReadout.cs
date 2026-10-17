@@ -17,8 +17,8 @@ public static class CombatReadout
             CultureInfo.InvariantCulture,
             $"{name}  shields {Math.Round(state.Shields):0}/{state.Profile.MaxHealth:0}  crew {Math.Round(state.Crew):0}  alert {state.Alert.ToString().ToLowerInvariant()}"
         )
-        + $"  {System(state, "Engines", "engines")}  {System(state, "LifeSupport", "life support")}"
-        + $"  {System(state, "Weapons", "weapons")}  {System(state, "ShieldGenerator", "shield generator")}"
-        + $"  {System(state, "Sensors", "sensors")}"
+        + $"  {System(state, SystemNames.Engines, "engines")}  {System(state, SystemNames.LifeSupport, "life support")}"
+        + $"  {System(state, SystemNames.Weapons, "weapons")}  {System(state, SystemNames.ShieldGenerator, "shield generator")}"
+        + $"  {System(state, SystemNames.Sensors, "sensors")}"
         + (state.Derelict ? "  derelict" : "");
 }

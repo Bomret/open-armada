@@ -14,6 +14,17 @@ public enum HitLocation
     Critical,
 }
 
+// The names of the five ship systems: SystemProfile.Name and the keys of UnitCombatState.Systems. Each is the name
+// of the system's hit location, so a hit location's name is the system it damages.
+public static class SystemNames
+{
+    public const string Engines = nameof(HitLocation.Engines);
+    public const string LifeSupport = nameof(HitLocation.LifeSupport);
+    public const string Weapons = nameof(HitLocation.Weapons);
+    public const string ShieldGenerator = nameof(HitLocation.ShieldGenerator);
+    public const string Sensors = nameof(HitLocation.Sensors);
+}
+
 // The outcome of one hit on a unit: where it landed, the damage rolled, the shield points lost, the crew lost,
 // the whole points of the systems part that passed on, and whether it destroyed the unit.
 public sealed record Hit(

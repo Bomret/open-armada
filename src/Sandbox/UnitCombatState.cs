@@ -69,7 +69,7 @@ public sealed class UnitCombatState(
     public bool SystemDestroyed(string name) => Systems.TryGetValue(name, out var s) && s.Destroyed;
 
     // Whether the unit cannot move: derelict, or with its engines destroyed.
-    public bool Immobile => Derelict || SystemDestroyed("Engines");
+    public bool Immobile => Derelict || SystemDestroyed(SystemNames.Engines);
     public List<WeaponState> Weapons { get; } = profile.Weapons.Select(w => new WeaponState(w)).ToList();
 
     // The unit's alert stance.
@@ -97,8 +97,9 @@ public sealed class UnitCombatState(
     public MoveIntent Intent { get; set; }
     public bool Destroyed { get; set; }
 
-    // The position at the previous Step call, to tell a stopped unit from a moving one.
-    public Vector3? LastPosition { get; set; }
+    // The position at the latest Step call, read once per call: the ticks of the call use it, and the next call
+    // compares it with the new one to tell a stopped unit from a moving one. Null before the first call.
+    public Vector3? Position { get; set; }
 
     // Whether the unit did not move since the previous Step call (a unit the world has not yet seen is stopped).
     public bool Stopped { get; set; } = true;

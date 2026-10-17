@@ -97,11 +97,11 @@ public sealed class CombatPlan
     {
         static readonly (string Name, string Key)[] SystemKeys =
         {
-            ("Engines", "engines"),
-            ("LifeSupport", "lifeSupport"),
-            ("Weapons", "weapons"),
-            ("ShieldGenerator", "shieldGenerator"),
-            ("Sensors", "sensors"),
+            (SystemNames.Engines, "engines"),
+            (SystemNames.LifeSupport, "lifeSupport"),
+            (SystemNames.Weapons, "weapons"),
+            (SystemNames.ShieldGenerator, "shieldGenerator"),
+            (SystemNames.Sensors, "sensors"),
         };
 
         // stand-in: a middling race for a race definition the install lacks: no delay and repair factors,

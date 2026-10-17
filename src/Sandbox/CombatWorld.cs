@@ -117,9 +117,9 @@ public sealed class CombatWorld
         // previous call; every tick of the call shares that, and the to-hit does not depend on the frame rate.
         foreach (var u in _units.Values)
         {
-            var at = Position(u);
-            u.Stopped = u.LastPosition == null || u.LastPosition == at;
-            u.LastPosition = at;
+            var at = _poses.Pose(u.Unit).Position;
+            u.Stopped = u.Position == null || u.Position == at;
+            u.Position = at;
             // a ship that arrives stands exactly on its target (ShipMotion), which ends the move order
             if (
                 u.PlayerMove is { } to
@@ -157,7 +157,8 @@ public sealed class CombatWorld
         }
     }
 
-    Vector3 Position(UnitCombatState u) => _poses.Pose(u.Unit).Position;
+    // The unit's position as of the current Step call (positions change only between calls).
+    Vector3 Position(UnitCombatState u) => u.Position ?? _poses.Pose(u.Unit).Position;
 
     // The distance between the units' surfaces.
     float Surface(UnitCombatState a, UnitCombatState b) =>
@@ -252,6 +253,7 @@ public sealed class CombatWorld
         held != null && Valid(u, held) && Surface(u, held) <= radius ? held : NearestHostile(u, radius);
 
     // The nearest valid target whose surface is within `range`; null when none is.
+    // ponytail: every unit scans every other unit each tick (O(n²)); a spatial index when maps grow large.
     UnitCombatState? NearestHostile(UnitCombatState u, float range) =>
         _units
             .Values.Where(t => Valid(u, t))
@@ -267,7 +269,7 @@ public sealed class CombatWorld
         {
             weapon.Cooldown -= Tick;
             // a derelict unit and one with destroyed weapons fire nothing
-            if (u.Derelict || u.SystemDestroyed("Weapons") || u.Target is not { } target)
+            if (u.Derelict || u.SystemDestroyed(SystemNames.Weapons) || u.Target is not { } target)
             {
                 weapon.Cooldown = Math.Max(0, weapon.Cooldown); // an idle weapon does not store shots
                 continue;
@@ -302,7 +304,7 @@ public sealed class CombatWorld
             shooter.Stopped,
             target.Stopped
         );
-        var hits = target.Derelict || target.SystemDestroyed("Engines") || _random() <= chance;
+        var hits = target.Derelict || target.SystemDestroyed(SystemNames.Engines) || _random() <= chance;
         // stand-in: the world's shot flies from the shooter's center (it knows no model); the view offsets what it
         // draws to the shot's hardpoint.
         var from = Position(shooter);

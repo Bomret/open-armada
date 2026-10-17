@@ -29,6 +29,7 @@ public partial class CombatView : Node3D
         public required ImageTexture Texture;
         public required Node3D Root;
         public required StandardMaterial3D Material;
+        public required Node3D Source; // the node the shot leaves from, resolved once when drawn
         public Vector3 Offset; // a flying shot: the hardpoint's offset from the center at launch
         public Vector3 Start; // a flying shot: where it was first drawn
         public float Distance; // a flying shot: its distance to the target then
@@ -132,18 +133,18 @@ public partial class CombatView : Node3D
     Vector3? At(PlacedObject unit) =>
         _nodes.TryGetValue(unit, out var node) && IsInstanceValid(node) ? node.GlobalPosition : null;
 
-    // The hardpoint's place in the world; the unit's center when the model lacks the node (reported when built).
-    Vector3? HardpointAt(PlacedObject unit, string? name)
+    // The node a shot leaves from: the hardpoint's node, or the unit's own node when the model lacks the hardpoint
+    // (reported when built); null when the unit's node is gone.
+    Node3D? Source(PlacedObject unit, string? name)
     {
-        if (
+        if (!_nodes.TryGetValue(unit, out var node) || !IsInstanceValid(node))
+            return null;
+        return
             name != null
             && _art.Hardpoint(unit, name) is { } exact
-            && _nodes.TryGetValue(unit, out var node)
-            && IsInstanceValid(node)
             && node.FindChild(exact, true, false) is Node3D hardpoint
-        )
-            return hardpoint.GlobalPosition;
-        return At(unit);
+            ? hardpoint
+            : node;
     }
 
     static System.Numerics.Vector3 Num(Vector3 v) => new(v.X, v.Y, v.Z);
@@ -186,8 +187,9 @@ public partial class CombatView : Node3D
         if (_art.Sprite(name) is not { } art || Texture(art.Sprite.Texture) is not { } tex)
             return;
         var from = shot.Shooter.Unit;
-        if (At(from) is not { } center || HardpointAt(from, shot.Hardpoint) is not { } hardpoint)
+        if (At(from) is not { } center || Source(from, shot.Hardpoint) is not { } source)
             return;
+        var hardpoint = source.GlobalPosition;
         if (At(shot.Target.Unit) is not { } targetAt)
             return;
         var material = new StandardMaterial3D
@@ -226,6 +228,7 @@ public partial class CombatView : Node3D
             Texture = tex,
             Root = root,
             Material = material,
+            Source = source,
             Offset = hardpoint - center,
             Start = at,
             Distance = (targetAt - at).Length(),
@@ -256,8 +259,9 @@ public partial class CombatView : Node3D
         {
             if (At(shot.Target.Unit) is not { } target)
                 return;
-            if (HardpointAt(shot.Shooter.Unit, shot.Hardpoint) is not { } start)
+            if (!IsInstanceValid(d.Source))
                 return;
+            var start = d.Source.GlobalPosition;
             if (ShotGeometry.Beam(Num(start), Num(d.Missed ? target + d.AimOffset : target)) is not { } pose)
                 return;
             d.Root.Basis = new Basis(Gd(pose.X), Gd(pose.Y), Gd(pose.Z));
@@ -292,15 +296,18 @@ public partial class CombatView : Node3D
         };
     }
 
-    public override void _Process(double delta) =>
+    public override void _Process(double delta)
+    {
+        var live = _world.Shots.ToHashSet();
         _drawn.RemoveAll(d =>
         {
             // stand-in: a missed shot ages on the frame time and a hit in whole world ticks, so the clocks differ by under a tick.
-            var gone = d.Missed ? (d.Age += delta) >= d.Shot.Weapon.Ordnance.LifeSpan : !_world.Shots.Contains(d.Shot);
+            var gone = d.Missed ? (d.Age += delta) >= d.Shot.Weapon.Ordnance.LifeSpan : !live.Contains(d.Shot);
             if (gone)
                 d.Root.QueueFree();
             else
                 Place(d);
             return gone;
         });
+    }
 }

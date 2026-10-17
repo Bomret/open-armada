@@ -29,6 +29,14 @@ public class ModelRulesTests
     }
 
     [TestMethod]
+    public void RenderTypeNamedAloneIsReadWithoutRegardToCase()
+    {
+        Assert.AreEqual(BlendMode.Add, ModelRules.Blend("Additive")!.Mode);
+        Assert.AreEqual(BlendMode.Cutout, ModelRules.Blend("ALPHATHRESHOLD")!.Mode);
+        Assert.IsNull(ModelRules.Blend("nosuch"));
+    }
+
+    [TestMethod]
     public void WireframeTextureMaterialDrawsEdges()
     {
         Assert.IsTrue(ModelRules.Look(V17(), MeshOf("wireframe")).Blend!.Wireframe);

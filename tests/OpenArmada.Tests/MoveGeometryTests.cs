@@ -169,4 +169,11 @@ public class MoveGeometryTests
     [DataRow(0f, -1500f)] // on the west edge
     public void AHitInsideTheMapOrOnItsEdgeIsUnchanged(float x, float z) =>
         Assert.AreEqual(new Vector2(x, z), MoveGeometry.ClampToMap(new Vector2(x, z), Map));
+
+    [TestMethod]
+    public void APlacedUnitsPoseIsItsPositionAndBowHeadingWithoutBank()
+    {
+        var pose = MoveGeometry.PlacedPose(new Vector3(1, 2, 3), new Vector3(-1, 0, 0));
+        Assert.AreEqual(new ShipPose(new Vector3(1, 2, 3), MathF.PI / 2, 0), pose);
+    }
 }

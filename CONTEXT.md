@@ -117,6 +117,54 @@ A value or behavior that the engine supplies itself because the install defines 
 game's own behavior is not known. Each stand-in is documented as such where it is used.
 _Avoid_: default, fallback, placeholder
 
+## Combat
+
+**Combat rules**
+The game's rules that turn a weapon's fire into hits, shield loss, crew loss, system damage, and
+destruction, recovered from the game's program and restated in our own words.
+_Avoid_: damage model, combat formulas
+
+**Hostile**
+A unit of another team than the unit judging it, team 0 excepted. Team 0 is neutral and hostile to no one.
+_Avoid_: enemy unit, opponent
+
+**Weapon**
+A definition a unit names in a `weaponN` key, which fires ordnance from the unit's hardpoints at a delay
+and within a range. A beam weapon has class label `cannon`; a torpedo launcher has `launcher`.
+_Avoid_: gun, turret, hardpoint
+
+**Ordnance**
+The definition a weapon names in its `ordName` key: what one shot does on a hit and how it is drawn.
+_Avoid_: projectile, shot definition, ammo
+
+**Alert stance**
+A unit has one of three settings, red, yellow, or green. The setting decides whether the unit picks targets and moves on its own.
+The player sets it with a key chord.
+_Avoid_: alert level, stance, combat mode
+
+**Attack order**
+An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target and
+fires at it, and the order ends when the target is destroyed.
+_Avoid_: attack command, focus fire
+
+**Key chord**
+A key plus the modifiers held with it: Shift, Control, or Alt. The install's `Input.map` names the chord as a binding.
+_Avoid_: hotkey, shortcut, key combo
+
+**Ship system**
+One of the five parts of a unit that can be destroyed apart from the unit: engines, life support, weapons,
+shield generator, and sensors. Each has hit points and repairs itself over time.
+_Avoid_: subsystem, component
+
+**Derelict**
+A unit whose crew has fallen below one. All its systems are offline and its shields are down, and it
+stays on the map until it is destroyed.
+_Avoid_: dead ship, disabled ship, wreck
+
+**Critical hit**
+A hit that lands on no ship system and not on the hull. It destroys the unit.
+_Avoid_: core breach, instant kill
+
 ## Tools
 
 **Asset check**
@@ -137,8 +185,8 @@ The engine's interactive mode for picking any asset of an install and inspecting
 _Avoid_: model viewer, asset viewer
 
 **Map sandbox**
-The engine's mode that opens one map as a live 3D scene, where units can be selected and ships ordered to
-move.
+The engine's mode that opens one map as a live 3D scene. The player can select units, order ships to
+move, and order units to attack. The fight plays out in the scene.
 _Avoid_: map viewer, 3D preview, game mode
 
 **Preview**

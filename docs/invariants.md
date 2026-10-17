@@ -3,10 +3,10 @@
 ### INV-0001
 
 Class: legal
-Concepts: Install, Asset
-Statement: The repository contains no bytes taken from an install; tests build their fixtures in code.
+Concepts: Install, Asset, Combat rules
+Statement: The repository contains no bytes taken from an install and no code transcribed from the game's program; tests build their fixtures in code, and rules recovered from the program are described in our own words.
 Breaks: silently
-Check: none — no cheap test can tell a copied byte sequence from a synthesized one; reviewers check that fixtures are built in code.
+Check: none — no cheap test can tell a copied byte sequence or a transcribed routine from an original one; reviewers check that fixtures are built in code and that recovered rules are restated, not transcribed.
 
 ### INV-0002
 

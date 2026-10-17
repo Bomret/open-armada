@@ -46,7 +46,7 @@ The sandbox behaves as follows:
 - The sandbox confines the cursor to its window while the window has focus. Esc releases it until the window gains focus again.
 - Left-click selects a unit, and a left-button drag selects the units in the box. Right-click on a hostile unit orders the selected units that have weapons to attack it; a unit without weapons ignores the click. Right-click elsewhere sends the selected ships to that point; a point outside the map sends them to the nearest point of the map's edge. Stations do not move.
 - The green, yellow, and red alert keys set the alert stance of the selected units. The keys come from the install's `Input.map` (Shift+G, Shift+Y, and Shift+R in the reference install).
-- Units and other models draw their sprite nodes, as the model preview does. A destroyed unit shows its explosion at its last position, and the explosion plays its sprite nodes once.
+- Units and other models draw their sprite nodes, as the model preview does. The rocks of an asteroid field draw theirs too. A destroyed unit shows its explosion at its last position, and the explosion plays its sprite nodes once.
 - Fire and explosion sounds fade with their distance from the camera, and from the camera's opening distance they stay audible. The install defines no falloff, so the engine uses a stand-in.
 - A map object or definition that cannot be read is reported as a gap, printed and counted on screen, and the map still opens.
 

@@ -53,11 +53,10 @@ public class ImageSoundKindTests
     [TestMethod]
     public void LevelThatEndsTheChainBySizeIsClassifiedKnownButNotLoaded()
     {
-        var w = new StringWriter();
+        using var w = new CapturedLog();
         AssetCheck.Run(
             Dir(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(4)), ("Textures/RGB/a.2", Tga(3))),
-            new AssetKind[] { new TextureKind() },
-            w
+            new AssetKind[] { new TextureKind() }
         );
         StringAssert.Contains(w.ToString(), "NOT LOADED Textures/RGB/a.2: texture extras");
     }
@@ -141,8 +140,8 @@ public class ImageSoundKindTests
     public void MipChainMismatchIsPrintedAsANoteAndDoesNotFailTheCheck()
     {
         var dir = Dir(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(3)));
-        var output = new StringWriter();
-        var code = AssetCheck.Run(dir, new AssetKind[] { new TextureKind() }, output);
+        using var output = new CapturedLog();
+        var code = AssetCheck.Run(dir, new AssetKind[] { new TextureKind() });
         StringAssert.Contains(output.ToString(), "NOTE textures/a.tga: level a.1 is 3x3, expected 4x4");
         StringAssert.Contains(output.ToString(), "textures: 1 loaded, 0 unsupported, 0 failed");
         Assert.AreEqual(0, code);
@@ -152,11 +151,10 @@ public class ImageSoundKindTests
     public void NoteIsPrintedEvenWhenTheDecoderRejectsTheTexture()
     {
         var dir = Dir(("Textures/RGB/a.tga", Tga(8)), ("Textures/RGB/a.1", Tga(3)));
-        var output = new StringWriter();
+        using var output = new CapturedLog();
         var code = AssetCheck.Run(
             dir,
             new AssetKind[] { new TextureKind() },
-            output,
             (kind, files, name) => throw new InvalidDataException("Godot cannot decode it")
         );
         StringAssert.Contains(output.ToString(), "NOTE textures/a.tga: level a.1 is 3x3, expected 4x4");
@@ -181,11 +179,10 @@ public class ImageSoundKindTests
     public void DecoderThatThrowsFailsOnlyItsAsset()
     {
         var dir = Dir(("sounds/ok.wav", WavTests.Make()), ("sounds/godot-rejects.wav", WavTests.Make()));
-        var output = new StringWriter();
+        using var output = new CapturedLog();
         var code = AssetCheck.Run(
             dir,
             new AssetKind[] { new SoundKind() },
-            output,
             (kind, files, name) =>
             {
                 if (name.Contains("godot-rejects"))
@@ -202,7 +199,7 @@ public class ImageSoundKindTests
     {
         var dir = Dir(("sounds/cut.wav", WavTests.Make(declared: 100)));
         var decoded = 0;
-        AssetCheck.Run(dir, new AssetKind[] { new SoundKind() }, new StringWriter(), (kind, files, name) => decoded++);
+        AssetCheck.Run(dir, new AssetKind[] { new SoundKind() }, (kind, files, name) => decoded++);
         Assert.AreEqual(0, decoded);
     }
 
@@ -305,8 +302,8 @@ public class ImageSoundKindTests
             ("sounds/cut.wav", WavTests.Make(declared: 100)),
             ("sounds/adpcm.wav", WavTests.Make(format: 2))
         );
-        var output = new StringWriter();
-        var code = AssetCheck.Run(dir, new AssetKind[] { new SoundKind() }, output);
+        using var output = new CapturedLog();
+        var code = AssetCheck.Run(dir, new AssetKind[] { new SoundKind() });
         var text = output.ToString();
         StringAssert.Contains(text, "FAIL sounds/sounds/cut.wav");
         StringAssert.Contains(text, "UNSUPPORTED sounds/sounds/adpcm.wav");

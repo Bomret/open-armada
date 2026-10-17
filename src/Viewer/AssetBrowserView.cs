@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
@@ -26,28 +27,62 @@ public partial class AssetBrowserView : Control
     Node? _preview;
     string? _screenshot;
     int _frames;
+    int? _checkCode;
 
     /// <inheritdoc/>
     public override void _Ready()
     {
-        var args = new LaunchArgs(OS.GetCmdlineUserArgs());
-        var game = args.Value("--game") ?? System.Environment.GetEnvironmentVariable("ARMADA_DIR");
+        // First statement: every entry of the run, the engine's own ones too, lands in godot.log.
+        Log.Sink = line => GD.Print(line);
+        var userArgs = OS.GetCmdlineUserArgs();
+        var args = new LaunchArgs(userArgs);
+        var gameArg = args.Value("--game");
+        var envGame = System.Environment.GetEnvironmentVariable("ARMADA_DIR");
+        var game = gameArg ?? envGame;
         _screenshot = args.Value("--screenshot");
         var model = args.Value("--model");
-        if (args.Has("--check"))
+        var check = args.Has("--check");
+        if (!check && args.Has("--map"))
+        {
+            args.Value("--map"); // looked up now so its problem is known at run start
+        }
+
+        var mode =
+            check ? "check"
+            : args.Has("--map") ? "map"
+            : "browser";
+        var source =
+            gameArg != null ? "--game"
+            : envGame != null ? "ARMADA_DIR"
+            : "none";
+        var logFile = ProjectSettings.GlobalizePath(
+            (string)ProjectSettings.GetSetting("debug/file_logging/log_path", "user://logs/godot.log")
+        );
+        Log.Info(
+            Area.Run,
+            $"run start: mode {mode}, install {(game == null ? "none" : Log.Quote(game))} (from {source}), "
+                + $"arguments [{string.Join(", ", userArgs.Select(Log.Quote))}], log {Log.Quote(logFile)}"
+        );
+        foreach (var problem in args.Problems)
+        {
+            Log.Warn(Area.Run, problem);
+        }
+
+        if (check)
         {
             // A Godot callback exception does not set the exit code, so the check owns it.
             int code;
             try
             {
-                code = AssetCheck.Run(game, AssetKind.Discover(), Console.Out, GodotDecoders.Check);
+                code = AssetCheck.Run(game, AssetKind.Discover(), GodotDecoders.Check);
             }
             catch (Exception e)
             {
-                Console.Out.WriteLine($"asset check crashed: {e}");
+                Log.Error(Area.Check, $"asset check crashed: {e}");
                 code = 1;
             }
 
+            _checkCode = code;
             GetTree().Quit(code);
 
             return;
@@ -181,6 +216,14 @@ public partial class AssetBrowserView : Control
         {
             ShowMessage(AssetBrowser.FailureMessage(name, e));
         }
+    }
+
+    /// <inheritdoc/>
+    public override void _ExitTree()
+    {
+        // The end entry does not count itself; a print from here reaches godot.log on quit.
+        var counts = $"{Log.WarnCount} WARN, {Log.ErrorCount} ERROR";
+        Log.Info(Area.Run, _checkCode is { } code ? $"run end: {counts}, exit code {code}" : $"run end: {counts}");
     }
 
     /// <inheritdoc/>

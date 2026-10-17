@@ -263,8 +263,8 @@ public class GameFileSystemArchiveTests
     {
         // The stock install's index names build tools that the install does not hold.
         var game = temp.MakeInstall(("misc/m.trn", "ok"), ("startrek.zix", Zix("DIR: misc", "1 gone.trn")));
-        var w = new StringWriter();
-        Assert.AreEqual(0, AssetCheck.Run(game, new AssetKind[] { new ModelKind() }, w));
+        using var w = new CapturedLog();
+        Assert.AreEqual(0, AssetCheck.Run(game, new AssetKind[] { new ModelKind() }));
         StringAssert.Contains(w.ToString(), "MISSING index/gone.trn");
     }
 
@@ -275,8 +275,8 @@ public class GameFileSystemArchiveTests
             ("SOD/a.sod", "Storm3D_SW" + "\0\0\0\0"),
             ("addon/bad.zfs", "garbage garbage garbage garbage garbage garbage")
         );
-        var w = new StringWriter();
-        var code = AssetCheck.Run(game, new AssetKind[] { new ModelKind() }, w);
+        using var w = new CapturedLog();
+        var code = AssetCheck.Run(game, new AssetKind[] { new ModelKind() });
         Assert.AreEqual(1, code);
         StringAssert.Contains(w.ToString(), "FAIL archive/addon/bad.zfs");
         StringAssert.Contains(w.ToString(), "models/a.sod");

@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Tests;
 
@@ -41,9 +43,121 @@ public class AssetCheckTests
 
     static (int Code, string Output) Run(string? game, params AssetKind[] kinds)
     {
-        var w = new StringWriter();
+        using var log = new CapturedLog();
 
-        return (AssetCheck.Run(game, kinds, w), w.ToString());
+        return (AssetCheck.Run(game, kinds), log.Text);
+    }
+
+    // One kind that yields a note, an unresolved reference, an unsupported asset, and a failure.
+    sealed class MarkerKind : AssetKind
+    {
+        public override string Name => "mk";
+
+        public override IEnumerable<string> Enumerate(GameFileSystem f) => ["n", "u", "s", "f", "ok"];
+
+        public override object Load(GameFileSystem f, string n) =>
+            n switch
+            {
+                "s" => throw new UnsupportedFormatException("old format"),
+                "f" => throw new InvalidDataException("broken"),
+                _ => n,
+            };
+
+        public override IReadOnlyList<string> Check(GameFileSystem f, string n) =>
+            n == "n" ? ["odd"] : base.Check(f, n);
+
+        public override IReadOnlyList<string> Unresolved(GameFileSystem f, string n) => n == "u" ? ["gone"] : [];
+    }
+
+    // Every marker of the report starts its text and has one level (INV-0005).
+    [TestMethod]
+    public void EveryMarkerStartsTheTextAtItsLevel()
+    {
+        var game = Install(
+            ("startrek.zix", "000001\n0 d:\\x x 'Disc\n----\nDIR: SOD\n----\n1 gone.trn\n"),
+            ("help/h.htm", ""),
+            ("giddi/j.std", ""),
+            ("mystery/new.thing", "")
+        );
+        using var log = new CapturedLog();
+        AssetCheck.Run(game, [new MarkerKind()]);
+        var levels = log.Lines.Select(l => l.Split(' ', 4)).Select(p => (Level: p[1], Text: p[3])).ToList();
+        (string Marker, string Level)[] expected =
+        [
+            ("MISSING ", "WARN"),
+            ("NOTE ", "WARN"),
+            ("UNRESOLVED ", "WARN"),
+            ("UNSUPPORTED ", "WARN"),
+            ("FAIL ", "ERROR"),
+            ("UNCLASSIFIED ", "ERROR"),
+            ("NOT LOADED ", "INFO"),
+            ("OUT OF SCOPE ", "INFO"),
+            ("mk: ", "INFO"),
+            ("3 loaded, ", "INFO"),
+            ("1 unresolved references", "INFO"),
+            ("files: ", "INFO"),
+        ];
+        foreach (var (marker, level) in expected)
+        {
+            var hits = levels.Where(l => l.Text.StartsWith(marker, StringComparison.Ordinal)).ToList();
+            Assert.IsTrue(hits.Count > 0, $"no line starts with {marker}: {log.Text}");
+            Assert.IsTrue(hits.All(h => h.Level == level), $"{marker} is not {level}: {log.Text}");
+        }
+    }
+
+    [TestMethod]
+    public void MissingInstallAndUnopenableInstallAreErrorsInAreaCheck()
+    {
+        using var log = new CapturedLog();
+        AssetCheck.Run(null, [new ModelKind()]);
+        AssetCheck.Run(temp.MakeDir(), [new ModelKind()]);
+        Assert.AreEqual(2, log.Lines.Count(l => l.Contains(" ERROR check: ")), log.Text);
+        Assert.AreEqual(2, log.Lines.Count, log.Text);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void ExitCodeIsOneExactlyWhenAnErrorEntryInAreaCheckWasWritten(bool broken)
+    {
+        var game = Install(("SOD/a.sod", broken ? "garbage!!!!" : Sod(1.8f)));
+        using var log = new CapturedLog();
+        var code = AssetCheck.Run(game, [new ModelKind()]);
+        Assert.AreEqual(log.Lines.Any(l => l.Contains(" ERROR check: ")) ? 1 : 0, code);
+        Assert.AreEqual(broken ? 1 : 0, code);
+    }
+
+    [TestMethod]
+    public void ThrowingSinkLeavesTheExitCodeUnchanged()
+    {
+        var game = Install(("SOD/bad.sod", "garbage!!!!"));
+        int plain;
+        using (new CapturedLog())
+        {
+            plain = AssetCheck.Run(game, [new ModelKind()]);
+        }
+
+        using var _ = Log.Redirect(_ => throw new InvalidOperationException("sink broke"));
+        Assert.AreEqual(plain, AssetCheck.Run(game, [new ModelKind()]));
+    }
+
+    [TestMethod]
+    public void ExitCodeIgnoresEntriesWrittenBeforeTheCheck()
+    {
+        var game = Install(("SOD/a.sod", Sod(1.8f)));
+        using var log = new CapturedLog();
+        Log.Error(Area.Run, "earlier error");
+        Log.Error(Area.Run, "another");
+        Assert.AreEqual(0, AssetCheck.Run(game, [new ModelKind()]));
+    }
+
+    [TestMethod]
+    public void ExitCodeIgnoresLogCountsWhenTheSinkThrows()
+    {
+        var game = Install(("SOD/a.sod", Sod(1.8f)));
+        using var _ = Log.Redirect(_ => throw new InvalidOperationException("sink broke"));
+        Log.Error(Area.Run, "earlier error");
+        Assert.AreEqual(0, AssetCheck.Run(game, [new ModelKind()]));
     }
 
     // Per-test temp folders, deleted by CleanUp; one instance per test, so nothing is shared.

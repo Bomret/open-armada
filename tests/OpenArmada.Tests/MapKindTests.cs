@@ -97,8 +97,8 @@ public class MapKindTests
     {
         var good = Sample().Build();
         var root = temp.MakeInstall(("bzn/good.bzn", S(good)), ("bzn/cut.bzn", S(good[..(good.Length - 5)])));
-        var output = new StringWriter();
-        var code = AssetCheck.Run(root, new AssetKind[] { new MapKind() }, output);
+        using var output = new CapturedLog();
+        var code = AssetCheck.Run(root, new AssetKind[] { new MapKind() });
         Assert.AreEqual(1, code);
         StringAssert.Contains(output.ToString(), "FAIL maps/bzn/cut.bzn");
         StringAssert.Contains(output.ToString(), "maps: 1 loaded");

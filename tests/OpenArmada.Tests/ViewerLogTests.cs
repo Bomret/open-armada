@@ -48,12 +48,12 @@ public class ViewerLogTests
     }
 
     [TestMethod]
-    public void Sprite_table_texture_that_did_not_load_is_one_warn_with_texture_and_reason()
+    public void Sprite_table_texture_that_did_not_load_is_one_error_with_texture_and_reason()
     {
         using var log = new CapturedLog();
         ViewerLog.TextureNotLoaded("sprites.spr", "hull01", new InvalidDataException("bad magic"));
         Assert.AreEqual(1, log.Lines.Count);
-        StringAssert.Contains(log.Text, " WARN browser: ");
+        StringAssert.Contains(log.Text, " ERROR browser: ");
         StringAssert.Contains(log.Text, "sprites.spr");
         StringAssert.Contains(log.Text, "hull01");
         StringAssert.Contains(log.Text, "bad magic");
@@ -106,12 +106,12 @@ public class ViewerLogTests
     }
 
     [TestMethod]
-    public void Unusable_texture_is_one_warn_in_area_render_naming_texture_and_reason()
+    public void Unreadable_texture_is_one_error_in_area_render_naming_texture_and_reason()
     {
         using var log = new CapturedLog();
         ViewerLog.TextureUnavailable("hull01", "not a readable TGA");
         Assert.AreEqual(1, log.Lines.Count);
-        StringAssert.Contains(log.Text, " WARN render: ");
+        StringAssert.Contains(log.Text, " ERROR render: ");
         StringAssert.Contains(log.Text, "hull01");
         StringAssert.Contains(log.Text, "not a readable TGA");
     }
@@ -137,39 +137,6 @@ public class ViewerLogTests
     {
         Assert.IsNull(ViewerLog.CaptureFailure(true, null));
         Assert.AreEqual("Cannot open file", ViewerLog.CaptureFailure(true, "Cannot open file"));
-    }
-
-    [TestMethod]
-    public void A_mesh_texture_that_is_also_a_problem_gets_no_render_warn()
-    {
-        using var log = new CapturedLog();
-        var misses = new System.Collections.Generic.Dictionary<string, string?>
-        {
-            ["hull01"] = "not a readable TGA",
-            ["glow"] = "missing",
-        };
-        ViewerLog.TexturesUnavailable(
-            misses,
-            new System.Collections.Generic.HashSet<string> { "HULL01" },
-            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        );
-        Assert.AreEqual(1, log.Lines.Count);
-        StringAssert.Contains(log.Text, " WARN render: ");
-        StringAssert.Contains(log.Text, "glow");
-    }
-
-    [TestMethod]
-    public void A_builder_logs_a_missing_mesh_texture_once_across_builds()
-    {
-        using var log = new CapturedLog();
-        var logged = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var none = new System.Collections.Generic.HashSet<string>();
-        for (var build = 0; build < 2; build++)
-        {
-            var misses = new System.Collections.Generic.Dictionary<string, string?> { ["glow"] = "missing" };
-            ViewerLog.TexturesUnavailable(misses, none, logged);
-        }
-        Assert.AreEqual(1, log.Lines.Count);
     }
 
     [TestMethod]

@@ -98,10 +98,15 @@ public partial class CombatView : Node3D
                 _models[name] = builder.Build(Sod.Read(files.ReadAllBytes(name + ".sod")));
                 foreach (var problem in builder.Problems)
                 {
-                    // The model is built and shown. The builder logs only a texture that does not become a
-                    // Problems entry; each Problems entry is logged here, once per cause.
+                    // The model is built and shown; each Problems entry is logged here, once per cause.
                     Log.Warn(Area.Combat, $"{name}: {problem}");
                     gap($"{name}: {problem}");
+                }
+
+                // The builder logged each texture that failed as one ERROR; these lines are only shown.
+                foreach (var failure in builder.TextureFailures)
+                {
+                    gap($"{name}: {failure}");
                 }
             }
             catch (Exception e) // a model that cannot be read is a gap, whatever the reason (INV-0002)

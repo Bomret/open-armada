@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace OpenArmada.Diagnostics;
 
@@ -30,9 +29,9 @@ public static class ViewerLog
         }
     }
 
-    /// <summary>WARN: the sprite table <c>table</c> shows texture <c>texture</c> as not found or unreadable.</summary>
+    /// <summary>ERROR: the sprite table <c>table</c> shows texture <c>texture</c> as not found or unreadable (INV-0005).</summary>
     public static void TextureNotLoaded(string table, string texture, Exception e) =>
-        Log.Warn(Area.Browser, $"{table}: texture {Log.Quote(texture)} not loaded: {e.Message}");
+        Log.Error(Area.Browser, $"{table}: texture {Log.Quote(texture)} not loaded: {e.Message}");
 
     /// <summary>WARN, one entry per problem: a start problem of the preview registry.</summary>
     public static void StartProblems(IEnumerable<string> problems)
@@ -55,30 +54,12 @@ public static class ViewerLog
         }
     }
 
-    /// <summary>WARN in area render: the model builder cannot use texture <c>name</c> and draws untextured.</summary>
-    public static void TextureUnavailable(string name, string? reason) =>
-        Log.Warn(Area.Render, $"texture {Log.Quote(name)} unavailable ({reason}), rendering untextured");
-
     /// <summary>
-    /// WARN in area render, one entry per texture in <c>misses</c> (name to reason) that is not in
-    /// <c>problems</c> and not yet in <c>logged</c>: a texture that became a Problems entry is logged by the
-    /// preview, not twice. Each texture it logs is added to <c>logged</c>, which the builder keeps for its
-    /// lifetime, so a texture is logged once per builder however many models it builds.
+    /// ERROR in area render: the model builder cannot read texture <c>name</c>, an asset that failed to load
+    /// (INV-0005); a mesh of it draws untextured, a sprite node of it is not drawn.
     /// </summary>
-    public static void TexturesUnavailable(
-        IReadOnlyDictionary<string, string?> misses,
-        IEnumerable<string> problems,
-        ISet<string> logged
-    )
-    {
-        foreach (var (name, reason) in misses)
-        {
-            if (!problems.Contains(name, StringComparer.OrdinalIgnoreCase) && logged.Add(name))
-            {
-                TextureUnavailable(name, reason);
-            }
-        }
-    }
+    public static void TextureUnavailable(string name, string? reason) =>
+        Log.Error(Area.Render, $"texture {Log.Quote(name)} cannot be read: {reason}");
 
     /// <summary>
     /// Why a screenshot was not saved, or null when it was: a viewport with no image (a headless run has no

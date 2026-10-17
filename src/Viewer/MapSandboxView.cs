@@ -147,7 +147,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, gap => AddGap(gap)));
         _gaps.AddRange(art.Reports.Select(r => r.Text));
 
-        AddChild(new AsteroidFieldsView(files, plan, Note, Unreadable));
+        AddChild(new AsteroidFieldsView(files, plan, Note, gap => AddGap(gap), Unreadable));
 
         // The sandbox's reach: no camera is farther from an object than the rig's greatest eye distance from its
         // look-at point (which stays within the map) plus the map's diagonal.
@@ -193,6 +193,12 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
                 Note($"{model}: {problem}");
             }
 
+            // The builder logged each texture that failed as one ERROR; these lines are only shown.
+            foreach (var failure in builder.TextureFailures)
+            {
+                AddGap($"{model}: {failure}");
+            }
+
             _templates[(model, slot)] = node;
 
             return node;
@@ -205,8 +211,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         }
     }
 
-    // Shows a gap on the label once. The producers that pass this (the orders, the combat view) log their own
-    // findings, and so does AlertBindings.Read for the alert keys.
+    // Shows a gap on the label once. The producers that pass this (the orders, the combat view, the model
+    // builder's texture failures) log their own findings, and so does AlertBindings.Read for the alert keys.
     // Returns whether the gap was new.
     bool AddGap(string gap)
     {

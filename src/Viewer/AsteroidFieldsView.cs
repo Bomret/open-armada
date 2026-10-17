@@ -72,7 +72,8 @@ public partial class AsteroidFieldsView : Node3D
 
     /// <summary>
     /// Builds each asteroid model of the plan's fields from <c>files</c> and adds one MultiMeshInstance3D child per
-    /// visible mesh of a model. Each problem of a built model goes to <c>gap</c> as one line, and each model that
+    /// visible mesh of a model. Each problem of a built model goes to <c>gap</c> as one line, each texture failure
+    /// of a built model, which the builder already logged, goes to <c>shown</c> as one line, and each model that
     /// cannot be read goes to <c>unreadable</c> with its name and the reason; the rocks of a model that cannot be
     /// read are left out. A plan without fields adds nothing.
     /// </summary>
@@ -80,6 +81,7 @@ public partial class AsteroidFieldsView : Node3D
         GameFileSystem files,
         SandboxPlan plan,
         Action<string> gap,
+        Action<string> shown,
         Action<string, string> unreadable
     )
     {
@@ -100,6 +102,11 @@ public partial class AsteroidFieldsView : Node3D
                 foreach (var problem in builder.Problems)
                 {
                     gap($"{model}: {problem}");
+                }
+
+                foreach (var failure in builder.TextureFailures)
+                {
+                    shown($"{model}: {failure}");
                 }
 
                 var found = VisibleMeshes.Of(node);

@@ -26,6 +26,66 @@ public class PlayScriptTests
     }
 
     [TestMethod]
+    public void InputStepsParseToTheirRecords()
+    {
+        var script = PlayScript.Parse(
+            string.Join(
+                "\n",
+                "select kbattle58",
+                "attack enemy#2",
+                "move 100 -250.5",
+                "box 10 20 300 400",
+                "box a b#2",
+                "press Escape",
+                "hold Left 1.5",
+                "scroll up",
+                "scroll down 3",
+                "turn -40",
+                "shot after"
+            ),
+            "x.play"
+        );
+
+        CollectionAssert.AreEqual(Array.Empty<string>(), script.Problems.ToArray());
+        Assert.AreEqual("kbattle58", ((SelectStep)script.Steps[0]).Unit);
+        Assert.AreEqual("enemy#2", ((AttackStep)script.Steps[1]).Unit);
+        Assert.AreEqual((100.0, -250.5), (((MoveStep)script.Steps[2]).X, ((MoveStep)script.Steps[2]).Z));
+        var rect = (BoxRectStep)script.Steps[3];
+        Assert.AreEqual((10f, 20f, 300f, 400f), (rect.Left, rect.Top, rect.Right, rect.Bottom));
+        CollectionAssert.AreEqual(new[] { "a", "b#2" }, ((BoxUnitsStep)script.Steps[4]).Units.ToArray());
+        Assert.AreEqual("Escape", ((PressStep)script.Steps[5]).Key);
+        var hold = (HoldStep)script.Steps[6];
+        Assert.AreEqual(("Left", 1.5), (hold.Key, hold.Seconds));
+        Assert.AreEqual((true, 1), (((ScrollStep)script.Steps[7]).Up, ((ScrollStep)script.Steps[7]).Count));
+        Assert.AreEqual((false, 3), (((ScrollStep)script.Steps[8]).Up, ((ScrollStep)script.Steps[8]).Count));
+        Assert.AreEqual(-40.0, ((TurnStep)script.Steps[9]).Pixels);
+        Assert.AreEqual("after", ((ShotStep)script.Steps[10]).Name);
+    }
+
+    [TestMethod]
+    [DataRow("select", "'select' takes 1 argument, found 0")]
+    [DataRow("attack a b", "'attack' takes 1 argument, found 2")]
+    [DataRow("move 1", "'move' takes 2 arguments, found 1")]
+    [DataRow("move 1 x", "'x' is not a number")]
+    [DataRow("box", "'box' takes 4 numbers or one or more unit names, found 0 arguments")]
+    [DataRow("box 1 2 3 x", "'x' is not a number")]
+    [DataRow("press", "'press' takes 1 argument, found 0")]
+    [DataRow("hold Left", "'hold' takes 2 arguments, found 1")]
+    [DataRow("hold Left -1", "'-1' is not a number of seconds of zero or more")]
+    [DataRow("scroll sideways", "'sideways' is not up or down")]
+    [DataRow("scroll up 0", "'0' is not a whole number of one or more")]
+    [DataRow("scroll", "'scroll' takes 1 or 2 arguments, found 0")]
+    [DataRow("turn left", "'left' is not a number")]
+    [DataRow("shot ../x", "'../x' is no file name")]
+    public void AnUnreadableInputStepIsOneProblemNamingTheFileAndTheLine(string line, string reason)
+    {
+        var script = PlayScript.Parse($"wait 1\n{line}\n", "play/x.play");
+
+        Assert.AreEqual(1, script.Steps.Count);
+        CollectionAssert.AreEqual(new[] { $"play/x.play line 2: {reason}" }, script.Problems.ToArray());
+    }
+
+    [TestMethod]
     public void TheStemIsTheFileNameWithoutExtension() =>
         Assert.AreEqual("duel", PlayScript.Parse("", "play/duel.play").Stem);
 

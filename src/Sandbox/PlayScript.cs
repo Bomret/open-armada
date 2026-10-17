@@ -47,6 +47,101 @@ public sealed record ExpectStep : PlayStep
         double.TryParse(Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null;
 }
 
+/// <summary><c>select &lt;unit&gt;</c>: a left click at the unit's projected screen point.</summary>
+public sealed record SelectStep : PlayStep
+{
+    /// <summary>The unit's name as the script writes it.</summary>
+    public required string Unit { get; init; }
+}
+
+/// <summary><c>attack &lt;unit&gt;</c>: a right click at the unit's projected screen point.</summary>
+public sealed record AttackStep : PlayStep
+{
+    /// <summary>The unit's name as the script writes it.</summary>
+    public required string Unit { get; init; }
+}
+
+/// <summary><c>move &lt;x&gt; &lt;z&gt;</c>: a right click at the screen point of a point of the combat plane.</summary>
+public sealed record MoveStep : PlayStep
+{
+    /// <summary>The x of the point, in the position coordinates of the state dump.</summary>
+    public required double X { get; init; }
+
+    /// <summary>The z of the point, in the position coordinates of the state dump.</summary>
+    public required double Z { get; init; }
+}
+
+/// <summary><c>box &lt;left&gt; &lt;top&gt; &lt;right&gt; &lt;bottom&gt;</c>: a drag between two viewport points.</summary>
+public sealed record BoxRectStep : PlayStep
+{
+    /// <summary>The drag's start x, in viewport pixels.</summary>
+    public required float Left { get; init; }
+
+    /// <summary>The drag's start y, in viewport pixels.</summary>
+    public required float Top { get; init; }
+
+    /// <summary>The drag's end x, in viewport pixels.</summary>
+    public required float Right { get; init; }
+
+    /// <summary>The drag's end y, in viewport pixels.</summary>
+    public required float Bottom { get; init; }
+}
+
+/// <summary><c>box &lt;unit&gt;...</c>: a drag around the named units, which selects exactly them.</summary>
+public sealed record BoxUnitsStep : PlayStep
+{
+    /// <summary>The units' names as the script writes them; at least one.</summary>
+    public required IReadOnlyList<string> Units { get; init; }
+}
+
+/// <summary><c>press &lt;key&gt;</c>: a key press and release in one frame.</summary>
+public sealed record PressStep : PlayStep
+{
+    /// <summary>The key as Godot names it (<c>Escape</c>, <c>Left</c>, <c>A</c>); the executor resolves it.</summary>
+    public required string Key { get; init; }
+}
+
+/// <summary><c>hold &lt;key&gt; &lt;seconds&gt;</c>: presses a key, lets the time pass like a wait, and releases it.</summary>
+public sealed record HoldStep : PlayStep
+{
+    /// <summary>The key as Godot names it.</summary>
+    public required string Key { get; init; }
+
+    /// <summary>The simulated seconds the key stays down; zero or more.</summary>
+    public required double Seconds { get; init; }
+}
+
+/// <summary>The release of a key a <see cref="HoldStep"/> pressed; the run adds it when the hold's time has passed.</summary>
+public sealed record ReleaseStep : PlayStep
+{
+    /// <summary>The key as Godot names it.</summary>
+    public required string Key { get; init; }
+}
+
+/// <summary><c>scroll &lt;up|down&gt; [count]</c>: mouse wheel notches, which change the camera height.</summary>
+public sealed record ScrollStep : PlayStep
+{
+    /// <summary>Whether the wheel turns up.</summary>
+    public required bool Up { get; init; }
+
+    /// <summary>The number of notches; one or more.</summary>
+    public required int Count { get; init; }
+}
+
+/// <summary><c>turn &lt;pixels&gt;</c>: a middle-button drag of that many pixels to the right, which rotates the camera.</summary>
+public sealed record TurnStep : PlayStep
+{
+    /// <summary>The horizontal drag distance in viewport pixels; negative drags left.</summary>
+    public required double Pixels { get; init; }
+}
+
+/// <summary><c>shot &lt;name&gt;</c>: writes a screenshot to <c>&lt;name&gt;.png</c> of the script's output folder.</summary>
+public sealed record ShotStep : PlayStep
+{
+    /// <summary>The file stem; it holds no path separator.</summary>
+    public required string Name { get; init; }
+}
+
 /// <summary>
 /// A play script: a text file of steps, one per line, run in file order. Blank lines and lines that start with
 /// <c>#</c> are skipped. A line that cannot be read is a problem and adds no step. Parsing never logs and never
@@ -136,15 +231,116 @@ public sealed class PlayScript
             case "dump":
                 if (args.Length != 1)
                     return Wrong(words[0], 1, args.Length);
-                if (args[0] is "." or ".." || args[0].IndexOfAny(['/', '\\']) >= 0)
+                if (NoFileName(args[0]))
                     return (null, $"'{args[0]}' is no file name");
 
                 return (new DumpStep { Line = number, Name = args[0] }, null);
             case "expect":
                 return ParseExpect(args, number);
             default:
-                return (null, $"unknown step '{words[0]}'");
+                return ParseInput(words[0], args, number);
         }
+    }
+
+    static bool NoFileName(string name) => name is "." or ".." || name.IndexOfAny(['/', '\\']) >= 0;
+
+    // The steps that reach the sandbox as input events.
+    static (PlayStep? Step, string? Problem) ParseInput(string word, string[] args, int number)
+    {
+        switch (word)
+        {
+            case "select" or "attack" or "press" or "shot":
+                if (args.Length != 1)
+                    return Wrong(word, 1, args.Length);
+
+                switch (word)
+                {
+                    case "select":
+                        return (new SelectStep { Line = number, Unit = args[0] }, null);
+                    case "attack":
+                        return (new AttackStep { Line = number, Unit = args[0] }, null);
+                    case "press":
+                        return (new PressStep { Line = number, Key = args[0] }, null);
+                    default:
+                        return NoFileName(args[0])
+                            ? (null, $"'{args[0]}' is no file name")
+                            : (new ShotStep { Line = number, Name = args[0] }, null);
+                }
+
+            case "move":
+                if (args.Length != 2)
+                    return Wrong(word, 2, args.Length);
+                if (!Number(args[0], out var x))
+                    return (null, $"'{args[0]}' is not a number");
+                if (!Number(args[1], out var z))
+                    return (null, $"'{args[1]}' is not a number");
+
+                return (new MoveStep { Line = number, X = x, Z = z }, null);
+            case "box":
+                return ParseBox(args, number);
+            case "hold":
+                if (args.Length != 2)
+                    return Wrong(word, 2, args.Length);
+                if (!Number(args[1], out var seconds) || seconds < 0)
+                    return (null, $"'{args[1]}' is not a number of seconds of zero or more");
+
+                return (new HoldStep { Line = number, Key = args[0], Seconds = seconds }, null);
+            case "scroll":
+                if (args.Length is not (1 or 2))
+                    return (null, $"'scroll' takes 1 or 2 arguments, found {args.Length}");
+                if (args[0] is not ("up" or "down"))
+                    return (null, $"'{args[0]}' is not up or down");
+                var count = 1;
+                if (
+                    args.Length == 2
+                    && (
+                        !int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out count) || count < 1
+                    )
+                )
+                    return (null, $"'{args[1]}' is not a whole number of one or more");
+
+                return (new ScrollStep { Line = number, Up = args[0] == "up", Count = count }, null);
+            case "turn":
+                if (args.Length != 1)
+                    return Wrong(word, 1, args.Length);
+                if (!Number(args[0], out var pixels))
+                    return (null, $"'{args[0]}' is not a number");
+
+                return (new TurnStep { Line = number, Pixels = pixels }, null);
+            default:
+                return (null, $"unknown step '{word}'");
+        }
+    }
+
+    // Four numbers are a screen rectangle; anything else is a list of unit names.
+    static (PlayStep?, string?) ParseBox(string[] args, int number)
+    {
+        if (args.Length == 0)
+            return (null, "'box' takes 4 numbers or one or more unit names, found 0 arguments");
+        if (args.Length == 4 && Number(args[0], out _))
+        {
+            var edges = new float[4];
+            for (var i = 0; i < 4; i++)
+            {
+                if (!Number(args[i], out var edge))
+                    return (null, $"'{args[i]}' is not a number");
+                edges[i] = (float)edge;
+            }
+
+            return (
+                new BoxRectStep
+                {
+                    Line = number,
+                    Left = edges[0],
+                    Top = edges[1],
+                    Right = edges[2],
+                    Bottom = edges[3],
+                },
+                null
+            );
+        }
+
+        return (new BoxUnitsStep { Line = number, Units = args }, null);
     }
 
     static (PlayStep?, string?) ParseExpect(string[] args, int number)

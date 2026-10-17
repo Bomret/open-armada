@@ -234,8 +234,8 @@ public sealed record CombatProfile
     public required bool DefaultGreenAlert { get; init; }
 
     /// <summary>
-    /// The <c>canAttack</c> flag, true when the key is missing. Only such a unit at red alert gives itself an attack
-    /// order.
+    /// The <c>canAttack</c> flag, true when the key is missing. Only such a unit at red alert closes on its pick or
+    /// walks toward an attacker.
     /// </summary>
     public required bool CanAttack { get; init; }
 

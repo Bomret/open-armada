@@ -18,6 +18,9 @@ In-repo `AGENTS.md` hierarchy, controlled writing standard, American English. Se
 ### Knowledge base
 Codeberg wiki of `bomret/open-armada`, staged locally and sent by `/superdev:publish-kb`. See `docs/agents/knowledge-base.md`.
 
+### Coding
+C# style rules in `docs/agents/CODING.md`; the patterns this repo uses in `docs/agents/CODING_PATTERNS.md`.
+
 ### Toolchain
 .NET SDK 10 (net8.0) and Godot 4.7.2 .NET; build with `dotnet build OpenArmada.csproj`. Format with CSharpier 1.3.0, a local tool, through `dotnet csharpier format .`. See `docs/agents/toolchain.md`.
 

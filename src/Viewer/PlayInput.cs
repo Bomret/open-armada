@@ -26,6 +26,8 @@ public sealed class PlayInput(
     // stand-in: a drag around named units reaches this many pixels past the outermost unit points.
     const float BoxMargin = 12;
 
+    readonly HashSet<Key> _held = [];
+
     /// <summary>Runs one input step; returns its problem, or null. The caller maps a throw to a problem too.</summary>
     public string? Run(PlayStep step)
     {
@@ -184,6 +186,26 @@ public sealed class PlayInput(
         var key = OS.FindKeycodeFromString(name);
         if (key == Key.None)
             return $"'{name}' is no key name";
+        if (pressed)
+            _held.Add(key);
+        else
+            _held.Remove(key);
+        Press(key, pressed);
+
+        return null;
+    }
+
+    /// <summary>Presses again each held key that the window released, so a hold lasts as long as its step says.</summary>
+    public void KeepHeld()
+    {
+        foreach (var key in _held.Where(k => !Input.IsKeyPressed(k)))
+        {
+            Press(key, true);
+            Input.FlushBufferedEvents();
+        }
+    }
+
+    static void Press(Key key, bool pressed) =>
         Input.ParseInputEvent(
             new InputEventKey
             {
@@ -192,9 +214,6 @@ public sealed class PlayInput(
                 Pressed = pressed,
             }
         );
-
-        return null;
-    }
 
     string? Scroll(ScrollStep scroll)
     {

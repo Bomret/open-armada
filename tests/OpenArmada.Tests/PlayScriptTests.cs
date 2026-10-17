@@ -69,6 +69,8 @@ public class PlayScriptTests
     [DataRow("move 1 x", "'x' is not a number")]
     [DataRow("box", "'box' takes 4 numbers or one or more unit names, found 0 arguments")]
     [DataRow("box 1 2 3 x", "'x' is not a number")]
+    [DataRow("box 1 2 3", "'box' takes 4 numbers or unit names, found 3 numbers")]
+    [DataRow("box 1 2 3 4 5", "'box' takes 4 numbers or unit names, found 5 numbers")]
     [DataRow("press", "'press' takes 1 argument, found 0")]
     [DataRow("hold Left", "'hold' takes 2 arguments, found 1")]
     [DataRow("hold Left -1", "'-1' is not a number of seconds of zero or more")]

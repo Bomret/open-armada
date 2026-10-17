@@ -249,24 +249,18 @@ public sealed class PlayScript
     {
         switch (word)
         {
-            case "select" or "attack" or "press" or "shot":
-                if (args.Length != 1)
-                    return Wrong(word, 1, args.Length);
-
-                switch (word)
-                {
-                    case "select":
-                        return (new SelectStep { Line = number, Unit = args[0] }, null);
-                    case "attack":
-                        return (new AttackStep { Line = number, Unit = args[0] }, null);
-                    case "press":
-                        return (new PressStep { Line = number, Key = args[0] }, null);
-                    default:
-                        return NoFileName(args[0])
-                            ? (null, $"'{args[0]}' is no file name")
-                            : (new ShotStep { Line = number, Name = args[0] }, null);
-                }
-
+            case "select" or "attack" or "press" or "shot" when args.Length != 1:
+                return Wrong(word, 1, args.Length);
+            case "select":
+                return (new SelectStep { Line = number, Unit = args[0] }, null);
+            case "attack":
+                return (new AttackStep { Line = number, Unit = args[0] }, null);
+            case "press":
+                return (new PressStep { Line = number, Key = args[0] }, null);
+            case "shot":
+                return NoFileName(args[0])
+                    ? (null, $"'{args[0]}' is no file name")
+                    : (new ShotStep { Line = number, Name = args[0] }, null);
             case "move":
                 if (args.Length != 2)
                     return Wrong(word, 2, args.Length);
@@ -334,11 +328,13 @@ public sealed class PlayScript
         }
     }
 
-    // Four numbers are a screen rectangle; anything else is a list of unit names.
+    // Four numbers are a screen rectangle; other numbers are a problem; anything else is a list of unit names.
     static (PlayStep?, string?) ParseBox(string[] args, int number)
     {
         if (args.Length == 0)
             return (null, "'box' takes 4 numbers or one or more unit names, found 0 arguments");
+        if (args.Length != 4 && args.All(a => Number(a, out _)))
+            return (null, $"'box' takes 4 numbers or unit names, found {args.Length} numbers");
         if (args.Length == 4 && Number(args[0], out _))
         {
             var edges = new float[4];

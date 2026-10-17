@@ -225,6 +225,21 @@ public class PlayRunTests
     }
 
     [TestMethod]
+    public void AnInputStepThatThrowsIsAProblemNamingTheLine()
+    {
+        var script = PlayScript.Parse("wait 0\nselect a\nwait 5\n", "x.play");
+        var fight = new Fight(script, Temp(), input: _ => throw new InvalidOperationException("boom"));
+
+        fight.Play();
+
+        CollectionAssert.AreEqual(
+            new[] { "x.play line 2: step threw InvalidOperationException: boom" },
+            fight.Run.Problems.ToArray()
+        );
+        Assert.IsTrue(fight.Run.Finished);
+    }
+
+    [TestMethod]
     public void AnInputStepWithoutAnExecutorIsAProblemNamingTheLine()
     {
         var fight = new Fight(PlayScript.Parse("select a\n", "x.play"), Temp());

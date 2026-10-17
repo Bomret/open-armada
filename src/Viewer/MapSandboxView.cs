@@ -46,8 +46,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
 
         var window = GetWindow();
         // The window reports only a later enter or exit, so the start state comes from the cursor's place on screen.
-        // A run without a mouse (headless, screenshot, play) never has the cursor inside: no edge scroll.
-        if (HasMouse)
+        // A play run never has the cursor inside: no edge scroll.
+        if (play == null)
         {
             _mouseInWindow = new Rect2I(DisplayServer.WindowGetPosition(), DisplayServer.WindowGetSize()).HasPoint(
                 DisplayServer.MouseGetPosition()

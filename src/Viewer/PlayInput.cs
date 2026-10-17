@@ -28,7 +28,7 @@ public sealed class PlayInput(
 
     readonly HashSet<Key> _held = [];
 
-    /// <summary>Runs one input step; returns its problem, or null. The caller maps a throw to a problem too.</summary>
+    /// <summary>Runs one input step; returns its problem, or null. The caller maps a throw to a problem naming the line.</summary>
     public string? Run(PlayStep step)
     {
         switch (step)
@@ -36,7 +36,7 @@ public sealed class PlayInput(
             case SelectStep select:
                 return Click(select.Unit, MouseButton.Left);
             case AttackStep attack:
-                return Click(attack.Unit, MouseButton.Right);
+                return Click(attack.Unit, MouseButton.Right, attack: true);
             case MoveStep move:
                 return Move(move);
             case BoxRectStep box:
@@ -94,30 +94,40 @@ public sealed class PlayInput(
     // The name of the unit a click at the point would pick; null for none.
     string? PickedAt(Vector2 point) => selection.UnitAt(point) is { } unit ? names.Name(unit.Object) : null;
 
-    string? Click(string unit, MouseButton button)
+    string? Click(string unit, MouseButton button, bool attack = false)
     {
-        var (point, problem) = Aim(unit, out _);
+        var (point, problem) = Aim(unit, out var target);
         if (point is not { } at)
             return problem;
         if (PlayTarget.PickProblem(unit, PickedAt(at)) is { } wrongPick)
             return wrongPick;
-        Send(Button(button, at, true));
-        Send(Button(button, at, false));
+        if (attack)
+        {
+            var hostile = selection.Selected.Select(s => CombatRules.Hostile(s.Object.Team, target!.Team)).ToList();
+            if (PlayTarget.AttackProblem(unit, hostile) is { } notAttack)
+                return notAttack;
+        }
+
+        ClickAt(button, at);
 
         return null;
     }
 
+    void ClickAt(MouseButton button, Vector2 at)
+    {
+        Send(Button(button, at, true));
+        Send(Button(button, at, false));
+    }
+
     string? Move(MoveStep move)
     {
-        var label =
-            $"move {move.X.ToString(System.Globalization.CultureInfo.InvariantCulture)} {move.Z.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        var label = FormattableString.Invariant($"move {move.X} {move.Z}");
         var (point, problem) = AimAt(label, new Vector3((float)move.X, planeHeight, (float)move.Z));
         if (point is not { } at)
             return problem;
         if (PickedAt(at) is { } picked)
             return $"the click for '{label}' would pick '{picked}'";
-        Send(Button(MouseButton.Right, at, true));
-        Send(Button(MouseButton.Right, at, false));
+        ClickAt(MouseButton.Right, at);
 
         return null;
     }
@@ -136,9 +146,8 @@ public sealed class PlayInput(
         }
 
         var margin = new Vector2(BoxMargin, BoxMargin);
-        var from =
-            points.Aggregate(Vector2.Inf, (a, b) => new Vector2(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y))) - margin;
-        var to = points.Aggregate(-Vector2.Inf, (a, b) => new Vector2(Math.Max(a.X, b.X), Math.Max(a.Y, b.Y))) + margin;
+        var from = new Vector2(points.Min(p => p.X), points.Min(p => p.Y)) - margin;
+        var to = new Vector2(points.Max(p => p.X), points.Max(p => p.Y)) + margin;
         var max = Size - Vector2.One;
         from = from.Clamp(Vector2.Zero, max);
         to = to.Clamp(Vector2.Zero, max);
@@ -221,8 +230,7 @@ public sealed class PlayInput(
         var wheel = scroll.Up ? MouseButton.WheelUp : MouseButton.WheelDown;
         for (var i = 0; i < scroll.Count; i++)
         {
-            Send(Button(wheel, center, true));
-            Send(Button(wheel, center, false));
+            ClickAt(wheel, center);
         }
 
         return null;
@@ -250,6 +258,8 @@ public sealed class PlayInput(
             var image = View.GetTexture().GetImage();
             if (image == null)
                 return $"cannot write '{file}': the viewport has no image";
+            // Opening the file first makes an unwritable target a throw here, not an engine ERROR on stderr.
+            File.Open(file, FileMode.Create).Dispose();
             var saved = image.SavePng(file);
 
             return saved == Error.Ok ? null : $"cannot write '{file}': {saved}";

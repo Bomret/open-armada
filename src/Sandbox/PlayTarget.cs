@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 
 namespace OpenArmada.Sandbox;
@@ -26,4 +28,14 @@ public static class PlayTarget
     /// </summary>
     public static string? PickProblem(string name, string? picked) =>
         picked == name ? null : $"the click on '{name}' would pick {(picked == null ? "no unit" : $"'{picked}'")}";
+
+    /// <summary>
+    /// The problem with an attack step on <c>name</c> when each entry of <c>hostile</c> says whether <c>name</c> is
+    /// hostile to one selected unit, or null when every selected unit takes the attack order. A selected unit that
+    /// finds the unit not hostile takes a move order from the same click, and nothing selected takes none.
+    /// </summary>
+    public static string? AttackProblem(string name, IReadOnlyCollection<bool> hostile) =>
+        hostile.Count == 0 ? $"no unit is selected to attack '{name}'"
+        : hostile.All(h => h) ? null
+        : $"'{name}' is not hostile to every selected unit";
 }

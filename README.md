@@ -77,11 +77,11 @@ A play script is a text file with one step per line. Blank lines and lines that 
 The input steps reach the sandbox as Godot input events through its own handlers, so they take effect only where a player's click or key would:
 
 - `select <unit>` left-clicks the unit.
-- `attack <unit>` right-clicks the unit; the selected units get an attack order if the unit is hostile to them.
+- `attack <unit>` right-clicks the unit; the selected units get an attack order. The step fails, sending no click, when no unit is selected or the unit is not hostile to every selected unit (the click would be a move order for such a unit).
 - `move <x> <z>` right-clicks the point of the combat plane at that position (the coordinates of the `pos=` field of a state dump); the selected ships move there.
-- `box <left> <top> <right> <bottom>` drags the selection box between two points in viewport pixels (press, motion, release).
+- `box <left> <top> <right> <bottom>` (four numbers; any other count of numbers is a problem at parse time) drags the selection box between two points in viewport pixels (press, motion, release).
 - `box <unit> [<unit> ...]` drags a box around the named units. It selects exactly them; when the box would take another unit too, the step fails.
-- `press <key>` presses and releases a key in one frame. `hold <key> <seconds>` presses it, lets that much simulated time pass as a `wait` does, and releases it; a polled key, such as an arrow key that scrolls the camera, stays down across the frames. A key is named as Godot names it (`Left`, `Right`, `Up`, `Down`, `Escape`, `A`).
+- `press <key>` presses and releases a key in one frame. `hold <key> <seconds>` presses it, lets that much simulated time pass as a `wait` does, and releases it; a polled key, such as an arrow key that scrolls the camera, stays down across the frames, also when the window loses focus meanwhile: the run presses it again before the frame's steps. A key is named as Godot names it (`Left`, `Right`, `Up`, `Down`, `Escape`, `A`).
 - `scroll <up|down> [count]` turns the mouse wheel by that many notches (default 1), which changes the camera height.
 - `turn <pixels>` drags the middle button that many pixels to the right (negative: left) from the middle of the viewport, which turns the camera.
 - `shot <name>` writes the last drawn frame to `play-out/<script name>/<name>.png`. A step that changes the view takes effect in the frame after it, so put a `wait` before the shot.
@@ -94,7 +94,7 @@ A state dump has one line per unit, destroyed units included, in map order. The 
 
 The combat random source is seeded with a fixed number and the asteroids animate on frame time, so two runs of one map and one script at one frame rate write byte-identical dumps.
 
-Each problem is one `ERROR` log entry that names the script and the line, and, for a failed `expect`, the expected and the actual value. A problem is a script that is missing, a line that cannot be read, a unit that cannot be found, a failed expectation, an input step that fails as above or names a key Godot does not know, or a dump or screenshot that cannot be written. The run then quits with exit code 1. A run that finishes quits with exit code 0.
+Each problem is one `ERROR` log entry that names the script and the line, and, for a failed `expect`, the expected and the actual value. A problem is a script that is missing, a line that cannot be read, a unit that cannot be found, a failed expectation, an input step that fails as above, throws, or names a key Godot does not know, or a dump or screenshot that cannot be written. The run then quits with exit code 1. A run that finishes quits with exit code 0.
 
 ## Read the log
 

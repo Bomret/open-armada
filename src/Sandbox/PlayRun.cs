@@ -6,8 +6,8 @@ namespace OpenArmada.Sandbox;
 /// <summary>
 /// The run of a play script over a <see cref="PlayState"/>: the steps in file order on simulated time, which the
 /// caller feeds in through <see cref="Advance"/>, after the combat world has taken the same time. A step that
-/// fails ends the run with a problem that names the script and the line. The run never logs and never throws for
-/// a step (INV-0007); the caller logs <see cref="Problems"/> and quits with the exit code.
+/// fails or throws ends the run with a problem that names the script and the line. The run never logs and never
+/// throws for a step (INV-0007); the caller logs <see cref="Problems"/> and quits with the exit code.
 /// </summary>
 public sealed class PlayRun(
     PlayScript script,
@@ -84,7 +84,16 @@ public sealed class PlayRun(
                 step = script.Steps[_next++];
             }
 
-            var problem = Run(step);
+            string? problem;
+            try
+            {
+                problem = Run(step);
+            }
+            catch (Exception e) // a step that throws is a problem naming its line, never a crash (INV-0007)
+            {
+                problem = $"step threw {e.GetType().Name}: {e.Message}";
+            }
+
             if (problem != null)
             {
                 _problems.Add($"{script.Path} line {step.Line}: {problem}");

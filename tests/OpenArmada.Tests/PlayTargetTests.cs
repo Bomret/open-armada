@@ -47,4 +47,12 @@ public class PlayTargetTests
         Assert.AreEqual("the click on 'a' would pick 'b'", PlayTarget.PickProblem("a", "b"));
         Assert.AreEqual("the click on 'a' would pick no unit", PlayTarget.PickProblem("a", null));
     }
+
+    [TestMethod]
+    public void AnAttackNeedsASelectionAndAUnitHostileToEveryUnitOfIt()
+    {
+        Assert.IsNull(PlayTarget.AttackProblem("a", [true, true]));
+        Assert.AreEqual("no unit is selected to attack 'a'", PlayTarget.AttackProblem("a", []));
+        Assert.AreEqual("'a' is not hostile to every selected unit", PlayTarget.AttackProblem("a", [true, false]));
+    }
 }

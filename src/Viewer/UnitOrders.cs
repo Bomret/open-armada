@@ -51,7 +51,8 @@ public partial class UnitOrders : Node3D
         float planeHeight,
         MapBounds bounds,
         CombatPlan combat,
-        Action<string> gap
+        Action<string> gap,
+        Func<PlacedObject, string, ShipPose, System.Numerics.Vector3> hardpointPosition
     )
     {
         _selection = selection;
@@ -81,7 +82,8 @@ public partial class UnitOrders : Node3D
                 }),
             combat.ShieldDamageProtection,
             random.NextDouble,
-            combat.SystemHitpointsBonus
+            combat.SystemHitpointsBonus,
+            hardpointPosition
         );
         _fighting = _world.Units.Select(u => u.Unit).ToHashSet();
     }

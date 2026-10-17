@@ -118,7 +118,7 @@ public sealed class Shot(
     string hardpoint
 )
 {
-    /// <summary>The name of the hardpoint node the weapon fires this shot from.</summary>
+    /// <summary>The name of the hardpoint node the world chose to fire this shot from.</summary>
     public string Hardpoint { get; } = hardpoint;
 
     /// <summary>How the shot travels.</summary>
@@ -162,7 +162,7 @@ public sealed class Shot(
 /// <summary>What happened in one world step.</summary>
 public abstract record CombatEvent;
 
-/// <summary>A weapon fired a shot, hit or miss: one event per hardpoint and round.</summary>
+/// <summary>A weapon fired a shot, hit or miss: one event per round, from one hardpoint.</summary>
 public sealed record ShotFired : CombatEvent
 {
     /// <summary>The shot fired. <see cref="Shot.Hits"/> tells whether it can land.</summary>

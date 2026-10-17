@@ -52,6 +52,7 @@ public sealed class CombatWorld
     readonly UnitPoses _poses;
     readonly double _protection;
     readonly Func<double> _random;
+    readonly Func<PlacedObject, string, ShipPose, Vector3> _hardpointPosition;
     readonly Dictionary<PlacedObject, UnitCombatState> _units = new(ReferenceEqualityComparer.Instance);
     readonly List<Shot> _shots = new();
     double _pending;
@@ -66,9 +67,11 @@ public sealed class CombatWorld
         IEnumerable<CombatUnit> units,
         double shieldDamageProtection,
         Func<double> random,
-        double systemHitpointsBonus = 0
+        double systemHitpointsBonus = 0,
+        Func<PlacedObject, string, ShipPose, Vector3>? hardpointPosition = null
     )
     {
+        _hardpointPosition = hardpointPosition ?? ((_, _, pose) => pose.Position);
         _poses = poses;
         _protection = shieldDamageProtection;
         _random = random;
@@ -335,15 +338,21 @@ public sealed class CombatWorld
             }
 
             var delay = CombatRules.ReloadDelay(weapon.Profile, u);
+            // A weapon fires from the nearest hardpoint within its own range of the target's center (0x509bd0,
+            // 0x50a520, 0x50a290), the first listed on a tie; with none in range it fires nothing and stays ready.
+            // Units do not move within a step, so every round of the tick makes the same check.
+            if (NearestHardpoint(u, weapon.Profile, target) is not { } hardpoint)
+            {
+                weapon.Cooldown = Math.Max(0, weapon.Cooldown);
+
+                continue;
+            }
+
             // A delay below a tick fires several rounds in one tick; a delay of zero fires one round per tick. A
-            // round is one shot per hardpoint, so a weapon without hardpoints fires nothing.
+            // round is one shot from one hardpoint.
             while (weapon.Cooldown <= Epsilon)
             {
-                foreach (var hardpoint in weapon.Profile.Hardpoints)
-                {
-                    events.Add(new ShotFired { Shot = Launch(u, weapon.Profile, target, hardpoint) });
-                }
-
+                events.Add(new ShotFired { Shot = Launch(u, weapon.Profile, target, hardpoint) });
                 weapon.Cooldown += delay;
                 if (delay <= Epsilon)
                 {
@@ -353,6 +362,23 @@ public sealed class CombatWorld
                 }
             }
         }
+    }
+
+    // The listed hardpoint nearest to the target's center within the weapon's range; null when none is. OrderBy is
+    // stable, so the first listed wins a tie.
+    string? NearestHardpoint(UnitCombatState shooter, WeaponProfile weapon, UnitCombatState target)
+    {
+        var pose = _poses.Pose(shooter.Unit) with { Position = Position(shooter) };
+        var center = Position(target);
+
+        return weapon
+            .Hardpoints.Select(name =>
+                (Name: name, Distance: Vector3.Distance(_hardpointPosition(shooter.Unit, name, pose), center))
+            )
+            .Where(x => x.Distance <= weapon.Range)
+            .OrderBy(x => x.Distance)
+            .Select(x => x.Name)
+            .FirstOrDefault();
     }
 
     // One shot of the weapon at the target, with its to-hit rolled now. A shot that missed is reported and not kept.

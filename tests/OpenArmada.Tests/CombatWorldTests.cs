@@ -198,13 +198,127 @@ public class CombatWorldTests
     }
 
     [TestMethod]
-    public void EachHardpointFiresAShot()
+    public void AWeaponWithThreeHardpointsFiresOneShotPerReload()
     {
         var a = Fighter("a", 1, 0, Weapon(range: 200, hardpoints: 3));
         var b = Fighter("b", 2, 100);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        Assert.AreEqual(3, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(1, Fired(world.Step(0.02), "a"));
+    }
+
+    // A world whose hardpoints stand at the given x offsets from their unit's center, by name.
+    static CombatWorld WorldWithHardpoints(Dictionary<string, float> offsets, params Spec[] specs)
+    {
+        var poses = new UnitPoses(specs.Select(s => s.Object));
+
+        return new CombatWorld(
+            poses,
+            specs.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = s.Radius,
+                Mobile = s.Mobile,
+            }),
+            1,
+            () => 0,
+            hardpointPosition: (_, name, pose) => pose.Position + new Vector3(offsets.GetValueOrDefault(name), 0, 0)
+        );
+    }
+
+    static string[] Origins(CombatWorld world, double seconds) =>
+        world.Step(seconds).OfType<ShotFired>().Select(e => e.Shot.Hardpoint).ToArray();
+
+    static WeaponProfile OnHardpoints(float range, params string[] names) =>
+        Weapon(range: range) with
+        {
+            Hardpoints = names,
+        };
+
+    [TestMethod]
+    public void OfTwoHardpointsInRangeTheNearerFires()
+    {
+        var a = Fighter("a", 1, 0, OnHardpoints(50, "far", "near"));
+        var b = Fighter("b", 2, 40);
+        var world = WorldWithHardpoints(new() { ["far"] = -5, ["near"] = 20 }, a, b);
+        world.Attack(a.Object, b.Object);
+        CollectionAssert.AreEqual(new[] { "near" }, Origins(world, 0.02));
+    }
+
+    [TestMethod]
+    public void OnEqualDistanceTheFirstListedHardpointFires()
+    {
+        var a = Fighter("a", 1, 0, OnHardpoints(50, "listedFirst", "listedSecond"));
+        var b = Fighter("b", 2, 40);
+        var world = WorldWithHardpoints(new() { ["listedFirst"] = 10, ["listedSecond"] = 70 }, a, b);
+        world.Attack(a.Object, b.Object);
+        CollectionAssert.AreEqual(new[] { "listedFirst" }, Origins(world, 0.02));
+    }
+
+    [TestMethod]
+    public void AHardpointJustOutOfRangeNeverFires()
+    {
+        var a = Fighter("a", 1, 0, OnHardpoints(50, "hp"));
+        var b = Fighter("b", 2, 40);
+        var world = WorldWithHardpoints(new() { ["hp"] = -10.1f }, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.AreEqual(0, Origins(world, 1).Length);
+    }
+
+    [TestMethod]
+    public void AWeaponIsJudgedByItsOwnRangeSoOnlyTheLongOneFires()
+    {
+        var shortGun = Weapon(range: 40);
+        var longGun = Weapon(range: 200) with { Slot = 2, Hardpoints = new[] { "hp1" } };
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { shortGun, longGun }, maxHealth: 100, hull: 100),
+        };
+        var b = Fighter("b", 2, 100);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        var fired = world.Step(0.02).OfType<ShotFired>().Select(e => e.Shot.Weapon.Slot).ToArray();
+        CollectionAssert.AreEqual(new[] { 2 }, fired);
+    }
+
+    [TestMethod]
+    public void ARangeIsMeasuredToTheTargetsCenterNotItsSurface()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 90));
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 100),
+            Profile = Profile(null, maxHealth: 100, hull: 100),
+            Radius = 30,
+        };
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.AreEqual(0, Fired(world.Step(1), "a"));
+    }
+
+    [TestMethod]
+    public void AWeaponOutOfRangeStaysReadyAndFiresOnTheFirstTickAHardpointComesInRange()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 50)) with { Mobile = false };
+        var b = Fighter("b", 2, 100);
+        var world = World(out var poses, null, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.AreEqual(0, Fired(world.Step(1), "a"));
+        poses.Advance(b.Object, MovingTo(b.Object, 40, 0), 1000);
+        Assert.AreEqual(1, Fired(world.Step(0.02), "a"));
+    }
+
+    [TestMethod]
+    public void ARoundOutOfRangeFiresNothingWhenSeveralRoundsFallInOneTick()
+    {
+        var a = Fighter("a", 1, 0, Weapon(delay: 0.001f, range: 50));
+        var b = Fighter("b", 2, 100);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.AreEqual(0, Fired(world.Step(0.02), "a"));
     }
 
     [TestMethod]
@@ -218,17 +332,14 @@ public class CombatWorldTests
     }
 
     [TestMethod]
-    public void EachShotNamesTheHardpointItLeavesFrom()
+    public void TheShotNamesTheHardpointItLeavesFrom()
     {
         var weapon = Weapon(range: 200) with { Hardpoints = new[] { "hp01", "hp02" } };
         var a = Fighter("a", 1, 0, weapon);
         var b = Fighter("b", 2, 100);
-        var world = World(null, a, b);
+        var world = World(null, a, b); // both hardpoints at the center: a tie, the first listed fires
         world.Attack(a.Object, b.Object);
-        CollectionAssert.AreEqual(
-            new[] { "hp01", "hp02" },
-            world.Step(0.02).OfType<ShotFired>().Select(e => e.Shot.Hardpoint).ToArray()
-        );
+        CollectionAssert.AreEqual(new[] { "hp01" }, Origins(world, 0.02));
     }
 
     [TestMethod]

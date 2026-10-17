@@ -74,7 +74,7 @@ public sealed record WeaponProfile
     public required string Name { get; init; }
 
     /// <summary>
-    /// The hardpoint names of the unit's <c>weaponHardpointsN</c> key; never empty. A round fires one shot from each.
+    /// The hardpoint names of the unit's <c>weaponHardpointsN</c> key; never empty. A round fires one shot from the nearest one within the weapon's range of the target's center (the first listed on a tie); the weapon fires nothing while none is in range.
     /// </summary>
     public required IReadOnlyList<string> Hardpoints { get; init; }
 

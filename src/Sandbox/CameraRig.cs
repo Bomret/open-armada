@@ -5,11 +5,13 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
-// The RTS camera of the game, in the map's frame (not mirrored; the view mirrors Z for Godot). It looks at a
-// point of the combat plane over the map; its height and rotation fix its place on a parabola:
-// horizontal distance sqrt(focus * height), behind the target by the rotation. Every value comes from the
-// game constants (INV-0003); one that is missing, text, of the wrong type or illegal uses the stand-in equal
-// to the game's 1.2 value and is listed in Problems (INV-0002), so the pose is always finite.
+/// <summary>
+/// The RTS camera of the game, in the map's frame (not mirrored; the view mirrors Z for Godot). It looks at a
+/// point of the combat plane over the map; its height and rotation fix its place on a parabola:
+/// horizontal distance sqrt(focus * height), behind the target by the rotation. Every value comes from the
+/// game constants (INV-0003); one that is missing, text, of the wrong type or illegal uses the stand-in equal
+/// to the game's 1.2 value and is listed in Problems (INV-0002), so the pose is always finite.
+/// </summary>
 public sealed class CameraRig
 {
     readonly MapBounds _bounds;
@@ -28,28 +30,42 @@ public sealed class CameraRig
         _x,
         _z;
 
+    /// <summary>The values the camera replaced with a stand-in or corrected, and why, one line each (INV-0002).</summary>
     public IReadOnlyList<string> Problems { get; }
+
+    /// <summary>The highest the camera goes: OVERVIEW_MAX_HEIGHT, or its stand-in 700.</summary>
     public double MaxHeight { get; }
 
-    // The farthest the eye gets from the look-at point: at the maximum or the minimum height (whichever lies
-    // farther from the target's height), on its parabola.
+    /// <summary>
+    /// The farthest the eye gets from the look-at point: at the maximum or the minimum height (whichever lies
+    /// farther from the target's height), on its parabola.
+    /// </summary>
     public double MaxDistance => Math.Max(DistanceAt(MaxHeight), DistanceAt(_minHeight));
 
-    // The middle of the combat plane (SHIP_COMBAT_FLOOR and SHIP_COMBAT_CEILING, or their stand-ins): the
-    // height the camera looks at and the one plane move orders aim at.
+    /// <summary>
+    /// The middle of the combat plane (SHIP_COMBAT_FLOOR and SHIP_COMBAT_CEILING, or their stand-ins): the
+    /// height the camera looks at and the one plane move orders aim at.
+    /// </summary>
     public double CombatPlaneHeight => _targetY;
 
     double DistanceAt(double height) => Math.Sqrt(_focus * height + (height - _targetY) * (height - _targetY));
 
-    // The height change per mouse wheel notch (ZOOM_SCROLL_COEFFICIENT) and the rotation per dragged pixel.
+    /// <summary>The height change per mouse wheel notch (ZOOM_SCROLL_COEFFICIENT) and the rotation per dragged pixel.</summary>
     public double ZoomStep { get; }
+
+    /// <summary>The rotation in radians per dragged pixel: ROTATION_SCROLL_COEFFICIENT, or its stand-in 0.01.</summary>
     public double RotationPerPixel { get; }
+
+    /// <summary>
+    /// The camera's rotation about the look-at point in radians, in [0, 2 pi): it starts at OVERVIEW_INIT_ROTATION (or
+    /// 0), and at 0 the eye lies toward -Z of the target.
+    /// </summary>
     public double Rotation { get; private set; }
 
-    // The current edge/key scroll speed: INITIAL_SCROLL_SPEED while idle, ramping to MAX_SCROLL_SPEED.
+    /// <summary>The current edge/key scroll speed: INITIAL_SCROLL_SPEED while idle, ramping to MAX_SCROLL_SPEED.</summary>
     public double ScrollSpeed { get; private set; }
 
-    // `constants` is null when the install's file could not be read: every value is then a stand-in.
+    /// <summary><c>constants</c> is null when the install's file could not be read: every value is then a stand-in.</summary>
     public CameraRig(GameConstants? constants, MapBounds bounds)
     {
         var problems = new List<string>();
@@ -139,6 +155,10 @@ public sealed class CameraRig
         _z = (bounds.MinZ + bounds.MaxZ) / 2;
     }
 
+    /// <summary>
+    /// The eye and the look-at point in the map's frame. The target is the look-at point at the combat plane's
+    /// height; the eye is at the current height, sqrt(focus * height) behind the target by the rotation.
+    /// </summary>
     public (Vector3 Eye, Vector3 Target) Pose
     {
         get
@@ -152,9 +172,10 @@ public sealed class CameraRig
         }
     }
 
-    // `dz` multiplies the height by (1 + dz), within the minimum and maximum.
+    /// <summary><c>dz</c> multiplies the height by (1 + dz), within the minimum and maximum.</summary>
     public void ChangeHeight(double dz) => _height = Math.Clamp(_height * (1 + dz), _minHeight, MaxHeight);
 
+    /// <summary>Adds <c>radians</c> to the rotation and wraps it into [0, 2 pi).</summary>
     public void Rotate(double radians) => Rotation = Wrap(Rotation + radians);
 
     // stand-in: the trackpad scales; the game had no trackpad. Godot reports a two-finger pan in trackpad points
@@ -163,17 +184,21 @@ public sealed class CameraRig
     const double PanNotchesPerUnit = 1,
         PanPixelsPerUnit = 1 / 0.03;
 
-    // A two-finger trackpad pan, `delta` as Godot reports it (negative Y where the wheel turns up, negative X
-    // where the fingers move right under macOS natural scrolling): the vertical part changes the height as the
-    // wheel does, the horizontal part rotates as a middle-button drag to the same side.
+    /// <summary>
+    /// A two-finger trackpad pan, <c>delta</c> as Godot reports it (negative Y where the wheel turns up, negative X
+    /// where the fingers move right under macOS natural scrolling): the vertical part changes the height as the
+    /// wheel does, the horizontal part rotates as a middle-button drag to the same side.
+    /// </summary>
     public void TrackpadPan(Vector2 delta)
     {
         ChangeHeight(delta.Y * PanNotchesPerUnit * ZoomStep);
         Rotate(-delta.X * PanPixelsPerUnit * RotationPerPixel);
     }
 
-    // A pinch of `factor` (above 1 spreading the fingers) divides the height by it. stand-in: the pinch-to-height
-    // ratio is the engine's own.
+    /// <summary>
+    /// A pinch of <c>factor</c> (above 1 spreading the fingers) divides the height by it. stand-in: the pinch-to-height
+    /// ratio is the engine's own.
+    /// </summary>
     public void Pinch(double factor)
     {
         if (factor > 0)
@@ -182,8 +207,10 @@ public sealed class CameraRig
         }
     }
 
-    // `input` is (right, forward) on the screen; it turns with the rotation and shrinks with the distance of
-    // the height from the initial height. The look-at point stays within the map's bounds.
+    /// <summary>
+    /// <c>input</c> is (right, forward) on the screen; it turns with the rotation and shrinks with the distance of
+    /// the height from the initial height. The look-at point stays within the map's bounds.
+    /// </summary>
     public void Pan(Vector2 input)
     {
         var scale = _scrollCoefficient / (Math.Abs(_initHeight - _height) + _initHeight);
@@ -192,10 +219,12 @@ public sealed class CameraRig
         _z = Math.Clamp(_z + (input.Y * cos - input.X * sin) * scale, _bounds.MinZ, _bounds.MaxZ);
     }
 
-    // One frame of scrolling. `cursor` and `size` are in pixels (origin top left); `keys` is (right, forward) of
-    // the arrow keys. Nothing scrolls without focus; the edges count only with the cursor inside the window.
-    // The speed starts at the initial speed, grows by the time scale per second to the maximum, and falls back
-    // when the scroll stops.
+    /// <summary>
+    /// One frame of scrolling. <c>cursor</c> and <c>size</c> are in pixels (origin top left); <c>keys</c> is (right, forward) of
+    /// the arrow keys. Nothing scrolls without focus; the edges count only with the cursor inside the window.
+    /// The speed starts at the initial speed, grows by the time scale per second to the maximum, and falls back
+    /// when the scroll stops.
+    /// </summary>
     public void Scroll(Vector2 cursor, Vector2 size, bool focused, Vector2 keys, double dt)
     {
         var direction = Vector2.Zero;
@@ -226,9 +255,11 @@ public sealed class CameraRig
         ScrollSpeed = Math.Min(_maxSpeed, ScrollSpeed + _timeScale * dt);
     }
 
-    // The cursor the view passes to Scroll: the mouse position while the window holds the mouse or confines the
-    // cursor, else a negative position (outside). A confined cursor is inside even when the window reports the
-    // mouse exited: on macOS the right and bottom boundaries it reaches lie outside the view's tracking area.
+    /// <summary>
+    /// The cursor the view passes to Scroll: the mouse position while the window holds the mouse or confines the
+    /// cursor, else a negative position (outside). A confined cursor is inside even when the window reports the
+    /// mouse exited: on macOS the right and bottom boundaries it reaches lie outside the view's tracking area.
+    /// </summary>
     public static Vector2 EdgeCursor(Vector2 mouse, bool mouseInWindow, bool confined) =>
         mouseInWindow || confined ? mouse : new Vector2(-1, -1);
 

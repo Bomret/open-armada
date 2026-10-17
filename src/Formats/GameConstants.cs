@@ -6,25 +6,43 @@ using System.Text.RegularExpressions;
 
 namespace OpenArmada.Formats;
 
-// One named value of a header: a number (a literal such as -20, +1.0, 4.0, 1e-3 or 0.5f, with a sign, an
-// exponent and an f or F suffix allowed; an int takes only an integer literal, as in C) or Text. Text is the quoted string of a #define (IsString) or the unevaluated
-// expression or constant name of a value that is not a literal. Type is "float", "int" or "define".
+/// <summary>
+/// One named value of a header: a number (a literal such as -20, +1.0, 4.0, 1e-3 or 0.5f, with a sign, an
+/// exponent and an f or F suffix allowed; an int takes only an integer literal, as in C) or Text. Text is the quoted string of a #define (IsString) or the unevaluated
+/// expression or constant name of a value that is not a literal. Type is "float", "int" or "define".
+/// </summary>
 public sealed record GameConstant
 {
+    /// <summary>The constant's name as the file declares it.</summary>
     public required string Name { get; init; }
+
+    /// <summary>The kind of declaration: <c>"float"</c>, <c>"int"</c> or <c>"define"</c>.</summary>
     public required string Type { get; init; }
+
+    /// <summary>The literal's value; null for a quoted string or a value that is not a literal.</summary>
     public required double? Number { get; init; }
+
+    /// <summary>
+    /// The quoted string of a #define without its quotes, or the text of a value that is not a literal; null for a
+    /// number.
+    /// </summary>
     public required string? Text { get; init; }
+
+    /// <summary>True when the value is a quoted string; <see cref="Text"/> then holds the string.</summary>
     public required bool IsString { get; init; }
+
+    /// <summary>The 1-based line of the declaration in the file.</summary>
     public required int Line { get; init; }
 }
 
-// The game constants: the named values of the install's RTS_CFG.h, in file order, with the headers it
-// names by #include (named, not followed) and Notes. The grammar is the C-like subset of that file: "//"
-// comments, #include "name", #define NAME "string" or number, and float/int NAME = value; declarations.
-// A value that is an expression or names another constant is kept as text with a note; a line the reader
-// does not recognize, a missing ';' and a duplicate name (the later value wins) are notes, each naming
-// file:line (INV-0002). A file that is empty or binary throws InvalidDataException naming it.
+/// <summary>
+/// The game constants: the named values of the install's RTS_CFG.h, in file order, with the headers it
+/// names by #include (named, not followed) and Notes. The grammar is the C-like subset of that file: "//"
+/// comments, #include "name", #define NAME "string" or number, and float/int NAME = value; declarations.
+/// A value that is an expression or names another constant is kept as text with a note; a line the reader
+/// does not recognize, a missing ';' and a duplicate name (the later value wins) are notes, each naming
+/// file:line (INV-0002). A file that is empty or binary throws InvalidDataException naming it.
+/// </summary>
 public sealed class GameConstants
 {
     static readonly Regex Include = new(@"^#include\s+""([^""]*)""$");
@@ -38,13 +56,26 @@ public sealed class GameConstants
     readonly List<string> _notes = new();
     readonly List<string> _includes = new();
 
+    /// <summary>The file name given to <see cref="Read"/>; it prefixes every note and problem.</summary>
     public string Name { get; }
+
+    /// <summary>
+    /// The constants in file order. A duplicate name keeps the first position and holds the later value.
+    /// </summary>
     public IReadOnlyList<GameConstant> Values => _values;
+
+    /// <summary>The problems that do not stop the read, each naming file:line.</summary>
     public IReadOnlyList<string> Notes => _notes;
+
+    /// <summary>The header names of the #include lines in file order; the reader does not open them.</summary>
     public IReadOnlyList<string> Includes => _includes;
 
     GameConstants(string name) => Name = name;
 
+    /// <summary>Reads the constants of a header such as RTS_CFG.h, decoded as Windows-1252.</summary>
+    /// <param name="name">The file name, used in exception messages and notes.</param>
+    /// <param name="bytes">The whole file.</param>
+    /// <exception cref="InvalidDataException">when the file holds a NUL byte or holds only white space.</exception>
     public static GameConstants Read(string name, byte[] bytes)
     {
         if (bytes.Contains((byte)0))
@@ -62,8 +93,10 @@ public sealed class GameConstants
         return c;
     }
 
-    // The number of the constant, or false with the problem: missing, text (a #define string), or not a
-    // literal (an expression or a reference to another constant, kept as text).
+    /// <summary>
+    /// The number of the constant, or false with the problem: missing, text (a #define string), or not a
+    /// literal (an expression or a reference to another constant, kept as text).
+    /// </summary>
     public bool TryNumber(string name, out double value, out string problem)
     {
         value = 0;

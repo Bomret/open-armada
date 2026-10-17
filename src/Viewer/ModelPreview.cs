@@ -6,13 +6,17 @@ using OpenArmada.Rendering;
 
 namespace OpenArmada.Viewer;
 
-// Model preview: the SOD model in its own 3D viewport, a team color selector for its team materials
-// (colors from teamcolor.odf; `--team <name>` picks the first one), and what the model or the team
-// colors hold that cannot be drawn as the data says.
+/// <summary>
+/// Model preview: the SOD model in its own 3D viewport, a team color selector for its team materials
+/// (colors from teamcolor.odf; <c>--team &lt;name&gt;</c> picks the first one), and what the model or the team
+/// colors hold that cannot be drawn as the data says.
+/// </summary>
 public sealed class ModelPreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => ModelKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var builder = new SodBuilder(files);

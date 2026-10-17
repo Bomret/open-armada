@@ -4,22 +4,53 @@ using System.IO;
 
 namespace OpenArmada.Formats;
 
-// A Windows cursor (.cur): a directory (type 2) of images, each an 8-bit palette DIB with an AND mask. The
-// first image decodes to Rgba (row by row, top down); a mask bit set makes the pixel transparent. Other depths
-// throw UnsupportedFormatException; cut-off or inconsistent data throws InvalidDataException. A file of
-// several images and a hotspot outside the image are Notes (INV-0002).
+/// <summary>
+/// A Windows cursor (.cur): a directory (type 2) of images, each an 8-bit palette DIB with an AND mask. The
+/// first image decodes to Rgba (row by row, top down); a mask bit set makes the pixel transparent. Other depths
+/// throw UnsupportedFormatException; cut-off or inconsistent data throws InvalidDataException. A file of
+/// several images and a hotspot outside the image are Notes (INV-0002).
+/// </summary>
 public sealed class CursorImage
 {
+    /// <summary>The width of the first image in pixels, from its directory entry (an entry of 0 means 256).</summary>
     public int Width { get; }
+
+    /// <summary>The height of the first image in pixels, from its directory entry (an entry of 0 means 256).</summary>
     public int Height { get; }
+
+    /// <summary>
+    /// The hotspot's column in pixels from the left edge; it can lie outside the image, which adds a note.
+    /// </summary>
     public int HotspotX { get; }
+
+    /// <summary>
+    /// The hotspot's row in pixels from the top edge; it can lie outside the image, which adds a note.
+    /// </summary>
     public int HotspotY { get; }
+
+    /// <summary>
+    /// The first image as 4 bytes (R, G, B, A) per pixel, row by row, top down; A is 0 where the mask bit is set, else
+    /// 255.
+    /// </summary>
     public byte[] Rgba { get; }
+
+    /// <summary>The problems that do not stop the read: more than one image, and a hotspot outside the image.</summary>
     public IReadOnlyList<string> Notes { get; }
 
     CursorImage(int w, int h, int x, int y, byte[] rgba, IReadOnlyList<string> notes) =>
         (Width, Height, HotspotX, HotspotY, Rgba, Notes) = (w, h, x, y, rgba, notes);
 
+    /// <summary>Reads and decodes the first image of a cursor file.</summary>
+    /// <param name="name">The file name, used in exception messages and notes.</param>
+    /// <param name="d">The whole cursor file.</param>
+    /// <exception cref="InvalidDataException">
+    /// when the file is cut off before the first image entry or inside the image data, the directory is not of type 2,
+    /// it lists no images, the bitmap header size lies outside the image data, the bitmap size differs from the
+    /// directory entry, or a pixel uses a palette index past the palette.
+    /// </exception>
+    /// <exception cref="UnsupportedFormatException">
+    /// when the first image is not an uncompressed 8-bit bitmap.
+    /// </exception>
     public static CursorImage Read(string name, byte[] d)
     {
         if (d.Length < 22)

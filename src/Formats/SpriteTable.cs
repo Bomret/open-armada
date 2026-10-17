@@ -6,74 +6,159 @@ using System.Linq;
 
 namespace OpenArmada.Formats;
 
-// One cell of a sprite on its texture, in reference pixels.
+/// <summary>One cell of a sprite on its texture, in reference pixels.</summary>
 public readonly record struct SpriteFrame
 {
+    /// <summary>The cell's horizontal offset on the texture.</summary>
     public required int U { get; init; }
+
+    /// <summary>The cell's vertical offset on the texture.</summary>
     public required int V { get; init; }
+
+    /// <summary>The cell's width.</summary>
     public required int W { get; init; }
+
+    /// <summary>The cell's height.</summary>
     public required int H { get; init; }
 }
 
-// One sprite row. Reference sizes are 0 while no @reference is in force: the region is then in the
-// texture's own pixels. Table and Line say where the row stands (the included table, not the root).
+/// <summary>
+/// One sprite row. Reference sizes are 0 while no @reference is in force: the region is then in the
+/// texture's own pixels. Table and Line say where the row stands (the included table, not the root).
+/// </summary>
 public sealed record Sprite
 {
+    /// <summary>The sprite's name, the first token of the row.</summary>
     public required string Name { get; init; }
+
+    /// <summary>The texture name, the second token of the row, as written.</summary>
     public required string Texture { get; init; }
+
+    /// <summary>The region's horizontal offset on the texture, a whole number of 0 or more.</summary>
     public required int U { get; init; }
+
+    /// <summary>The region's vertical offset on the texture, a whole number of 0 or more.</summary>
     public required int V { get; init; }
+
+    /// <summary>The region's width, a whole number of 0 or more.</summary>
     public required int W { get; init; }
+
+    /// <summary>The region's height, a whole number of 0 or more.</summary>
     public required int H { get; init; }
+
+    /// <summary>The reference width in force at the row (from @reference or @referenceWidth); 0 when none is.</summary>
     public required int ReferenceWidth { get; init; }
+
+    /// <summary>
+    /// The reference height in force at the row (from @reference or @referenceHeight); 0 when none is.
+    /// </summary>
     public required int ReferenceHeight { get; init; }
+
+    /// <summary>
+    /// The value of the last @tmaterial directive above the row in its table; null when there is none.
+    /// </summary>
     public required string? Material { get; init; }
+
+    /// <summary>
+    /// The value of the last @skip directive above the row in its table; null when there is none. The reader does not
+    /// interpret it.
+    /// </summary>
     public required string? Skip { get; init; }
+
+    /// <summary>The animation name of the row's <c>@anim=</c> directive; null when the row has none.</summary>
     public required string? Anim { get; init; }
+
+    /// <summary>True when the row carries the <c>@cursor</c> directive.</summary>
     public required bool Cursor { get; init; }
+
+    /// <summary>
+    /// The (x,y) of the row's <c>@origin=</c> directive, whole numbers of 0 or more; null when the row has none.
+    /// </summary>
     public required (int X, int Y)? Origin { get; init; }
+
+    /// <summary>The name of the table the row is written in, which is the included table for an included row.</summary>
     public required string Table { get; init; }
+
+    /// <summary>The 1-based line of the row in <see cref="Table"/>.</summary>
     public required int Line { get; init; }
 }
 
-// An @animation: Field is what it animates (offset, colour, draw, width), Count its keyframes and
-// Length its seconds. Auto ("square", "row", "column") generates the keyframes of an offset animation
-// as a flipbook over the texture grid; otherwise Keyframes holds the explicit lines, split on blanks.
+/// <summary>
+/// An @animation: Field is what it animates (offset, colour, draw, width), Count its keyframes and
+/// Length its seconds. Auto ("square", "row", "column") generates the keyframes of an offset animation
+/// as a flipbook over the texture grid; otherwise Keyframes holds the explicit lines, split on blanks.
+/// </summary>
 public sealed record SpriteAnimation
 {
+    /// <summary>The name after <c>@animation</c>; sprites refer to it with <c>@anim=</c>.</summary>
     public required string Name { get; init; }
+
+    /// <summary>What the animation animates: <c>offset</c>, <c>colour</c>, <c>draw</c> or <c>width</c>.</summary>
     public required string Field { get; init; }
+
+    /// <summary>
+    /// The keyframe count the field line declares; it is at most the character count of the table's text.
+    /// </summary>
     public required int Count { get; init; }
+
+    /// <summary>The animation's length in seconds.</summary>
     public required double Length { get; init; }
+
+    /// <summary>The method of the field line: <c>step</c> or <c>linear</c>.</summary>
     public required string Method { get; init; }
+
+    /// <summary>
+    /// The <c>@auto</c> flipbook shape: <c>square</c>, <c>row</c> or <c>column</c>; null for explicit keyframes.
+    /// </summary>
     public required string? Auto { get; init; }
+
+    /// <summary>
+    /// The explicit keyframe lines in file order, each split into its tokens. The read checks their number against
+    /// <see cref="Count"/> only when <see cref="Auto"/> is null.
+    /// </summary>
     public required IReadOnlyList<string[]> Keyframes { get; init; }
 
+    /// <summary>
+    /// The seconds of one keyframe: <see cref="Length"/> divided by <see cref="Count"/>, or 0 when the count is 0.
+    /// </summary>
     public double FrameSeconds => Count > 0 ? Length / Count : 0;
 }
 
-// An @emitter block: its name and its lines up to @end_emitter, kept as written (comments removed,
-// blanks collapsed) and not interpreted.
+/// <summary>
+/// An @emitter block: its name and its lines up to @end_emitter, kept as written (comments removed,
+/// blanks collapsed) and not interpreted.
+/// </summary>
 public sealed record SpriteEmitter
 {
+    /// <summary>The name after <c>@emitter</c>.</summary>
     public required string Name { get; init; }
+
+    /// <summary>
+    /// The lines between <c>@emitter</c> and <c>@end_emitter</c>, with comments removed and blanks collapsed to one
+    /// space.
+    /// </summary>
     public required IReadOnlyList<string> Body { get; init; }
 }
 
-// A @sprite_node line: its name and the remaining tokens, kept as written and not interpreted.
+/// <summary>A @sprite_node line: its name and the remaining tokens, kept as written and not interpreted.</summary>
 public sealed record SpriteNode
 {
+    /// <summary>The node's name, the first token after <c>@sprite_node</c>.</summary>
     public required string Name { get; init; }
+
+    /// <summary>The tokens after the node's name, as written.</summary>
     public required IReadOnlyList<string> Arguments { get; init; }
 }
 
-// A sprite table (.spr): "sprite_table" on the first line, '#' comments, @include of other tables,
-// directives and rows "Name Texture U V W H" with trailing directives. An include's sprites and
-// animations come where the @include stands; a table included again (by any path) adds nothing the
-// second time. Anything not recognized, an @animation, @emitter, @include, or @sprite_node without its name, an include cycle, a missing table, an unterminated @emitter,
-// an animation without its field line or with more keyframes than its count (fewer is a note), and a flipbook
-// larger than its table's text or leaving its @reference area throw InvalidDataException naming the
-// table and line (INV-0002).
+/// <summary>
+/// A sprite table (.spr): "sprite_table" on the first line, '#' comments, @include of other tables,
+/// directives and rows "Name Texture U V W H" with trailing directives. An include's sprites and
+/// animations come where the @include stands; a table included again (by any path) adds nothing the
+/// second time. Anything not recognized, an @animation, @emitter, @include, or @sprite_node without its name, an include cycle, a missing table, an unterminated @emitter,
+/// an animation without its field line or with more keyframes than its count (fewer is a note), and a flipbook
+/// larger than its table's text or leaving its @reference area throw InvalidDataException naming the
+/// table and line (INV-0002).
+/// </summary>
 public sealed class SpriteTable
 {
     static readonly string[] Fields = { "offset", "colour", "draw", "width" };
@@ -86,20 +171,34 @@ public sealed class SpriteTable
     readonly List<SpriteNode> _nodes = new();
     readonly List<string> _notes = new();
 
+    /// <summary>The name of the root table given to <see cref="Read"/>.</summary>
     public string Name { get; }
+
+    /// <summary>The sprite rows in reading order; an include's rows come where its <c>@include</c> stands.</summary>
     public IReadOnlyList<Sprite> Sprites => _sprites;
+
+    /// <summary>
+    /// The animations by name, ignoring case: those of this table and its includes, then those of the ambient tables
+    /// that this table does not define itself.
+    /// </summary>
     public IReadOnlyDictionary<string, SpriteAnimation> Animations => _animations;
+
+    /// <summary>The <c>@emitter</c> blocks of the table and its includes in reading order.</summary>
     public IReadOnlyList<SpriteEmitter> Emitters => _emitters;
+
+    /// <summary>The <c>@sprite_node</c> lines of the table and its includes in reading order.</summary>
     public IReadOnlyList<SpriteNode> SpriteNodes => _nodes;
 
-    // What does not fail the table: a sprite naming an animation no read table defines.
+    /// <summary>What does not fail the table: a sprite naming an animation no read table defines.</summary>
     public IReadOnlyList<string> Notes => _notes;
 
     SpriteTable(string name) => Name = name;
 
-    // `open` returns the text of a table by name (an include's name as written), null when there is none.
-    // `ambient` are other tables of the install: the game loads them all into one namespace, so a
-    // sprite may use an animation one of them defines (the table's own definitions win).
+    /// <summary>
+    /// <c>open</c> returns the text of a table by name (an include's name as written), null when there is none.
+    /// <c>ambient</c> are other tables of the install: the game loads them all into one namespace, so a
+    /// sprite may use an animation one of them defines (the table's own definitions win).
+    /// </summary>
     public static SpriteTable Read(string name, Func<string, string?> open, IEnumerable<SpriteTable>? ambient = null)
     {
         var table = new SpriteTable(name);
@@ -158,7 +257,7 @@ public sealed class SpriteTable
             );
     }
 
-    // The frames of a sprite in play order: the cells of its flipbook animation, else its own region.
+    /// <summary>The frames of a sprite in play order: the cells of its flipbook animation, else its own region.</summary>
     public IReadOnlyList<SpriteFrame> Frames(Sprite s)
     {
         var own = new SpriteFrame

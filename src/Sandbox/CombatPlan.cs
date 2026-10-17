@@ -8,22 +8,31 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
-// The combat profile of every unit of a map, read once from the install, with the gaps found while
-// reading (INV-0002: a gap is reported with its cause once and the map still opens). Beam (`cannon`) and
-// torpedo (`launcher`) weapons are read; special weapons are out of scope and skipped without a gap.
-// A value the install lacks takes a stand-in and is reported when the rules need it; no profile value is a
-// non-number and MaximumCrew is above zero (INV-0003).
+/// <summary>
+/// The combat profile of every unit of a map, read once from the install, with the gaps found while
+/// reading (INV-0002: a gap is reported with its cause once and the map still opens). Beam (<c>cannon</c>) and
+/// torpedo (<c>launcher</c>) weapons are read; special weapons are out of scope and skipped without a gap.
+/// A value the install lacks takes a stand-in and is reported when the rules need it; no profile value is a
+/// non-number and MaximumCrew is above zero (INV-0003).
+/// </summary>
 public sealed class CombatPlan
 {
     const string BeamClass = "cannon";
     const string TorpedoClass = "launcher";
 
-    // One entry per unit of the plan, by the placed object itself (not by value).
+    /// <summary>One entry per unit of the plan, by the placed object itself (not by value).</summary>
     public IReadOnlyDictionary<PlacedObject, CombatProfile> Profiles { get; }
+
+    /// <summary>The gaps found while reading, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports { get; }
 
-    // The game constants of RTS_CFG.h that the combat rules read.
+    /// <summary>The game constants of RTS_CFG.h that the combat rules read.</summary>
     public float ShieldDamageProtection { get; }
+
+    /// <summary>
+    /// <c>SYSTEM_HITPOINTS_BONUS</c>: the hit points added to each ship system a unit has; stand-in 0 where the
+    /// install's RTS_CFG.h gives none.
+    /// </summary>
     public float SystemHitpointsBonus { get; }
 
     CombatPlan(
@@ -39,6 +48,11 @@ public sealed class CombatPlan
         SystemHitpointsBonus = systemHitpointsBonus;
     }
 
+    /// <summary>
+    /// Reads the profile of every unit whose class <c>plan</c> resolved; other units get none. Each class is read
+    /// once, and its gaps are reported for every unit of it. A missing or unreadable RTS_CFG.h, definition, or value
+    /// is a gap with a stand-in.
+    /// </summary>
     public static CombatPlan Build(GameFileSystem files, SandboxPlan plan, IEnumerable<SelectableUnit> units)
     {
         var gaps = new Gaps();

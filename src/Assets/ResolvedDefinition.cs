@@ -7,32 +7,51 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// Where a resolved value comes from: the definition itself, one of its includes, or a file of the
-// override layer (which wins over the archive's copy of the same definition, whichever level it is).
+/// <summary>
+/// Where a resolved value comes from: the definition itself, one of its includes, or a file of the
+/// override layer (which wins over the archive's copy of the same definition, whichever level it is).
+/// </summary>
 public enum ValueOrigin
 {
+    /// <summary>The value comes from the definition itself.</summary>
     Own,
+
+    /// <summary>The value comes from one of the definition's includes.</summary>
     Inherited,
+
+    /// <summary>
+    /// The value comes from a file of the override layer that replaces an archive or index copy; this wins over
+    /// <see cref="Own"/> and <see cref="Inherited"/> at any level of the chain.
+    /// </summary>
     Overridden,
 }
 
-// One resolved key. Source is the definition (as named in the include) that holds the winning value.
+/// <summary>One resolved key. Source is the definition (as named in the include) that holds the winning value.</summary>
 public sealed record DefinitionValue
 {
+    /// <summary>The key as the definition that holds the winning value spells it.</summary>
     public required string Key { get; init; }
+
+    /// <summary>The value's tokens (<see cref="OdfEntry.Tokens"/>); empty for an empty value.</summary>
     public required IReadOnlyList<string> Tokens { get; init; }
+
+    /// <summary>Where the winning value comes from.</summary>
     public required ValueOrigin Origin { get; init; }
+
+    /// <summary>The definition, as named in the include, that holds the winning value.</summary>
     public required string Source { get; init; }
 }
 
-// A key that is missing or whose value has the wrong type. The message names the definition and the key.
+/// <summary>A key that is missing or whose value has the wrong type. The message names the definition and the key.</summary>
 public sealed class DefinitionException(string message) : Exception(message);
 
-// An object definition with its include chain and the override layer applied: one value per key, the
-// definition's own values over its includes', a later include over an earlier one. Keys and include
-// names match regardless of case. A fault of the chain (missing or unreadable include, cycle) is listed in Problems,
-// a line the reader does not recognize in Notes, and the rest still resolves; a lookup of a missing
-// key or of the wrong type throws DefinitionException for that key alone.
+/// <summary>
+/// An object definition with its include chain and the override layer applied: one value per key, the
+/// definition's own values over its includes', a later include over an earlier one. Keys and include
+/// names match regardless of case. A fault of the chain (missing or unreadable include, cycle) is listed in Problems,
+/// a line the reader does not recognize in Notes, and the rest still resolves; a lookup of a missing
+/// key or of the wrong type throws DefinitionException for that key alone.
+/// </summary>
 public sealed class ResolvedDefinition
 {
     const int MaxDepth = 64;
@@ -50,30 +69,37 @@ public sealed class ResolvedDefinition
 
     ResolvedDefinition(string name) => Name = name;
 
+    /// <summary>The definition's name, as passed to <see cref="Resolve"/>.</summary>
     public string Name { get; }
 
-    // The definitions that contributed, own first, then includes from the latest include back.
+    /// <summary>The definitions that contributed, own first, then includes from the latest include back.</summary>
     public IReadOnlyList<string> Chain => _chain;
 
-    // Every key once: the definition's own keys in file order, then the inherited ones.
+    /// <summary>Every key once: the definition's own keys in file order, then the inherited ones.</summary>
     public IReadOnlyList<DefinitionValue> Values => _values;
 
-    // One line per fault of the chain: an include that is missing or cannot be read, an include cycle,
-    // a chain too deep. A line appears once, however many walks reach the fault.
+    /// <summary>
+    /// One line per fault of the chain: an include that is missing or cannot be read, an include cycle,
+    /// a chain too deep. A line appears once, however many walks reach the fault.
+    /// </summary>
     public IReadOnlyList<string> Problems => _problems;
 
-    // The Problems that make the definition fail: all but a missing include, which is an unresolved
-    // reference (AssetKind.Unresolved).
+    /// <summary>
+    /// The Problems that make the definition fail: all but a missing include, which is an unresolved
+    /// reference (AssetKind.Unresolved).
+    /// </summary>
     public IReadOnlyList<string> Failures => _problems.Where(p => !_missing.Contains(p)).ToList();
 
-    // Every include of the chain that is missing, as the file names it, with the definition that includes it.
+    /// <summary>Every include of the chain that is missing, as the file names it, with the definition that includes it.</summary>
     public IReadOnlyList<(string Name, string IncludedBy)> MissingIncludes => _missingIncludes;
 
-    // "<definition>: line N: reason" per line a definition of the chain holds that the reader does not
-    // recognize (the game's own files have a few). Such a line is left out of the values.
+    /// <summary>
+    /// "&lt;definition&gt;: line N: reason" per line a definition of the chain holds that the reader does not
+    /// recognize (the game's own files have a few). Such a line is left out of the values.
+    /// </summary>
     public IReadOnlyList<string> Notes => _notes;
 
-    // Throws FileNotFoundException when the definition itself is not in the install.
+    /// <summary>Throws FileNotFoundException when the definition itself is not in the install.</summary>
     public static ResolvedDefinition Resolve(GameFileSystem files, string name)
     {
         var def = new ResolvedDefinition(name);
@@ -217,12 +243,16 @@ public sealed class ResolvedDefinition
         return cut;
     }
 
+    /// <summary>True when the definition or its chain defines <c>key</c> (any case).</summary>
     public bool Has(string key) => _index.ContainsKey(key);
 
+    /// <summary>The resolved value of <c>key</c> (any case); null when no definition of the chain defines it.</summary>
     public DefinitionValue? Find(string key) => _index.TryGetValue(key, out var i) ? _values[i] : null;
 
-    // The values of keys `prefix` + digits (weapon1, weapon2, ...), in numeric order; a number too
-    // large for an int sorts last.
+    /// <summary>
+    /// The values of keys <c>prefix</c> + digits (weapon1, weapon2, ...), in numeric order; a number too
+    /// large for an int sorts last.
+    /// </summary>
     public IReadOnlyList<DefinitionValue> Indexed(string prefix)
     {
         var found = new List<(int N, DefinitionValue Value)>();
@@ -254,9 +284,11 @@ public sealed class ResolvedDefinition
         return found.OrderBy(f => f.N).Select(f => f.Value).ToList();
     }
 
+    /// <summary>The tokens of <c>key</c>'s value, any number of them; empty for an empty value.</summary>
+    /// <exception cref="DefinitionException">when <c>key</c> is not defined.</exception>
     public IReadOnlyList<string> GetList(string key) => Get(key).Tokens;
 
-    // One token, quoted or not; an empty value is "".
+    /// <summary>One token, quoted or not; an empty value is "".</summary>
     public string GetString(string key)
     {
         var t = Get(key).Tokens;
@@ -269,7 +301,7 @@ public sealed class ResolvedDefinition
         };
     }
 
-    // One number, with an optional `f` suffix (2.0f).
+    /// <summary>One number, with an optional <c>f</c> suffix (2.0f).</summary>
     public float GetFloat(string key)
     {
         var t = Get(key).Tokens;
@@ -287,8 +319,10 @@ public sealed class ResolvedDefinition
             out f
         ) && float.IsFinite(f);
 
-    // A default followed by per-target overrides, each a name and a number. Throws DefinitionException when
-    // the default is no number; a malformed override line leaves the default alone and sets Malformed.
+    /// <summary>
+    /// A default followed by per-target overrides, each a name and a number. Throws DefinitionException when
+    /// the default is no number; a malformed override line leaves the default alone and sets Malformed.
+    /// </summary>
     public TargetValue GetTargetValue(string key)
     {
         var t = Get(key).Tokens;
@@ -313,7 +347,7 @@ public sealed class ResolvedDefinition
         return new TargetValue { Default = def, Overrides = overrides };
     }
 
-    // One whole number: written as an integer or as a float with no fraction (1.0, 1f).
+    /// <summary>One whole number: written as an integer or as a float with no fraction (1.0, 1f).</summary>
     public int GetInt(string key)
     {
         var t = Get(key).Tokens;

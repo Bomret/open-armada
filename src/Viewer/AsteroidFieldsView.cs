@@ -9,9 +9,11 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// The rocks of every asteroid field of the plan, spinning and circling by elapsed time. Each of the eight asteroid
-// models is built once; each of its visible meshes is one MultiMeshInstance3D drawing all rocks of that model in
-// the map, so the draw count follows the models and not the rocks (4mama holds up to 4,800 rocks).
+/// <summary>
+/// The rocks of every asteroid field of the plan, spinning and circling by elapsed time. Each of the eight asteroid
+/// models is built once; each of its visible meshes is one MultiMeshInstance3D drawing all rocks of that model in
+/// the map, so the draw count follows the models and not the rocks (4mama holds up to 4,800 rocks).
+/// </summary>
 public partial class AsteroidFieldsView : Node3D
 {
     // One draw: a mesh of a model, the rocks that show it, and the buffer of their transforms.
@@ -34,6 +36,12 @@ public partial class AsteroidFieldsView : Node3D
     readonly List<Group> _groups = new();
     ulong _start;
 
+    /// <summary>
+    /// Builds each asteroid model of the plan's fields from <c>files</c> and adds one MultiMeshInstance3D child per
+    /// visible mesh of a model. Each problem of a built model, and each model that cannot be read, goes to
+    /// <c>gap</c> as one line; the rocks of a model that cannot be read are left out. A plan without fields adds
+    /// nothing.
+    /// </summary>
     public AsteroidFieldsView(GameFileSystem files, SandboxPlan plan, Action<string> gap)
     {
         if (plan.Fields.Count == 0)
@@ -127,6 +135,7 @@ public partial class AsteroidFieldsView : Node3D
         _start = Time.GetTicksMsec();
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         if (_draws.Count == 0)

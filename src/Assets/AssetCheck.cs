@@ -6,14 +6,16 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// The asset check: loads every asset of every kind and reports each failure with name and reason.
+/// <summary>The asset check: loads every asset of every kind and reports each failure with name and reason.</summary>
 public static class AssetCheck
 {
-    // Returns the process exit code: 0 when no asset failed, 1 otherwise. Unsupported assets are
-    // listed in their own category and do not fail the check. A reader that throws fails only
-    // its own asset (INV-0002); nothing here lets an exception escape. `decode`, when given, runs
-    // the engine's own decoder on each asset the readers accepted and throws when it rejects the
-    // asset (ADR 0002); the Godot-free tests pass none.
+    /// <summary>
+    /// Returns the process exit code: 0 when no asset failed, 1 otherwise. Unsupported assets are
+    /// listed in their own category and do not fail the check. A reader that throws fails only
+    /// its own asset (INV-0002); nothing here lets an exception escape. <c>decode</c>, when given, runs
+    /// the engine's own decoder on each asset the readers accepted and throws when it rejects the
+    /// asset (ADR 0002); the Godot-free tests pass none.
+    /// </summary>
     public static int Run(
         string? game,
         IEnumerable<AssetKind> kinds,

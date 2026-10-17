@@ -5,13 +5,15 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Cursor preview: the cursor image at 8x on a gray ground with its hotspot marked by a cyan frame.
+/// <summary>Cursor preview: the cursor image at 8x on a gray ground with its hotspot marked by a cyan frame.</summary>
 public sealed class CursorPreview : KindPreview
 {
     const int Scale = 8;
 
+    /// <inheritdoc/>
     public override string KindName => CursorKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var cursor = (CursorImage)kind.Load(files, name);

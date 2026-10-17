@@ -6,12 +6,16 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Sprite table preview: the sprites that animate, running, then each texture with the named regions
-// of the table's sprites outlined on it. A texture the install lacks is named under its sprites.
+/// <summary>
+/// Sprite table preview: the sprites that animate, running, then each texture with the named regions
+/// of the table's sprites outlined on it. A texture the install lacks is named under its sprites.
+/// </summary>
 public sealed class SpriteTablePreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => SpriteTableKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var table = (SpriteTable)kind.Load(files, name);

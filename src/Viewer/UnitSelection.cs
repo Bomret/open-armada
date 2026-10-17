@@ -7,10 +7,12 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// Selection of the map sandbox's units with the mouse: a left click selects the unit under the cursor, a
-// drag selects every unit inside the box. Selected units show a ring and their unitName. The picks go
-// through the viewport's active camera, in viewport coordinates, so they hold at any window size and
-// display scale.
+/// <summary>
+/// Selection of the map sandbox's units with the mouse: a left click selects the unit under the cursor, a
+/// drag selects every unit inside the box. Selected units show a ring and their unitName. The picks go
+/// through the viewport's active camera, in viewport coordinates, so they hold at any window size and
+/// display scale.
+/// </summary>
 public partial class UnitSelection : Node3D
 {
     readonly Dictionary<PlacedObject, Node3D> _nodes;
@@ -20,6 +22,10 @@ public partial class UnitSelection : Node3D
     readonly CanvasLayer _layer = new();
     Vector2? _from;
 
+    /// <summary>
+    /// Tells the units of <c>plan</c> apart among the objects in <c>nodes</c> (the shown node of each placed object);
+    /// an object without a node is no unit. Adds no child nodes until <see cref="_Ready"/>.
+    /// </summary>
     public UnitSelection(GameFileSystem files, SandboxPlan plan, Dictionary<PlacedObject, Node3D> nodes)
     {
         var unitPlan = UnitPlan.Build(files, plan, nodes.ContainsKey); // an object whose model is unreadable has no node and is no unit
@@ -28,15 +34,16 @@ public partial class UnitSelection : Node3D
         _units = unitPlan.Units.ToDictionary(u => u.Object);
     }
 
-    // Every unit of the scene that is not destroyed, selected or not.
+    /// <summary>Every unit of the scene that is not destroyed, selected or not.</summary>
     public IReadOnlyList<SelectableUnit> Units => _units.Values.ToList();
 
-    // The gaps found while telling units apart.
+    /// <summary>The gaps found while telling units apart.</summary>
     public IReadOnlyList<ReportEntry> Reports { get; }
 
-    // The selected units; a ship whose Movable is false has no physics definition and takes no order.
+    /// <summary>The selected units; a ship whose Movable is false has no physics definition and takes no order.</summary>
     public IReadOnlyList<SelectableUnit> Selected => _marks.Keys.ToList();
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         _box.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -44,6 +51,7 @@ public partial class UnitSelection : Node3D
         AddChild(_layer);
     }
 
+    /// <inheritdoc/>
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left } button)
@@ -81,7 +89,7 @@ public partial class UnitSelection : Node3D
         Select(unit != null ? new[] { unit } : Array.Empty<SelectableUnit>());
     }
 
-    // Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected.
+    /// <summary>Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected.</summary>
     public void Remove(PlacedObject unit)
     {
         if (_units.Remove(unit, out var selectable) && _marks.Remove(selectable, out var mark))
@@ -96,8 +104,10 @@ public partial class UnitSelection : Node3D
         }
     }
 
-    // The unit that is the nearest object under the cursor; null when the nearest object is no unit or there is
-    // none.
+    /// <summary>
+    /// The unit that is the nearest object under the cursor; null when the nearest object is no unit or there is
+    /// none.
+    /// </summary>
     public SelectableUnit? UnitAt(Vector2 at)
     {
         var camera = GetViewport().GetCamera3D();
@@ -179,6 +189,7 @@ public partial class UnitSelection : Node3D
         }
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         var camera = GetViewport().GetCamera3D();
@@ -227,11 +238,12 @@ public partial class UnitSelection : Node3D
     static System.Numerics.Vector3 ToNumerics(Vector3 v) => new(v.X, v.Y, v.Z);
 }
 
-// The rubber band of a drag.
+/// <summary>The rubber band of a drag.</summary>
 public partial class SelectionBox : Control
 {
     Rect2? _box;
 
+    /// <summary>The drag's rectangle in viewport coordinates; null draws nothing. Setting it queues a redraw.</summary>
     public Rect2? Box
     {
         get => _box;
@@ -242,6 +254,7 @@ public partial class SelectionBox : Control
         }
     }
 
+    /// <inheritdoc/>
     public override void _Draw()
     {
         if (_box is not { } box)

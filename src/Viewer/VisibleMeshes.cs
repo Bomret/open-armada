@@ -4,10 +4,13 @@ using Godot;
 
 namespace OpenArmada.Viewer;
 
-// The visible meshes of a built model, each with its transform in the root's own frame (the root's transform
-// left out). A hidden node hides its whole subtree.
+/// <summary>
+/// The visible meshes of a built model, each with its transform in the root's own frame (the root's transform
+/// left out). A hidden node hides its whole subtree.
+/// </summary>
 public static class VisibleMeshes
 {
+    /// <summary>The visible meshes under <c>root</c>, <c>root</c> included, in tree order.</summary>
     public static List<(Mesh Mesh, Transform3D Transform)> Of(Node3D root)
     {
         var found = new List<(Mesh, Transform3D)>();
@@ -36,7 +39,7 @@ public static class VisibleMeshes
         return found;
     }
 
-    // The box around the meshes, each placed by `frame` times its own transform; null when there are none.
+    /// <summary>The box around the meshes, each placed by <c>frame</c> times its own transform; null when there are none.</summary>
     public static Aabb? Extent(IEnumerable<(Mesh Mesh, Transform3D Transform)> meshes, Transform3D frame)
     {
         Aabb? box = null;

@@ -4,11 +4,13 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Bitmap preview: the image at native size with its dimensions and format.
+/// <summary>Bitmap preview: the image at native size with its dimensions and format.</summary>
 public sealed class BitmapPreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => BitmapKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var info = (BmpInfo)kind.Load(files, name);

@@ -8,10 +8,12 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Rendering;
 
-// Turns a parsed SOD into a Godot node tree. Storm3D is left-handed (Direct3D);
-// Godot is right-handed, so Z is mirrored and triangle winding reversed. Surfaces follow ModelRules:
-// the texture material's blend, the lighting material's model and colors, the animation references.
-// Whatever the data holds that cannot be drawn as it says is listed in Problems, never hidden.
+/// <summary>
+/// Turns a parsed SOD into a Godot node tree. Storm3D is left-handed (Direct3D);
+/// Godot is right-handed, so Z is mirrored and triangle winding reversed. Surfaces follow ModelRules:
+/// the texture material's blend, the lighting material's model and colors, the animation references.
+/// Whatever the data holds that cannot be drawn as it says is listed in Problems, never hidden.
+/// </summary>
 public sealed class SodBuilder
 {
     readonly GameFileSystem _files;
@@ -20,13 +22,16 @@ public sealed class SodBuilder
     readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
     System.Numerics.Vector3 _teamColor = new(0.5f, 0.5f, 0.5f);
 
+    /// <summary><c>files</c> is the install the builder reads textures and lighting materials from; it caches each texture it loads, by name.</summary>
     public SodBuilder(GameFileSystem files) => _files = files;
 
-    // What the last Build could not draw as the data says (ModelRules.Check), one line each.
+    /// <summary>What the last Build could not draw as the data says (ModelRules.Check), one line each.</summary>
     public IReadOnlyList<string> Problems { get; private set; } = new List<string>();
 
-    // Recolors the team materials of the model built last. Each Build makes its own materials, so a model
-    // built earlier keeps its color; Build(sod, color) colors a model as it is built.
+    /// <summary>
+    /// Recolors the team materials of the model built last. Each Build makes its own materials, so a model
+    /// built earlier keeps its color; Build(sod, color) colors a model as it is built.
+    /// </summary>
     public void SetTeamColor(System.Numerics.Vector3 color)
     {
         _teamColor = color;
@@ -36,7 +41,7 @@ public sealed class SodBuilder
         }
     }
 
-    // Builds the model with its team materials in `teamColor` (the last color set when null).
+    /// <summary>Builds the model with its team materials in <c>teamColor</c> (the last color set when null).</summary>
     public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null)
     {
         if (teamColor != null)

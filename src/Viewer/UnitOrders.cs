@@ -8,14 +8,16 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// The orders of the map sandbox and the pose of every unit. A right-click on a unit hostile to a selected unit
-// gives that unit an attack order on it (a unit without weapons ignores the click). Any other right-click sends
-// the selected ships to where its ray meets the middle of the combat plane, clamped to the map's bounds; a ray
-// that misses the plane is ignored. A new order of either kind replaces the old one.
-// Each ship moves at its own height by its ShipMotion, fed by its physics definition, and follows the movement
-// its CombatWorld asks of it while it attacks. Stations and all other objects never move. Pose reads the
-// current pose of any unit, from the moment the map opens: the placed pose until the unit moves. Each frame
-// steps the CombatWorld and takes a destroyed unit out of the scene.
+/// <summary>
+/// The orders of the map sandbox and the pose of every unit. A right-click on a unit hostile to a selected unit
+/// gives that unit an attack order on it (a unit without weapons ignores the click). Any other right-click sends
+/// the selected ships to where its ray meets the middle of the combat plane, clamped to the map's bounds; a ray
+/// that misses the plane is ignored. A new order of either kind replaces the old one.
+/// Each ship moves at its own height by its ShipMotion, fed by its physics definition, and follows the movement
+/// its CombatWorld asks of it while it attacks. Stations and all other objects never move. Pose reads the
+/// current pose of any unit, from the moment the map opens: the placed pose until the unit moves. Each frame
+/// steps the CombatWorld and takes a destroyed unit out of the scene.
+/// </summary>
 public partial class UnitOrders : Node3D
 {
     readonly UnitSelection _selection;
@@ -33,10 +35,12 @@ public partial class UnitOrders : Node3D
     readonly float _planeHeight;
     readonly MapBounds _bounds;
 
-    // `planeHeight` is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
-    // stand-ins), so orders aim at the plane the camera looks at; `bounds` are the ones the rig clamps its look-at
-    // point to. `combat` holds every unit's combat values; the units fight in a CombatWorld that this node steps
-    // and whose state it shows through Combat.
+    /// <summary>
+    /// <c>planeHeight</c> is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
+    /// stand-ins), so orders aim at the plane the camera looks at; <c>bounds</c> are the ones the rig clamps its look-at
+    /// point to. <c>combat</c> holds every unit's combat values; the units fight in a CombatWorld that this node steps
+    /// and whose state it shows through Combat.
+    /// </summary>
     public UnitOrders(
         GameFileSystem files,
         SandboxPlan plan,
@@ -80,10 +84,10 @@ public partial class UnitOrders : Node3D
         _fighting = _world.Units.Select(u => u.Unit).ToHashSet();
     }
 
-    // The combat state of the units still in the fight.
+    /// <summary>The combat state of the units still in the fight.</summary>
     public CombatWorld Combat => _world;
 
-    // Raised with the events of each frame's step, before a destroyed unit's node leaves the scene.
+    /// <summary>Raised with the events of each frame's step, before a destroyed unit's node leaves the scene.</summary>
     public event Action<IReadOnlyList<CombatEvent>>? Stepped;
 
     // Half the longest side of the box around the model's meshes, as the selection's picks take it; 0 without meshes.
@@ -93,9 +97,10 @@ public partial class UnitOrders : Node3D
             ? Math.Max(box.Size.X, Math.Max(box.Size.Y, box.Size.Z)) / 2
             : 0;
 
-    // The current pose of a unit of the map; throws KeyNotFoundException for an object that is no unit.
+    /// <summary>The current pose of a unit of the map; throws KeyNotFoundException for an object that is no unit.</summary>
     public ShipPose Pose(PlacedObject unit) => _poses.Pose(unit);
 
+    /// <inheritdoc/>
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is not InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true } click)
@@ -160,6 +165,7 @@ public partial class UnitOrders : Node3D
         return motion;
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         foreach (var unit in _world.Units)

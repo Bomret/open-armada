@@ -3,9 +3,10 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// Sets the alert stance of every selected unit when the key chord of an alert binding is pressed.
+/// <summary>Sets the alert stance of every selected unit when the key chord of an alert binding is pressed.</summary>
 public partial class AlertKeys(AlertBindings bindings, UnitSelection selection, CombatWorld world) : Node
 {
+    /// <inheritdoc/>
     public override void _UnhandledInput(InputEvent e)
     {
         if (e is not InputEventKey { Pressed: true, Echo: false } key)

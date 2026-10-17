@@ -9,11 +9,13 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// The map sandbox: one map of the install as a live 3D scene, built from the scene plan.
-//   godot-mono --path . -- --game <Armada dir> --map <name> [--screenshot out.png]
-// Each later feature of the sandbox is one more node added in _Ready (the camera, the asteroid fields, the
-// selection, the orders). A gap of the map or of the sandbox is printed and counted on screen; the map
-// still opens (INV-0002).
+/// <summary>
+/// The map sandbox: one map of the install as a live 3D scene, built from the scene plan.
+///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]
+/// Each later feature of the sandbox is one more node added in _Ready (the camera, the asteroid fields, the
+/// selection, the orders). A gap of the map or of the sandbox is printed and counted on screen; the map
+/// still opens (INV-0002).
+/// </summary>
 public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : Node3D
 {
     readonly Dictionary<string, Sod> _sods = new(StringComparer.OrdinalIgnoreCase);
@@ -29,6 +31,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
     bool _mouseInWindow = true;
     int _frames;
 
+    /// <inheritdoc/>
     public override void _Ready()
     {
         if (sandbox.Problem != null)
@@ -286,9 +289,11 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         _camera.LookAt(new Vector3(target.X, target.Y, -target.Z));
     }
 
-    // The wheel changes the height (stand-in: the game uses a vertical drag), a middle-button drag rotates. On a
-    // trackpad (stand-in: the game had none) a two-finger pan does both and a pinch changes the height (CameraRig
-    // names the scales). Esc releases the confined cursor.
+    /// <summary>
+    /// The wheel changes the height (stand-in: the game uses a vertical drag), a middle-button drag rotates. On a
+    /// trackpad (stand-in: the game had none) a two-finger pan does both and a pinch changes the height (CameraRig
+    /// names the scales). Esc releases the confined cursor.
+    /// </summary>
     public override void _Input(InputEvent e)
     {
         if (_rig == null)
@@ -318,6 +323,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         }
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         if (_rig != null)

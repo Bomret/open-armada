@@ -6,46 +6,70 @@ using System.Text;
 
 namespace OpenArmada.Formats;
 
-// A block of a text table: Path is the names of its enclosing blocks and its own, dot separated
-// ("switch.Default"). Parent is the name after ':' in its header, if any.
+/// <summary>
+/// A block of a text table: Path is the names of its enclosing blocks and its own, dot separated
+/// ("switch.Default"). Parent is the name after ':' in its header, if any.
+/// </summary>
 public sealed record TextTableBlock
 {
+    /// <summary>
+    /// The dot-separated names of the enclosing blocks and the block's own name, such as "switch.Default".
+    /// </summary>
     public required string Path { get; init; }
+
+    /// <summary>The name after ':' in the block's first header; null when it has none.</summary>
     public required string? Parent { get; init; }
 }
 
-// One `string key "value"` entry of a block; File and Line say where it was written.
+/// <summary>One <c>string key "value"</c> entry of a block; File and Line say where it was written.</summary>
 public sealed record TextTableEntry
 {
+    /// <summary>The <see cref="TextTableBlock.Path"/> of the block the entry is in.</summary>
     public required string Block { get; init; }
+
+    /// <summary>The key token after <c>string</c>.</summary>
     public required string Key { get; init; }
+
+    /// <summary>The quoted value without its quotes, with escapes applied.</summary>
     public required string Value { get; init; }
+
+    /// <summary>
+    /// The file the entry was written in: the name given to <see cref="TextTable.Read"/> or the path of an import.
+    /// </summary>
     public required string File { get; init; }
+
+    /// <summary>The 1-based line of the <c>string</c> token in <see cref="File"/>.</summary>
     public required int Line { get; init; }
 }
 
-// A text table (.ldl): the launcher's (splash.exe) configuration script, per the REA report of splash.exe.
-// The file is each byte XOR a fixed 400-byte key (plain[i] = file[i] ^ key[i % 400], restarting for every
-// file) and holds Windows-1252 text. The key lies in splash.exe at KeyOffset; the engine ships none, and the
-// caller passes the key it read from the user's own splash.exe (INV-0001).
-//
-// Grammar: whitespace-separated tokens; "Name[:Parent] {" opens a block (blocks nest), "}" closes it,
-// `string key "value"` adds an entry, `import "file"` at top level reads another file (decoded on its own),
-// `template` is ignored, `$` ends the file, '#' outside quotes starts a comment, a quoted token may span
-// lines. In a value `\"` `\\` `\a` `\b` `\f` `\n` `\r` `\t` `\v` are the C escapes, a backslash followed by
-// whitespace drops everything through the end of the line, and a backslash before any other character drops
-// both. A statement that fits none of this, a value that is not quoted, a block left open, an import that
-// cannot be read and an import cycle are Notes naming file:line (INV-0002); the rest still loads.
-//
-// A block reopened merges with the first (its entries add up); a different `:Parent` on the reopening is a
-// Note and the first parent stays. A header written `Name{` is one token that is no keyword, so it is a Note.
-//
-// Not established by the REA report, so not interpreted here: what Name:Parent inherits, which of two
-// entries with one block path and key wins (both are kept, in reading order), and how splash.exe matches a
-// `switch` child to the system language. `open` receives an import's name joined to the folder of the
-// importing file (as the launcher resolves it), relative to the root the caller reads from.
+/// <summary>
+/// A text table (.ldl): the launcher's (splash.exe) configuration script, per the REA report of splash.exe.
+/// The file is each byte XOR a fixed 400-byte key (plain[i] = file[i] ^ key[i % 400], restarting for every
+/// file) and holds Windows-1252 text. The key lies in splash.exe at KeyOffset; the engine ships none, and the
+/// caller passes the key it read from the user's own splash.exe (INV-0001).
+///
+/// Grammar: whitespace-separated tokens; "Name[:Parent] {" opens a block (blocks nest), "}" closes it,
+/// <c>string key "value"</c> adds an entry, <c>import "file"</c> at top level reads another file (decoded on its own),
+/// <c>template</c> is ignored, <c>$</c> ends the file, '#' outside quotes starts a comment, a quoted token may span
+/// lines. In a value <c>\"</c> <c>\\</c> <c>\a</c> <c>\b</c> <c>\f</c> <c>\n</c> <c>\r</c> <c>\t</c> <c>\v</c> are the C escapes, a backslash followed by
+/// whitespace drops everything through the end of the line, and a backslash before any other character drops
+/// both. A statement that fits none of this, a value that is not quoted, a block left open, an import that
+/// cannot be read and an import cycle are Notes naming file:line (INV-0002); the rest still loads.
+///
+/// A block reopened merges with the first (its entries add up); a different <c>:Parent</c> on the reopening is a
+/// Note and the first parent stays. A header written <c>Name{</c> is one token that is no keyword, so it is a Note.
+///
+/// Not established by the REA report, so not interpreted here: what Name:Parent inherits, which of two
+/// entries with one block path and key wins (both are kept, in reading order), and how splash.exe matches a
+/// <c>switch</c> child to the system language. <c>open</c> receives an import's name joined to the folder of the
+/// importing file (as the launcher resolves it), relative to the root the caller reads from.
+/// </summary>
 public sealed class TextTable
 {
+    /// <summary>
+    /// The XOR key's place in splash.exe: <c>KeyOffset</c> is its file offset (0x2ee40), <c>KeyLength</c> its
+    /// length in bytes (400).
+    /// </summary>
     public const int KeyOffset = 0x2ee40,
         KeyLength = 400;
 
@@ -53,14 +77,23 @@ public sealed class TextTable
     readonly List<TextTableEntry> _entries = new();
     readonly List<string> _notes = new();
 
+    /// <summary>The file name given to <see cref="Read"/>, the top file of the import tree.</summary>
     public string Name { get; }
+
+    /// <summary>Each block path once, in the order it first opens; a reopened block keeps its first entry.</summary>
     public IReadOnlyList<TextTableBlock> Blocks => _blocks;
+
+    /// <summary>
+    /// The entries of all files in reading order, imports expanded where they stand; duplicates are kept.
+    /// </summary>
     public IReadOnlyList<TextTableEntry> Entries => _entries;
+
+    /// <summary>The problems that do not stop the read, each naming file:line.</summary>
     public IReadOnlyList<string> Notes => _notes;
 
     TextTable(string name) => Name = name;
 
-    // The key out of the bytes of splash.exe.
+    /// <summary>The key out of the bytes of splash.exe.</summary>
     public static byte[] KeyFrom(string name, byte[] exe) =>
         exe.Length >= KeyOffset + KeyLength
             ? exe[KeyOffset..(KeyOffset + KeyLength)]
@@ -68,8 +101,10 @@ public sealed class TextTable
                 $"{name} is too short ({exe.Length} bytes) to hold the text table key at offset 0x{KeyOffset:x}"
             );
 
-    // `open` returns the encoded bytes of an imported file by the name written after `import` joined to the importing file's folder, or null.
-    // Throws UnsupportedFormatException when `key` is not KeyLength bytes or `file` does not decode to text with it.
+    /// <summary>
+    /// <c>open</c> returns the encoded bytes of an imported file by the name written after <c>import</c> joined to the importing file's folder, or null.
+    /// Throws UnsupportedFormatException when <c>key</c> is not KeyLength bytes or <c>file</c> does not decode to text with it.
+    /// </summary>
     public static TextTable Read(string name, byte[] file, byte[] key, Func<string, byte[]?> open)
     {
         if (key.Length != KeyLength)

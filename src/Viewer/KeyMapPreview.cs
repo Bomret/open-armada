@@ -5,11 +5,13 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Key and label map preview: each binding as "section  sign key  value", notes first.
+/// <summary>Key and label map preview: each binding as "section  sign key  value", notes first.</summary>
 public sealed class KeyMapPreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => KeyMapKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var map = (MapFile)kind.Load(files, name);

@@ -4,13 +4,15 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
 
-// Font preview: the glyph sheet, 16 characters per row in code order, ink dark on light, shown at 3x.
+/// <summary>Font preview: the glyph sheet, 16 characters per row in code order, ink dark on light, shown at 3x.</summary>
 public sealed class FontPreview : KindPreview
 {
     const int Scale = 3;
 
+    /// <inheritdoc/>
     public override string KindName => FontKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var font = (BitmapFont)kind.Load(files, name);

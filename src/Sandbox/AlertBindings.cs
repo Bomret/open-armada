@@ -6,10 +6,12 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
-// The key chords of the install's Input.map that set an alert stance: the `green`, `yellow`, and `red` blocks. A
-// block's `+ keyboard X` line names the key; `+ keyboard Shift` (or Control, Alt) a modifier that must be held. A
-// modifier the block does not require with `+` must not be held.
-// stand-in: how the game matches a chord with extra modifiers held is not traced; the match is exact.
+/// <summary>
+/// The key chords of the install's Input.map that set an alert stance: the <c>green</c>, <c>yellow</c>, and <c>red</c> blocks. A
+/// block's <c>+ keyboard X</c> line names the key; <c>+ keyboard Shift</c> (or Control, Alt) a modifier that must be held. A
+/// modifier the block does not require with <c>+</c> must not be held.
+/// stand-in: how the game matches a chord with extra modifiers held is not traced; the match is exact.
+/// </summary>
 public sealed class AlertBindings
 {
     static readonly string[] Modifiers = { "Shift", "Control", "Alt" };
@@ -18,8 +20,10 @@ public sealed class AlertBindings
 
     AlertBindings() { }
 
-    // Reads the bindings; a missing or unreadable Input.map, or a binding without a key, goes to `gap` and leaves
-    // that stance unbound (INV-0002).
+    /// <summary>
+    /// Reads the bindings; a missing or unreadable Input.map, or a binding without a key, goes to <c>gap</c> and leaves
+    /// that stance unbound (INV-0002).
+    /// </summary>
     public static AlertBindings Read(GameFileSystem files, Action<string> gap)
     {
         var bindings = new AlertBindings();
@@ -80,7 +84,7 @@ public sealed class AlertBindings
         return bindings;
     }
 
-    // The stance the chord sets; null when it is bound to none.
+    /// <summary>The stance the chord sets; null when it is bound to none.</summary>
     public AlertStance? For(KeyChord pressed) =>
         _chords.TryGetValue(pressed with { Key = pressed.Key.ToUpperInvariant() }, out var s) ? s : null;
 }

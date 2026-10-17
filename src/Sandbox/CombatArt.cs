@@ -7,24 +7,39 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
-// A shot's sprite: its row, whose Material is its blend, and its frames in play order, each for FrameSeconds.
+/// <summary>A shot's sprite: its row, whose Material is its blend, and its frames in play order, each for FrameSeconds.</summary>
 public sealed record SpriteArt
 {
+    /// <summary>The sprite table row; its Material is the blend.</summary>
     public required Sprite Sprite { get; init; }
+
+    /// <summary>The frames in play order.</summary>
     public required IReadOnlyList<SpriteFrame> Frames { get; init; }
+
+    /// <summary>
+    /// Seconds each frame shows; 0 for a single frame, a sprite without an animation, or an animation of explicit
+    /// keyframes (only a flipbook animates).
+    /// </summary>
     public required double FrameSeconds { get; init; }
 }
 
-// A unit's explosion: the sound and the model it shows for Length seconds. Each is null when the install lacks it.
+/// <summary>A unit's explosion: the sound and the model it shows for Length seconds. Each is null when the install lacks it.</summary>
 public sealed record ExplosionArt
 {
+    /// <summary>The explosion definition's <c>explSound</c>; null when it names none or the install lacks it.</summary>
     public required string? Sound { get; init; }
+
+    /// <summary>The explosion definition's <c>dbName</c>, without <c>.sod</c>; null when it names none or the install lacks it.</summary>
     public required string? Model { get; init; }
+
+    /// <summary>The explosion definition's <c>length</c> in seconds; 0 when it names none, so the explosion ends at once.</summary>
     public required float Length { get; init; }
 }
 
-// What the fight looks and sounds like, resolved once from the install for the units of a map. Every lookup
-// that fails is a gap, reported once per cause with its names and the number of units it touches (INV-0002).
+/// <summary>
+/// What the fight looks and sounds like, resolved once from the install for the units of a map. Every lookup
+/// that fails is a gap, reported once per cause with its names and the number of units it touches (INV-0002).
+/// </summary>
 public sealed class CombatArt
 {
     const string NoSprite = "ordnance names no sprite, its shots are not drawn";
@@ -51,6 +66,11 @@ public sealed class CombatArt
 
     CombatArt(GameFileSystem files) => _files = files;
 
+    /// <summary>
+    /// Resolves the shot sprites, fire sounds, hardpoints, and explosions of the units from the install. Every failed
+    /// lookup becomes a gap in <see cref="Reports"/>. Reads the sprite tables once, on the first sprite, and each
+    /// model once.
+    /// </summary>
     public static CombatArt Build(GameFileSystem files, IEnumerable<(PlacedObject Unit, CombatProfile Profile)> units)
     {
         var art = new CombatArt(files);
@@ -83,28 +103,33 @@ public sealed class CombatArt
         return art;
     }
 
-    // Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.
+    /// <summary>Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.</summary>
     public IEnumerable<SpriteArt> Sprites => _sprites.Values;
 
+    /// <summary>Every fire and explosion sound the install holds, each once.</summary>
     public IEnumerable<string> Sounds =>
         _fireSounds.Concat(_explosions.Values.Select(e => e.Sound).OfType<string>()).Distinct();
 
+    /// <summary>Every explosion model the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
     public IEnumerable<string> ExplosionModels =>
         _explosions.Values.Select(e => e.Model).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase);
 
-    // The shot sprite of an ordnance's `Sprite` name; null when it is missing (a gap).
+    /// <summary>The shot sprite of an ordnance's <c>Sprite</c> name; null when it is missing (a gap).</summary>
     public SpriteArt? Sprite(string name) => _sprites.GetValueOrDefault(name);
 
-    // The explosion of a unit's fireball; null when its definition is missing or unreadable (a gap).
+    /// <summary>The explosion of a unit's fireball; null when its definition is missing or unreadable (a gap).</summary>
     public ExplosionArt? Explosion(PlacedObject unit) => _explosions.GetValueOrDefault(unit);
 
-    // The name the built model node carries for the SOD node a hardpoint name matches (the match ignores case,
-    // a node lookup does not; Godot sanitizes the name, see NodeName); null when the model holds none.
+    /// <summary>
+    /// The name the built model node carries for the SOD node a hardpoint name matches (the match ignores case,
+    /// a node lookup does not; Godot sanitizes the name, see NodeName); null when the model holds none.
+    /// </summary>
     public string? Hardpoint(PlacedObject unit, string name) => NodesOf(unit.Model).GetValueOrDefault(name);
 
-    // A failure of the view (a texture or a sound that cannot be decoded) joins the gaps, once per cause.
+    /// <summary>A failure of the view (a texture or a sound that cannot be decoded) joins the gaps, once per cause.</summary>
     public void Report(string cause, string name) => _gaps.Add(cause, name);
 
+    /// <summary>The gaps found by <see cref="Build"/> and <see cref="Report"/>, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports => _gaps.Entries;
 
     // The nodes of a model by name; none when the model cannot be read (the sandbox reports that).

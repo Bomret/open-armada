@@ -4,16 +4,23 @@ using OpenArmada.Assets;
 
 namespace OpenArmada.Sandbox;
 
-// A unit of the scene: the placed object, what it is, and whether it can move. Movable is false when the
-// definition's physics definition is missing (the unit stays selectable; orders skip it).
+/// <summary>
+/// A unit of the scene: the placed object, what it is, and whether it can move. Movable is false when the
+/// definition's physics definition is missing (the unit stays selectable; orders skip it).
+/// </summary>
 public sealed record SelectableUnit
 {
+    /// <summary>The placed object of the unit.</summary>
     public required PlacedObject Object { get; init; }
+
+    /// <summary>What the unit is: a <see cref="Ship"/> or a <see cref="Station"/>, with its name.</summary>
     public required Unit Unit { get; init; }
+
+    /// <summary>Whether the install holds the unit's physics definition; false when it is missing or its physicsFile is no single value.</summary>
     public required bool Movable { get; init; }
 }
 
-// The units among a scene plan's objects, with the gaps found while telling them apart (INV-0002).
+/// <summary>The units among a scene plan's objects, with the gaps found while telling them apart (INV-0002).</summary>
 public sealed class UnitPlan
 {
     const string MissingPhysics = "physics definition missing, units cannot move";
@@ -21,7 +28,10 @@ public sealed class UnitPlan
     const string BadName = "unitName is no single value, class name used";
     const string BadPhysics = "physicsFile is no single value, units cannot move";
 
+    /// <summary>The units among the selectable objects, in the plan's order.</summary>
     public IReadOnlyList<SelectableUnit> Units { get; }
+
+    /// <summary>The gaps found while telling the units apart.</summary>
     public IReadOnlyList<ReportEntry> Reports { get; }
 
     UnitPlan(IReadOnlyList<SelectableUnit> units, IReadOnlyList<ReportEntry> reports)
@@ -30,7 +40,7 @@ public sealed class UnitPlan
         Reports = reports;
     }
 
-    // `selectable` tells whether an object can be selected (its model is on screen); the others are no units.
+    /// <summary><c>selectable</c> tells whether an object can be selected (its model is on screen); the others are no units.</summary>
     public static UnitPlan Build(GameFileSystem files, SandboxPlan plan, Func<PlacedObject, bool> selectable)
     {
         var units = new List<SelectableUnit>();

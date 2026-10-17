@@ -7,10 +7,12 @@ using System.Text;
 
 namespace OpenArmada.Formats;
 
-// A .zfs archive read from memory. Layout per the REA report of Armada.exe (FUN_004b7c70, FUN_004b87d0):
-// a 0x1C-byte header ("ZFSF", version, name length, entries per block, file count, key, first block),
-// then chained blocks of a next-block offset (0 = end) and 100 entries of 36 bytes (name[16], data
-// offset, index, stored size, timestamp, flags). Member lookup ignores case.
+/// <summary>
+/// A .zfs archive read from memory. Layout per the REA report of Armada.exe (FUN_004b7c70, FUN_004b87d0):
+/// a 0x1C-byte header ("ZFSF", version, name length, entries per block, file count, key, first block),
+/// then chained blocks of a next-block offset (0 = end) and 100 entries of 36 bytes (name[16], data
+/// offset, index, stored size, timestamp, flags). Member lookup ignores case.
+/// </summary>
 public sealed class ZfsArchive
 {
     const int HeaderSize = 0x1C,
@@ -29,17 +31,23 @@ public sealed class ZfsArchive
         _key = key;
     }
 
-    // Names of the readable members (deleted and faulty entries are left out).
+    /// <summary>Names of the readable members (deleted and faulty entries are left out).</summary>
     public IEnumerable<string> Names => _entries.Keys;
 
+    /// <summary>
+    /// Whether <see cref="Names"/> holds the member, ignoring case. A compressed member counts, though
+    /// <see cref="Read"/> throws for it.
+    /// </summary>
     public bool Contains(string name) => _entries.ContainsKey(name);
 
-    // One line per entry that was skipped, naming the entry and the reason.
+    /// <summary>One line per entry that was skipped, naming the entry and the reason.</summary>
     public IReadOnlyList<string> Faults => _faults;
 
-    // Throws InvalidDataException when the archive as a whole is unreadable: bad header, a block chain
-    // that is cut off, loops or does not match the file count. An entry that cannot be read is skipped
-    // and listed in Faults, so the other members still load.
+    /// <summary>
+    /// Throws InvalidDataException when the archive as a whole is unreadable: bad header, a block chain
+    /// that is cut off, loops or does not match the file count. An entry that cannot be read is skipped
+    /// and listed in Faults, so the other members still load.
+    /// </summary>
     public static ZfsArchive Open(byte[] data)
     {
         if (data.Length < HeaderSize || Encoding.ASCII.GetString(data, 0, 4) != "ZFSF")
@@ -101,8 +109,10 @@ public sealed class ZfsArchive
         }
     }
 
-    // The member's bytes. Throws FileNotFoundException for an unknown name and
-    // UnsupportedFormatException for a compressed entry (no decompressor).
+    /// <summary>
+    /// The member's bytes. Throws FileNotFoundException for an unknown name and
+    /// UnsupportedFormatException for a compressed entry (no decompressor).
+    /// </summary>
     public byte[] Read(string name)
     {
         if (!_entries.TryGetValue(name, out var e))

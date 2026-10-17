@@ -4,20 +4,29 @@ using System.Text.RegularExpressions;
 
 namespace OpenArmada.Formats;
 
-// One `key = value` pair of an object definition. Tokens are the value split on whitespace; a quoted
-// string is one token with its quotes removed. Numbers stay text: the typed lookups of the resolved
-// definition convert them.
+/// <summary>
+/// One <c>key = value</c> pair of an object definition. Tokens are the value split on whitespace; a quoted
+/// string is one token with its quotes removed. Numbers stay text: the typed lookups of the resolved
+/// definition convert them.
+/// </summary>
 public sealed record OdfEntry
 {
+    /// <summary>The name left of the '='.</summary>
     public required string Key { get; init; }
+
+    /// <summary>The value's tokens, including those of its continuation lines; empty for an empty value.</summary>
     public required IReadOnlyList<string> Tokens { get; init; }
+
+    /// <summary>The name of the last <c>[Section]</c> line above the entry; null before the first one.</summary>
     public required string? Section { get; init; }
 }
 
-// The text of one object definition (.odf), parsed without resolving includes. Lines are
-// `key = value`, `[Section]`, `#include "parent.odf"`, `//` comments (full-line or trailing) and
-// continuations of the previous value (indented lines, or lines that start with a quoted name). A line that is none of these, or that holds an
-// unterminated quote, is listed in Problems as "line N: reason" and its entry is left out.
+/// <summary>
+/// The text of one object definition (.odf), parsed without resolving includes. Lines are
+/// <c>key = value</c>, <c>[Section]</c>, <c>#include "parent.odf"</c>, <c>//</c> comments (full-line or trailing) and
+/// continuations of the previous value (indented lines, or lines that start with a quoted name). A line that is none of these, or that holds an
+/// unterminated quote, is listed in Problems as "line N: reason" and its entry is left out.
+/// </summary>
 public sealed class Odf
 {
     static readonly Regex KeyLine = new(@"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$", RegexOptions.Compiled);
@@ -26,10 +35,19 @@ public sealed class Odf
     readonly List<OdfEntry> _entries = new();
     readonly List<string> _problems = new();
 
+    /// <summary>The names of the <c>#include</c> lines in file order, not resolved.</summary>
     public IReadOnlyList<string> Includes => _includes;
+
+    /// <summary>The <c>key = value</c> entries in file order. A key given twice gives two entries.</summary>
     public IReadOnlyList<OdfEntry> Entries => _entries;
+
+    /// <summary>The lines that are left out, each as "line N: reason".</summary>
     public IReadOnlyList<string> Problems => _problems;
 
+    /// <summary>
+    /// Parses the text of one object definition. The method does not throw on bad lines; it lists them in <see
+    /// cref="Problems"/>.
+    /// </summary>
     public static Odf Parse(string text)
     {
         var odf = new Odf();

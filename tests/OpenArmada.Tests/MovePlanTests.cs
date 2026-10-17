@@ -21,11 +21,13 @@ public class MovePlanTests
     const string Ship = "physicsFile = \"p.odf\"\r\n";
 
     // `physicsFile` is the install file that holds p.odf (a loose file, or an archive given as Latin-1 text).
+    // `movable` takes every ship as Movable, so MovePlan reads a physics definition the unit plan found absent.
     MovePlan Plan(
         string[] classes,
         (string Class, string Odf)[] definitions,
         string? physics,
-        string physicsFile = "addon/p.odf"
+        string physicsFile = "addon/p.odf",
+        bool movable = false
     )
     {
         var loose = physics == null ? Array.Empty<(string, string)>() : new[] { (physicsFile, physics) };
@@ -56,7 +58,9 @@ public class MovePlanTests
         };
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
 
-        return MovePlan.Build(plan, UnitPlan.Build(install, plan, _ => true).Units, install);
+        var units = UnitPlan.Build(install, plan, _ => true).Units.Select(u => movable ? u with { Movable = true } : u);
+
+        return MovePlan.Build(plan, units, install);
     }
 
     [TestMethod]
@@ -194,6 +198,17 @@ public class MovePlanTests
         Plan(new[] { "a", "b" }, new[] { ("a", Ship), ("b", Ship) }, archive, "addon/x.zfs");
         var entries = log.Lines.Where(l => l.Contains("physics definition")).ToList();
         StringAssert.Matches(entries.Single(), new Regex(@" ERROR sandbox: physics definition p\.odf: \S"));
+    }
+
+    [TestMethod]
+    public void AMissingPhysicsDefinitionIsOneWarnEntryAndNoError()
+    {
+        // absent data, not an asset that failed to load (INV-0005): the grouped gap's WARN, no ERROR
+        using var log = new CapturedLog();
+        Plan(new[] { "a", "b" }, new[] { ("a", Ship), ("b", Ship) }, null, movable: true);
+        // the unit plan's own "units cannot move" line is its report, not this plan's
+        var line = Assert.ContainsSingle(log.Lines.Where(l => !l.Contains("units cannot move")));
+        StringAssert.Contains(line, " WARN sandbox: physics definition missing, ships cannot move");
     }
 
     [TestMethod]

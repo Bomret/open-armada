@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
@@ -245,6 +246,29 @@ public class SandboxPlanTests
         CollectionAssert.AreEqual(new[] { "ghost" }, report.Names.ToArray());
         Assert.AreEqual(2, report.Count);
         StringAssert.Contains(report.Text, "object definition cannot be read");
+    }
+
+    [TestMethod]
+    public void ADefinitionThatCannotBeReadIsOneErrorEntryWithItsNameAndReason()
+    {
+        // a compressed archive entry used by two objects: an asset failed to load, one cause (INV-0005, INV-0002)
+        var archive = System.Text.Encoding.Latin1.GetString(
+            ZfsBuilder.Build(0, ZfsBuilder.M("ghost.odf", "baseName = fdreadnought", 2))
+        );
+        var install = new GameFileSystem(temp.MakeInstall(("addon/x.zfs", archive)));
+        var map = MapOf(Ship("ghost", label: "a"), Ship("ghost", label: "b"));
+        var asset = new MapAsset
+        {
+            Name = "bzn/t.bzn",
+            Map = Bzn.Read(map.Build()),
+            Starts = Array.Empty<MapStart>(),
+            Overview = null,
+            ScriptedPaths = Array.Empty<MapPath>(),
+        };
+        using var log = new CapturedLog();
+        SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
+        var entries = log.Lines.Where(l => l.Contains("ghost")).ToList();
+        StringAssert.Matches(entries.Single(), new Regex(@" ERROR sandbox: object definition ghost\.odf: \S"));
     }
 
     [TestMethod]

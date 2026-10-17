@@ -392,26 +392,31 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         // Wait a few frames so textures are uploaded before capturing.
         if (screenshot == null || ++_frames < 5)
             return;
-        string? failure;
+        // A viewport can have no image (a headless run has no renderer); that and a failed save are one ERROR.
+        string? saveError = null;
+        var captured = false;
         try
         {
             var image = GetViewport().GetTexture().GetImage();
-            if (image == null)
+            if (image != null)
             {
-                failure = "no viewport image (headless)";
-            }
-            else
-            {
+                captured = true;
                 var saved = image.SavePng(screenshot);
-                failure = saved == Error.Ok ? null : saved.ToString();
+                saveError = saved == Error.Ok ? null : saved.ToString();
             }
         }
         catch (Exception e) // any other capture failure is a failed save too (INV-0002)
         {
-            failure = e.Message;
+            captured = true;
+            saveError = e.Message;
         }
 
-        MapSandbox.LogScreenshot(screenshot, failure);
+        // user:// and res:// paths are Godot's; the log names the file on disk.
+        ViewerLog.Screenshot(
+            Area.Sandbox,
+            ProjectSettings.GlobalizePath(screenshot),
+            ViewerLog.CaptureFailure(captured, saveError)
+        );
         GetTree().Quit();
     }
 }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
@@ -80,16 +79,6 @@ public sealed record MapSandbox
         Log.Error(Area.Sandbox, text);
 
         return text;
-    }
-
-    /// <summary>Logs a screenshot run's end: INFO with the absolute path when <c>failure</c> is null, else ERROR with path and reason.</summary>
-    public static void LogScreenshot(string path, string? failure)
-    {
-        var full = Log.Quote(Path.GetFullPath(path));
-        if (failure == null)
-            Log.Info(Area.Sandbox, $"screenshot saved: {full}");
-        else
-            Log.Error(Area.Sandbox, $"screenshot not saved: {full}: {failure}");
     }
 
     // The problem that stops the sandbox opening is one ERROR entry. The command line's own problems are logged

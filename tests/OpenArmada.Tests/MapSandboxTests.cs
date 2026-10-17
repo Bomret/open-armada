@@ -114,7 +114,7 @@ public class MapSandboxTests
     public void ASavedScreenshotIsOneInfoEntryWithItsAbsolutePath()
     {
         using var log = new CapturedLog();
-        MapSandbox.LogScreenshot("shot.png", null);
+        ViewerLog.Screenshot(Area.Sandbox, "shot.png", null);
         var line = Assert.ContainsSingle(log.Lines);
         StringAssert.EndsWith(
             line,
@@ -126,7 +126,7 @@ public class MapSandboxTests
     public void AScreenshotThatFailedToSaveIsOneErrorEntryWithPathAndReason()
     {
         using var log = new CapturedLog();
-        MapSandbox.LogScreenshot("shot.png", "ERR_FILE_CANT_WRITE");
+        ViewerLog.Screenshot(Area.Sandbox, "shot.png", "ERR_FILE_CANT_WRITE");
         var line = Assert.ContainsSingle(log.Lines);
         StringAssert.Contains(line, " ERROR sandbox: ");
         StringAssert.Contains(line, Log.Quote(System.IO.Path.GetFullPath("shot.png")));

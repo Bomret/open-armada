@@ -69,19 +69,20 @@ public static class ViewerLog
         captured ? saveError : "no viewport image to capture (a headless run has no renderer)";
 
     /// <summary>
-    /// A screenshot run's result: INFO with the absolute path when <c>failure</c> is null, else ERROR with the
-    /// path and the reason.
+    /// A screenshot run's result in <c>area</c>, the mode that took it: INFO with the absolute path when
+    /// <c>failure</c> is null, else ERROR with the path and the reason. The caller globalizes a Godot path
+    /// (user://, res://) first.
     /// </summary>
-    public static void Screenshot(string path, string? failure)
+    public static void Screenshot(Area area, string path, string? failure)
     {
         var full = Path.GetFullPath(path);
         if (failure == null)
         {
-            Log.Info(Area.Browser, $"screenshot saved: {Log.Quote(full)}");
+            Log.Info(area, $"screenshot saved: {Log.Quote(full)}");
         }
         else
         {
-            Log.Error(Area.Browser, $"screenshot not saved: {Log.Quote(full)}: {failure}");
+            Log.Error(area, $"screenshot not saved: {Log.Quote(full)}: {failure}");
         }
     }
 }

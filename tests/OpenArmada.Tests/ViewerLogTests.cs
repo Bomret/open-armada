@@ -120,7 +120,7 @@ public class ViewerLogTests
     public void Saved_screenshot_is_one_info_with_the_absolute_path()
     {
         using var log = new CapturedLog();
-        ViewerLog.Screenshot("out.png", null);
+        ViewerLog.Screenshot(Area.Browser, "out.png", null);
         Assert.AreEqual(1, log.Lines.Count);
         StringAssert.Contains(log.Text, " INFO browser: ");
         StringAssert.Contains(log.Text, Path.GetFullPath("out.png"));
@@ -143,7 +143,7 @@ public class ViewerLogTests
     public void Failed_screenshot_is_one_error_with_path_and_reason()
     {
         using var log = new CapturedLog();
-        ViewerLog.Screenshot("out.png", "Cannot open file");
+        ViewerLog.Screenshot(Area.Browser, "out.png", "Cannot open file");
         Assert.AreEqual(1, log.Lines.Count);
         StringAssert.Contains(log.Text, " ERROR browser: ");
         StringAssert.Contains(log.Text, Path.GetFullPath("out.png"));

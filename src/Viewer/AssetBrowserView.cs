@@ -262,7 +262,11 @@ public partial class AssetBrowserView : Control
         }
 
         // user:// and res:// paths are Godot's; the log names the file on disk.
-        ViewerLog.Screenshot(ProjectSettings.GlobalizePath(_screenshot), ViewerLog.CaptureFailure(captured, saveError));
+        ViewerLog.Screenshot(
+            Area.Browser,
+            ProjectSettings.GlobalizePath(_screenshot),
+            ViewerLog.CaptureFailure(captured, saveError)
+        );
         GetTree().Quit();
     }
 }

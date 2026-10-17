@@ -28,9 +28,9 @@ public sealed class CombatWorld
     // stand-in: a shield bubble reaches this many radii from a unit's center; the game's shape is not known.
     const float BubbleRadii = 1.25f;
 
-    // stand-in: a flying shot touches a unit within at least this many world units of its center, so a unit of
-    // radius 0 (a model without meshes) can be hit; the game's collision radius is not known.
-    const float MinimumContactReach = 5f;
+    // stand-in: a flying shot touches a unit of radius 0 (a model without meshes) within this many world units of
+    // its center, so such a unit can be hit; the game's collision radius is not known.
+    const float ZeroRadiusContactReach = 5f;
     const double Epsilon = 1e-9;
     const float ArrivedWithin = 1e-3f;
 
@@ -356,10 +356,10 @@ public sealed class CombatWorld
             if (shot.Kind == ShotKind.Torpedo && shot.Age <= ordnance.SeekTime)
                 shot.Direction = Steer(shot, Tick);
             var step = shot.Direction * ordnance.ShotSpeed * (float)Tick;
-            var reach = Math.Max(
-                MinimumContactReach,
-                shot.Target.Shields > 0 ? shot.Target.Radius * BubbleRadii : shot.Target.Radius
-            );
+            var reach =
+                shot.Target.Radius == 0 ? ZeroRadiusContactReach
+                : shot.Target.Shields > 0 ? shot.Target.Radius * BubbleRadii
+                : shot.Target.Radius;
             if (SegmentDistance(shot.Position, shot.Position + step, Position(shot.Target)) <= reach)
             {
                 _shots.Remove(shot);

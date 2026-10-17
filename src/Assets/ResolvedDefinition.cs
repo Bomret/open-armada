@@ -26,11 +26,7 @@ public sealed record DefinitionValue
 }
 
 // A key that is missing or whose value has the wrong type. The message names the definition and the key.
-public sealed class DefinitionException : Exception
-{
-    public DefinitionException(string message)
-        : base(message) { }
-}
+public sealed class DefinitionException(string message) : Exception(message);
 
 // An object definition with its include chain and the override layer applied: one value per key, the
 // definition's own values over its includes', a later include over an earlier one. Keys and include

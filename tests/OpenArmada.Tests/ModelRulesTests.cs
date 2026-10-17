@@ -55,7 +55,7 @@ public class ModelRulesTests
         {
             Version = 1.2f,
             TextureMaterials =
-            {
+            [
                 new Sod.TextureMaterial
                 {
                     Name = "fx",
@@ -65,7 +65,7 @@ public class ModelRulesTests
                     DstBlend = dst,
                     Filter = filter,
                 },
-            },
+            ],
         };
 
     [TestMethod]

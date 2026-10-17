@@ -12,16 +12,16 @@ namespace OpenArmada.Formats;
 // Version 1.8 follows the official Storm3D spec; older versions are decoded from the files.
 public sealed class Sod
 {
-    public float Version;
-    public List<TextureMaterial> TextureMaterials = new();
-    public List<LightingMaterial> LightingMaterials = new();
-    public List<Node> Nodes = new();
-    public List<AnimationChannel> Channels = new();
-    public List<AnimationReference> References = new();
+    public required float Version { get; init; }
+    public IReadOnlyList<TextureMaterial> TextureMaterials { get; init; } = [];
+    public IReadOnlyList<LightingMaterial> LightingMaterials { get; init; } = [];
+    public IReadOnlyList<Node> Nodes { get; init; } = [];
+    public IReadOnlyList<AnimationChannel> Channels { get; init; } = [];
+    public IReadOnlyList<AnimationReference> References { get; init; } = [];
 
     // Data the file holds that cannot be drawn (a face index past the mesh, an unknown parent); the
     // reader keeps going and lists each one for the model.
-    public List<string> Problems = new();
+    public IReadOnlyList<string> Problems { get; init; } = [];
 
     public sealed class TextureMaterial
     {
@@ -72,7 +72,7 @@ public sealed class Sod
             Texture = "";
         public Vector3[] Vertices = Array.Empty<Vector3>();
         public Vector2[] TexCoords = Array.Empty<Vector2>();
-        public List<Group> Groups = new();
+        public IReadOnlyList<Group> Groups = Array.Empty<Group>();
         public bool BackfaceCull;
     }
 
@@ -118,21 +118,26 @@ public sealed class Sod
         if (magic != "Storm3D_SW" && magic != "StarTrekDB")
             throw new InvalidDataException($"not a SOD file: '{magic}'");
 
-        var sod = new Sod { Version = r.ReadSingle() };
+        var version = r.ReadSingle();
+        var textureMaterials = new List<TextureMaterial>();
+        var lightingMaterials = new List<LightingMaterial>();
+        var nodeList = new List<Node>();
+        var channelList = new List<AnimationChannel>();
+        var references = new List<AnimationReference>();
         // Only Wviracod.SOD uses 1.0, and nothing in the game references it.
-        if (sod.Version == 1.0f)
-            throw new UnsupportedFormatException($"SOD version {sod.Version} is not supported");
+        if (version == 1.0f)
+            throw new UnsupportedFormatException($"SOD version {version} is not supported");
         // Any version outside the decoded set (including NaN and infinities) is corrupt.
-        if (Array.IndexOf(KnownVersions, sod.Version) < 0)
-            throw new InvalidDataException($"unrecognised SOD version {sod.Version}");
+        if (Array.IndexOf(KnownVersions, version) < 0)
+            throw new InvalidDataException($"unrecognised SOD version {version}");
 
         // Versions before 1.7 start with a texture material table.
-        if (sod.Version < 1.65f)
+        if (version < 1.65f)
         {
             int count = r.ReadUInt16();
             for (int i = 0; i < count; i++)
             {
-                sod.TextureMaterials.Add(
+                textureMaterials.Add(
                     new TextureMaterial
                     {
                         Name = Id(r),
@@ -161,10 +166,10 @@ public sealed class Sod
             // Versions up to 1.4 store the model plus one (Armada.exe 0x59bd80; the installed files hold 1 to 3),
             // so a stored 0 there is no model: 255, which no lighting model matches.
             material.Model =
-                sod.Version < 1.45f
+                version < 1.45f
                     ? (byte)(material.StoredModel == 0 ? 255 : material.StoredModel - 1)
                     : material.StoredModel;
-            sod.LightingMaterials.Add(material);
+            lightingMaterials.Add(material);
         }
 
         int nodes = r.ReadUInt16();
@@ -180,7 +185,7 @@ public sealed class Sod
             switch (node.Type)
             {
                 case NodeType.Mesh:
-                    node.Mesh = ReadMesh(r, sod.Version);
+                    node.Mesh = ReadMesh(r, version);
 
                     break;
                 case NodeType.Emitter:
@@ -193,11 +198,11 @@ public sealed class Sod
                     throw new InvalidDataException($"unknown node type {(ushort)node.Type} at {r.BaseStream.Position}");
             }
 
-            sod.Nodes.Add(node);
+            nodeList.Add(node);
         }
 
         // 1.2 files end after the nodes, 1.4 and 1.5 after the animation channels.
-        int channels = sod.Version >= 1.3f ? r.ReadUInt16() : 0;
+        int channels = version >= 1.3f ? r.ReadUInt16() : 0;
         for (int i = 0; i < channels; i++)
         {
             var ch = new AnimationChannel { Node = Id(r) };
@@ -210,38 +215,48 @@ public sealed class Sod
                 ch.Keyframes[k] = Matrix(r);
             }
 
-            sod.Channels.Add(ch);
+            channelList.Add(ch);
         }
 
-        int refs = sod.Version >= 1.55f ? r.ReadUInt16() : 0;
+        int refs = version >= 1.55f ? r.ReadUInt16() : 0;
         for (int i = 0; i < refs; i++)
         {
-            sod.References.Add(
+            references.Add(
                 new AnimationReference
                 {
                     Type = r.ReadByte(),
                     Node = Id(r),
                     Animation = Id(r),
-                    Offset = sod.Version >= 1.75f ? r.ReadSingle() : 0f, // 1.8 added the time offset
+                    Offset = version >= 1.75f ? r.ReadSingle() : 0f, // 1.8 added the time offset
                 }
             );
         }
 
         if (r.BaseStream.Position != data.Length)
             throw new InvalidDataException($"{data.Length - r.BaseStream.Position} trailing bytes");
-        sod.FindProblems();
 
-        return sod;
+        return new Sod
+        {
+            Version = version,
+            TextureMaterials = textureMaterials,
+            LightingMaterials = lightingMaterials,
+            Nodes = nodeList,
+            Channels = channelList,
+            References = references,
+            Problems = FindProblems(nodeList),
+        };
     }
 
     // Whether following the parent names from a node (the first node of a name is the parent) comes
     // back to it: a node naming itself, or a loop of nodes. Such a node is no child of any node.
-    public bool InParentCycle(Node node)
+    public bool InParentCycle(Node node) => InParentCycle(Nodes, node);
+
+    static bool InParentCycle(IReadOnlyList<Node> nodes, Node node)
     {
         var seen = new HashSet<Node>();
         for (var current = node; current.Parent.Length > 0; )
         {
-            var parent = Nodes.FirstOrDefault(p => p.Name == current.Parent);
+            var parent = nodes.FirstOrDefault(p => p.Name == current.Parent);
             if (parent == null || !seen.Add(parent))
                 return false;
             if (parent == node)
@@ -252,19 +267,20 @@ public sealed class Sod
         return false;
     }
 
-    void FindProblems()
+    static List<string> FindProblems(IReadOnlyList<Node> nodes)
     {
-        var names = Nodes.Select(n => n.Name).ToHashSet();
-        foreach (var n in Nodes)
+        var problems = new List<string>();
+        var names = nodes.Select(n => n.Name).ToHashSet();
+        foreach (var n in nodes)
         {
             if (n.Parent.Length > 0 && !names.Contains(n.Parent))
             {
-                Problems.Add($"node '{n.Name}' names the parent '{n.Parent}', which the model lacks");
+                problems.Add($"node '{n.Name}' names the parent '{n.Parent}', which the model lacks");
             }
 
-            if (InParentCycle(n))
+            if (InParentCycle(nodes, n))
             {
-                Problems.Add(
+                problems.Add(
                     $"node '{n.Name}' is its own ancestor through its parents (a parent cycle); it hangs from the root"
                 );
             }
@@ -275,14 +291,14 @@ public sealed class Sod
             {
                 if (v >= m.Vertices.Length)
                 {
-                    Problems.Add($"node '{n.Name}': a face corner uses vertex {v}, the mesh has {m.Vertices.Length}");
+                    problems.Add($"node '{n.Name}': a face corner uses vertex {v}, the mesh has {m.Vertices.Length}");
 
                     break;
                 }
 
                 if (t >= m.TexCoords.Length)
                 {
-                    Problems.Add(
+                    problems.Add(
                         $"node '{n.Name}': a face corner uses texture coordinate {t}, the mesh has {m.TexCoords.Length}"
                     );
 
@@ -290,6 +306,8 @@ public sealed class Sod
                 }
             }
         }
+
+        return problems;
     }
 
     static Mesh ReadMesh(BinaryReader r, float version)
@@ -323,6 +341,7 @@ public sealed class Sod
             mesh.TexCoords[i] = new Vector2(r.ReadSingle(), r.ReadSingle());
         }
 
+        var groupList = new List<Group>();
         for (int g = 0; g < groups; g++)
         {
             int faces = r.ReadUInt16();
@@ -332,9 +351,10 @@ public sealed class Sod
                 group.Corners[c] = (r.ReadUInt16(), r.ReadUInt16());
             }
 
-            mesh.Groups.Add(group);
+            groupList.Add(group);
         }
 
+        mesh.Groups = groupList;
         mesh.BackfaceCull = r.ReadByte() != 0;
         // Count + vertex indices, meaning unknown; the spec claims this is always 0 (Zentity.SOD disagrees).
         r.ReadBytes(r.ReadUInt16() * 2);
@@ -382,7 +402,7 @@ public sealed class Sod
         }
 
         group.Corners = corners.ToArray();
-        mesh.Groups.Add(group);
+        mesh.Groups = new[] { group };
 
         return mesh;
     }

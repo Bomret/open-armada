@@ -1,6 +1,7 @@
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
@@ -50,6 +51,8 @@ public sealed class CursorPreview : KindPreview
         {
             image.FillRect(edge, Colors.Cyan);
         }
+
+        ViewerLog.Notes(name, cursor.Notes);
 
         return new ImagePane(
             $"{cursor.Width}x{cursor.Height}, hotspot at ({cursor.HotspotX}, {cursor.HotspotY}){string.Concat(cursor.Notes.Select(n => " - " + n))}",

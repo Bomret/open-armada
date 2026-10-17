@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 
@@ -262,7 +263,7 @@ public sealed class SodBuilder
 
         if (tex == null)
         {
-            GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
+            ViewerLog.TextureUnavailable(name, why);
         }
 
         return _textures[name] = tex;

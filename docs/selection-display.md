@@ -28,7 +28,8 @@ two sprites is **unknown**.
 
 Each part of the display is placed relative to the unit's screen box. The screen box is the smallest
 screen rectangle that holds the eight corners of the unit's bounding box, projected to the screen
-(0x49a3f0). Below, `left`, `top`, `right`, and `bottom` are the edges of that box in pixels, and the box
+(0x49a3f0). Whether that bounding box turns with the unit or stays aligned to the world axes is
+**unknown**: the routine that projects the corners (0x49a4a0) was not read. Below, `left`, `top`, `right`, and `bottom` are the edges of that box in pixels, and the box
 width is `right - left + 1`.
 
 ## Which units show it

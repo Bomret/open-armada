@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Rendering;
 using OpenArmada.Sandbox;
@@ -42,6 +43,7 @@ public partial class CombatView : Node3D
     }
 
     readonly CombatArt _art;
+    readonly RepeatedFaults _faults = new(Area.Combat);
     readonly CombatWorld _world;
     readonly Dictionary<PlacedObject, Node3D> _nodes;
     readonly Dictionary<string, ImageTexture?> _textures = new(StringComparer.OrdinalIgnoreCase);
@@ -85,9 +87,7 @@ public partial class CombatView : Node3D
             }
             catch (Exception e) // a sound that cannot be decoded is a gap, whatever the reason (INV-0002)
             {
-                art.Report("sound cannot be decoded, it is not played", name);
-
-                GD.PrintErr($"sound {name}: {e.Message}");
+                art.Fail("sound", name, e.Message, "sound cannot be decoded, it is not played");
             }
         }
 
@@ -103,9 +103,7 @@ public partial class CombatView : Node3D
             }
             catch (Exception e) // a model that cannot be read is a gap, whatever the reason (INV-0002)
             {
-                art.Report("explosion model cannot be read, it shows no model", name);
-
-                GD.PrintErr($"explosion model {name}: {e.Message}");
+                art.Fail("explosion model", name, e.Message, "explosion model cannot be read, it shows no model");
             }
         }
 
@@ -124,9 +122,7 @@ public partial class CombatView : Node3D
         }
         catch (Exception e) // a texture that cannot be read is a gap, whatever the reason (INV-0002)
         {
-            _art.Report("sprite texture cannot be read, its shots are not drawn", name);
-
-            GD.PrintErr($"sprite texture {name}: {e.Message}");
+            _art.Fail("sprite texture", name, e.Message, "sprite texture cannot be read, its shots are not drawn");
 
             return _textures[name] = null;
         }
@@ -158,10 +154,16 @@ public partial class CombatView : Node3D
             }
             catch (Exception ex) // a failure of one event's presentation never stops the fight (INV-0002)
             {
-                GD.PrintErr($"combat presentation failed: {ex.Message}");
+                _faults.Report($"combat presentation failed: {ex.Message}");
             }
         }
     }
+
+    /// <summary>
+    /// Logs the count of repeated presentation faults. Godot exits the children of a node before the node, so this
+    /// runs before the run-end entry of the AssetBrowserView above the sandbox.
+    /// </summary>
+    public override void _ExitTree() => _faults.Flush();
 
     // A unit's place in the world; null when its node is gone, so nothing is drawn or sounded there.
     Vector3? At(PlacedObject unit) =>

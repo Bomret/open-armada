@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 
@@ -130,6 +131,25 @@ public class CombatPlanTests
         var gap = r.Plan.Reports.Single(g => g.Cause.Contains("weapon definition"));
         CollectionAssert.AreEqual(new[] { "nope" }, gap.Names.ToArray());
         Assert.AreEqual(1, gap.Count);
+    }
+
+    [TestMethod]
+    public void EachGapCauseIsOneWarnEntryEqualToItsLabelLine()
+    {
+        using var log = new CapturedLog();
+        var weapon = "weapon1 = \"nope\"\r\nweaponHardpoints1 = \"a\"\r\n";
+        var r = Plan(
+            new[] { "s", "t" },
+            new[] { ("s", Ship + weapon), ("t", Ship + weapon), ("fed", Race) },
+            ("RTS_CFG.h", Constants)
+        );
+        Assert.AreEqual(r.Plan.Reports.Count, log.Lines.Count, log.Text);
+        for (var i = 0; i < log.Lines.Count; i++)
+        {
+            StringAssert.Contains(log.Lines[i], " WARN combat: " + r.Plan.Reports[i].Text);
+        }
+
+        Assert.AreEqual(r.Plan.Reports.Count, Log.WarnCount);
     }
 
     [TestMethod]

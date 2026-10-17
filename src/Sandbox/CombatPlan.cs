@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
@@ -80,7 +81,14 @@ public sealed class CombatPlan
             }
         }
 
-        return new CombatPlan(profiles, gaps.Entries, protection, bonus);
+        // The plan is complete: each grouped report is one WARN, the same text as its on-screen line.
+        var reports = gaps.Entries;
+        foreach (var report in reports)
+        {
+            Log.Warn(Area.Combat, report.Text);
+        }
+
+        return new CombatPlan(profiles, reports, protection, bonus);
     }
 
     static (float Protection, float Bonus) ReadConstants(GameFileSystem files, Gaps gaps)

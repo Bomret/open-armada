@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
@@ -177,6 +178,16 @@ public sealed class CombatArt
 
     /// <summary>A failure of the view (a texture or a sound that cannot be decoded) joins the gaps, once per cause.</summary>
     public void Report(string cause, string name) => _gaps.Add(cause, name);
+
+    /// <summary>
+    /// A failure of the view: joins the gaps like <see cref="Report"/> (the grouped line is display only) and is one
+    /// ERROR entry of its own, <c>&lt;kind&gt; &lt;name&gt;: &lt;reason&gt;</c>.
+    /// </summary>
+    public void Fail(string kind, string name, string reason, string cause)
+    {
+        Report(cause, name);
+        Log.Error(Area.Combat, $"{kind} {name}: {reason}");
+    }
 
     /// <summary>The gaps found by <see cref="Build"/> and <see cref="Report"/>, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports => _gaps.Entries;

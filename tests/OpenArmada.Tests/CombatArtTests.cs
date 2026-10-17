@@ -311,4 +311,15 @@ public class CombatArtTests
         art.Report("sound cannot be decoded", "ph.wav");
         Assert.AreEqual(2, art.Reports.Single().Count);
     }
+
+    [TestMethod]
+    public void ASoundThatCannotBeDecodedIsOneErrorEntryWithItsNameAndReasonAndTheGroupedLineIsNotLogged()
+    {
+        var art = CombatArt.Build(Install(), new[] { Unit(Armed("phaser", "ph.wav", "hp01")) });
+        using var log = new CapturedLog();
+        art.Fail("sound", "ph.wav", "bad RIFF header", "sound cannot be decoded, it is not played");
+
+        StringAssert.Contains(log.Lines.Single(), " ERROR combat: sound ph.wav: bad RIFF header");
+        StringAssert.Contains(art.Reports.Single().Text, "sound cannot be decoded");
+    }
 }

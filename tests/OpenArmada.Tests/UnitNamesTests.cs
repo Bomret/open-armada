@@ -34,9 +34,19 @@ public class UnitNamesTests
         var second = Of("ship");
         var names = new UnitNames([first, Of("lone"), second]);
 
-        Assert.AreEqual(first, names.Resolve("ship#1").Unit);
-        Assert.AreEqual(second, names.Resolve("ship#2").Unit);
+        Assert.AreSame(first, names.Resolve("ship#1").Unit);
+        Assert.AreSame(second, names.Resolve("ship#2").Unit);
         Assert.AreEqual("ship#2", names.Name(second));
+    }
+
+    [TestMethod]
+    public void ALabelThatReadsLikeAGeneratedNameIsAProblemNamingBoth()
+    {
+        var names = new UnitNames([Of("ship"), Of("ship"), Of("ship#2")]);
+        var (unit, problem) = names.Resolve("ship#2");
+
+        Assert.IsNull(unit);
+        StringAssert.Contains(problem, "'ship#2' is both a label and the 2nd 'ship'");
     }
 
     [TestMethod]

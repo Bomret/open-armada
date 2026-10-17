@@ -19,11 +19,11 @@ public class PlayRunTests
         readonly PlayRun _run;
         public readonly PlayState State;
 
-        public Fight(PlayScript script, string folder)
+        public Fight(PlayScript script, string folder, bool lethal = false)
         {
             var a = Placed("a", 1, 0);
             var b = Placed("b", 2, 10);
-            var beam = Weapon(Beam(damage: 6, variance: 5), delay: 0.5f, hitChance: 0.5f);
+            var beam = Weapon(Beam(damage: lethal ? 60 : 6, variance: 5), delay: 0.5f, hitChance: 0.5f);
             var units = new[] { a, b }
                 .Select(o => new CombatUnit
                 {
@@ -31,7 +31,12 @@ public class PlayRunTests
                     Profile = Profile(
                         [beam],
                         maxHealth: 30,
-                        systems: [Sys(SystemNames.Engines, 5), Sys(SystemNames.Weapons, 5)]
+                        hull: lethal ? 0 : 100,
+                        systems:
+                        [
+                            Sys(SystemNames.Engines, 5, percent: lethal ? 0 : 10),
+                            Sys(SystemNames.Weapons, 5, percent: lethal ? 0 : 10),
+                        ]
                     ),
                     DefinitionName = o.Label + ".odf",
                     Radius = 0,
@@ -94,6 +99,23 @@ public class PlayRunTests
         {
             Directory.Delete(one, true);
             Directory.Delete(two, true);
+        }
+    }
+
+    [TestMethod]
+    public void AUnitThatCombatDestroysIsDumpedWithItsDestroyedFlagSet()
+    {
+        var folder = Temp();
+        try
+        {
+            var fight = new Fight(PlayScript.Parse("wait 120\ndump end\n", "x.play"), folder, lethal: true);
+            fight.Play();
+
+            StringAssert.Contains(File.ReadAllText(Path.Combine(folder, "end.txt")), "destroyed=true");
+        }
+        finally
+        {
+            Directory.Delete(folder, true);
         }
     }
 
@@ -166,6 +188,29 @@ public class PlayRunTests
     [DataRow(true, true, true, "--play cannot be combined with --screenshot")]
     public void ALaunchThatCannotPlayIsAProblem(bool movie, bool map, bool screenshot, string problem) =>
         StringAssert.StartsWith(PlayRun.LaunchProblem(movie, map, screenshot), problem);
+
+    [TestMethod]
+    public void AMovieFileInAMissingFolderIsAProblemNamingTheFolder()
+    {
+        var folder = Path.Combine(Temp(), "duel");
+
+        StringAssert.Contains(PlayRun.MovieProblem(Path.Combine(folder, "frame.png")), $"'{folder}' does not exist");
+    }
+
+    [TestMethod]
+    public void AMovieFileInAnExistingFolderHasNoProblem()
+    {
+        var folder = Temp();
+        Directory.CreateDirectory(folder);
+        try
+        {
+            Assert.IsNull(PlayRun.MovieProblem(Path.Combine(folder, "frame.png")));
+        }
+        finally
+        {
+            Directory.Delete(folder);
+        }
+    }
 
     [TestMethod]
     public void ALaunchUnderMovieMakerWithAMapAndNoScreenshotHasNoProblem() =>

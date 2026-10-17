@@ -57,7 +57,7 @@ These rules apply to every map the sandbox opens.
 
 ## Run a play script
 
-A play run opens the map sandbox, runs the steps of a play script in file order on simulated time, and quits after the last step. It runs under Godot's Movie Maker, which writes a PNG per frame and one WAV of the mixed audio and forces a fixed time step. Clear the output folder before a run, and create it: Movie Maker writes its files into it from the first frame, and the run itself deletes nothing there.
+A play run opens the map sandbox, runs the steps of a play script in file order on simulated time, and quits after the last step. It runs under Godot's Movie Maker, which writes a PNG per frame and one WAV of the mixed audio and forces a fixed time step. Clear the output folder before a run, and create it: Movie Maker writes its files into it from the first frame, and the run itself deletes nothing there. A run whose movie output folder is missing is a problem.
 
 ```sh
 rm -rf play-out/duel && mkdir -p play-out/duel
@@ -66,7 +66,7 @@ godot-mono --path . --write-movie play-out/duel/frame.png --fixed-fps 30 -- --ga
 
 `play-out/<script name>/` holds the frames, the WAV, and the state dumps of the run; the script name is the script's file name without its extension. Git ignores `play-out/`. The run creates the folder for a dump when it is missing.
 
-`--play <file>` is only accepted under Movie Maker (`--write-movie` with `--fixed-fps`), with `--map`, and without `--screenshot`. Anything else is a problem: one `ERROR` log entry, exit code 1, and no window.
+`--play <file>` is only accepted under Movie Maker (`--write-movie` with `--fixed-fps`), with `--map`, and without `--screenshot`. Anything else, a `--play` without a file, and a missing movie output folder are problems: one log entry, exit code 1, and no window.
 
 A play script is a text file with one step per line. Blank lines and lines that start with `#` are skipped. Steps:
 
@@ -74,7 +74,7 @@ A play script is a text file with one step per line. Blank lines and lines that 
 - `dump <name>` writes a state dump to `play-out/<script name>/<name>.txt`.
 - `expect <unit> <field> <op> <value>` checks one value of a unit's state. The fields are `shields`, `crew`, a system's hit points (`Engines`, `LifeSupport`, `Weapons`, `ShieldGenerator`, or `Sensors`), `destroyed` (`true` or `false`), and `target` (a unit name or `none`). The operators are `<`, `<=`, `=`, `>=`, and `>`; `destroyed` and `target` take only `=`. A number compares to the unit's value exactly, so use `>=` or `<=` for a value that changes.
 
-A unit is named by its map label, or by its class when the label is empty. When several units share a name, `name#k` is the k-th of them in map order, and the bare name is a problem. A unit that is destroyed leaves the fight: only `expect <unit> destroyed = true` can still ask about it, and every other step that names it is a problem.
+A unit is named by its map label, or by its class when the label is empty. When several units share a name, `name#k` is the k-th of them in map order, and the bare name is a problem. So is a label that reads like such a name (`ship#2` beside two units named `ship`). A unit that is destroyed leaves the fight: only `expect <unit> destroyed = true` can still ask about it, and every other step that names it is a problem.
 
 A state dump has one line per unit, destroyed units included, in map order. The fields are separated by spaces: the unit's name, `team=`, `pos=` (x,y,z), `shields=`, `crew=`, one `<System>=<hit points>/<maximum>/<intact or destroyed>` for each system the unit has (in the order Engines, LifeSupport, Weapons, ShieldGenerator, Sensors), `derelict=`, `immobile=`, `destroyed=`, `alert=`, `order=`, and `target=` (a unit name or `none`). A unit without combat state shows `state=none` after its position. Numbers have two decimals and no thousands separator, whatever the system's culture, and a dump holds no time of day.
 

@@ -42,8 +42,8 @@ public sealed record ExpectStep : PlayStep
     /// <summary>The value as written: a number, <c>true</c> or <c>false</c>, or a unit name or <c>none</c> for <c>target</c>.</summary>
     public required string Value { get; init; }
 
-    /// <summary>The number of a numeric field's value; null for <c>destroyed</c> and <c>target</c>.</summary>
-    public double? Number { get; init; }
+    /// <summary>The number a numeric field's <see cref="Value"/> reads as; the parser has checked that it does.</summary>
+    public double Number => double.Parse(Value, NumberStyles.Float, CultureInfo.InvariantCulture);
 }
 
 /// <summary>
@@ -151,10 +151,7 @@ public sealed class PlayScript
         if (args.Length != 4)
             return Wrong("expect", 4, args.Length);
         var field = args[1].ToLowerInvariant();
-        var system = typeof(SystemNames)
-            .GetFields()
-            .Select(f => (string)f.GetRawConstantValue()!)
-            .FirstOrDefault(s => s.Equals(field, StringComparison.OrdinalIgnoreCase));
+        var system = SystemNames.All.FirstOrDefault(s => s.Equals(field, StringComparison.OrdinalIgnoreCase));
         if (system != null)
         {
             field = system;
@@ -167,7 +164,6 @@ public sealed class PlayScript
         var op = args[2];
         if (!Ops.Contains(op))
             return (null, $"unknown operator '{op}', use one of < <= = >= >");
-        double? number2 = null;
         if (field is "destroyed" or "target")
         {
             if (op != "=")
@@ -177,9 +173,8 @@ public sealed class PlayScript
         }
         else
         {
-            if (!Number(args[3], out var value))
+            if (!Number(args[3], out _))
                 return (null, $"'{args[3]}' is not a number");
-            number2 = value;
         }
 
         return (
@@ -190,7 +185,6 @@ public sealed class PlayScript
                 Field = field,
                 Op = op,
                 Value = args[3],
-                Number = number2,
             },
             null
         );

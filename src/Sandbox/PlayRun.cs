@@ -26,6 +26,20 @@ public sealed class PlayRun(PlayScript script, PlayState state, string outputFol
         : hasScreenshot ? "--play cannot be combined with --screenshot"
         : null;
 
+    /// <summary>
+    /// The problem with the Movie Maker output, or null: Movie Maker opens its PNG and WAV files at engine start
+    /// and writes nothing, yet the run goes on, when the folder of <c>moviePath</c> (the <c>--write-movie</c> value)
+    /// does not exist.
+    /// </summary>
+    public static string? MovieProblem(string moviePath)
+    {
+        var folder = System.IO.Path.GetDirectoryName(moviePath);
+
+        return string.IsNullOrEmpty(folder) || System.IO.Directory.Exists(folder)
+            ? null
+            : $"movie output folder '{folder}' does not exist: create it before the run";
+    }
+
     /// <summary>Whether the last step has run and its wait has passed, or a step failed.</summary>
     public bool Finished { get; private set; }
 

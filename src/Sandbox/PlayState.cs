@@ -15,16 +15,6 @@ namespace OpenArmada.Sandbox;
 /// </summary>
 public sealed class PlayState
 {
-    /// <summary>The systems in the order a dump lists them.</summary>
-    static readonly string[] SystemOrder =
-    [
-        SystemNames.Engines,
-        SystemNames.LifeSupport,
-        SystemNames.Weapons,
-        SystemNames.ShieldGenerator,
-        SystemNames.Sensors,
-    ];
-
     readonly UnitNames _names;
     readonly Func<PlacedObject, ShipPose> _pose;
     readonly Dictionary<PlacedObject, UnitCombatState> _states = new(ReferenceEqualityComparer.Instance);
@@ -68,7 +58,7 @@ public sealed class PlayState
             if (_states.TryGetValue(unit, out var s))
             {
                 text.Append(CultureInfo.InvariantCulture, $" shields={s.Shields:F2} crew={s.Crew:F2}");
-                foreach (var name in SystemOrder.Where(s.Systems.ContainsKey))
+                foreach (var name in SystemNames.All.Where(s.Systems.ContainsKey))
                 {
                     var system = s.Systems[name];
                     text.Append(
@@ -145,7 +135,7 @@ public sealed class PlayState
                 }
 
                 actual = value.ToString("F2", CultureInfo.InvariantCulture);
-                holds = Compare(value, step.Op, step.Number!.Value);
+                holds = Compare(value, step.Op, step.Number);
 
                 break;
         }

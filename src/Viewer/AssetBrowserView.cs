@@ -48,8 +48,14 @@ public partial class AssetBrowserView : Control
             args.Value("--map"); // looked up now so its problem is known at run start
         }
 
+        if (!check && args.Has("--play"))
+        {
+            args.Value("--play"); // likewise: a bare --play is logged here, once
+        }
+
         var mode =
             check ? "check"
+            : args.Has("--play") ? "play"
             : args.Has("--map") ? "map"
             : "browser";
         var source =
@@ -241,6 +247,11 @@ public partial class AssetBrowserView : Control
     void StartPlayRun(LaunchArgs args, string? game)
     {
         var problem = PlayRun.LaunchProblem(OS.HasFeature("movie"), args.Has("--map"), args.Has("--screenshot"));
+        if (problem == null)
+        {
+            problem = PlayRun.MovieProblem(Engine.GetWriteMoviePath());
+        }
+
         var file = args.Value("--play");
         if (problem != null)
         {

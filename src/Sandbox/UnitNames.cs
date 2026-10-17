@@ -6,7 +6,8 @@ namespace OpenArmada.Sandbox;
 /// <summary>
 /// The names a play script addresses units by. A unit is named by its map label, or by its class when the label
 /// is empty. When several units share a name, <c>name#k</c> is the k-th of them (from 1) in the order the units
-/// were given, and the bare name is ambiguous.
+/// were given, and the bare name is ambiguous. A label that itself reads like such a name (<c>ship#2</c> beside
+/// two units named <c>ship</c>) is ambiguous too.
 /// </summary>
 public sealed class UnitNames
 {
@@ -46,24 +47,37 @@ public sealed class UnitNames
     /// <summary>The unit that <c>name</c> addresses, or the problem: unknown, or a bare name that several units share.</summary>
     public (PlacedObject? Unit, string? Problem) Resolve(string name)
     {
+        var hash = name.LastIndexOf('#');
+        List<PlacedObject>? several = null;
+        var k = 0;
+        var generated =
+            hash > 0
+            && _byName.TryGetValue(name[..hash], out several)
+            && int.TryParse(name[(hash + 1)..], out k)
+            && k >= 1
+            && k <= several.Count
+            && several.Count > 1
+                ? several[k - 1]
+                : null;
         if (_byName.TryGetValue(name, out var same))
         {
+            if (generated != null)
+                return (null, $"'{name}' is both a label and the {Ordinal(k)} '{name[..hash]}'");
+
             return same.Count == 1
                 ? (same[0], null)
                 : (null, $"'{name}' names {same.Count} units, use {name}#1 to {name}#{same.Count}");
         }
 
-        var hash = name.LastIndexOf('#');
-        if (
-            hash > 0
-            && _byName.TryGetValue(name[..hash], out var several)
-            && int.TryParse(name[(hash + 1)..], out var k)
-            && k >= 1
-            && k <= several.Count
-            && several.Count > 1
-        )
-            return (several[k - 1], null);
+        return generated != null ? (generated, null) : (null, $"unknown unit '{name}'");
 
-        return (null, $"unknown unit '{name}'");
+        static string Ordinal(int n) =>
+            n switch
+            {
+                1 => "1st",
+                2 => "2nd",
+                3 => "3rd",
+                _ => $"{n}th",
+            };
     }
 }

@@ -49,6 +49,9 @@ public static class SystemNames
 
     /// <summary>The name of the sensors, whose definition keys start with <c>sensors</c>.</summary>
     public const string Sensors = nameof(HitLocation.Sensors);
+
+    /// <summary>The five names in the order of <see cref="HitLocation"/>, so the index of a system is its location.</summary>
+    public static readonly string[] All = [Engines, LifeSupport, Weapons, ShieldGenerator, Sensors];
 }
 
 /// <summary>

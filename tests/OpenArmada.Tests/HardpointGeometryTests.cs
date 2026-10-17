@@ -106,6 +106,25 @@ public class HardpointGeometryTests
     public void NodeThatIsItsOwnParentEndsWithoutLooping() =>
         AreClose(new Vector3(1, 0, 0), Offset(Model(Root, Node("a", "a", new Vector3(1, 0, 0))), "a"));
 
+    [TestMethod]
+    [Timeout(5000)]
+    public void ParentCycleWhoseNamesDifferOnlyInCaseEndsWithoutLooping() =>
+        AreClose(
+            new Vector3(1, 0, 0),
+            Offset(Model(Root, Node("a", "B", new Vector3(1, 0, 0)), Node("b", "A", new Vector3(0, 2, 0))), "a")
+        );
+
+    [TestMethod]
+    [Timeout(5000)]
+    public void ParentNameMatchesWithRegardToCaseAsTheViewDoes() =>
+        AreClose(
+            new Vector3(10, 0, -5),
+            Offset(
+                Model(Root, Node("mid", "root", new Vector3(1, 2, 3)), Node("hp01", "MID", new Vector3(10, 0, 5))),
+                "hp01"
+            )
+        );
+
     static (PlacedObject Unit, ShipPose Pose) Standing(Vector3 x, Vector3 y, Vector3 z)
     {
         var unit = Placed("u", 1, 10) with { AxisX = x, AxisY = y, AxisZ = z };

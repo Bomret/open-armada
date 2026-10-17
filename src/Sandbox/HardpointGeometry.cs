@@ -10,8 +10,9 @@ namespace OpenArmada.Sandbox;
 public static class HardpointGeometry
 {
     /// <summary>
-    /// The offset of every node from the model's origin, by name (ignoring case; the first node of a name is the one
-    /// kept, and the one a parent name means), in Godot's frame (Z mirrored, as SodBuilder does): the node's origin
+    /// The offset of every node from the model's origin, by name (looked up ignoring case; the first node of a name is
+    /// the one kept). A parent name means the first node of exactly that name, with case, as SodBuilder and
+    /// Sod.InParentCycle read it. The offsets are in Godot's frame (Z mirrored, as SodBuilder does): the node's origin
     /// carried through its transform and those of its parents. The chain ends where SodBuilder hangs a node from the
     /// root: at a node with no parent, a parent the model lacks, or one in a parent cycle. The root itself (the first
     /// such node) adds nothing, since the unit's placement replaces its transform.
@@ -22,7 +23,7 @@ public static class HardpointGeometry
     /// </remarks>
     public static Dictionary<string, Vector3> Offsets(Sod sod)
     {
-        var byName = new Dictionary<string, Sod.Node>(StringComparer.OrdinalIgnoreCase);
+        var byName = new Dictionary<string, Sod.Node>(StringComparer.Ordinal);
         foreach (var n in sod.Nodes)
             byName.TryAdd(n.Name, n);
 

@@ -126,6 +126,7 @@ public partial class MapSandboxView : Node3D
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
+        AddChild(new AlertKeys(AlertBindings.Read(files, AddGap), selection, orders.Combat));
 
         AddChild(new AsteroidFieldsView(files, plan, AddGap));
 

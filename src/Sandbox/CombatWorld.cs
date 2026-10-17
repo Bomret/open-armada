@@ -147,9 +147,37 @@ public sealed class CombatWorld
             u.Order = null;
             u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
         }
-        if (u.Order is not { } order)
-            return;
         var range = LongestRange(u);
+        var radius = range - 25;
+        if (u.Order == null)
+        {
+            if (u.Alert == AlertStance.Green)
+                return; // green picks nothing by itself
+            u.Target = Select(u, held, radius);
+            // A unit is idle when it stands still or is on its own way to an attacker (a move order is not idle).
+            var idle = u.Stopped || u.Intent.Kind == MoveKind.MoveTo;
+            if (u.Alert != AlertStance.Red || !u.Profile.CanAttack || u.Derelict || !idle)
+                return; // yellow never moves on its own
+            if (u.Target != null)
+            {
+                u.Order = u.Target; // idle at red: attack the pick
+                u.Attacker = null;
+            }
+            else if (u.Mobile && u.Attacker is { } attacker && Valid(u, attacker))
+            {
+                var at = Position(attacker); // else go to where the unit that hit it is
+                u.Intent = new MoveIntent(MoveKind.MoveTo, at.X, at.Z);
+                return;
+            }
+            else
+            {
+                u.Attacker = null;
+                if (u.Intent.Kind == MoveKind.MoveTo)
+                    u.Intent = new MoveIntent(MoveKind.Stop);
+                return;
+            }
+        }
+        var order = u.Order!;
         var distance = Surface(u, order);
         if (u.Mobile)
         {
@@ -163,18 +191,25 @@ public sealed class CombatWorld
             u.Target = order;
             return;
         }
-        // Target selection (0x42fd6f): the radius is the longest range less 25; a valid target inside it is kept.
-        var radius = range - 25;
-        u.Target =
-            held is { Destroyed: false } && CombatRules.Hostile(u.Team, held.Team) && Surface(u, held) <= radius
-                ? held
-                : NearestHostile(u, radius);
+        // An ordered target out of range: the weapons fire at the unit's own pick (none at green).
+        u.Target = u.Alert == AlertStance.Green ? null : Select(u, held, radius);
     }
 
-    // The nearest hostile unit whose surface is within `range`; null when none is.
+    // A valid target is hostile, not being destroyed, and not derelict (0x42faa0).
+    // stand-in: every unit is visible to every team until fog of war exists, and the extra check the game makes on
+    // yellow candidates (meaning unknown) is skipped.
+    static bool Valid(UnitCombatState u, UnitCombatState t) =>
+        !t.Destroyed && !t.Derelict && CombatRules.Hostile(u.Team, t.Team);
+
+    // Target selection (0x42fd6f): the current target while it stays valid and within `radius`, else the nearest
+    // valid one within it.
+    UnitCombatState? Select(UnitCombatState u, UnitCombatState? held, float radius) =>
+        held != null && Valid(u, held) && Surface(u, held) <= radius ? held : NearestHostile(u, radius);
+
+    // The nearest valid target whose surface is within `range`; null when none is.
     UnitCombatState? NearestHostile(UnitCombatState u, float range) =>
         _units
-            .Values.Where(t => !t.Destroyed && CombatRules.Hostile(u.Team, t.Team))
+            .Values.Where(t => Valid(u, t))
             .Select(t => (Unit: t, Distance: Surface(u, t)))
             .Where(x => x.Distance <= range)
             .OrderBy(x => x.Distance)
@@ -317,6 +352,7 @@ public sealed class CombatWorld
         var damage = CombatRules.Damage(shot.Weapon.Ordnance, target.DefinitionName, _random());
         var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
+        target.Attacker = shot.Shooter;
         events.Add(new ShotLanded(shot, hit));
         if (!hit.Destroyed)
             return;

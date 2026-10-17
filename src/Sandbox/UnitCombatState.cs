@@ -72,6 +72,12 @@ public sealed class UnitCombatState(
     public bool Immobile => Derelict || SystemDestroyed("Engines");
     public List<WeaponState> Weapons { get; } = profile.Weapons.Select(w => new WeaponState(w)).ToList();
 
+    // The unit's alert stance.
+    public AlertStance Alert { get; set; } = profile.DefaultGreenAlert ? AlertStance.Green : AlertStance.Red;
+
+    // The unit that last hit this one; a red idle unit moves toward it until it picks a target.
+    public UnitCombatState? Attacker { get; set; }
+
     // The unit the attack order names; null without an order.
     public UnitCombatState? Order { get; set; }
 

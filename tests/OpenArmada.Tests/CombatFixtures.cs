@@ -72,7 +72,9 @@ static class CombatFixtures
         float hull = 100,
         IReadOnlyList<SystemProfile>? systems = null,
         float lifeSupportLoss = 0,
-        RaceValues? race = null
+        RaceValues? race = null,
+        bool defaultGreen = false,
+        bool canAttack = true
     ) =>
         new(
             weapons ?? new List<WeaponProfile>(),
@@ -84,8 +86,8 @@ static class CombatFixtures
             systems ?? new List<SystemProfile>(),
             hull,
             lifeSupportLoss,
-            false,
-            true,
+            defaultGreen,
+            canAttack,
             "",
             race ?? Race
         );

@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace OpenArmada.Sandbox;
 
-// The text the readout shows for one selected unit: shields, crew, the hit points of the five ship systems
+// The text the readout shows for one selected unit: shields, crew, the alert stance, the hit points of the five ship systems
 // (current and maximum, or `-` for a system the unit lacks), and `derelict` for a derelict unit.
 public static class CombatReadout
 {
@@ -15,7 +15,7 @@ public static class CombatReadout
     public static string Line(string name, UnitCombatState state) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"{name}  shields {Math.Round(state.Shields):0}/{state.Profile.MaxHealth:0}  crew {Math.Round(state.Crew):0}"
+            $"{name}  shields {Math.Round(state.Shields):0}/{state.Profile.MaxHealth:0}  crew {Math.Round(state.Crew):0}  alert {state.Alert.ToString().ToLowerInvariant()}"
         )
         + $"  {System(state, "Engines", "engines")}  {System(state, "LifeSupport", "life support")}"
         + $"  {System(state, "Weapons", "weapons")}  {System(state, "ShieldGenerator", "shield generator")}"

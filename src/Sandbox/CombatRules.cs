@@ -58,7 +58,10 @@ public static class CombatRules
     {
         var present = SystemOrder.Where(target.Systems.ContainsKey).ToList();
         var working = present.Count(n => !target.Systems[n].Destroyed);
-        var share = working == 0 ? 0 : present.Where(target.SystemDestroyed).Sum(n => target.Systems[n].Profile.HitPercent) / working;
+        var share =
+            working == 0
+                ? 0
+                : present.Where(target.SystemDestroyed).Sum(n => target.Systems[n].Profile.HitPercent) / working;
         var left = (double)roll;
         for (var i = 0; i < SystemOrder.Length; i++)
         {

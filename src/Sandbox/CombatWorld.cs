@@ -118,8 +118,12 @@ public sealed class CombatWorld
             if (u.Destroyed)
                 continue;
             Think(u);
+            if (u.Mobile && u.Immobile)
+                u.Intent = new MoveIntent(MoveKind.Stop); // no order moves a derelict ship or one with dead engines
             Fire(u, events);
             CombatRules.RegainShields(u, Tick);
+            CombatRules.Sustain(u, Tick);
+            CombatRules.Repair(u, Tick);
         }
     }
 
@@ -182,7 +186,8 @@ public sealed class CombatWorld
         foreach (var weapon in u.Weapons)
         {
             weapon.Cooldown -= Tick;
-            if (u.Target is not { } target)
+            // a derelict unit and one with destroyed weapons fire nothing
+            if (u.Derelict || u.SystemDestroyed("Weapons") || u.Target is not { } target)
             {
                 weapon.Cooldown = Math.Max(0, weapon.Cooldown); // an idle weapon does not store shots
                 continue;
@@ -216,7 +221,7 @@ public sealed class CombatWorld
             shooter.Stopped,
             target.Stopped
         );
-        var hits = _random() <= chance;
+        var hits = target.Derelict || target.SystemDestroyed("Engines") || _random() <= chance;
         // stand-in: shots start from the shooter's center; the hardpoint positions are not used yet.
         var from = Position(shooter);
         var toward = Position(target) - from;
@@ -310,7 +315,7 @@ public sealed class CombatWorld
     {
         var target = shot.Target;
         var damage = CombatRules.Damage(shot.Weapon.Ordnance, target.DefinitionName, _random());
-        var location = CombatRules.Location(target,Math.Min(99, (int)(_random() * 100)));
+        var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
         events.Add(new ShotLanded(shot, hit));
         if (!hit.Destroyed)

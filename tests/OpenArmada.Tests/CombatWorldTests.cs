@@ -513,4 +513,199 @@ public class CombatWorldTests
         Assert.AreEqual(201, Fired(world.Step(1), "a")); // shots at 0, d, 2d ... for d = 0.005 over 1 s
         Assert.IsTrue(world.State(a.Object)!.Weapons[0].Cooldown >= -1e-6);
     }
+
+    static Spec WithSystems(string label, int team, float x, WeaponProfile? weapon, params SystemProfile[] systems) =>
+        new(
+            Placed(label, team, x),
+            Profile(weapon == null ? null : new[] { weapon }, maxHealth: 100, hull: 100, systems: systems)
+        );
+
+    [TestMethod]
+    public void AShipWithDestroyedEnginesStopsUnderItsAttackOrderAndEveryShotAtItHits()
+    {
+        var a = WithSystems("a", 1, 0, Weapon(range: 500, hitChance: 0.1f), Sys("Engines"));
+        var b = WithSystems("b", 2, 400, Weapon(range: 500, hitChance: 0.1f), Sys("Engines"));
+        var world = World(() => 0.9, a, b);
+        world.Attack(a.Object, b.Object);
+        world.State(a.Object)!.Systems["Engines"].Destroyed = true;
+        world.State(b.Object)!.Systems["Engines"].Destroyed = true;
+        var events = world.Step(0.02);
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
+        Assert.IsTrue(events.OfType<ShotFired>().Where(e => e.Shot.Target.Unit == b.Object).All(e => e.Shot.Hits));
+        Assert.IsTrue(events.OfType<ShotFired>().Any(e => e.Shot.Target.Unit == b.Object));
+    }
+
+    [TestMethod]
+    public void AShipWithWorkingEnginesIsMissedByALowRoll()
+    {
+        var a = WithSystems("a", 1, 0, Weapon(range: 500, hitChance: 0.1f));
+        var b = WithSystems("b", 2, 400, null, Sys("Engines"));
+        var world = World(() => 0.9, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.IsFalse(world.Step(0.02).OfType<ShotFired>().First().Shot.Hits);
+    }
+
+    [TestMethod]
+    public void AShipWithDestroyedWeaponsFiresNothing()
+    {
+        var a = WithSystems("a", 1, 0, Weapon(range: 500), Sys("Weapons"));
+        var b = WithSystems("b", 2, 100, null);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        world.State(a.Object)!.Systems["Weapons"].Destroyed = true;
+        Assert.AreEqual(0, Fired(world.Step(3), "a"));
+    }
+
+    [TestMethod]
+    public void AShipWhoseWeaponsAreRepairedFiresAgain()
+    {
+        var a = WithSystems("a", 1, 0, Weapon(range: 500, delay: 0.5f), Sys("Weapons", hitPoints: 2, repairTime: 2));
+        var b = WithSystems("b", 2, 100, null);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        var weapons = world.State(a.Object)!.Systems["Weapons"];
+        weapons.Destroyed = true;
+        weapons.HitPoints = 0;
+        Assert.AreEqual(0, Fired(world.Step(1), "a"));
+        Assert.IsTrue(Fired(world.Step(3), "a") > 0); // 1 s per point at crew ratio 1: whole again after 2 s
+    }
+
+    static void MakeDerelict(CombatWorld world, Spec spec)
+    {
+        var state = world.State(spec.Object)!;
+        state.Derelict = true;
+        state.Crew = 0;
+    }
+
+    [TestMethod]
+    public void ADerelictShipNeitherMovesNorFiresAndStaysOnTheMap()
+    {
+        var a = WithSystems("a", 1, 0, Weapon(range: 500));
+        var b = WithSystems("b", 2, 100, null);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        MakeDerelict(world, a);
+        var events = world.Step(3);
+        Assert.AreEqual(0, Fired(events, "a"));
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
+        Assert.IsNotNull(world.State(a.Object));
+    }
+
+    [TestMethod]
+    public void EveryShotAtADerelictShipHits()
+    {
+        var a = WithSystems("a", 1, 0, Weapon(range: 500, hitChance: 0));
+        var b = WithSystems("b", 2, 100, null);
+        var world = World(() => 0.9, a, b);
+        world.Attack(a.Object, b.Object);
+        MakeDerelict(world, b);
+        Assert.IsTrue(world.Step(0.02).OfType<ShotFired>().First().Shot.Hits);
+    }
+
+    [TestMethod]
+    public void AnAttackOrderOnADerelictShipStaysUntilACriticalHitDestroysIt()
+    {
+        var a = new Spec(
+            Placed("a", 1, 0),
+            Profile(new[] { Weapon(Beam(damage: 1, life: 0.1f), delay: 0.5f, range: 500) })
+        );
+        var b = new Spec(Placed("b", 2, 100), Profile(hull: 0, maxHealth: 0)); // every roll is a critical hit
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        MakeDerelict(world, b);
+        var events = world.Step(1);
+        Assert.IsTrue(events.OfType<UnitDestroyed>().Any(e => e.Unit == b.Object));
+        Assert.IsNull(world.State(b.Object));
+        Assert.IsNull(world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void ADerelictShipSurvivesHitsThatAreNotCritical()
+    {
+        var a = new Spec(
+            Placed("a", 1, 0),
+            Profile(new[] { Weapon(Beam(damage: 1, life: 0.1f), delay: 0.5f, range: 500) })
+        );
+        var b = new Spec(Placed("b", 2, 100), Profile(hull: 100, maxHealth: 0));
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        MakeDerelict(world, b);
+        world.Step(3);
+        Assert.IsNotNull(world.State(b.Object));
+        Assert.AreSame(world.State(b.Object), world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void ADestroyedShieldGeneratorKeepsTheShieldsWhereTheyAre()
+    {
+        var a = new Spec(
+            Placed("a", 1, 0),
+            Profile(maxHealth: 100, shieldRate: 10, systems: new[] { Sys("ShieldGenerator") })
+        );
+        var world = World(null, a);
+        var state = world.State(a.Object)!;
+        state.Shields = 40;
+        state.Systems["ShieldGenerator"].Destroyed = true;
+        world.Step(2);
+        Assert.AreEqual(40, state.Shields, 1e-6);
+    }
+
+    static (CombatWorld World, UnitCombatState State) Ailing()
+    {
+        var a = new Spec(
+            Placed("a", 1, 0),
+            Profile(
+                crew: 100,
+                maximumCrew: 100,
+                lifeSupportLoss: 5,
+                systems: new[] { Sys("LifeSupport", 4, repairTime: 40), Sys("Sensors", 4, repairTime: 8) }
+            )
+        );
+        var world = World(null, a);
+        var state = world.State(a.Object)!;
+        state.Systems["LifeSupport"].Destroyed = true;
+        state.Systems["LifeSupport"].HitPoints = 0;
+        state.Systems["Sensors"].HitPoints = 1;
+        return (world, state);
+    }
+
+    [TestMethod]
+    public void DestroyedLifeSupportCostsCrewEachSecondUntilTheUnitIsDerelict()
+    {
+        var (world, state) = Ailing();
+        world.Step(1);
+        Assert.IsTrue(state.Crew < 100 && state.Crew > 80);
+        world.Step(300);
+        Assert.IsTrue(state.Derelict);
+        Assert.AreEqual(0, state.Crew, 1e-9);
+        Assert.IsNotNull(world.State(state.Unit));
+    }
+
+    [TestMethod]
+    public void SteppingOnceOverASpanRepairsAndLosesCrewAsSteppingManyTimesDoes()
+    {
+        var (once, onceState) = Ailing();
+        var (many, manyState) = Ailing();
+        once.Step(6);
+        for (var i = 0; i < 300; i++)
+            many.Step(0.02);
+        Assert.AreEqual(onceState.Crew, manyState.Crew, 1e-6);
+        Assert.AreEqual(onceState.Systems["Sensors"].HitPoints, manyState.Systems["Sensors"].HitPoints, 1e-6);
+        Assert.AreEqual(onceState.Systems["LifeSupport"].HitPoints, manyState.Systems["LifeSupport"].HitPoints, 1e-6);
+        Assert.IsTrue(onceState.Systems["Sensors"].HitPoints > 1);
+    }
+
+    [TestMethod]
+    public void TheSystemHitPointsBonusReachesEveryUnitsSystems()
+    {
+        var a = new Spec(Placed("a", 1, 0), Profile(systems: new[] { Sys("Engines", 3) }));
+        var world = new CombatWorld(
+            new UnitPoses(new[] { a.Object }),
+            new[] { new CombatUnit(a.Object, a.Profile, "a.odf", 0, true) },
+            1,
+            () => 0,
+            2
+        );
+        Assert.AreEqual(5, world.State(a.Object)!.Systems["Engines"].Max, 1e-6);
+    }
 }

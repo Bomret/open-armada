@@ -110,7 +110,11 @@ public class CombatRulesTests
     public void ADestroyedSystemsPercentIsSharedEvenlyAmongTheSystemsStillWorking()
     {
         // engines 20, life support 10, weapons 10, hull 10; destroying engines gives each of the 2 others 10 more
-        var target = WithSystems(Sys("Engines", percent: 20), Sys("LifeSupport", percent: 10), Sys("Weapons", percent: 10));
+        var target = WithSystems(
+            Sys("Engines", percent: 20),
+            Sys("LifeSupport", percent: 10),
+            Sys("Weapons", percent: 10)
+        );
         target.Systems["Engines"].Destroyed = true;
         Assert.AreEqual(HitLocation.LifeSupport, CombatRules.Location(target, 0));
         Assert.AreEqual(HitLocation.LifeSupport, CombatRules.Location(target, 19));
@@ -223,7 +227,12 @@ public class CombatRulesTests
     static UnitCombatState Damaged(double hitPoints, double crew = 100, bool destroyed = false)
     {
         var target = State(
-            Profile(systems: new[] { Sys("Engines", hitPoints: 5, repairTime: 10) }, crew: 100, maximumCrew: 100, race: RepairRace)
+            Profile(
+                systems: new[] { Sys("Engines", hitPoints: 5, repairTime: 10) },
+                crew: 100,
+                maximumCrew: 100,
+                race: RepairRace
+            )
         );
         target.Systems["Engines"].HitPoints = hitPoints;
         target.Systems["Engines"].Destroyed = destroyed;
@@ -280,7 +289,7 @@ public class CombatRulesTests
 
     static UnitCombatState Suffocating(double crew, float loss = 10)
     {
-        var target = State(Profile(systems: new[] { Sys("LifeSupport") }, crew: (float)crew,lifeSupportLoss: loss));
+        var target = State(Profile(systems: new[] { Sys("LifeSupport") }, crew: (float)crew, lifeSupportLoss: loss));
         target.Systems["LifeSupport"].Destroyed = true;
         return target;
     }

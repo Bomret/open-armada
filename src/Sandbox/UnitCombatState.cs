@@ -57,7 +57,9 @@ public sealed class UnitCombatState(
 
     // The ship systems the unit has, by SystemProfile.Name (a system with no hit points is absent).
     public Dictionary<string, ShipSystemState> Systems { get; } =
-        profile.Systems.Where(s => s.HitPoints > 0).ToDictionary(s => s.Name, s => new ShipSystemState(s, systemHitpointsBonus));
+        profile
+            .Systems.Where(s => s.HitPoints > 0)
+            .ToDictionary(s => s.Name, s => new ShipSystemState(s, systemHitpointsBonus));
 
     // A derelict unit has no crew: it never moves, fires nothing, regains nothing, and stays on the map.
     public bool Derelict { get; set; }

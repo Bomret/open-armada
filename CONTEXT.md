@@ -102,6 +102,12 @@ A unit whose definition sets `is_starbase`, such as a starbase, shipyard, or sen
 not move.
 _Avoid_: base, building, structure
 
+**Warship**
+A ship whose definition's include chain reaches one of the game's combat hulls: `battle.odf`,
+`cruise1.odf`, `cruise2.odf`, `destroy.odf`, `scout.odf`, or `special.odf`. Construction ships and
+freighters are ships but not warships.
+_Avoid_: combat ship, armed ship, fighting unit
+
 **Asteroid field**
 A map object of class `asteroidfield` whose rocks the engine generates from the field's definition. The map
 stores only the field, not the rocks.

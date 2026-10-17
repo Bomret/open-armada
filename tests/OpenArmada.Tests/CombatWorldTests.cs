@@ -592,6 +592,40 @@ public class CombatWorldTests
     }
 
     [TestMethod]
+    public void AHitThatDestroysASystemAndTurnsTheUnitDerelictBringsItsShieldsDown()
+    {
+        var a = WithSystems("a", 1, 0, Weapon(Beam(damage: 4), range: 500));
+        var b = WithSystems("b", 2, 100, null, Sys("Weapons", hitPoints: 1, crewLoss: 100));
+        var poses = new UnitPoses(new[] { a.Object, b.Object });
+        // shield damage protection 0.5: half the damage reaches the systems while the shields stay up
+        var world = new CombatWorld(
+            poses,
+            new[] { a, b }.Select(s => new CombatUnit(s.Object, s.Profile, s.Object.Label + ".odf", 0, true)),
+            0.5,
+            () => 0
+        );
+        var state = world.State(b.Object)!;
+        state.Crew = 1;
+        state.Shields = 40;
+        world.Attack(a.Object, b.Object);
+        world.Step(1.5);
+        Assert.IsTrue(state.Derelict);
+        Assert.AreEqual(0, state.Shields, 1e-6);
+    }
+
+    [TestMethod]
+    public void AShipWithDestroyedEnginesIgnoresAMoveIntentFromAnAttackOrder()
+    {
+        var a = WithSystems("a", 1, 0, Weapon(range: 100), Sys("Engines"));
+        var b = WithSystems("b", 2, 400, null);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        world.State(a.Object)!.Systems["Engines"].Destroyed = true;
+        world.Step(1);
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
+    }
+
+    [TestMethod]
     public void EveryShotAtADerelictShipHits()
     {
         var a = WithSystems("a", 1, 0, Weapon(range: 500, hitChance: 0));

@@ -206,6 +206,33 @@ public class CombatRulesTests
     }
 
     [TestMethod]
+    public void ATurningDerelictUnitLosesItsShields()
+    {
+        var target = Target(shields: 50, crew: 5);
+        CombatRules.Apply(target, Beam(hullCrew: 100), 1, HitLocation.Hull, 0); // protection 0: shields untouched
+        Assert.IsTrue(target.Derelict);
+        Assert.AreEqual(0, target.Shields, 1e-6);
+    }
+
+    [TestMethod]
+    public void ASystemWithRepairTimeZeroDoesNotRepair()
+    {
+        // stand-in: a repair time of zero is read as "this system does not repair"; the game's reading is not known.
+        var zero = State(
+            Profile(
+                systems: new[] { Sys("Engines", hitPoints: 5, repairTime: 0) },
+                crew: 100,
+                maximumCrew: 100,
+                race: RepairRace
+            )
+        );
+        zero.Systems["Engines"].HitPoints = 0;
+        zero.Systems["Engines"].Destroyed = true;
+        CombatRules.Repair(zero, 100);
+        Assert.IsTrue(zero.Systems["Engines"].Destroyed);
+    }
+
+    [TestMethod]
     public void CrewStayingAtOrAboveOneLeavesTheUnitAlive()
     {
         var target = Target(shields: 0, crew: 3);

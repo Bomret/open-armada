@@ -173,7 +173,8 @@ A damaged system regains hit points all the time, in and out of combat (0x4683d0
 `<system>RepairTime` divided by the system's maximum hit points, times the race's `repairStrength`, times
 the race's `repairRed` or `repairYellow` when the crew ratio is at or below `crewRedStatus` or
 `crewYellowStatus` (0x468060). The game also divides by an officer factor; the engine uses 1
-(**stand-in**). A destroyed system works again only once it is back at full hit points (0x467d40).
+(**stand-in**). A system whose repair time works out to zero does not repair (**stand-in**; the game's
+reading is not known). A destroyed system works again only once it is back at full hit points (0x467d40).
 
 ## Crew, derelicts, and destruction
 

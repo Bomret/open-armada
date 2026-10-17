@@ -89,7 +89,11 @@ public static class CombatRules
         {
             // seconds one hit point takes
             var perPoint = s.Profile.RepairTime / s.Max * race.RepairStrength * factor;
-            s.HitPoints = perPoint <= 0 ? s.Max : Math.Min(s.Max, s.HitPoints + seconds / perPoint);
+            // stand-in: a zero repair time (or race factor) is read as "this system does not repair"; the game's
+            // reading is not known.
+            if (perPoint <= 0)
+                continue;
+            s.HitPoints = Math.Min(s.Max, s.HitPoints + seconds / perPoint);
             if (s.HitPoints >= s.Max)
                 s.Destroyed = false;
         }
@@ -105,13 +109,16 @@ public static class CombatRules
         CheckCrew(unit);
     }
 
-    // The crew below one is set to zero and the unit becomes derelict.
+    // The crew below one is set to zero and the unit becomes derelict, its shields down.
     static void CheckCrew(UnitCombatState unit)
     {
         if (unit.Crew >= 1)
             return;
         unit.Crew = 0;
+        // stand-in: the game can destroy the unit instead, by a flag whose source is unknown (docs/combat-rules.md).
         unit.Derelict = true;
+        unit.Shields = 0;
+        unit.ShieldDown = unit.Profile.ShieldDelay;
     }
 
     // Applies a landed hit of `damage` at `location` to the unit (the rules' "Applying a hit"). The crew loss

@@ -41,7 +41,8 @@ public partial class UnitOrders : Node3D
     /// <c>planeHeight</c> is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
     /// stand-ins), so orders aim at the plane the camera looks at; <c>bounds</c> are the ones the rig clamps its look-at
     /// point to. <c>combat</c> holds every unit's combat values; the units fight in a CombatWorld that this node steps
-    /// and whose state it shows through Combat.
+    /// and whose state it shows through Combat. <c>seed</c> seeds the combat random source; null seeds it from the
+    /// system, so every run differs.
     /// </summary>
     public UnitOrders(
         GameFileSystem files,
@@ -51,7 +52,8 @@ public partial class UnitOrders : Node3D
         float planeHeight,
         MapBounds bounds,
         CombatPlan combat,
-        Action<string> gap
+        Action<string> gap,
+        int? seed = null
     )
     {
         _selection = selection;
@@ -65,7 +67,7 @@ public partial class UnitOrders : Node3D
             gap(report.Text);
         }
 
-        var random = new System.Random();
+        var random = seed is { } fixedSeed ? new System.Random(fixedSeed) : new System.Random();
         _world = new CombatWorld(
             _poses,
             selection

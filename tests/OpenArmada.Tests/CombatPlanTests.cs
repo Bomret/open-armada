@@ -144,13 +144,15 @@ public class CombatPlanTests
             ("RTS_CFG.h", Constants)
         );
         Assert.IsTrue(r.Plan.Reports.Count > 0);
-        Assert.AreEqual(r.Plan.Reports.Count, log.Lines.Count, log.Text);
-        for (var i = 0; i < log.Lines.Count; i++)
+        // The fixture also builds a move plan, whose own grouped report is one WARN sandbox entry.
+        var combat = log.Lines.Where(l => l.Contains(" WARN combat: ")).ToList();
+        Assert.AreEqual(r.Plan.Reports.Count, combat.Count, log.Text);
+        for (var i = 0; i < combat.Count; i++)
         {
-            StringAssert.Contains(log.Lines[i], " WARN combat: " + r.Plan.Reports[i].Text);
+            StringAssert.Contains(combat[i], r.Plan.Reports[i].Text);
         }
 
-        Assert.AreEqual(r.Plan.Reports.Count, Log.WarnCount);
+        Assert.AreEqual(log.Lines.Count, Log.WarnCount);
     }
 
     // An archive whose one member is stored compressed, so reading that member throws.

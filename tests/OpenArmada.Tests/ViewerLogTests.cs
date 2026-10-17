@@ -129,6 +129,19 @@ public class ViewerLogTests
     }
 
     [TestMethod]
+    public void Later_asset_using_a_failed_texture_is_one_info_naming_asset_and_texture()
+    {
+        using var log = new CapturedLog();
+        ViewerLog.TextureFailed(Area.Render, "shared01", new InvalidDataException("bad magic"), "a.sod");
+        ViewerLog.TextureFailed(Area.Render, "SHARED01", new InvalidDataException("bad magic"), "b.sod");
+        Assert.AreEqual(2, log.Lines.Count);
+        StringAssert.Matches(
+            log.Lines[1],
+            new Regex(" INFO render: b.sod: texture \"SHARED01\" did not load \\(see its first entry above\\)$")
+        );
+    }
+
+    [TestMethod]
     public void Texture_logged_in_one_captured_log_is_logged_again_in_the_next()
     {
         using (new CapturedLog())

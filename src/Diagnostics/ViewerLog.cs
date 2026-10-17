@@ -51,22 +51,39 @@ public static class ViewerLog
     }
 
     // The textures logged this run, by name: one texture fails for one cause, so the first view that loads it
-    // (a model builder, the combat view, a sprite table preview) logs it and every later load stays silent.
-    // simplicity: a plain set, as the views load textures on Godot's main thread only.
+    // (a model builder, the combat view, a browser preview) logs it as WARN or ERROR; a later load names only
+    // its asset, as INFO, once per asset and texture (UsedTextures), and a later load with no asset stays silent.
+    // simplicity: plain sets, as the views load textures on Godot's main thread only.
     static readonly HashSet<string> LoggedTextures = new(StringComparer.OrdinalIgnoreCase);
+    static readonly HashSet<string> UsedTextures = new(StringComparer.OrdinalIgnoreCase); // "asset\ntexture"
 
     /// <summary>Forgets the textures logged so far, so a test starts a fresh run.</summary>
-    internal static void ResetTextures() => LoggedTextures.Clear();
+    internal static void ResetTextures()
+    {
+        LoggedTextures.Clear();
+        UsedTextures.Clear();
+    }
 
     /// <summary>
     /// The texture <c>name</c> did not load, once per run in <c>area</c>, the area of the view that loaded it
     /// first: WARN when the install lacks it (<see cref="Log.IsAbsent"/>, absent data), else ERROR, an
-    /// asset that failed to load (INV-0005); both name the texture and the reason (INV-0002).
+    /// asset that failed to load (INV-0005); both name the texture and the reason (INV-0002). <c>asset</c>,
+    /// when known, is the asset that uses the texture: a later load of the same texture by another asset is
+    /// one INFO per asset and texture that points back to the first entry, so a search for that asset finds why.
     /// </summary>
-    public static void TextureFailed(Area area, string name, Exception e)
+    public static void TextureFailed(Area area, string name, Exception e, string? asset = null)
     {
-        if (!LoggedTextures.Add(name))
+        if (asset != null && !UsedTextures.Add($"{asset}\n{name}"))
             return;
+        if (!LoggedTextures.Add(name))
+        {
+            if (asset != null)
+            {
+                Log.Info(area, $"{asset}: texture {Log.Quote(name)} did not load (see its first entry above)");
+            }
+
+            return;
+        }
         if (Log.IsAbsent(e))
         {
             Log.Warn(area, $"texture {Log.Quote(name)} missing: {e.Message}");

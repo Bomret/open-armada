@@ -9,31 +9,60 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// A start location of a multiplayer map: its number (1..8) and the .mdf cell; the ground position is
-// MapBounds.FromStartCell.
-public sealed record MapStart(int Number, StartCell Cell);
+/// <summary>
+/// A start location of a multiplayer map: its number (1..8) and the .mdf cell; the ground position is
+/// MapBounds.FromStartCell.
+/// </summary>
+public sealed record MapStart
+{
+    /// <summary>The start location's number, 1..8, in the order of the .mdf.</summary>
+    public required int Number { get; init; }
 
-// A map and its companions. Starts is empty for a map without an .mdf (campaign maps); Overview is the
-// install name of the map's .bmp or null. ScriptedPaths are the install's 3D_Paths (points relative to the
-// first point), the same for every map.
-public sealed record MapAsset(
-    string Name,
-    BznMap Map,
-    IReadOnlyList<MapStart> Starts,
-    string? Overview,
-    IReadOnlyList<MapPath> ScriptedPaths
-);
+    /// <summary>The .mdf cell; <see cref="MapBounds.FromStartCell"/> gives its ground position.</summary>
+    public required StartCell Cell { get; init; }
+}
 
-// Maps: the .bzn files of bzn/, each with its .mdf (start positions), .bmp (overview image), and the
-// scripted camera paths. Names carry their folder ("bzn/2duel.bzn").
+/// <summary>
+/// A map and its companions. Starts is empty for a map without an .mdf (campaign maps); Overview is the
+/// install name of the map's .bmp or null. ScriptedPaths are the install's 3D_Paths (points relative to the
+/// first point), the same for every map.
+/// </summary>
+public sealed record MapAsset
+{
+    /// <summary>The install name of the map's .bzn file ("bzn/2duel.bzn").</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The map read from the .bzn file.</summary>
+    public required BznMap Map { get; init; }
+
+    /// <summary>The start locations from the map's .mdf; empty for a map without an .mdf (campaign maps).</summary>
+    public required IReadOnlyList<MapStart> Starts { get; init; }
+
+    /// <summary>The install name of the map's .bmp overview image; null when the map has none.</summary>
+    public required string? Overview { get; init; }
+
+    /// <summary>
+    /// The install's 3D_Paths .pth files, sorted by name, with points relative to the first point; the same for
+    /// every map.
+    /// </summary>
+    public required IReadOnlyList<MapPath> ScriptedPaths { get; init; }
+}
+
+/// <summary>
+/// Maps: the .bzn files of bzn/, each with its .mdf (start positions), .bmp (overview image), and the
+/// scripted camera paths. Names carry their folder ("bzn/2duel.bzn").
+/// </summary>
 public sealed class MapKind : AssetKind
 {
+    /// <summary>The kind's <see cref="Name"/>: <c>maps</c>.</summary>
     public const string KindName = "maps";
     const string Folder = "bzn/",
         PathFolder = "3D_Paths/";
 
+    /// <inheritdoc/>
     public override string Name => KindName;
 
+    /// <inheritdoc/>
     public override IEnumerable<string> Enumerate(GameFileSystem files) =>
         files
             .Inventory()
@@ -46,11 +75,15 @@ public sealed class MapKind : AssetKind
     // once. Not thread-safe: the engine loads on one thread. A map that fails is not kept.
     static readonly ConditionalWeakTable<GameFileSystem, Dictionary<string, MapAsset>> Loaded = new();
 
+    /// <inheritdoc/>
     public override object Load(GameFileSystem files, string name)
     {
         var cache = Loaded.GetOrCreateValue(files);
         if (!cache.TryGetValue(name, out var asset))
+        {
             cache[name] = asset = Read(files, name);
+        }
+
         return asset;
     }
 
@@ -63,8 +96,11 @@ public sealed class MapKind : AssetKind
         {
             var cells = Mdf.Read(Windows1252.Encoding.GetString(files.ReadAllBytes(stem + ".mdf")));
             for (var i = 0; i < cells.Count; i++)
-                starts.Add(new MapStart(i + 1, cells[i]));
+            {
+                starts.Add(new MapStart { Number = i + 1, Cell = cells[i] });
+            }
         }
+
         var overview = files.Find(stem + ".bmp") != null ? stem + ".bmp" : null;
         var paths = files
             .Inventory()
@@ -73,9 +109,17 @@ public sealed class MapKind : AssetKind
                 && f.EndsWith(".pth", StringComparison.OrdinalIgnoreCase)
             )
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .Select(f => new MapPath(f[PathFolder.Length..], ReadPth(files, f)))
+            .Select(f => new MapPath { Name = f[PathFolder.Length..], Points = ReadPth(files, f) })
             .ToList();
-        return new MapAsset(name, map, starts, overview, paths);
+
+        return new MapAsset
+        {
+            Name = name,
+            Map = map,
+            Starts = starts,
+            Overview = overview,
+            ScriptedPaths = paths,
+        };
     }
 
     // A broken .pth fails every map, so its error names the file.
@@ -91,18 +135,21 @@ public sealed class MapKind : AssetKind
         }
     }
 
-    // The definitions the map's object classes name that the install lacks.
+    /// <summary>The definitions the map's object classes name that the install lacks.</summary>
     public override IReadOnlyList<string> Unresolved(GameFileSystem files, string name) =>
         AssetReferences.Missing(
             ((MapAsset)Load(files, name)).Map.Objects.Select(o => o.Class + ".odf"),
             n => files.Find(n) != null
         );
 
-    // An object outside the map's X/Z bounds is a note, never a failure: the shipped maps place staged
-    // ships, nebula edges, and distant background bodies there.
+    /// <summary>
+    /// An object outside the map's X/Z bounds is a note, never a failure: the shipped maps place staged
+    /// ships, nebula edges, and distant background bodies there.
+    /// </summary>
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var map = ((MapAsset)Load(files, name)).Map;
+
         return map
             .Objects.Where(o => !map.Bounds.Contains(o.Position.X, o.Position.Z))
             .Select(o =>

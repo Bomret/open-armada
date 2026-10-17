@@ -11,7 +11,18 @@ public class UnitPosesTests
 {
     // A unit placed at `x` on the X axis with the bow along -Z (axisZ +Z).
     static PlacedObject Placed(string label, float x) =>
-        new(label, "c", "m", 0, 0, new Vector3(x, 5, 0), Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
+        new()
+        {
+            Label = label,
+            Class = "c",
+            Model = "m",
+            Team = 0,
+            Slot = 0,
+            Position = new Vector3(x, 5, 0),
+            AxisX = Vector3.UnitX,
+            AxisY = Vector3.UnitY,
+            AxisZ = Vector3.UnitZ,
+        };
 
     [TestMethod]
     public void EveryUnitReadsItsPlacedPoseFromTheStart()
@@ -27,12 +38,42 @@ public class UnitPosesTests
             new UnitPoses(Array.Empty<PlacedObject>()).Pose(Placed("x", 0))
         );
 
+    // A map can stack two objects of the same values; each is its own unit.
+    [TestMethod]
+    public void TwoIdenticalObjectsAreTwoUnits()
+    {
+        var (ship, twin) = (Placed("ship", 0), Placed("ship", 0));
+        var poses = new UnitPoses(new[] { ship, twin });
+        var motion = new ShipMotion(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 10,
+                YawRotationRate = 1,
+                MaxRoll = 30,
+            },
+            ship.Position,
+            MoveGeometry.BowHeading(ship.AxisZ)
+        );
+        motion.SetTarget(0, -100);
+        poses.Advance(ship, motion, 1);
+        Assert.AreEqual(MoveGeometry.PlacedPose(twin.Position, twin.AxisZ), poses.Pose(twin));
+    }
+
     [TestMethod]
     public void AMovingShipReadsItsPoseAfterEachStep()
     {
         var ship = Placed("ship", 0);
         var poses = new UnitPoses(new[] { ship });
-        var motion = new ShipMotion(new PhysicsValues(10, 1, 30), ship.Position, MoveGeometry.BowHeading(ship.AxisZ));
+        var motion = new ShipMotion(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 10,
+                YawRotationRate = 1,
+                MaxRoll = 30,
+            },
+            ship.Position,
+            MoveGeometry.BowHeading(ship.AxisZ)
+        );
         motion.SetTarget(0, -100);
         var stepped = poses.Advance(ship, motion, 1);
         Assert.AreEqual(stepped, poses.Pose(ship));
@@ -45,7 +86,16 @@ public class UnitPosesTests
         var ship = Placed("ship", 0);
         var station = Placed("station", 50);
         var poses = new UnitPoses(new[] { ship, station });
-        var motion = new ShipMotion(new PhysicsValues(10, 1, 30), ship.Position, MoveGeometry.BowHeading(ship.AxisZ));
+        var motion = new ShipMotion(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 10,
+                YawRotationRate = 1,
+                MaxRoll = 30,
+            },
+            ship.Position,
+            MoveGeometry.BowHeading(ship.AxisZ)
+        );
         motion.SetTarget(0, -100);
         poses.Advance(ship, motion, 1);
         Assert.AreEqual(MoveGeometry.PlacedPose(station.Position, station.AxisZ), poses.Pose(station));

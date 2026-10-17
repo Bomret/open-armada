@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -29,7 +31,7 @@ public class CombatArtTests
         Latin1(
             new SodBytes(1.8f)
                 .Lighting(("lit", 1f, 1))
-                .Nodes(nodes.Select(n => new NodeSpec(n, n == "root" ? "" : "root")).ToArray())
+                .Nodes(nodes.Select(n => new NodeSpec { Name = n, Parent = n == "root" ? "" : "root" }).ToArray())
                 .End()
         );
 
@@ -244,6 +246,49 @@ public class CombatArtTests
         Assert.AreEqual(1, art.Sprites.Count());
         CollectionAssert.AreEquivalent(new[] { "ph.wav", "boom.wav" }, art.Sounds.ToArray());
         CollectionAssert.AreEqual(new[] { "xplode" }, art.ExplosionModels.ToArray());
+    }
+
+    // A table the install cannot read adds no sprites and keeps none of the others from loading (INV-0002).
+    // Windows has no POSIX file modes; MSTest reports the test as skipped there.
+    [TestMethod, System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    public void SpriteTableThatCannotBeReadAddsNoneAndStopsNothing()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Inconclusive("needs POSIX file modes");
+        }
+
+        var files = Install(("Sprites/a.spr", "sprite_table\n"));
+        var locked = files.Find("Sprites/a.spr")!;
+        File.SetUnixFileMode(locked, UnixFileMode.None);
+        try
+        {
+            // Root reads a file whatever its mode (container CI), so the fault cannot be staged there.
+            try
+            {
+                File.ReadAllBytes(locked);
+                Assert.Inconclusive("the file stays readable (running as root)");
+            }
+            catch (UnauthorizedAccessException) { }
+
+            var art = CombatArt.Build(files, new[] { Unit(Armed("torp", "ph.wav", "hp01")) });
+            Assert.IsNotNull(art.Sprite("torp"));
+        }
+        finally
+        {
+            File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+    }
+
+    [TestMethod]
+    public void FireAndExplosionSoundThatDifferOnlyInCaseAreListedOnce()
+    {
+        var unit = Unit(Armed("phaser", "boom.wav", "hp01"));
+        var art = CombatArt.Build(
+            Install(("addon/xfb.odf", Explosion.Replace("boom.wav", "BOOM.WAV"))),
+            new[] { unit }
+        );
+        Assert.AreEqual(1, art.Sounds.Count());
     }
 
     [TestMethod]

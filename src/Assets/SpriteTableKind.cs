@@ -6,18 +6,24 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// Sprite tables: the .spr files of the Sprites folder. Names carry the folder ("Sprites/gui_map.spr");
-// an @include names a table of the same folder. Load returns a SpriteTable.
+/// <summary>
+/// Sprite tables: the .spr files of the Sprites folder. Names carry the folder ("Sprites/gui_map.spr");
+/// an @include names a table of the same folder. Load returns a SpriteTable.
+/// </summary>
 public sealed class SpriteTableKind : AssetKind
 {
+    /// <summary>The kind's <see cref="Name"/>: <c>sprites</c>.</summary>
     public const string KindName = "sprites";
     const string Folder = "Sprites/";
 
+    /// <inheritdoc/>
     public override string Name => KindName;
 
+    /// <inheritdoc/>
     public override IEnumerable<string> Enumerate(GameFileSystem files) =>
         files.List(".spr", "Sprites").Select(n => Folder + n);
 
+    /// <inheritdoc/>
     public override object Load(GameFileSystem files, string name) =>
         Read(files, Path.GetFileName(name), Tables(files, name));
 
@@ -55,7 +61,13 @@ public sealed class SpriteTableKind : AssetKind
                         {
                             return (SpriteTable)Load(f, n);
                         }
-                        catch (InvalidDataException)
+                        catch (System.Exception e)
+                            when (e
+                                    is IOException
+                                        or InvalidDataException
+                                        or System.UnauthorizedAccessException
+                                        or UnsupportedFormatException
+                            )
                         {
                             return null;
                         }
@@ -80,26 +92,39 @@ public sealed class SpriteTableKind : AssetKind
                 {
                     t = Read(files, Path.GetFileName(other), System.Array.Empty<SpriteTable>());
                 }
-                catch (InvalidDataException) { }
+                catch (System.Exception e)
+                    when (e
+                            is IOException
+                                or InvalidDataException
+                                or System.UnauthorizedAccessException
+                                or UnsupportedFormatException
+                    ) { }
+
                 cache[other] = t;
             }
+
             if (t != null)
+            {
                 yield return t;
+            }
         }
     }
 
-    // The textures the table's sprites name that the install lacks.
+    /// <summary>The textures the table's sprites name that the install lacks.</summary>
     public override IReadOnlyList<string> Unresolved(GameFileSystem files, string name) =>
         AssetReferences.Missing(
             ((SpriteTable)Load(files, name)).Sprites.Select(s => s.Texture),
             n => AssetReferences.HasTexture(files, n)
         );
 
-    // One note per sprite whose @tmaterial is no render type the engine draws, then the table's own notes.
-    // A missing texture is left out; Unresolved lists it.
+    /// <summary>
+    /// One note per sprite whose @tmaterial is no render type the engine draws, then the table's own notes.
+    /// A missing texture is left out; Unresolved lists it.
+    /// </summary>
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var table = (SpriteTable)Load(files, name);
+
         return table
             .Sprites.Where(s => s.Material != null && !ModelRules.IsRenderType(s.Material))
             .Select(s =>

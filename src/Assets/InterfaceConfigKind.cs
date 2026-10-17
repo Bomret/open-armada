@@ -5,16 +5,21 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// Interface configurations: the misc/gui_*.cfg files, which the race definitions name by
-// interfaceConfiguration and which #include gui_glob.cfg. The root CCA.cfg, Collision.cfg, Logfile.cfg and
-// woncfg.cfg are not interface configurations. Names carry their folder; Load returns an InterfaceConfig.
+/// <summary>
+/// Interface configurations: the misc/gui_*.cfg files, which the race definitions name by
+/// interfaceConfiguration and which #include gui_glob.cfg. The root CCA.cfg, Collision.cfg, Logfile.cfg and
+/// woncfg.cfg are not interface configurations. Names carry their folder; Load returns an InterfaceConfig.
+/// </summary>
 public sealed class InterfaceConfigKind : AssetKind
 {
+    /// <summary>The kind's <see cref="Name"/>: <c>interfaces</c>.</summary>
     public const string KindName = "interfaces";
     const string Folder = "misc/";
 
+    /// <inheritdoc/>
     public override string Name => KindName;
 
+    /// <inheritdoc/>
     public override IEnumerable<string> Enumerate(GameFileSystem files) =>
         files
             .Inventory()
@@ -24,10 +29,13 @@ public sealed class InterfaceConfigKind : AssetKind
                 && f.IndexOf('/', Folder.Length) < 0
             );
 
+    /// <inheritdoc/>
     public override object Load(GameFileSystem files, string name) => Read(files, name, null);
 
-    // The entries of the files a load reads: the copy the bare name resolves to (an override in addon\ wins
-    // over misc/), then each include. A load that fails keeps the entries read before it failed.
+    /// <summary>
+    /// The entries of the files a load reads: the copy the bare name resolves to (an override in addon\ wins
+    /// over misc/), then each include. A load that fails keeps the entries read before it failed.
+    /// </summary>
     public override IEnumerable<string> Reads(GameFileSystem files, string name)
     {
         var reads = new List<string>();
@@ -36,6 +44,7 @@ public sealed class InterfaceConfigKind : AssetKind
             Read(files, name, reads);
         }
         catch (Exception) { }
+
         return reads.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -44,9 +53,13 @@ public sealed class InterfaceConfigKind : AssetKind
         string Open(string n)
         {
             if (files.Entry(n) is { } entry)
+            {
                 reads?.Add(entry);
+            }
+
             return Windows1252.Encoding.GetString(files.ReadAllBytes(n));
         }
+
         // The bare name resolves through the game's precedence (addon override first, then the index);
         // the misc folder is the fallback for an install whose index does not list the file.
         string? Text(string n) =>
@@ -59,9 +72,11 @@ public sealed class InterfaceConfigKind : AssetKind
                 ? Open(found)
                 : null;
         var bare = name[(name.LastIndexOf('/') + 1)..];
+
         return InterfaceConfig.Read(bare, Text(bare) ?? Open(name), Text);
     }
 
+    /// <inheritdoc/>
     public override IReadOnlyList<string> Check(GameFileSystem files, string name) =>
         ((InterfaceConfig)Load(files, name)).Notes;
 }

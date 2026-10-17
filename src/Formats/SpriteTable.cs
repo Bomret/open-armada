@@ -7,70 +7,183 @@ using System.Numerics;
 
 namespace OpenArmada.Formats;
 
-// One cell of a sprite on its texture, in reference pixels.
-public readonly record struct SpriteFrame(int U, int V, int W, int H);
-
-// One sprite row. Reference sizes are 0 while no @reference is in force: the region is then in the
-// texture's own pixels. Table and Line say where the row stands (the included table, not the root).
-public sealed record Sprite(
-    string Name,
-    string Texture,
-    int U,
-    int V,
-    int W,
-    int H,
-    int ReferenceWidth,
-    int ReferenceHeight,
-    string? Material,
-    string? Skip,
-    string? Anim,
-    bool Cursor,
-    (int X, int Y)? Origin,
-    string Table,
-    int Line
-);
-
-// An @animation: Field is what it animates (offset, colour, draw, width), Count its keyframes and
-// Length its seconds. Auto ("square", "row", "column") generates the keyframes of an offset animation
-// as a flipbook over the texture grid; otherwise Keyframes holds the explicit lines, split on blanks.
-public sealed record SpriteAnimation(
-    string Name,
-    string Field,
-    int Count,
-    double Length,
-    string Method,
-    string? Auto,
-    IReadOnlyList<string[]> Keyframes
-)
+/// <summary>One cell of a sprite on its texture, in reference pixels.</summary>
+public readonly record struct SpriteFrame
 {
+    /// <summary>The cell's horizontal offset on the texture.</summary>
+    public required int U { get; init; }
+
+    /// <summary>The cell's vertical offset on the texture.</summary>
+    public required int V { get; init; }
+
+    /// <summary>The cell's width.</summary>
+    public required int W { get; init; }
+
+    /// <summary>The cell's height.</summary>
+    public required int H { get; init; }
+}
+
+/// <summary>
+/// One sprite row. Reference sizes are 0 while no @reference is in force: the region is then in the
+/// texture's own pixels. Table and Line say where the row stands (the included table, not the root).
+/// </summary>
+public sealed record Sprite
+{
+    /// <summary>The sprite's name, the first token of the row.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The texture name, the second token of the row, as written.</summary>
+    public required string Texture { get; init; }
+
+    /// <summary>The region's horizontal offset on the texture, a whole number of 0 or more.</summary>
+    public required int U { get; init; }
+
+    /// <summary>The region's vertical offset on the texture, a whole number of 0 or more.</summary>
+    public required int V { get; init; }
+
+    /// <summary>The region's width, a whole number of 0 or more.</summary>
+    public required int W { get; init; }
+
+    /// <summary>The region's height, a whole number of 0 or more.</summary>
+    public required int H { get; init; }
+
+    /// <summary>The reference width in force at the row (from @reference or @referenceWidth); 0 when none is.</summary>
+    public required int ReferenceWidth { get; init; }
+
+    /// <summary>
+    /// The reference height in force at the row (from @reference or @referenceHeight); 0 when none is.
+    /// </summary>
+    public required int ReferenceHeight { get; init; }
+
+    /// <summary>
+    /// The value of the last @tmaterial directive above the row in its table; null when there is none.
+    /// </summary>
+    public required string? Material { get; init; }
+
+    /// <summary>
+    /// The value of the last @skip directive above the row in its table; null when there is none. The reader does not
+    /// interpret it.
+    /// </summary>
+    public required string? Skip { get; init; }
+
+    /// <summary>The animation name of the row's <c>@anim=</c> directive; null when the row has none.</summary>
+    public required string? Anim { get; init; }
+
+    /// <summary>True when the row carries the <c>@cursor</c> directive.</summary>
+    public required bool Cursor { get; init; }
+
+    /// <summary>
+    /// The (x,y) of the row's <c>@origin=</c> directive, whole numbers of 0 or more; null when the row has none.
+    /// </summary>
+    public required (int X, int Y)? Origin { get; init; }
+
+    /// <summary>The name of the table the row is written in, which is the included table for an included row.</summary>
+    public required string Table { get; init; }
+
+    /// <summary>The 1-based line of the row in <see cref="Table"/>.</summary>
+    public required int Line { get; init; }
+}
+
+/// <summary>
+/// An @animation: Field is what it animates (offset, colour, draw, width), Count its keyframes and
+/// Length its seconds. Auto ("square", "row", "column") generates the keyframes of an offset animation
+/// as a flipbook over the texture grid; otherwise Keyframes holds the explicit lines, split on blanks.
+/// </summary>
+public sealed record SpriteAnimation
+{
+    /// <summary>The name after <c>@animation</c>; sprites refer to it with <c>@anim=</c>.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>What the animation animates: <c>offset</c>, <c>colour</c>, <c>draw</c> or <c>width</c>.</summary>
+    public required string Field { get; init; }
+
+    /// <summary>
+    /// The keyframe count the field line declares; it is at most the character count of the table's text.
+    /// </summary>
+    public required int Count { get; init; }
+
+    /// <summary>The animation's length in seconds.</summary>
+    public required double Length { get; init; }
+
+    /// <summary>The method of the field line: <c>step</c> or <c>linear</c>.</summary>
+    public required string Method { get; init; }
+
+    /// <summary>
+    /// The <c>@auto</c> flipbook shape: <c>square</c>, <c>row</c> or <c>column</c>; null for explicit keyframes.
+    /// </summary>
+    public required string? Auto { get; init; }
+
+    /// <summary>
+    /// The explicit keyframe lines in file order, each split into its tokens. The read checks their number against
+    /// <see cref="Count"/> only when <see cref="Auto"/> is null.
+    /// </summary>
+    public required IReadOnlyList<string[]> Keyframes { get; init; }
+
+    /// <summary>
+    /// The seconds of one keyframe: <see cref="Length"/> divided by <see cref="Count"/>, or 0 when the count is 0.
+    /// </summary>
     public double FrameSeconds => Count > 0 ? Length / Count : 0;
 }
 
-// An @emitter block: its name and its lines up to @end_emitter, kept as written (comments removed,
-// blanks collapsed) and not interpreted.
-public sealed record SpriteEmitter(string Name, IReadOnlyList<string> Body);
+/// <summary>
+/// An @emitter block: its name and its lines up to @end_emitter, kept as written (comments removed,
+/// blanks collapsed) and not interpreted.
+/// </summary>
+public sealed record SpriteEmitter
+{
+    /// <summary>The name after <c>@emitter</c>.</summary>
+    public required string Name { get; init; }
 
-// A @sprite_node line: the model node it decorates, its sprite and node animation, its size, its colour, and
-// whether it faces the camera. Table and Line say where the line stands.
-public sealed record SpriteNodeLine(
-    string Node,
-    string Sprite,
-    string Animation,
-    float Width,
-    float Height,
-    Vector3 Colour,
-    bool Billboard,
-    string Table,
-    int Line
-);
+    /// <summary>
+    /// The lines between <c>@emitter</c> and <c>@end_emitter</c>, with comments removed and blanks collapsed to one
+    /// space.
+    /// </summary>
+    public required IReadOnlyList<string> Body { get; init; }
+}
 
-// A sprite table (.spr): "sprite_table" on the first line, '#' comments, @include of other tables,
-// directives and rows "Name Texture U V W H" with trailing directives. An include's sprites and
-// animations come where the @include stands; a table included again (by any path) adds nothing the
-// second time. Anything not recognized, an @animation, @emitter, or @include without its name, an include cycle, a missing table, an unterminated @emitter,
-// an animation without its field line or with more keyframes than its count (fewer is a note), and a flipbook
-// larger than its table's text or leaving its @reference area throw InvalidDataException naming the
-// table and line (INV-0002). A @sprite_node line that cannot be read is a note for that line alone.
+/// <summary>
+/// A @sprite_node line: the model node it decorates, its sprite and node animation, its size, its colour, and
+/// whether it faces the camera.
+/// </summary>
+public sealed record SpriteNodeLine
+{
+    /// <summary>The name of the model node the line decorates, as written.</summary>
+    public required string Node { get; init; }
+
+    /// <summary>The name of the sprite row it draws.</summary>
+    public required string Sprite { get; init; }
+
+    /// <summary>The name of its node animation; <c>const</c> names none.</summary>
+    public required string Animation { get; init; }
+
+    /// <summary>The sprite's width in model units.</summary>
+    public required float Width { get; init; }
+
+    /// <summary>The sprite's height in model units.</summary>
+    public required float Height { get; init; }
+
+    /// <summary>The sprite's colour; a <c>colour</c> node animation multiplies it.</summary>
+    public required Vector3 Colour { get; init; }
+
+    /// <summary>Whether the sprite faces the camera (the line ends in <c>billboard</c>).</summary>
+    public required bool Billboard { get; init; }
+
+    /// <summary>The table the line stands in (the included table, not the root).</summary>
+    public required string Table { get; init; }
+
+    /// <summary>The line's number in that table, from 1.</summary>
+    public required int Line { get; init; }
+}
+
+/// <summary>
+/// A sprite table (.spr): "sprite_table" on the first line, '#' comments, @include of other tables,
+/// directives and rows "Name Texture U V W H" with trailing directives. An include's sprites and
+/// animations come where the @include stands; a table included again (by any path) adds nothing the
+/// second time. Anything not recognized, an @animation, @emitter, or @include without its name, an include cycle, a missing table, an unterminated @emitter,
+/// an animation without its field line or with more keyframes than its count (fewer is a note), and a flipbook
+/// larger than its table's text or leaving its @reference area throw InvalidDataException naming the
+/// table and line (INV-0002). A @sprite_node line that cannot be read is a note for that line alone.
+/// </summary>
 public sealed class SpriteTable
 {
     static readonly string[] Fields = { "offset", "colour", "draw", "width" };
@@ -84,42 +197,72 @@ public sealed class SpriteTable
     readonly List<(string Node, string Note)> _unreadNodes = new();
     readonly List<string> _notes = new();
 
+    /// <summary>The name of the root table given to <see cref="Read"/>.</summary>
     public string Name { get; }
+
+    /// <summary>The sprite rows in reading order; an include's rows come where its <c>@include</c> stands.</summary>
     public IReadOnlyList<Sprite> Sprites => _sprites;
+
+    /// <summary>
+    /// The animations by name, ignoring case: those of this table and its includes, then those of the ambient tables
+    /// that this table does not define itself.
+    /// </summary>
     public IReadOnlyDictionary<string, SpriteAnimation> Animations => _animations;
+
+    /// <summary>The <c>@emitter</c> blocks of the table and its includes in reading order.</summary>
     public IReadOnlyList<SpriteEmitter> Emitters => _emitters;
+
+    /// <summary>The readable <c>@sprite_node</c> lines of the table and its includes in reading order.</summary>
     public IReadOnlyList<SpriteNodeLine> SpriteNodes => _nodes;
 
-    // The @sprite_node lines that cannot be read: the node each names ("" when none) and a note; Notes holds the notes too.
+    /// <summary>
+    /// The <c>@sprite_node</c> lines that cannot be read: the node each names ("" when none) and a note naming the
+    /// table and line. <see cref="Notes"/> holds the notes too.
+    /// </summary>
     public IReadOnlyList<(string Node, string Note)> UnreadSpriteNodes => _unreadNodes;
 
-    // What does not fail the table: a sprite naming an animation no read table defines, an unreadable @sprite_node line.
+    /// <summary>
+    /// What does not fail the table: a sprite naming an animation no read table defines, an unreadable
+    /// <c>@sprite_node</c> line.
+    /// </summary>
     public IReadOnlyList<string> Notes => _notes;
 
     SpriteTable(string name) => Name = name;
 
-    // `open` returns the text of a table by name (an include's name as written), null when there is none.
-    // `ambient` are other tables of the install: the game loads them all into one namespace, so a
-    // sprite may use an animation one of them defines (the table's own definitions win).
+    /// <summary>
+    /// <c>open</c> returns the text of a table by name (an include's name as written), null when there is none.
+    /// <c>ambient</c> are other tables of the install: the game loads them all into one namespace, so a
+    /// sprite may use an animation one of them defines (the table's own definitions win).
+    /// </summary>
     public static SpriteTable Read(string name, Func<string, string?> open, IEnumerable<SpriteTable>? ambient = null)
     {
         var table = new SpriteTable(name);
         var text = open(name) ?? throw new InvalidDataException($"{name}: sprite table not found");
         table.Parse(name, text, open, new List<string>(), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         foreach (var a in ambient ?? Array.Empty<SpriteTable>())
-        foreach (var (key, anim) in a._animations)
-            table._animations.TryAdd(key, anim);
+        {
+            foreach (var (key, anim) in a._animations)
+            {
+                table._animations.TryAdd(key, anim);
+            }
+        }
+
         foreach (var s in table._sprites)
         {
             if (s.Anim == null)
                 continue;
             if (!table._animations.TryGetValue(s.Anim, out var a))
+            {
                 table._notes.Add(
                     $"{s.Table}:{s.Line}: sprite '{s.Name}' uses animation '{s.Anim}', which no table read defines"
                 );
+            }
             else if (a.Auto != null && a.Count > 0)
+            {
                 CheckFlipbook(s, a);
+            }
         }
+
         return table;
     }
 
@@ -131,6 +274,7 @@ public sealed class SpriteTable
             "column" => 1,
             _ => (int)Math.Ceiling(Math.Sqrt(a.Count)),
         };
+
         return (columns, (a.Count + columns - 1) / columns);
     }
 
@@ -148,13 +292,20 @@ public sealed class SpriteTable
             );
     }
 
-    // The frames of a sprite in play order: the cells of its flipbook animation, else its own region.
+    /// <summary>The frames of a sprite in play order: the cells of its flipbook animation, else its own region.</summary>
     public IReadOnlyList<SpriteFrame> Frames(Sprite s)
     {
-        var own = new SpriteFrame(s.U, s.V, s.W, s.H);
+        var own = new SpriteFrame
+        {
+            U = s.U,
+            V = s.V,
+            W = s.W,
+            H = s.H,
+        };
         if (s.Anim == null || !_animations.TryGetValue(s.Anim, out var a) || a.Auto == null || a.Count < 1)
             return new[] { own };
         var columns = Grid(a).Columns; // the cells lie inside the reference area: Read checked
+
         return Enumerable
             .Range(0, a.Count)
             .Select(i => own with { U = s.U + i % columns * s.W, V = s.V + i / columns * s.H })
@@ -178,17 +329,18 @@ public sealed class SpriteTable
         var v = groups.SelectMany(g => g).Select(Float).ToArray();
         if (v.Any(x => x == null))
             return null;
-        return new SpriteNodeLine(
-            t[1],
-            t[2],
-            t[3],
-            v[0]!.Value,
-            v[1]!.Value,
-            new Vector3(v[2]!.Value, v[3]!.Value, v[4]!.Value),
-            billboard,
-            table,
-            line
-        );
+        return new SpriteNodeLine
+        {
+            Node = t[1],
+            Sprite = t[2],
+            Animation = t[3],
+            Width = v[0]!.Value,
+            Height = v[1]!.Value,
+            Colour = new Vector3(v[2]!.Value, v[3]!.Value, v[4]!.Value),
+            Billboard = billboard,
+            Table = table,
+            Line = line,
+        };
     }
 
     static float? Float(string s) =>
@@ -200,10 +352,16 @@ public sealed class SpriteTable
     {
         var cut = line.IndexOf('#');
         if (cut >= 0)
+        {
             line = line[..cut];
+        }
+
         cut = line.IndexOf("//", StringComparison.Ordinal);
         if (cut >= 0)
+        {
             line = line[..cut];
+        }
+
         return line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
     }
 
@@ -211,6 +369,7 @@ public sealed class SpriteTable
     static (string Name, string Value) Split(string[] t)
     {
         var eq = t[0].IndexOf('=');
+
         return eq >= 0
             ? (t[0][..eq], t[0][(eq + 1)..] + string.Concat(t.Skip(1)))
             : (t[0], string.Join(" ", t.Skip(1)));
@@ -272,20 +431,26 @@ public sealed class SpriteTable
                 if (t.Length != 1 || t[0] != "sprite_table")
                     throw Bad(table, n, "the first line must be 'sprite_table'");
                 header = true;
+
                 continue;
             }
+
             if (emitter != null)
             {
                 if (t[0] == "@end_emitter")
                 {
-                    _emitters.Add(new SpriteEmitter(emitter, emitterBody.ToArray()));
+                    _emitters.Add(new SpriteEmitter { Name = emitter, Body = emitterBody.ToArray() });
                     emitter = null;
                     emitterBody.Clear();
                 }
                 else
+                {
                     emitterBody.Add(string.Join(" ", t));
+                }
+
                 continue;
             }
+
             if (t[0][0] == '@')
             {
                 var (name, value) = Split(t);
@@ -306,65 +471,91 @@ public sealed class SpriteTable
                             stack,
                             done
                         );
+
                         break;
                     case "@reference":
                         refW = refH = Int(table, n, value, "@reference");
+
                         break;
                     case "@referenceWidth":
                         refW = Int(table, n, value, "@referenceWidth");
+
                         break;
                     case "@referenceHeight":
                         refH = Int(table, n, value, "@referenceHeight");
+
                         break;
                     case "@tmaterial":
                         material = value;
+
                         break;
                     case "@skip":
                         skip = value;
+
                         break;
                     case "@animation":
                         if (value.Length == 0)
                             throw Bad(table, n, "@animation names no animation");
                         CloseAnimation();
                         animLine = n;
-                        anim = new SpriteAnimation(value, "", 0, 0, "", null, new List<string[]>());
+                        anim = new SpriteAnimation
+                        {
+                            Name = value,
+                            Field = "",
+                            Count = 0,
+                            Length = 0,
+                            Method = "",
+                            Auto = null,
+                            Keyframes = new List<string[]>(),
+                        };
+
                         break;
                     case "@auto":
                         if (anim == null || !AutoShapes.Contains(value))
                             throw Bad(table, n, $"@auto '{value}' is not square, row, or column of an @animation");
                         _animations[anim.Name] = anim = anim with { Auto = value };
+
                         break;
                     case "@keyframes":
                         if (anim == null)
                             throw Bad(table, n, "@keyframes outside an @animation");
                         inKeyframes = true;
+
                         break;
                     case "@emitter":
                         if (value.Length == 0)
                             throw Bad(table, n, "@emitter names no emitter");
                         emitter = value;
                         emitterLine = n;
+
                         break;
                     case "@sprite_node":
                         if (SpriteNodeOf(table, n, t) is { } node)
+                        {
                             _nodes.Add(node);
+                        }
                         else
                         {
                             var note = $"{table}:{n}: @sprite_node line '{string.Join(" ", t)}' cannot be read";
                             _unreadNodes.Add((t.Length > 1 ? t[1] : "", note));
                             _notes.Add(note);
                         }
+
                         break;
                     default:
                         throw Bad(table, n, $"unrecognized directive {name}");
                 }
+
                 continue;
             }
+
             if (inKeyframes && IsKeyframe(t))
             {
                 ((List<string[]>)anim!.Keyframes).Add(t);
+
                 continue;
             }
+
             inKeyframes = false;
             if (anim != null && anim.Field.Length == 0)
             {
@@ -391,8 +582,10 @@ public sealed class SpriteTable
                     Method = t[3],
                 };
                 inKeyframes = true; // the game takes keyframe lines without the @keyframes directive too
+
                 continue;
             }
+
             if (t.Length < 6)
                 throw Bad(table, n, $"a sprite row needs Name Texture U V W H, got '{string.Join(" ", t)}'");
             string? spriteAnim = null;
@@ -405,9 +598,11 @@ public sealed class SpriteTable
                 {
                     case "@anim":
                         spriteAnim = xv;
+
                         break;
                     case "@cursor":
                         cursor = true;
+
                         break;
                     case "@origin":
                         var xy = xv.Trim('(', ')').Split(',');
@@ -415,31 +610,35 @@ public sealed class SpriteTable
                             xy.Length == 2
                                 ? (Int(table, n, xy[0], "@origin"), Int(table, n, xy[1], "@origin"))
                                 : throw Bad(table, n, $"@origin '{xv}' is not (x,y)");
+
                         break;
                     default:
                         throw Bad(table, n, $"unrecognized row directive {extra}");
                 }
             }
+
             _sprites.Add(
-                new Sprite(
-                    t[0],
-                    t[1],
-                    Int(table, n, t[2], "U"),
-                    Int(table, n, t[3], "V"),
-                    Int(table, n, t[4], "W"),
-                    Int(table, n, t[5], "H"),
-                    refW,
-                    refH,
-                    material,
-                    skip,
-                    spriteAnim,
-                    cursor,
-                    origin,
-                    table,
-                    n
-                )
+                new Sprite
+                {
+                    Name = t[0],
+                    Texture = t[1],
+                    U = Int(table, n, t[2], "U"),
+                    V = Int(table, n, t[3], "V"),
+                    W = Int(table, n, t[4], "W"),
+                    H = Int(table, n, t[5], "H"),
+                    ReferenceWidth = refW,
+                    ReferenceHeight = refH,
+                    Material = material,
+                    Skip = skip,
+                    Anim = spriteAnim,
+                    Cursor = cursor,
+                    Origin = origin,
+                    Table = table,
+                    Line = n,
+                }
             );
         }
+
         if (!header)
             throw new InvalidDataException($"{table}: the first line must be 'sprite_table'");
         if (emitter != null)

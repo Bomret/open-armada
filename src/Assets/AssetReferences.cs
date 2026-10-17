@@ -41,6 +41,7 @@ internal static class AssetReferences
                     set.Add(System.IO.Path.GetFileName(path));
                     set.Add(path.StartsWith("sounds/", StringComparison.OrdinalIgnoreCase) ? path[7..] : path);
                 }
+
                 return set;
             }
         );

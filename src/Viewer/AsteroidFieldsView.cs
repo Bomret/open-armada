@@ -9,17 +9,29 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
-// The rocks of every asteroid field of the plan, spinning and circling by elapsed time. Each of the eight asteroid
-// models is built once; each of its visible meshes and each of its sprite nodes is one MultiMeshInstance3D drawing
-// all rocks of that model in the map, so the draw count follows the models and not the rocks (4mama holds up to
-// 4,800 rocks).
+/// <summary>
+/// The rocks of every asteroid field of the plan, spinning and circling by elapsed time. Each of the eight asteroid
+/// models is built once; each of its visible meshes and each of its sprite nodes is one MultiMeshInstance3D drawing
+/// all rocks of that model in the map, so the draw count follows the models and not the rocks (4mama holds up to
+/// 4,800 rocks).
+/// </summary>
 public partial class AsteroidFieldsView : Node3D
 {
     // One draw: a mesh of a model, the rocks that show it, and the buffer of their transforms.
-    sealed record Draw(MultiMesh Multi, Transform3D Part, Transform3D[] Pose, float[] Buffer);
+    sealed record Draw
+    {
+        public required MultiMesh Multi { get; init; }
+        public required Transform3D Part { get; init; }
+        public required Transform3D[] Pose { get; init; }
+        public required float[] Buffer { get; init; }
+    }
 
     // The rocks of one model and their poses at the current time; every draw of the model reads the poses.
-    sealed record Group(List<Rock> Rocks, Transform3D[] Pose);
+    sealed record Group
+    {
+        public required List<Rock> Rocks { get; init; }
+        public required Transform3D[] Pose { get; init; }
+    }
 
     // A sprite node of a model, taken from its built quad: the quad mesh at the node's size, its place in the model,
     // and the material, sprite node, and texture that show its frame and colour.
@@ -39,6 +51,12 @@ public partial class AsteroidFieldsView : Node3D
     readonly List<SpriteDraw> _sprites = new();
     ulong _start;
 
+    /// <summary>
+    /// Builds each asteroid model of the plan's fields from <c>files</c> and adds one MultiMeshInstance3D child per
+    /// visible mesh of a model. Each problem of a built model, and each model that cannot be read, goes to
+    /// <c>gap</c> as one line; the rocks of a model that cannot be read are left out. A plan without fields adds
+    /// nothing.
+    /// </summary>
     public AsteroidFieldsView(GameFileSystem files, SandboxPlan plan, Action<string> gap)
     {
         if (plan.Fields.Count == 0)
@@ -56,7 +74,10 @@ public partial class AsteroidFieldsView : Node3D
             {
                 var node = builder.Build(Sod.Read(files.ReadAllBytes(model + ".sod")));
                 foreach (var problem in builder.Problems)
+                {
                     gap($"{model}: {problem}");
+                }
+
                 var found = VisibleMeshes.Of(node);
                 // The quads never enter the scene, so each still holds the material SpriteNodeQuad.Create made.
                 sprites[model] = VisibleMeshes
@@ -75,7 +96,9 @@ public partial class AsteroidFieldsView : Node3D
                 {
                     var box = t * mesh.GetAabb();
                     foreach (var i in Enumerable.Range(0, 8))
+                    {
                         extent = MathF.Max(extent, box.GetEndpoint(i).Length());
+                    }
                 }
                 drawExtent = MathF.Max(drawExtent, extent);
                 foreach (var sprite in sprites[model])
@@ -90,6 +113,7 @@ public partial class AsteroidFieldsView : Node3D
                 gap($"model '{model}' cannot be read: {e.Message}");
             }
         }
+
         var byModel = new Dictionary<string, List<Rock>>(StringComparer.OrdinalIgnoreCase);
         foreach (var field in plan.Fields)
         {
@@ -99,10 +123,14 @@ public partial class AsteroidFieldsView : Node3D
             foreach (var rock in (field with { Models = models }).Rocks(extent))
             {
                 if (!byModel.TryGetValue(rock.Model, out var list))
+                {
                     byModel[rock.Model] = list = new List<Rock>();
+                }
+
                 list.Add(rock);
             }
         }
+
         // Rocks move within their field's sphere and reach past it by their extent, their meshes and sprite nodes
         // included, so the box of every draw is the union of the fields' draw boxes.
         Aabb? bounds = null;
@@ -115,9 +143,10 @@ public partial class AsteroidFieldsView : Node3D
             );
             bounds = bounds?.Merge(box) ?? box;
         }
+
         foreach (var (model, rocks) in byModel)
         {
-            var group = new Group(rocks, new Transform3D[rocks.Count]);
+            var group = new Group { Rocks = rocks, Pose = new Transform3D[rocks.Count] };
             _groups.Add(group);
             foreach (var (mesh, transform) in parts[model])
             {
@@ -129,7 +158,15 @@ public partial class AsteroidFieldsView : Node3D
                     CustomAabb = bounds!.Value,
                 };
                 AddChild(new MultiMeshInstance3D { Multimesh = multi });
-                _draws.Add(new Draw(multi, transform, group.Pose, new float[rocks.Count * 12]));
+                _draws.Add(
+                    new Draw
+                    {
+                        Multi = multi,
+                        Part = transform,
+                        Pose = group.Pose,
+                        Buffer = new float[rocks.Count * 12],
+                    }
+                );
             }
             // Each sprite node is one more draw over the model's rocks, placed by the rock's pose times its node's
             // place, so it moves and turns with the rock. Its material faces each rock's quad to the camera when the
@@ -147,13 +184,23 @@ public partial class AsteroidFieldsView : Node3D
                 };
                 var instance = new MultiMeshInstance3D { Multimesh = multi, MaterialOverride = sprite.Material };
                 AddChild(instance);
-                _draws.Add(new Draw(multi, sprite.Part, group.Pose, new float[rocks.Count * 12]));
+                _draws.Add(
+                    new Draw
+                    {
+                        Multi = multi,
+                        Part = sprite.Part,
+                        Pose = group.Pose,
+                        Buffer = new float[rocks.Count * 12],
+                    }
+                );
                 _sprites.Add(new SpriteDraw(instance, sprite, sprite.Material.AlbedoColor.A));
             }
         }
+
         _start = Time.GetTicksMsec();
     }
 
+    /// <inheritdoc/>
     public override void _Process(double delta)
     {
         if (_draws.Count == 0)
@@ -169,6 +216,7 @@ public partial class AsteroidFieldsView : Node3D
                 loop: true
             );
         foreach (var group in _groups)
+        {
             for (var i = 0; i < group.Pose.Length; i++)
             {
                 var (position, q) = group.Rocks[i].Pose(t);
@@ -177,6 +225,8 @@ public partial class AsteroidFieldsView : Node3D
                     new Vector3(position.X, position.Y, position.Z)
                 );
             }
+        }
+
         foreach (var draw in _draws)
         {
             for (var i = 0; i < draw.Pose.Length; i++)
@@ -197,6 +247,7 @@ public partial class AsteroidFieldsView : Node3D
                 b[o + 10] = m.Basis.Row2.Z;
                 b[o + 11] = m.Origin.Z;
             }
+
             draw.Multi.Buffer = draw.Buffer;
         }
     }

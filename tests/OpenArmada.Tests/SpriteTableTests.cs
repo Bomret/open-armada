@@ -14,6 +14,7 @@ public class SpriteTableTests
     static SpriteTable Read(string root, params (string Name, string Text)[] tables)
     {
         var map = tables.ToDictionary(t => t.Name, t => t.Text, System.StringComparer.OrdinalIgnoreCase);
+
         return SpriteTable.Read(root, n => map.TryGetValue(n, out var t) ? t : null);
     }
 

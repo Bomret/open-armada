@@ -17,12 +17,16 @@ public class UnitRulesTests
     Unit? Classify(string odf)
     {
         var files = new GameFileSystem(temp.MakeInstall(("addon/u.odf", odf)));
+
         return UnitRules.Classify(ResolvedDefinition.Resolve(files, "u.odf"));
     }
 
     [TestMethod]
     public void ADefinitionWithPhysicsAndNoStarbaseKeyIsAShipNamedByItsUnitName() =>
-        Assert.AreEqual(new Ship("Dreadnought"), Classify("physicsFile = \"u_p.odf\"\r\nunitName = \"Dreadnought\""));
+        Assert.AreEqual(
+            new Ship { Name = "Dreadnought" },
+            Classify("physicsFile = \"u_p.odf\"\r\nunitName = \"Dreadnought\"")
+        );
 
     [DataTestMethod]
     [DataRow("1")]
@@ -31,14 +35,14 @@ public class UnitRulesTests
     [DataRow("2")]
     public void AStarbaseKeyOtherThanZeroIsAStation(string value) =>
         Assert.AreEqual(
-            new Station("Base"),
+            new Station { Name = "Base" },
             Classify($"physicsFile = \"u_p.odf\"\r\nunitName = \"Base\"\r\nis_starbase = {value}")
         );
 
     [TestMethod]
     public void AStarbaseKeyOfZeroIsAShip() =>
         Assert.AreEqual(
-            new Ship("Ship"),
+            new Ship { Name = "Ship" },
             Classify("physicsFile = \"u_p.odf\"\r\nunitName = \"Ship\"\r\nis_starbase = 0")
         );
 

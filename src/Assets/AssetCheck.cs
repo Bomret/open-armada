@@ -6,14 +6,16 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Assets;
 
-// The asset check: loads every asset of every kind and reports each failure with name and reason.
+/// <summary>The asset check: loads every asset of every kind and reports each failure with name and reason.</summary>
 public static class AssetCheck
 {
-    // Returns the process exit code: 0 when no asset failed, 1 otherwise. Unsupported assets are
-    // listed in their own category and do not fail the check. A reader that throws fails only
-    // its own asset (INV-0002); nothing here lets an exception escape. `decode`, when given, runs
-    // the engine's own decoder on each asset the readers accepted and throws when it rejects the
-    // asset (ADR 0002); the Godot-free tests pass none.
+    /// <summary>
+    /// Returns the process exit code: 0 when no asset failed, 1 otherwise. Unsupported assets are
+    /// listed in their own category and do not fail the check. A reader that throws fails only
+    /// its own asset (INV-0002); nothing here lets an exception escape. <c>decode</c>, when given, runs
+    /// the engine's own decoder on each asset the readers accepted and throws when it rejects the
+    /// asset (ADR 0002); the Godot-free tests pass none.
+    /// </summary>
     public static int Run(
         string? game,
         IEnumerable<AssetKind> kinds,
@@ -24,8 +26,10 @@ public static class AssetCheck
         if (string.IsNullOrEmpty(game))
         {
             output.WriteLine("no install given: pass --game <Armada install dir> or set ARMADA_DIR");
+
             return 1;
         }
+
         GameFileSystem files;
         try
         {
@@ -34,6 +38,7 @@ public static class AssetCheck
         catch (Exception e)
         {
             output.WriteLine(e.Message);
+
             return 1;
         }
 
@@ -42,12 +47,16 @@ public static class AssetCheck
             failedTotal = 0,
             unresolved = 0;
         foreach (var missing in files.Missing)
+        {
             output.WriteLine($"MISSING {missing}");
+        }
+
         foreach (var fault in files.Faults)
         {
             output.WriteLine($"FAIL {fault}");
             failedTotal++;
         }
+
         foreach (var kind in kinds)
         {
             int loaded = 0,
@@ -62,8 +71,10 @@ public static class AssetCheck
             {
                 output.WriteLine($"FAIL {kind.Name}: cannot list assets: {e.Message}");
                 failedTotal++;
+
                 continue;
             }
+
             foreach (var name in names)
             {
                 try
@@ -71,7 +82,10 @@ public static class AssetCheck
                     var notes = kind.Check(files, name);
                     // Notes print before the decoder runs, so a decode failure does not lose them.
                     foreach (var note in notes)
+                    {
                         output.WriteLine($"NOTE {kind.Name}/{name}: {note}");
+                    }
+
                     // The game's own decoders run after the readers accepted the file.
                     decode?.Invoke(kind, files, name);
                     // Unresolved references list apart from failures and do not fail the asset.
@@ -80,6 +94,7 @@ public static class AssetCheck
                         output.WriteLine($"UNRESOLVED {kind.Name}/{name}: {missing}");
                         unresolved++;
                     }
+
                     loaded++;
                 }
                 catch (UnsupportedFormatException e)
@@ -93,6 +108,7 @@ public static class AssetCheck
                     failed++;
                 }
             }
+
             output.WriteLine(
                 names.Count == 0
                     ? $"{kind.Name}: empty (no assets in the install)"
@@ -102,9 +118,11 @@ public static class AssetCheck
             unsupportedTotal += unsupported;
             failedTotal += failed;
         }
+
         output.WriteLine($"{loadedTotal} loaded, {unsupportedTotal} unsupported, {failedTotal} failed");
         output.WriteLine($"{unresolved} unresolved references");
         failedTotal += Classify(files, output);
+
         return failedTotal == 0 ? 0 : 1;
     }
 
@@ -122,19 +140,31 @@ public static class AssetCheck
         catch (Exception e)
         {
             output.WriteLine($"FAIL files: cannot classify the install: {e.Message}");
+
             return 1;
         }
+
         foreach (var c in classified.Where(c => c.Class == FileClass.KnownNotLoaded))
+        {
             output.WriteLine($"NOT LOADED {c.Entry}: {c.Group}");
+        }
+
         foreach (var g in classified.Where(c => c.Class == FileClass.OutOfScope).GroupBy(c => c.Group))
+        {
             output.WriteLine($"OUT OF SCOPE {g.Key}: {g.Count()} files");
+        }
+
         var unclassified = classified.Where(c => c.Class == FileClass.Unclassified).ToList();
         foreach (var c in unclassified)
+        {
             output.WriteLine(c.Group == "" ? $"UNCLASSIFIED {c.Entry}" : $"UNCLASSIFIED {c.Entry}: {c.Group}");
+        }
+
         int N(FileClass k) => classified.Count(c => c.Class == k);
         output.WriteLine(
             $"files: {N(FileClass.Loaded)} loaded, {N(FileClass.OutOfScope)} out of scope, {N(FileClass.KnownNotLoaded)} known but not loaded, {unclassified.Count} unclassified"
         );
+
         return unclassified.Count;
     }
 }

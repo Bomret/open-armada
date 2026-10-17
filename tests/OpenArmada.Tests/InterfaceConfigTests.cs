@@ -11,6 +11,7 @@ public class InterfaceConfigTests
     static InterfaceConfig Read(string text, params (string Name, string Text)[] others)
     {
         var map = others.ToDictionary(o => o.Name, o => o.Text);
+
         return InterfaceConfig.Read("gui_x.cfg", text, n => map.GetValueOrDefault(n));
     }
 

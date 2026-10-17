@@ -18,13 +18,27 @@ internal sealed class Gaps
             _causes.Add(cause);
             gap = (new List<string>(), new HashSet<object>(ReferenceEqualityComparer.Instance), 0);
         }
+
         if (!gap.Names.Contains(name))
+        {
             gap.Names.Add(name);
+        }
+
         if (subject == null || gap.Subjects.Add(subject))
+        {
             gap.Count++;
+        }
+
         _byCause[cause] = gap;
     }
 
     public IReadOnlyList<ReportEntry> Entries =>
-        _causes.Select(c => new ReportEntry(c, _byCause[c].Names, _byCause[c].Count)).ToList();
+        _causes
+            .Select(c => new ReportEntry
+            {
+                Cause = c,
+                Names = _byCause[c].Names,
+                Count = _byCause[c].Count,
+            })
+            .ToList();
 }

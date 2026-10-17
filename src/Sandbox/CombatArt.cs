@@ -7,10 +7,44 @@ using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
-// A shot's or a sprite node's sprite: its row, whose Material is its blend, and its frames in play order, each for
-// FrameSeconds.
-public sealed record SpriteArt(Sprite Sprite, IReadOnlyList<SpriteFrame> Frames, double FrameSeconds)
+/// <summary>
+/// A shot's or a sprite node's sprite: its row, whose Material is its blend, and its frames in play order, each for
+/// FrameSeconds.
+/// </summary>
+public sealed record SpriteArt
 {
+    /// <summary>The sprite table row; its Material is the blend.</summary>
+    public required Sprite Sprite { get; init; }
+
+    /// <summary>The frames in play order.</summary>
+    public required IReadOnlyList<SpriteFrame> Frames { get; init; }
+
+    /// <summary>
+    /// Seconds each frame shows; 0 for a single frame, a sprite without an animation, or an animation of explicit
+    /// keyframes (only a flipbook animates).
+    /// </summary>
+    public required double FrameSeconds { get; init; }
+
+    /// <summary>
+    /// Every sprite of the install's tables by name. Each table is read with the animations of all the others, as
+    /// the sprite table kind does; the tables go in name order (ignoring case), and the first row of a name wins.
+    /// A table that cannot be read (an I/O failure, a bad table, or a compressed archive entry) adds none.
+    /// </summary>
+    public static Dictionary<string, (SpriteTable Table, Sprite Sprite)> Rows(GameFileSystem files)
+    {
+        var rows = new Dictionary<string, (SpriteTable, Sprite)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var table in new SpriteTableKind().Loaded(files))
+        {
+            foreach (var sprite in table.Sprites)
+            {
+                rows.TryAdd(sprite.Name, (table, sprite));
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>The sprite's art from its table: its frames, and the seconds each shows.</summary>
     public static SpriteArt Of(SpriteTable table, Sprite sprite)
     {
         var frames = table.Frames(sprite);
@@ -19,31 +53,40 @@ public sealed record SpriteArt(Sprite Sprite, IReadOnlyList<SpriteFrame> Frames,
             frames.Count > 1 && sprite.Anim != null && table.Animations.TryGetValue(sprite.Anim, out var a)
                 ? a.FrameSeconds
                 : 0;
-        return new SpriteArt(sprite, frames, seconds);
+
+        return new SpriteArt
+        {
+            Sprite = sprite,
+            Frames = frames,
+            FrameSeconds = seconds,
+        };
     }
 
-    // The frame shown `seconds` after the sprite appeared: the flipbook loops; a still sprite shows its one frame.
+    /// <summary>
+    /// The frame shown <paramref name="seconds"/> after the sprite appeared: the flipbook loops; a still sprite shows
+    /// its one frame.
+    /// </summary>
     public SpriteFrame FrameAt(double seconds) =>
         FrameSeconds > 0 ? Frames[(int)(Math.Max(seconds, 0) / FrameSeconds) % Frames.Count] : Frames[0];
-
-    // Every sprite of the install's tables by name. Each table is read with the animations of all the others, as
-    // the sprite table kind does; the tables go in name order (ignoring case), and the first row of a name wins.
-    // A table that cannot be read adds none.
-    public static Dictionary<string, (SpriteTable Table, Sprite Sprite)> Rows(GameFileSystem files)
-    {
-        var rows = new Dictionary<string, (SpriteTable, Sprite)>(StringComparer.OrdinalIgnoreCase);
-        foreach (var table in new SpriteTableKind().Loaded(files))
-        foreach (var sprite in table.Sprites)
-            rows.TryAdd(sprite.Name, (table, sprite));
-        return rows;
-    }
 }
 
-// A unit's explosion: the sound and the model it shows for Length seconds. Each is null when the install lacks it.
-public sealed record ExplosionArt(string? Sound, string? Model, float Length);
+/// <summary>A unit's explosion: the sound and the model it shows for Length seconds. Each is null when the install lacks it.</summary>
+public sealed record ExplosionArt
+{
+    /// <summary>The explosion definition's <c>explSound</c>; null when it names none or the install lacks it.</summary>
+    public required string? Sound { get; init; }
 
-// What the fight looks and sounds like, resolved once from the install for the units of a map. Every lookup
-// that fails is a gap, reported once per cause with its names and the number of units it touches (INV-0002).
+    /// <summary>The explosion definition's <c>dbName</c>, without <c>.sod</c>; null when it names none or the install lacks it.</summary>
+    public required string? Model { get; init; }
+
+    /// <summary>The explosion definition's <c>length</c> in seconds; 0 when it names none, so the explosion ends at once.</summary>
+    public required float Length { get; init; }
+}
+
+/// <summary>
+/// What the fight looks and sounds like, resolved once from the install for the units of a map. Every lookup
+/// that fails is a gap, reported once per cause with its names and the number of units it touches (INV-0002).
+/// </summary>
 public sealed class CombatArt
 {
     const string NoSprite = "ordnance names no sprite, its shots are not drawn";
@@ -70,6 +113,11 @@ public sealed class CombatArt
 
     CombatArt(GameFileSystem files) => _files = files;
 
+    /// <summary>
+    /// Resolves the shot sprites, fire sounds, hardpoints, and explosions of the units from the install. Every failed
+    /// lookup becomes a gap in <see cref="Reports"/>. Reads the sprite tables once, on the first sprite, and each
+    /// model once.
+    /// </summary>
     public static CombatArt Build(GameFileSystem files, IEnumerable<(PlacedObject Unit, CombatProfile Profile)> units)
     {
         var art = new CombatArt(files);
@@ -80,39 +128,57 @@ public sealed class CombatArt
             {
                 art.ResolveSprite(weapon, unit);
                 if (art.ResolveSound(weapon.FireSound, weapon.Name, NoSound, MissingSound, unit))
+                {
                     art._fireSounds.Add(weapon.FireSound);
+                }
+
                 foreach (var hardpoint in weapon.Hardpoints)
+                {
                     if (!nodes.ContainsKey(hardpoint))
+                    {
                         art._gaps.Add(MissingHardpoint, hardpoint, unit);
+                    }
+                }
             }
+
             if (art.ResolveExplosion(profile.Fireball, unit) is { } explosion)
+            {
                 art._explosions[unit] = explosion;
+            }
         }
+
         return art;
     }
 
-    // Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.
+    /// <summary>Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.</summary>
     public IEnumerable<SpriteArt> Sprites => _sprites.Values;
 
+    /// <summary>Every fire and explosion sound the install holds, each once (ignoring case).</summary>
     public IEnumerable<string> Sounds =>
-        _fireSounds.Concat(_explosions.Values.Select(e => e.Sound).OfType<string>()).Distinct();
+        _fireSounds
+            .Concat(_explosions.Values.Select(e => e.Sound).OfType<string>())
+            .Distinct(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Every explosion model the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
     public IEnumerable<string> ExplosionModels =>
         _explosions.Values.Select(e => e.Model).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase);
 
-    // The shot sprite of an ordnance's `Sprite` name; null when it is missing (a gap).
+    /// <summary>The shot sprite of an ordnance's <c>Sprite</c> name; null when it is missing (a gap).</summary>
     public SpriteArt? Sprite(string name) => _sprites.GetValueOrDefault(name);
 
-    // The explosion of a unit's fireball; null when its definition is missing or unreadable (a gap).
+    /// <summary>The explosion of a unit's fireball; null when its definition is missing or unreadable (a gap).</summary>
     public ExplosionArt? Explosion(PlacedObject unit) => _explosions.GetValueOrDefault(unit);
 
-    // The name the built model node carries for the SOD node a hardpoint name matches (the match ignores case,
-    // a node lookup does not; Godot sanitizes the name, see NodeName); null when the model holds none.
+    /// <summary>
+    /// The name the built model node carries for the SOD node a hardpoint name matches (the match ignores case,
+    /// a node lookup does not; Godot sanitizes the name, see NodeName); null when the model holds none.
+    /// </summary>
     public string? Hardpoint(PlacedObject unit, string name) => NodesOf(unit.Model).GetValueOrDefault(name);
 
-    // A failure of the view (a texture or a sound that cannot be decoded) joins the gaps, once per cause.
+    /// <summary>A failure of the view (a texture or a sound that cannot be decoded) joins the gaps, once per cause.</summary>
     public void Report(string cause, string name) => _gaps.Add(cause, name);
 
+    /// <summary>The gaps found by <see cref="Build"/> and <see cref="Report"/>, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports => _gaps.Entries;
 
     // The nodes of a model by name; none when the model cannot be read (the sandbox reports that).
@@ -124,11 +190,15 @@ public sealed class CombatArt
             try
             {
                 foreach (var node in Sod.Read(_files.ReadAllBytes(model + ".sod")).Nodes)
+                {
                     nodes.TryAdd(node.Name, NodeName.Of(node.Name));
+                }
             }
             catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
+
             _nodesOfModel[model] = nodes;
         }
+
         return nodes;
     }
 
@@ -138,14 +208,18 @@ public sealed class CombatArt
         if (name.Length == 0)
         {
             _gaps.Add(NoSprite, weapon.Name, unit);
+
             return;
         }
+
         _rows ??= SpriteArt.Rows(_files);
         if (!_rows.TryGetValue(name, out var row))
         {
             _gaps.Add(MissingSprite, name, unit);
+
             return;
         }
+
         _sprites[name] = SpriteArt.Of(row.Table, row.Sprite);
     }
 
@@ -153,11 +227,16 @@ public sealed class CombatArt
     bool ResolveSound(string name, string subjectName, string none, string missing, PlacedObject unit)
     {
         if (name.Length == 0)
+        {
             _gaps.Add(none, subjectName, unit);
+        }
         else if (_files.Find(name) == null)
+        {
             _gaps.Add(missing, name, unit);
+        }
         else
             return true;
+
         return false;
     }
 
@@ -166,8 +245,10 @@ public sealed class CombatArt
         if (fireball.Length == 0)
         {
             _gaps.Add(NoFireball, unit.Class, unit);
+
             return null;
         }
+
         ResolvedDefinition definition;
         try
         {
@@ -176,8 +257,10 @@ public sealed class CombatArt
         catch (Exception e) // unreadable for whatever reason: reported, the destruction shows none (INV-0002)
         {
             _gaps.Add(e is FileNotFoundException ? MissingExplosion : BadExplosion, fireball, unit);
+
             return null;
         }
+
         string sound,
             model;
         ExplosionArt art;
@@ -185,25 +268,34 @@ public sealed class CombatArt
         {
             sound = definition.Has("explSound") ? definition.GetString("explSound") : "";
             model = definition.Has("dbName") ? definition.GetString("dbName") : "";
-            art = new ExplosionArt(
-                sound.Length > 0 && _files.Find(sound) != null ? sound : null,
-                model.Length > 0 && _files.Find(model + ".sod") != null ? model : null,
-                definition.Has("length") ? definition.GetFloat("length") : 0 // stand-in: an explosion naming no length ends at once
-            );
+            art = new ExplosionArt
+            {
+                Sound = sound.Length > 0 && _files.Find(sound) != null ? sound : null,
+                Model = model.Length > 0 && _files.Find(model + ".sod") != null ? model : null,
+                Length = definition.Has("length") ? definition.GetFloat("length") : 0, // stand-in: an explosion naming no length ends at once
+            };
         }
         catch (DefinitionException)
         {
             _gaps.Add(BadExplosion, fireball, unit);
+
             return null;
         }
+
         if (art.Sound == null)
+        {
             _gaps.Add(
                 sound.Length == 0 ? NoExplosionSound : MissingExplosionSound,
                 sound.Length == 0 ? fireball : sound,
                 unit
             );
+        }
+
         if (art.Model == null)
+        {
             _gaps.Add(NoExplosionModel, model.Length == 0 ? fireball : model, unit);
+        }
+
         return art;
     }
 }

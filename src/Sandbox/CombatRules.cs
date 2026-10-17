@@ -4,15 +4,19 @@ using System.Linq;
 
 namespace OpenArmada.Sandbox;
 
-// The pure combat rules of docs/combat-rules.md (ADR 0004): hostility, to-hit, reload, damage, hit location, the
-// application of a hit, and the shield regain. Randomness comes in as arguments; nothing here reads a clock.
+/// <summary>
+/// The pure combat rules of docs/combat-rules.md (ADR 0004): hostility, to-hit, reload, damage, hit location, the
+/// application of a hit, and the shield regain. Randomness comes in as arguments; nothing here reads a clock.
+/// </summary>
 public static class CombatRules
 {
-    // Units of different teams are hostile; team 0 is neutral and hostile to no one.
+    /// <summary>Units of different teams are hostile; team 0 is neutral and hostile to no one.</summary>
     public static bool Hostile(int a, int b) => a != b && a != 0 && b != 0;
 
-    // The chance that a shot at `target` hits: hitChance plus the modifiers that apply. The slow modifiers are
-    // not used.
+    /// <summary>
+    /// The chance that a shot at <c>target</c> hits: hitChance plus the modifiers that apply. The slow modifiers are
+    /// not used.
+    /// </summary>
     public static double ToHitChance(
         WeaponProfile weapon,
         string target,
@@ -27,13 +31,16 @@ public static class CombatRules
         + (shooterStopped ? weapon.StopToHitModifier : 0)
         + (targetStopped ? weapon.ToHitStopModifier : 0);
 
-    // The seconds until the weapon fires again: shotDelay, times the race's crew factor when the weapon sets
-    // crewAffectsWeaponDelay.
+    /// <summary>
+    /// The seconds until the weapon fires again: shotDelay, times the race's crew factor when the weapon sets
+    /// crewAffectsWeaponDelay.
+    /// </summary>
     public static double ReloadDelay(WeaponProfile weapon, UnitCombatState shooter)
     {
         if (!weapon.CrewAffectsWeaponDelay)
             return weapon.ShotDelay;
         var race = shooter.Profile.Race;
+
         return weapon.ShotDelay * CrewFactor(shooter, race.WeaponYellow, race.WeaponRed);
     }
 
@@ -43,14 +50,17 @@ public static class CombatRules
     {
         var race = unit.Profile.Race;
         var ratio = unit.Crew / unit.Profile.MaximumCrew;
+
         return ratio <= race.CrewRedStatus ? red
             : ratio <= race.CrewYellowStatus ? yellow
             : 1;
     }
 
-    // The damage of a landing shot: damageBase plus up to damageVariance either way, for a `random` in [0, 1].
-    // stand-in: the random part is uniform; the game's distribution is not known.
-    // stand-in: a roll below zero (a variance above the base) deals none; the game's handling is not known.
+    /// <summary>
+    /// The damage of a landing shot: damageBase plus up to damageVariance either way, for a <c>random</c> in [0, 1].
+    /// stand-in: the random part is uniform; the game's distribution is not known.
+    /// stand-in: a roll below zero (a variance above the base) deals none; the game's handling is not known.
+    /// </summary>
     public static double Damage(OrdnanceProfile ordnance, string target, double random) =>
         Math.Max(0, ordnance.DamageBase.For(target) + ordnance.DamageVariance.For(target) * (2 * random - 1));
 
@@ -64,11 +74,13 @@ public static class CombatRules
         SystemNames.Sensors,
     };
 
-    // The location a roll of 0 to 99 hits: the roll is reduced by the hit percent of engines, life support,
-    // weapons, shield generator, sensors, and hull in turn; the location that takes it below zero is hit, and a
-    // roll that no location takes is a critical hit. A system the unit lacks has no percent; a destroyed system's
-    // percent is shared evenly among the systems still working, and goes to the critical share (the part no
-    // location takes) when none works.
+    /// <summary>
+    /// The location a roll of 0 to 99 hits: the roll is reduced by the hit percent of engines, life support,
+    /// weapons, shield generator, sensors, and hull in turn; the location that takes it below zero is hit, and a
+    /// roll that no location takes is a critical hit. A system the unit lacks has no percent; a destroyed system's
+    /// percent is shared evenly among the systems still working, and goes to the critical share (the part no
+    /// location takes) when none works.
+    /// </summary>
     public static HitLocation Location(UnitCombatState target, int roll)
     {
         var present = SystemOrder.Where(target.Systems.ContainsKey).ToList();
@@ -81,15 +93,21 @@ public static class CombatRules
         for (var i = 0; i < SystemOrder.Length; i++)
         {
             if (target.Systems.TryGetValue(SystemOrder[i], out var s) && !s.Destroyed)
+            {
                 left -= s.Profile.HitPercent + share;
+            }
+
             if (left < 0)
                 return (HitLocation)i;
         }
+
         return left - target.Profile.HullHitPercent < 0 ? HitLocation.Hull : HitLocation.Critical;
     }
 
-    // Repairs the unit's damaged systems for `seconds` (the rules' "Repair"). A derelict unit repairs nothing.
-    // stand-in: the officer factor is 1.
+    /// <summary>
+    /// Repairs the unit's damaged systems for <c>seconds</c> (the rules' "Repair"). A derelict unit repairs nothing.
+    /// stand-in: the officer factor is 1.
+    /// </summary>
     public static void Repair(UnitCombatState unit, double seconds)
     {
         if (unit.Derelict)
@@ -106,12 +124,16 @@ public static class CombatRules
                 continue;
             s.HitPoints = Math.Min(s.Max, s.HitPoints + seconds / perPoint);
             if (s.HitPoints >= s.Max)
+            {
                 s.Destroyed = false;
+            }
         }
     }
 
-    // Life support loss for `seconds`: the crew of a unit with destroyed life support falls by 1 plus
-    // lifeSupportLoss percent of the crew per second. A derelict unit loses none.
+    /// <summary>
+    /// Life support loss for <c>seconds</c>: the crew of a unit with destroyed life support falls by 1 plus
+    /// lifeSupportLoss percent of the crew per second. A derelict unit loses none.
+    /// </summary>
     public static void Sustain(UnitCombatState unit, double seconds)
     {
         if (unit.Derelict || !unit.SystemDestroyed(SystemNames.LifeSupport))
@@ -131,8 +153,10 @@ public static class CombatRules
         unit.Shields = 0;
     }
 
-    // Applies a landed hit of `damage` at `location` to the unit (the rules' "Applying a hit"). The crew loss
-    // percents are read as percent, so a modifier times the crew times the points is divided by 100.
+    /// <summary>
+    /// Applies a landed hit of <c>damage</c> at <c>location</c> to the unit (the rules' "Applying a hit"). The crew loss
+    /// percents are read as percent, so a modifier times the crew times the points is divided by 100.
+    /// </summary>
     public static Hit Apply(
         UnitCombatState target,
         OrdnanceProfile ordnance,
@@ -150,7 +174,10 @@ public static class CombatRules
         {
             var excess = shieldPart - ordnance.DamageThreshold.For(name);
             if (excess > 0)
+            {
                 crewLoss += Math.Min(excess, 1) + target.Crew * ordnance.ShieldCrewModifier.For(name) * excess / 100;
+            }
+
             shieldLoss = Math.Min(shieldPart, target.Shields);
             target.Shields -= shieldPart;
             if (target.Shields <= 0)
@@ -161,20 +188,25 @@ public static class CombatRules
             }
         }
         else
+        {
             systemsPart = damage;
+        }
 
         target.SystemsRemainder += systemsPart;
         var points = (int)Math.Floor(target.SystemsRemainder);
         target.SystemsRemainder -= points;
         var destroyed = false;
         if (points >= 1)
+        {
             switch (location)
             {
                 case HitLocation.Hull:
                     crewLoss += Math.Min(points, 1) + target.Crew * ordnance.HullCrewModifier.For(name) * points / 100;
+
                     break;
                 case HitLocation.Critical:
                     destroyed = true;
+
                     break;
                 default:
                     if (target.Systems.TryGetValue(SystemOrder[(int)location], out var system) && !system.Destroyed)
@@ -184,20 +216,39 @@ public static class CombatRules
                         {
                             system.Destroyed = true;
                             if (!target.Derelict)
+                            {
                                 crewLoss += 1 + target.Crew * system.Profile.CrewLoss / 100;
+                            }
                         }
                     }
+
                     break;
             }
+        }
+
         target.Crew = Math.Max(0, target.Crew - crewLoss);
         if (crewLoss > 0)
+        {
             CheckCrew(target);
+        }
+
         target.Destroyed |= destroyed;
-        return new Hit(location, damage, shieldLoss, crewLoss, points, destroyed);
+
+        return new Hit
+        {
+            Location = location,
+            Damage = damage,
+            ShieldLoss = shieldLoss,
+            CrewLoss = crewLoss,
+            Points = points,
+            Destroyed = destroyed,
+        };
     }
 
-    // Regains shield points for `seconds`: nothing while the shields are down after reaching zero, then the
-    // rate per second up to the maximum.
+    /// <summary>
+    /// Regains shield points for <c>seconds</c>: nothing while the shields are down after reaching zero, then the
+    /// rate per second up to the maximum.
+    /// </summary>
     public static void RegainShields(UnitCombatState unit, double seconds)
     {
         if (unit.Derelict || unit.SystemDestroyed(SystemNames.ShieldGenerator))

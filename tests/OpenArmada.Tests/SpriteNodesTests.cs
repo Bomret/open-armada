@@ -51,11 +51,15 @@ public class SpriteNodesTests
     // A model of a root node "sprites" with the named nodes under it.
     static Sod Model(params string[] nodes)
     {
-        var sod = new Sod();
-        sod.Nodes.Add(new Sod.Node { Name = "sprites" });
-        foreach (var n in nodes)
-            sod.Nodes.Add(new Sod.Node { Name = n, Parent = "sprites" });
-        return sod;
+        return new Sod
+        {
+            Version = 1.8f,
+            Nodes =
+            [
+                new Sod.Node { Name = "sprites" },
+                .. nodes.Select(n => new Sod.Node { Name = n, Parent = "sprites" }),
+            ],
+        };
     }
 
     [TestMethod]

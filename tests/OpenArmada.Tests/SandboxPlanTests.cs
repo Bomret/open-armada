@@ -34,13 +34,15 @@ public class SandboxPlanTests
             temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).ToArray())
         );
         var parsed = Bzn.Read(map.Build());
-        var asset = new MapAsset(
-            "bzn/t.bzn",
-            edit?.Invoke(parsed) ?? parsed,
-            Array.Empty<MapStart>(),
-            null,
-            Array.Empty<MapPath>()
-        );
+        var asset = new MapAsset
+        {
+            Name = "bzn/t.bzn",
+            Map = edit?.Invoke(parsed) ?? parsed,
+            Starts = Array.Empty<MapStart>(),
+            Overview = null,
+            ScriptedPaths = Array.Empty<MapPath>(),
+        };
+
         return SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), models.Contains);
     }
 
@@ -48,6 +50,7 @@ public class SandboxPlanTests
     {
         var b = new BznBuilder { Background = "" };
         b.Objects.AddRange(objects);
+
         return b;
     }
 
@@ -57,7 +60,15 @@ public class SandboxPlanTests
         Vector3? at = null,
         float[]? axes = null,
         string label = "s"
-    ) => new(cls, team, at ?? new Vector3(100, 38.5f, 200), label, Axes: axes);
+    ) =>
+        new()
+        {
+            Class = cls,
+            Team = team,
+            Position = at ?? new Vector3(100, 38.5f, 200),
+            Label = label,
+            Axes = axes,
+        };
 
     static readonly (string, string)[] Fbattle = { ("fbattle", "baseName = fdreadnought") };
 
@@ -220,13 +231,14 @@ public class SandboxPlanTests
             temp.MakeInstall(("addon/fbattle.odf", "baseName = fdreadnought"), ("addon/x.zfs", archive))
         );
         var map = MapOf(Ship("ghost", label: "a"), Ship("ghost", label: "b"), Ship());
-        var asset = new MapAsset(
-            "bzn/t.bzn",
-            Bzn.Read(map.Build()),
-            Array.Empty<MapStart>(),
-            null,
-            Array.Empty<MapPath>()
-        );
+        var asset = new MapAsset
+        {
+            Name = "bzn/t.bzn",
+            Map = Bzn.Read(map.Build()),
+            Starts = Array.Empty<MapStart>(),
+            Overview = null,
+            ScriptedPaths = Array.Empty<MapPath>(),
+        };
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
         Assert.AreEqual(1, plan.Objects.Count);
         var report = plan.Reports.Single();

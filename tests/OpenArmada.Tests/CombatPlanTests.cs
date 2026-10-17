@@ -46,22 +46,38 @@ public class CombatPlanTests
     {
         // the install lists its races in races.odf; tests that do not bring their own list name fed.odf
         if (!loose.Any(l => l.Path is "addon/races.odf" or "addon/races.zfs" or NoRaces))
+        {
             loose = loose.Append(("addon/races.odf", "numberOfRaces = 1\r\nrace0 = \"fed.odf\"\r\n")).ToArray();
+        }
+
         var install = new GameFileSystem(
             temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).Concat(loose).ToArray())
         );
         var map = new BznBuilder { Background = "" };
         foreach (var c in classes)
-            map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
-        var asset = new MapAsset(
-            "bzn/t.bzn",
-            Bzn.Read(map.Build()),
-            Array.Empty<MapStart>(),
-            null,
-            Array.Empty<MapPath>()
-        );
+        {
+            map.Objects.Add(
+                new BznBuilder.Obj
+                {
+                    Class = c,
+                    Team = 1,
+                    Position = new Vector3(1, 2, 3),
+                    Label = c,
+                }
+            );
+        }
+
+        var asset = new MapAsset
+        {
+            Name = "bzn/t.bzn",
+            Map = Bzn.Read(map.Build()),
+            Starts = Array.Empty<MapStart>(),
+            Overview = null,
+            ScriptedPaths = Array.Empty<MapPath>(),
+        };
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
         var units = UnitPlan.Build(install, plan, _ => true).Units.ToArray();
+
         return (CombatPlan.Build(install, plan, units), units);
     }
 
@@ -182,12 +198,27 @@ public class CombatPlanTests
             new UnitPoses(new[] { ship, foe }),
             new[]
             {
-                new CombatUnit(ship, ProfileOf(r), "s.odf", 0, true),
-                new CombatUnit(foe, CombatFixtures.Profile(), "foe.odf", 0, true),
+                new CombatUnit
+                {
+                    Unit = ship,
+                    Profile = ProfileOf(r),
+                    DefinitionName = "s.odf",
+                    Radius = 0,
+                    Mobile = true,
+                },
+                new CombatUnit
+                {
+                    Unit = foe,
+                    Profile = CombatFixtures.Profile(),
+                    DefinitionName = "foe.odf",
+                    Radius = 0,
+                    Mobile = true,
+                },
             },
             1,
             () => 0
         );
+
         return (world, ship, foe);
     }
 

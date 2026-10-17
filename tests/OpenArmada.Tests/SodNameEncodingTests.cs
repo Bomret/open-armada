@@ -21,7 +21,10 @@ public class SodNameEncodingTests
         w.Write((ushort)name.Length);
         w.Write(name);
         for (var i = 0; i < 10; i++)
+        {
             w.Write(0f); // ambient, diffuse, specular, power
+        }
+
         w.Write((byte)0);
         w.Write(new byte[6]); // no nodes, no animations
         Assert.AreEqual("K’s", Sod.Read(ms.ToArray()).LightingMaterials[0].Name);

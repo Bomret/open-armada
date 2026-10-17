@@ -11,12 +11,22 @@ namespace OpenArmada.Tests;
 [TestClass]
 public class CombatAlertTests
 {
-    sealed record Spec(PlacedObject Object, CombatProfile Profile, bool Mobile = true);
+    sealed record Spec
+    {
+        public required PlacedObject Object { get; init; }
+        public required CombatProfile Profile { get; init; }
+        public bool Mobile { get; init; } = true;
+    }
 
     static Spec Ship(string label, int team, float x, float range = 100, bool green = false, bool canAttack = true) =>
-        new(Placed(label, team, x), Profile(new[] { Weapon(range: range) }, defaultGreen: green, canAttack: canAttack));
+        new()
+        {
+            Object = Placed(label, team, x),
+            Profile = Profile(new[] { Weapon(range: range) }, defaultGreen: green, canAttack: canAttack),
+        };
 
-    static Spec Target(string label, int team, float x) => new(Placed(label, team, x), Profile());
+    static Spec Target(string label, int team, float x) =>
+        new() { Object = Placed(label, team, x), Profile = Profile() };
 
     static CombatWorld World(params Spec[] specs) => WorldWithPoses(specs).World;
 
@@ -25,17 +35,34 @@ public class CombatAlertTests
         var poses = new UnitPoses(specs.Select(s => s.Object));
         var world = new CombatWorld(
             poses,
-            specs.Select(s => new CombatUnit(s.Object, s.Profile, s.Object.Label + ".odf", 0, s.Mobile)),
+            specs.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = 0,
+                Mobile = s.Mobile,
+            }),
             1,
             () => 0
         );
+
         return (world, poses);
     }
 
     // Moves the unit to (x, 0) as its own motion would, so the world sees it there.
     static void Place(UnitPoses poses, PlacedObject unit, float x)
     {
-        var motion = new ShipMotion(new PhysicsValues(100, 100, null), unit.Position, 0);
+        var motion = new ShipMotion(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 100,
+                YawRotationRate = 100,
+                MaxRoll = null,
+            },
+            unit.Position,
+            0
+        );
         motion.SetTarget(x, 0);
         poses.Advance(unit, motion, 100);
     }
@@ -102,7 +129,15 @@ public class CombatAlertTests
         var world = World(a, t);
         world.Step(0.02);
         Assert.AreSame(world.State(t.Object), world.State(a.Object)!.Order);
-        Assert.AreEqual(new MoveIntent(MoveKind.MoveTo, 70, 0), world.State(a.Object)!.Intent);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 70,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
     }
 
     [TestMethod]
@@ -119,10 +154,23 @@ public class CombatAlertTests
     public void ARedUnitHitFromBeyondItsRangeMovesTowardTheAttacker()
     {
         var a = Ship("a", 1, 0, range: 100);
-        var shooter = new Spec(Placed("s", 2, 150), Profile(new[] { Weapon(range: 200) }), false);
+        var shooter = new Spec
+        {
+            Object = Placed("s", 2, 150),
+            Profile = Profile(new[] { Weapon(range: 200) }),
+            Mobile = false,
+        };
         var world = World(a, shooter);
         world.Step(1.2); // the beam lands after its life of one second
-        Assert.AreEqual(new MoveIntent(MoveKind.MoveTo, 150, 0), world.State(a.Object)!.Intent);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 150,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
     }
 
     [TestMethod]
@@ -184,7 +232,11 @@ public class CombatAlertTests
     [TestMethod]
     public void AMoveOrderLostToDestroyedEnginesDoesNotKeepTheRepairedUnitBusy()
     {
-        var a = new Spec(Placed("a", 1, 0), Profile(new[] { Weapon(range: 100) }, systems: new[] { Sys("Engines") }));
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(range: 100) }, systems: new[] { Sys("Engines") }),
+        };
         var t = Target("t", 2, 70);
         var world = World(a, t);
         var engines = world.State(a.Object)!.Systems["Engines"];
@@ -213,7 +265,12 @@ public class CombatAlertTests
     public void ARedUnitSwitchedToYellowStopsChasingAnAttackerAndFiresOnlyWithinTheRadius()
     {
         var a = Ship("a", 1, 0, range: 100);
-        var shooter = new Spec(Placed("s", 2, 150), Profile(new[] { Weapon(range: 200) }), false);
+        var shooter = new Spec
+        {
+            Object = Placed("s", 2, 150),
+            Profile = Profile(new[] { Weapon(range: 200) }),
+            Mobile = false,
+        };
         var world = World(a, shooter);
         world.Step(1.2);
         Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);

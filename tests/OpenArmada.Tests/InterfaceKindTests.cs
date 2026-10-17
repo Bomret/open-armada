@@ -112,6 +112,8 @@ public class InterfaceKindTests
                 CursorKind.KindName,
             }
         )
+        {
             CollectionAssert.Contains(names, n);
+        }
     }
 }

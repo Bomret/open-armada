@@ -6,68 +6,113 @@ using System.Text.RegularExpressions;
 
 namespace OpenArmada.Assets;
 
-// What the asset check does with an install file: some asset kind loads it, it is out of scope (video,
-// help, AI plans, compiled code, install, network, copy protection, GOG wrapper), the engine knows what it is but
-// reads it with no kind, or no rule places it.
+/// <summary>
+/// What the asset check does with an install file: some asset kind loads it, it is out of scope (video,
+/// help, AI plans, compiled code, install, network, copy protection, GOG wrapper), the engine knows what it is but
+/// reads it with no kind, or no rule places it.
+/// </summary>
 public enum FileClass
 {
+    /// <summary>Some asset kind loads the file.</summary>
     Loaded,
+
+    /// <summary>
+    /// The file is out of scope: video, help, AI plans, compiled code, install, network, copy protection, or GOG
+    /// wrapper.
+    /// </summary>
     OutOfScope,
+
+    /// <summary>The engine knows what the file is but reads it with no kind.</summary>
     KnownNotLoaded,
+
+    /// <summary>No rule places the file.</summary>
     Unclassified,
 }
 
-// One install file (an Inventory entry), its class, and the group that class names ("models", "video",
-// "input device maps"); for an unclassified file the reason a rule failed on it, or empty.
-public sealed record Classified(string Entry, FileClass Class, string Group);
+/// <summary>
+/// One install file (an Inventory entry), its class, and the group that class names ("models", "video",
+/// "input device maps"); for an unclassified file the reason a rule failed on it, or empty.
+/// </summary>
+public sealed record Classified
+{
+    /// <summary>The install file, as an Inventory entry.</summary>
+    public required string Entry { get; init; }
 
-// The classification rules: the one place that says which install file belongs to which class. Godot-free.
-// The "Loaded" rules mirror the enumeration scope of the asset kinds, and with the install opened the kinds
-// themselves confirm each file they read (Classify); the others come from the REA report of Armada.exe on
-// the unknown file groups. Entries and rules ignore case.
+    /// <summary>What the asset check does with the file.</summary>
+    public required FileClass Class { get; init; }
+
+    /// <summary>
+    /// The group the class names ("models", "video"); for an unclassified file the reason a rule failed on it, or
+    /// empty.
+    /// </summary>
+    public required string Group { get; init; }
+}
+
+/// <summary>
+/// The classification rules: the one place that says which install file belongs to which class. Godot-free.
+/// The "Loaded" rules mirror the enumeration scope of the asset kinds, and with the install opened the kinds
+/// themselves confirm each file they read (Classify); the others come from the REA report of Armada.exe on
+/// the unknown file groups. Entries and rules ignore case.
+/// </summary>
 public static class InstallClassifier
 {
     static readonly Regex Numbered = new(@"^\.\d+$");
 
-    // With `files`, the kinds decide what loads (AssetKind.Reads): a file some kind reads is loaded, the
-    // override copy where it wins its name. A file the rules below call loaded that no kind reads is known
-    // but not loaded: a file whose bare name a kind reads from another copy is a shadowed copy (a mip level
-    // of a texture an override replaces too), and any other mip level is a texture extra (past a gap, or
-    // after a level of the wrong size). Without, the names alone decide.
+    /// <summary>
+    /// With <c>files</c>, the kinds decide what loads (AssetKind.Reads): a file some kind reads is loaded, the
+    /// override copy where it wins its name. A file the rules below call loaded that no kind reads is known
+    /// but not loaded: a file whose bare name a kind reads from another copy is a shadowed copy (a mip level
+    /// of a texture an override replaces too), and any other mip level is a texture extra (past a gap, or
+    /// after a level of the wrong size). Without, the names alone decide.
+    /// </summary>
     public static IReadOnlyList<Classified> Classify(IEnumerable<string> inventory, GameFileSystem? files = null)
     {
         var entries = inventory.ToList();
         var all = new HashSet<string>(entries.Select(e => e.ToLowerInvariant()));
         var reads = files == null ? null : Reads(files);
+
         return entries
             .Select(e =>
             {
                 var (c, g) = Safe(e.ToLowerInvariant(), all, reads);
-                return new Classified(e, c, g);
+
+                return new Classified
+                {
+                    Entry = e,
+                    Class = c,
+                    Group = g,
+                };
             })
             .ToList();
     }
 
     // The entries the kinds read, each with the name of a kind that reads it, and the bare names of those
     // entries. A kind that cannot list its assets adds nothing; the asset check reports it.
-    sealed record KindReads(Dictionary<string, string> Entries, HashSet<string> Names);
+    sealed record KindReads
+    {
+        public required Dictionary<string, string> Entries { get; init; }
+        public required HashSet<string> Names { get; init; }
+    }
 
     static KindReads Reads(GameFileSystem files)
     {
-        var reads = new KindReads(new(), new());
+        var reads = new KindReads { Entries = new(), Names = new() };
         foreach (var kind in AssetKind.Discover())
         {
             try
             {
                 foreach (var name in kind.Enumerate(files))
-                foreach (var entry in kind.Reads(files, name))
                 {
-                    reads.Entries.TryAdd(entry.ToLowerInvariant(), kind.Name);
-                    reads.Names.Add(Bare(entry.ToLowerInvariant()));
+                    foreach (var entry in kind.Reads(files, name))
+                    {
+                        reads.Entries.TryAdd(entry.ToLowerInvariant(), kind.Name);
+                        reads.Names.Add(Bare(entry.ToLowerInvariant()));
+                    }
                 }
             }
             catch (Exception) { }
         }
+
         return reads;
     }
 
@@ -93,6 +138,7 @@ public static class InstallClassifier
         if (rule.Item1 != FileClass.Loaded)
             return rule;
         var name = Bare(entry);
+
         return reads.Names.Contains(name) ? Known("shadowed copies")
             : Numbered.IsMatch(Path.GetExtension(name)) ? Known("texture extras")
             : rule;
@@ -117,6 +163,7 @@ public static class InstallClassifier
         var parts = entry.Split('/');
         var ext = Path.GetExtension(parts[^1]);
         var depth = parts.Length;
+
         return parts[0] switch
         {
             _ when depth == 1 => RootFile(parts[0], ext),
@@ -238,6 +285,7 @@ public static class InstallClassifier
         if (!int.TryParse(ext[1..], out var level) || level is < 1 or > 9)
             return Known("texture extras");
         var chain = all.Contains(stem + ".tga") && Enumerable.Range(1, level - 1).All(i => all.Contains($"{stem}.{i}"));
+
         return chain ? Loaded("textures") : Known("texture extras");
     }
 }

@@ -19,7 +19,10 @@ public class TextTableTests
         var k = key ?? Key;
         var bytes = Encoding.Latin1.GetBytes(plain);
         for (var i = 0; i < bytes.Length; i++)
+        {
             bytes[i] ^= k[i % k.Length];
+        }
+
         return bytes;
     }
 
@@ -27,6 +30,7 @@ public class TextTableTests
     static TextTable Read(string text, params (string Name, string Text)[] others)
     {
         var map = others.ToDictionary(o => o.Name, o => Encode(o.Text));
+
         return TextTable.Read("t.ldl", Encode(text), Key, n => map.GetValueOrDefault(n));
     }
 
@@ -181,7 +185,10 @@ public class TextTableTests
         Key.CopyTo(exe, TextTable.KeyOffset);
         var all = files.ToList();
         if (withSplash)
+        {
             all.Add(("splash.exe", Latin1(exe)));
+        }
+
         return new GameFileSystem(temp.MakeInstall(all.ToArray()));
     }
 

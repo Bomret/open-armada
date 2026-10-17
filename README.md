@@ -21,6 +21,8 @@ innoextract -m -d "/path/to/Star Trek - Armada" "setup_star_trektm_armada_1.2_rd
 
 `-m` skips the installer's temporary files. The game files land at the root of the `-d` folder; pass that folder as `--game`. The asset check classifies the files GOG adds beside the game as out of scope.
 
+A GOG install has no `splash.exe`, which holds the decoding key of the `.ldl` text tables. The asset check lists those tables as unsupported and does not fail on them.
+
 ## Run the asset browser
 
 ```sh

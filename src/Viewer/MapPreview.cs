@@ -4,12 +4,16 @@ using OpenArmada.Assets;
 
 namespace OpenArmada.Viewer;
 
-// Map preview: the overview image alone beside the same image with every object (by team) and the
-// start positions drawn over it, so the two can be compared; a legend lists the teams and counts.
+/// <summary>
+/// Map preview: the overview image alone beside the same image with every object (by team) and the
+/// start positions drawn over it, so the two can be compared; a legend lists the teams and counts.
+/// </summary>
 public sealed class MapPreview : KindPreview
 {
+    /// <inheritdoc/>
     public override string KindName => MapKind.KindName;
 
+    /// <inheritdoc/>
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var map = (MapAsset)kind.Load(files, name);
@@ -40,6 +44,7 @@ public sealed class MapPreview : KindPreview
         var box = new VBoxContainer();
         box.AddChild(legend);
         box.AddChild(pictures);
+
         return box;
     }
 }

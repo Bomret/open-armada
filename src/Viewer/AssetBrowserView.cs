@@ -61,7 +61,7 @@ public partial class AssetBrowserView : Control
         Log.Info(
             Area.Run,
             $"run start: mode {mode}, install {game ?? "none"} (from {source}), "
-                + $"arguments [{string.Join(", ", userArgs.Select(a => $"\"{a.Replace("\\", "\\\\").Replace("\"", "\\\"")}\""))}], log {logFile}"
+                + $"arguments [{string.Join(", ", userArgs.Select(Log.Quote))}], log {logFile}"
         );
         foreach (var problem in args.Problems)
         {

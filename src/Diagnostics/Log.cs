@@ -98,6 +98,13 @@ public static class Log
             ? area.ToString().ToLowerInvariant()
             : throw new ArgumentOutOfRangeException(nameof(area), area, "not a defined area");
 
+    /// <summary>
+    /// Wraps a value in double quotes and escapes backslash, double quote, and line breaks, so the value
+    /// stays on one log line.
+    /// </summary>
+    public static string Quote(string value) =>
+        "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r") + "\"";
+
     /// <summary>Writes an <see cref="Level.Error"/> entry: something broke.</summary>
     public static void Error(Area area, string text) => Write(Level.Error, area, text);
 

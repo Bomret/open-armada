@@ -106,6 +106,12 @@ public class LogTests
     }
 
     [TestMethod]
+    public void QuoteKeepsAnArgumentOnOneLine()
+    {
+        Assert.AreEqual("\"a\\\\b\\\"c\\nd\\re\"", Log.Quote("a\\b\"c\nd\re"));
+    }
+
+    [TestMethod]
     public void RedirectRestoresThePreviousSink()
     {
         using var outer = new CapturedLog();

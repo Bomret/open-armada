@@ -8,8 +8,7 @@ other classes.
 
 ## How to read an entry
 
-- **Map** is the file stem in `bzn/`, the name the sandbox takes with `--map`. **Title** is the name the
-  map file gives itself.
+- **Map** is the file stem in `bzn/`, the name the sandbox takes with `--map`.
 - **Group.** A multiplayer map has a `.mdf` file beside its `.bzn`. Every other map is in the campaign and
   other maps group.
 - **Start positions** is the count the `.mdf` gives. A map without a `.mdf` has none.
@@ -26,40 +25,39 @@ other classes.
 
 ## Multiplayer maps
 
-| Map | Title | Start positions | Combat at start |
-|---|---|---|---|
-| [`2blue`](#2blue) | Blue Passages | 2 | yes |
-| [`2borders`](#2borders) | Hostile Borders | 2 | yes |
-| [`2deadzone`](#2deadzone) | The Dead Zone | 2 | no |
-| [`2divide`](#2divide) | Divided Lands | 2 | yes |
-| [`2duel`](#2duel) | On The Ready Line | 2 | no |
-| [`2hidden`](#2hidden) | Hidden Treasure | 2 | no |
-| [`2maze`](#2maze) | Nebula Maze | 2 | yes |
-| [`3race`](#3race) | Race for the Base | 3 | yes |
-| [`3triad`](#3triad) | The Triad | 3 | no |
-| [`4across`](#4across) | Across the Red River | 4 | no |
-| [`4brown`](#4brown) | Red & Green & Blue make Brown | 4 | no |
-| [`4crux`](#4crux) | The Cross | 4 | no |
-| [`4first`](#4first) | The Very First Map | 4 | no |
-| [`4green`](#4green) | Green Glow | 4 | no |
-| [`4hole`](#4hole) | Hole in the Middle | 4 | yes |
-| [`4hub`](#4hub) | The Central Hub | 4 | no |
-| [`4junky`](#4junky) | The Junkyard | 4 | no |
-| [`4mama`](#4mama) | Big Mama | 4 | no |
-| [`4more`](#4more) | Simply Boxes | 4 | no |
-| [`4nirvana`](#4nirvana) | All Roads Lead to Nirvana | 4 | no |
-| [`4redsea`](#4redsea) | The Red Sea | 4 | no |
-| [`4strange`](#4strange) | Weird and Strange | 4 | no |
-| [`5assault`](#5assault) | Assault (3 vs 2) | 5 | no |
-| [`6brown`](#6brown) | Even Browner | 6 | no |
-| [`6violins`](#6violins) | The Trouble With Games | 6 | no |
-| [`8compete`](#8compete) | Fierce Competition | 8 | no |
-| [`8nirvana`](#8nirvana) | Tic Tac Toe | 8 | no |
-| [`8open`](#8open) | The Great Wide Open | 8 | no |
+| Map | Start positions | Combat at start |
+|---|---|---|
+| [`2blue`](#2blue) | 2 | yes |
+| [`2borders`](#2borders) | 2 | yes |
+| [`2deadzone`](#2deadzone) | 2 | no |
+| [`2divide`](#2divide) | 2 | yes |
+| [`2duel`](#2duel) | 2 | no |
+| [`2hidden`](#2hidden) | 2 | no |
+| [`2maze`](#2maze) | 2 | yes |
+| [`3race`](#3race) | 3 | yes |
+| [`3triad`](#3triad) | 3 | no |
+| [`4across`](#4across) | 4 | no |
+| [`4brown`](#4brown) | 4 | no |
+| [`4crux`](#4crux) | 4 | no |
+| [`4first`](#4first) | 4 | no |
+| [`4green`](#4green) | 4 | no |
+| [`4hole`](#4hole) | 4 | yes |
+| [`4hub`](#4hub) | 4 | no |
+| [`4junky`](#4junky) | 4 | no |
+| [`4mama`](#4mama) | 4 | no |
+| [`4more`](#4more) | 4 | no |
+| [`4nirvana`](#4nirvana) | 4 | no |
+| [`4redsea`](#4redsea) | 4 | no |
+| [`4strange`](#4strange) | 4 | no |
+| [`5assault`](#5assault) | 5 | no |
+| [`6brown`](#6brown) | 6 | no |
+| [`6violins`](#6violins) | 6 | no |
+| [`8compete`](#8compete) | 8 | no |
+| [`8nirvana`](#8nirvana) | 8 | no |
+| [`8open`](#8open) | 8 | no |
 
 ### 2blue
 
-- Title: Blue Passages
 - Group: multiplayer
 - Start positions: 2
 - Teams with a warship: t1, t2
@@ -72,7 +70,6 @@ other classes.
 
 ### 2borders
 
-- Title: Hostile Borders
 - Group: multiplayer
 - Start positions: 2
 - Teams with a warship: t1, t2
@@ -85,7 +82,6 @@ other classes.
 
 ### 2deadzone
 
-- Title: The Dead Zone
 - Group: multiplayer
 - Start positions: 2
 - Teams with a warship: t8
@@ -99,7 +95,6 @@ other classes.
 
 ### 2divide
 
-- Title: Divided Lands
 - Group: multiplayer
 - Start positions: 2
 - Teams with a warship: t1, t2
@@ -112,7 +107,6 @@ other classes.
 
 ### 2duel
 
-- Title: On The Ready Line
 - Group: multiplayer
 - Start positions: 2
 - Teams with a warship: none
@@ -125,7 +119,6 @@ other classes.
 
 ### 2hidden
 
-- Title: Hidden Treasure
 - Group: multiplayer
 - Start positions: 2
 - Teams with a warship: none
@@ -139,7 +132,6 @@ other classes.
 
 ### 2maze
 
-- Title: Nebula Maze
 - Group: multiplayer
 - Start positions: 2
 - Teams with a warship: t1, t2
@@ -152,7 +144,6 @@ other classes.
 
 ### 3race
 
-- Title: Race for the Base
 - Group: multiplayer
 - Start positions: 3
 - Teams with a warship: t1, t2, t3
@@ -166,7 +157,6 @@ other classes.
 
 ### 3triad
 
-- Title: The Triad
 - Group: multiplayer
 - Start positions: 3
 - Teams with a warship: t1
@@ -180,7 +170,6 @@ other classes.
 
 ### 4across
 
-- Title: Across the Red River
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -195,7 +184,6 @@ other classes.
 
 ### 4brown
 
-- Title: Red & Green & Blue make Brown
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -210,7 +198,6 @@ other classes.
 
 ### 4crux
 
-- Title: The Cross
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -225,7 +212,6 @@ other classes.
 
 ### 4first
 
-- Title: The Very First Map
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -236,7 +222,6 @@ other classes.
 
 ### 4green
 
-- Title: Green Glow
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -251,7 +236,6 @@ other classes.
 
 ### 4hole
 
-- Title: Hole in the Middle
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: t1, t2, t3, t4
@@ -266,7 +250,6 @@ other classes.
 
 ### 4hub
 
-- Title: The Central Hub
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -281,7 +264,6 @@ other classes.
 
 ### 4junky
 
-- Title: The Junkyard
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: t8
@@ -297,7 +279,6 @@ other classes.
 
 ### 4mama
 
-- Title: Big Mama
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -313,7 +294,6 @@ other classes.
 
 ### 4more
 
-- Title: Simply Boxes
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -328,7 +308,6 @@ other classes.
 
 ### 4nirvana
 
-- Title: All Roads Lead to Nirvana
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -339,7 +318,6 @@ other classes.
 
 ### 4redsea
 
-- Title: The Red Sea
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -354,7 +332,6 @@ other classes.
 
 ### 4strange
 
-- Title: Weird and Strange
 - Group: multiplayer
 - Start positions: 4
 - Teams with a warship: none
@@ -369,7 +346,6 @@ other classes.
 
 ### 5assault
 
-- Title: Assault (3 vs 2)
 - Group: multiplayer
 - Start positions: 5
 - Teams with a warship: t7
@@ -386,7 +362,6 @@ other classes.
 
 ### 6brown
 
-- Title: Even Browner
 - Group: multiplayer
 - Start positions: 6
 - Teams with a warship: none
@@ -403,7 +378,6 @@ other classes.
 
 ### 6violins
 
-- Title: The Trouble With Games
 - Group: multiplayer
 - Start positions: 6
 - Teams with a warship: t8
@@ -419,7 +393,6 @@ other classes.
 
 ### 8compete
 
-- Title: Fierce Competition
 - Group: multiplayer
 - Start positions: 8
 - Teams with a warship: none
@@ -438,7 +411,6 @@ other classes.
 
 ### 8nirvana
 
-- Title: Tic Tac Toe
 - Group: multiplayer
 - Start positions: 8
 - Teams with a warship: none
@@ -457,7 +429,6 @@ other classes.
 
 ### 8open
 
-- Title: The Great Wide Open
 - Group: multiplayer
 - Start positions: 8
 - Teams with a warship: none
@@ -476,33 +447,32 @@ other classes.
 
 ## Campaign and other maps
 
-| Map | Title | Combat at start |
-|---|---|---|
-| [`borg1`](#borg1) | Resurrection | yes |
-| [`borg3`](#borg3) | Assimilation | yes |
-| [`borg4`](#borg4) | Extermination | yes |
-| [`borg5`](#borg5) | The Twilight Hour | yes |
-| [`fed1`](#fed1) | Premonitions | yes |
-| [`fed2`](#fed2) | Paradise Revisited | yes |
-| [`fed3`](#fed3) | Dark Omens | yes |
-| [`fed5`](#fed5) | Vendetta | yes |
-| [`finale1`](#finale1) | A Line In The Sand | yes |
-| [`finale4`](#finale4) | Once and Again | yes |
-| [`finale5`](#finale5) | Alpha and Omega part 1 | yes |
-| [`finale6`](#finale6) | The Alpha and The Omega Part 2 | yes |
-| [`fulltech`](#fulltech) | Roscoe's Free Technology Emporium | no |
-| [`kling1`](#kling1) | The Enemy Within | no |
-| [`kling3`](#kling3) | To The Gates Of Sto'Vo'Kor | yes |
-| [`kling4`](#kling4) | A Good Day To Die | yes |
-| [`kling5`](#kling5) | Gray Eminance | yes |
-| [`rom2`](#rom2) | Cloak and Dagger | yes |
-| [`rom3`](#rom3) | The Gauntlet | yes |
-| [`rom4`](#rom4) | A Call To Power | yes |
-| [`rom5`](#rom5) | Unholy Alliances | yes |
+| Map | Combat at start |
+|---|---|
+| [`borg1`](#borg1) | yes |
+| [`borg3`](#borg3) | yes |
+| [`borg4`](#borg4) | yes |
+| [`borg5`](#borg5) | yes |
+| [`fed1`](#fed1) | yes |
+| [`fed2`](#fed2) | yes |
+| [`fed3`](#fed3) | yes |
+| [`fed5`](#fed5) | yes |
+| [`finale1`](#finale1) | yes |
+| [`finale4`](#finale4) | yes |
+| [`finale5`](#finale5) | yes |
+| [`finale6`](#finale6) | yes |
+| [`fulltech`](#fulltech) | no |
+| [`kling1`](#kling1) | no |
+| [`kling3`](#kling3) | yes |
+| [`kling4`](#kling4) | yes |
+| [`kling5`](#kling5) | yes |
+| [`rom2`](#rom2) | yes |
+| [`rom3`](#rom3) | yes |
+| [`rom4`](#rom4) | yes |
+| [`rom5`](#rom5) | yes |
 
 ### borg1
 
-- Title: Resurrection
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2
@@ -516,7 +486,6 @@ other classes.
 
 ### borg3
 
-- Title: Assimilation
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2, t3, t4, t5, t6, t8
@@ -534,7 +503,6 @@ other classes.
 
 ### borg4
 
-- Title: Extermination
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2
@@ -547,7 +515,6 @@ other classes.
 
 ### borg5
 
-- Title: The Twilight Hour
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2, t3, t4
@@ -565,7 +532,6 @@ other classes.
 
 ### fed1
 
-- Title: Premonitions
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2
@@ -578,7 +544,6 @@ other classes.
 
 ### fed2
 
-- Title: Paradise Revisited
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2
@@ -591,7 +556,6 @@ other classes.
 
 ### fed3
 
-- Title: Dark Omens
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t4
@@ -604,7 +568,6 @@ other classes.
 
 ### fed5
 
-- Title: Vendetta
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2, t8
@@ -619,7 +582,6 @@ other classes.
 
 ### finale1
 
-- Title: A Line In The Sand
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2
@@ -632,7 +594,6 @@ other classes.
 
 ### finale4
 
-- Title: Once and Again
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2, t3, t4, t5, t7
@@ -649,7 +610,6 @@ other classes.
 
 ### finale5
 
-- Title: Alpha and Omega part 1
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2
@@ -662,7 +622,6 @@ other classes.
 
 ### finale6
 
-- Title: The Alpha and The Omega Part 2
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2
@@ -676,7 +635,6 @@ other classes.
 
 ### fulltech
 
-- Title: Roscoe's Free Technology Emporium
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: none
@@ -687,7 +645,6 @@ other classes.
 
 ### kling1
 
-- Title: The Enemy Within
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t2
@@ -700,7 +657,6 @@ other classes.
 
 ### kling3
 
-- Title: To The Gates Of Sto'Vo'Kor
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2
@@ -713,7 +669,6 @@ other classes.
 
 ### kling4
 
-- Title: A Good Day To Die
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2, t3
@@ -727,7 +682,6 @@ other classes.
 
 ### kling5
 
-- Title: Gray Eminance
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2, t5
@@ -742,7 +696,6 @@ other classes.
 
 ### rom2
 
-- Title: Cloak and Dagger
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2
@@ -755,7 +708,6 @@ other classes.
 
 ### rom3
 
-- Title: The Gauntlet
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t5, t6, t8
@@ -770,7 +722,6 @@ other classes.
 
 ### rom4
 
-- Title: A Call To Power
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t5, t6
@@ -784,7 +735,6 @@ other classes.
 
 ### rom5
 
-- Title: Unholy Alliances
 - Group: campaign and other
 - Start positions: none
 - Teams with a warship: t1, t2, t4

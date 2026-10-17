@@ -105,7 +105,6 @@ public sealed class CombatWorld
         if (!CombatRules.Hostile(a.Team, t.Team) || a.Weapons.Count == 0)
             return false;
         a.Order = t;
-        a.AutoOrder = false;
         a.AutoMove = false;
         a.PlayerMove = null;
         a.Intent = default;
@@ -119,7 +118,6 @@ public sealed class CombatWorld
         if (State(unit) is not { } state)
             return;
         state.Order = null;
-        state.AutoOrder = false;
         state.AutoMove = false;
         state.PlayerMove = null;
         state.Intent = default;
@@ -210,20 +208,14 @@ public sealed class CombatWorld
         if (u.Order is { Destroyed: true })
         {
             u.Order = null;
-            u.AutoOrder = false;
             u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
         }
 
-        // stand-in: what red gave the unit ends with red, the auto order and the walk toward an attacker (a
+        // stand-in: what red started ends with red, the closing on a pick and the walk toward an attacker (a
         // player's order stays); the game's behavior is not known.
-        if (u.Alert != AlertStance.Red && (u.AutoOrder || u.AutoMove))
+        if (u.Alert != AlertStance.Red && u.AutoMove)
         {
-            if (u.AutoOrder)
-            {
-                u.Order = null;
-            }
-
-            u.AutoOrder = u.AutoMove = false;
+            u.AutoMove = false;
             u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
         }
 
@@ -241,9 +233,7 @@ public sealed class CombatWorld
                 return; // yellow never moves on its own
             if (u.Target != null)
             {
-                u.Order = u.Target; // idle at red: attack the pick
-                u.AutoOrder = true;
-                u.AutoMove = false;
+                u.AutoMove = true; // idle at red: close on the pick, which is chosen again every tick (0x42a170)
                 u.Attacker = null;
             }
             else if (u.Mobile && u.Attacker is { } attacker && Valid(u, attacker))
@@ -273,7 +263,7 @@ public sealed class CombatWorld
             }
         }
 
-        var order = u.Order!;
+        var order = u.Order ?? u.Target!;
         var distance = Surface(u, order);
         if (u.Mobile)
         {

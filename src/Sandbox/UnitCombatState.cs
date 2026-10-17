@@ -120,10 +120,10 @@ public sealed class UnitCombatState(
     /// <summary>The unit the attack order names; null without an order.</summary>
     public UnitCombatState? Order { get; set; }
 
-    /// <summary>Whether the attack order was given by the alert stance (red) and not by the player; it ends with red.</summary>
-    public bool AutoOrder { get; set; }
-
-    /// <summary>Whether the unit's move intent is the red walk toward an attacker and not a player's move order.</summary>
+    /// <summary>
+    /// Whether the unit's move intent is red's (closing on its pick, or the walk toward an attacker) and not a player's
+    /// move order.
+    /// </summary>
     public bool AutoMove { get; set; }
 
     /// <summary>The point (X, Z) of the player's move order, until the unit arrives; null without one.</summary>

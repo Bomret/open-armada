@@ -32,11 +32,17 @@ Every unit has one of three alert stances: red, yellow, or green (0x426e0b). A u
 definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd).
 
 - **Red:** the unit picks targets by itself. An idle unit (one without an order from the player; the engine
-  counts a unit with a move order as not idle until it arrives, **stand-in**) that can attack (`canAttack`) is given an attack
-  order on the target it picks, or toward the position of a unit that recently hit it (0x42a24c,
-  0x42a298). The engine ends such an order, and the walk toward an attacker, when the stance leaves red
-  (**stand-in**). How long "recently" lasts is not known; the engine counts the last attacker until it is invalid
-  (**stand-in**).
+  counts a unit with a move order as not idle until it arrives, **stand-in**) runs target selection again
+  every tick and hands the pick to its weapons (0x42a170 calls 0x42ff80). The pick is no order: the unit keeps
+  it while it stays valid and within the search radius, and takes the nearest valid hostile otherwise. A
+  derelict is no valid target (0x42faa0), so a pick that turns derelict is dropped on the next tick. A unit
+  that can attack (`canAttack`) closes on its current pick (**stand-in**; the game's 300-unit tether is not
+  built). With no pick, it walks toward the position of a unit that recently hit it (0x42a24c is the branch
+  point in the idle path where this walk and the computer-player branch below are reached; 0x42a298). The
+  engine stops that closing, and the walk toward an attacker, when the stance leaves red (**stand-in**). How
+  long "recently" lasts is not known; the engine counts the last attacker until it is invalid (**stand-in**).
+  A player's attack order keeps a derelict target. The game's computer-player branch of the idle path
+  (reached at 0x42a24c, `FUN_00472100`, **inferred**) is not built.
 - **Yellow:** the unit picks targets by itself and fires at them, and never moves on its own. The game
   makes one more validity check on yellow candidates whose meaning is unknown; the engine skips it
   (**stand-in**).
@@ -201,6 +207,8 @@ A unit is destroyed only by a critical hit. Losing every system or the shields d
 ## Not known
 
 - The attack maneuver within range, and yellow alert's extra validity check.
+- Whether a player's attack order drops a target that turns derelict. The game's side check (0x42fb90,
+  `task+0x110`) suggests it may, but the writer of that field was not found; the rule above stays.
 - What the `targetEnemyCraft` and `targetEnemyBuildings` keys do.
 - The flight of pulse phaser shots and the class behind poleron torpedoes.
 - The officer factor in repair, and the full-repair path at 0x468760.

@@ -4,19 +4,6 @@ using System.Numerics;
 
 namespace OpenArmada.Sandbox;
 
-/// <summary>The status of a unit's crew against its race's crew levels (docs/combat-rules.md).</summary>
-public enum CrewStatus
-{
-    /// <summary>Above the race's crewYellowStatus.</summary>
-    Green,
-
-    /// <summary>At or below crewYellowStatus, above crewRedStatus.</summary>
-    Yellow,
-
-    /// <summary>At or below crewRedStatus.</summary>
-    Red,
-}
-
 /// <summary>A unit's screen box in pixels: the edges of the smallest screen rectangle around the unit.</summary>
 public readonly record struct ScreenBox(float Left, float Top, float Right, float Bottom)
 {

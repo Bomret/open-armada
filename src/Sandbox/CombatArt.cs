@@ -195,9 +195,8 @@ public sealed class CombatArt
     /// </summary>
     public Vector3 HardpointPosition(PlacedObject unit, string name, ShipPose pose)
     {
-        NodesOf(unit.Model);
         // stand-in: a hardpoint the model lacks, or a model that cannot be read, sits at the unit's center.
-        var offset = _offsetsOfModel[unit.Model].GetValueOrDefault(name);
+        var offset = OffsetsOf(unit.Model).GetValueOrDefault(name);
 
         return HardpointGeometry.WorldPosition(unit, pose, offset);
     }
@@ -221,28 +220,35 @@ public sealed class CombatArt
     // The nodes of a model by name; none when the model cannot be read (the sandbox reports that).
     Dictionary<string, string> NodesOf(string model)
     {
-        if (!_nodesOfModel.TryGetValue(model, out var nodes))
+        Load(model);
+
+        return _nodesOfModel[model];
+    }
+
+    // The offsets of a model's nodes by name; none when the model cannot be read.
+    Dictionary<string, Vector3> OffsetsOf(string model)
+    {
+        Load(model);
+
+        return _offsetsOfModel[model];
+    }
+
+    // Reads a model once, filling both per-model caches.
+    void Load(string model)
+    {
+        if (_nodesOfModel.ContainsKey(model))
+            return;
+
+        var nodes = _nodesOfModel[model] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        _offsetsOfModel[model] = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
+        try
         {
-            nodes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var offsets = _offsetsOfModel[model] = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                var sod = Sod.Read(_files.ReadAllBytes(model + ".sod"));
-                foreach (var node in sod.Nodes)
-                {
-                    nodes.TryAdd(node.Name, NodeName.Of(node.Name));
-                    if (HardpointGeometry.ModelOffset(sod, node.Name) is { } offset)
-                    {
-                        offsets.TryAdd(node.Name, offset);
-                    }
-                }
-            }
-            catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
-
-            _nodesOfModel[model] = nodes;
+            var sod = Sod.Read(_files.ReadAllBytes(model + ".sod"));
+            foreach (var node in sod.Nodes)
+                nodes.TryAdd(node.Name, NodeName.Of(node.Name));
+            _offsetsOfModel[model] = HardpointGeometry.Offsets(sod);
         }
-
-        return nodes;
+        catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
     }
 
     void ResolveSprite(WeaponProfile weapon, PlacedObject unit)

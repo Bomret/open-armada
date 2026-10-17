@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using OpenArmada.Formats;
 
@@ -9,43 +10,51 @@ namespace OpenArmada.Sandbox;
 public static class HardpointGeometry
 {
     /// <summary>
-    /// The offset of the node a hardpoint name matches (ignoring case) from the model's origin, in Godot's frame (Z
-    /// mirrored, as SodBuilder does): the node's origin carried through its transform and those of its parents. The
-    /// first node of a name is the one matched, and the one a parent name means. A parent the model lacks, or one
-    /// already in the chain (a cycle), ends the chain. Null when the model holds no such node.
+    /// The offset of every node from the model's origin, by name (ignoring case; the first node of a name is the one
+    /// kept, and the one a parent name means), in Godot's frame (Z mirrored, as SodBuilder does): the node's origin
+    /// carried through its transform and those of its parents. The chain ends where SodBuilder hangs a node from the
+    /// root: at a node with no parent, a parent the model lacks, or one in a parent cycle. The root itself (the first
+    /// such node) adds nothing, since the unit's placement replaces its transform.
     /// </summary>
     /// <remarks>
     /// stand-in: the transform is the one stored in the file; the game chains the node's current matrix through its
     /// parents (0x58c930, 0x596590), so an animated or level-of-detail node is not followed.
     /// </remarks>
-    public static Vector3? ModelOffset(Sod sod, string name)
+    public static Dictionary<string, Vector3> Offsets(Sod sod)
     {
-        var byName = new Dictionary<string, Sod.Node>();
-        Sod.Node? node = null;
+        var byName = new Dictionary<string, Sod.Node>(StringComparer.OrdinalIgnoreCase);
         foreach (var n in sod.Nodes)
-        {
             byName.TryAdd(n.Name, n);
-            if (node == null && string.Equals(n.Name, name, StringComparison.OrdinalIgnoreCase))
-                node = n;
-        }
 
-        if (node == null)
-            return null;
-        var at = Vector3.Zero;
-        var seen = new HashSet<Sod.Node>(ReferenceEqualityComparer.Instance);
-        while (node != null && seen.Add(node))
+        bool HangsFromRoot(Sod.Node n) => n.Parent.Length == 0 || !byName.ContainsKey(n.Parent) || sod.InParentCycle(n);
+
+        var root = sod.Nodes.FirstOrDefault(HangsFromRoot);
+        var offsets = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
+        foreach (var start in sod.Nodes)
         {
-            var m = node.Transform;
-            // Mirror Z, as SodBuilder.ToGodot: S * M * S with S = diag(1, 1, -1).
-            at =
-                new Vector3(m.Right.X, m.Right.Y, -m.Right.Z) * at.X
-                + new Vector3(m.Up.X, m.Up.Y, -m.Up.Z) * at.Y
-                + new Vector3(-m.Front.X, -m.Front.Y, m.Front.Z) * at.Z
-                + new Vector3(m.Position.X, m.Position.Y, -m.Position.Z);
-            node = node.Parent.Length > 0 ? byName.GetValueOrDefault(node.Parent) : null;
+            if (offsets.ContainsKey(start.Name))
+                continue;
+
+            var at = Vector3.Zero;
+            for (Sod.Node? node = start; node != null; )
+            {
+                if (node == root)
+                    break;
+
+                var m = node.Transform;
+                // Mirror Z, as SodBuilder.ToGodot: S * M * S with S = diag(1, 1, -1).
+                at =
+                    new Vector3(m.Right.X, m.Right.Y, -m.Right.Z) * at.X
+                    + new Vector3(m.Up.X, m.Up.Y, -m.Up.Z) * at.Y
+                    + new Vector3(-m.Front.X, -m.Front.Y, m.Front.Z) * at.Z
+                    + new Vector3(m.Position.X, m.Position.Y, -m.Position.Z);
+                node = HangsFromRoot(node) ? null : byName[node.Parent];
+            }
+
+            offsets[start.Name] = at;
         }
 
-        return at;
+        return offsets;
     }
 
     /// <summary>

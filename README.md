@@ -47,6 +47,7 @@ The sandbox behaves as follows:
 - Camera: the arrow keys and the window edges scroll the camera. The mouse wheel changes its height. A middle-button drag rotates it. On a trackpad, a two-finger pan changes the height and rotates, and a pinch changes the height. The camera limits and rates come from the install's `RTS_CFG.h`.
 - The sandbox confines the cursor to its window while the window has focus. Esc releases it until the window gains focus again.
 - Left-click selects a unit, and a left-button drag selects the units in the box. Right-click on a hostile unit orders the selected units that have weapons to attack it; a unit without weapons ignores the click. Right-click elsewhere sends the selected ships to that point; a point outside the map sends them to the nearest point of the map's edge. Stations do not move.
+- A selected unit shows the game's shield bar above it and a crew dot at its lower right corner. The bar shades from green to red as the shields fall, and the dot turns yellow and then red as the crew falls to the race's crew levels. The unit under the cursor shows its shield bar too. `docs/selection-display.md` states the rules.
 - The green, yellow, and red alert keys set the alert stance of the selected units. The keys come from the install's `Input.map` (Shift+G, Shift+Y, and Shift+R in the reference install).
 - Units and other models draw their sprite nodes, as the model preview does. The rocks of an asteroid field draw theirs too. A destroyed unit shows its explosion at its last position, and the explosion plays its sprite nodes once.
 - Fire and explosion sounds fade with their distance from the camera. Nothing is cut off, and a sound at the camera's opening distance stays audible. The install defines no falloff, so the engine uses a stand-in.
@@ -90,7 +91,7 @@ A fault that repeats, such as a combat step that fails each frame, is logged at 
 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
 - `src/Rendering/` — converts parsed data into Godot nodes.
-- `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene. The scene handles selection, orders, alert keys, and the drawing and sound of the fight.
+- `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene. The scene handles selection, the selection display, orders, alert keys, and the drawing and sound of the fight.
 - `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
 - `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.

@@ -29,7 +29,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
 
     // Null while the map shows a problem instead of the scene (_Ready returns before the rig is built).
     CameraRig? _rig;
-    bool _mouseInWindow = true;
+    bool _mouseInWindow;
     int _frames;
 
     /// <inheritdoc/>
@@ -43,12 +43,16 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         }
 
         var window = GetWindow();
+        // The window reports only a later enter or exit, so the start state comes from the cursor's place on screen.
+        _mouseInWindow = new Rect2I(DisplayServer.WindowGetPosition(), DisplayServer.WindowGetSize()).HasPoint(
+            DisplayServer.MouseGetPosition()
+        );
         window.MouseEntered += () => _mouseInWindow = true;
         window.MouseExited += () => _mouseInWindow = false;
         // stand-in: the game ran full screen, where the screen edge holds the cursor in the scroll border; the
         // sandbox confines the cursor to its window while the window has focus. Losing focus releases it; Esc
         // releases it until the window gains focus again. A headless or screenshot run never confines.
-        if (DisplayServer.GetName() != "headless" && screenshot == null)
+        if (HasMouse)
         {
             window.FocusEntered += () => Input.MouseMode = Input.MouseModeEnum.Confined;
             window.FocusExited += () => Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -140,6 +144,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
+        AddChild(new SelectionDisplayView(selection, orders.Combat, HoverPoint));
         AddChild(new AlertKeys(AlertBindings.Read(files, gap => AddGap(gap)), selection, orders.Combat));
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
@@ -227,6 +232,26 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
 
         _gaps.Add(gap);
         return true;
+    }
+
+    // A headless or screenshot run has no mouse.
+    bool HasMouse => DisplayServer.GetName() != "headless" && screenshot == null;
+
+    // The point the cursor hovers for the selection display; null outside the window or without a mouse.
+    Vector2? HoverPoint()
+    {
+        var mouse = GetViewport().GetMousePosition();
+
+        return
+            SelectionDisplay.HoverPoint(
+                new System.Numerics.Vector2(mouse.X, mouse.Y),
+                _mouseInWindow,
+                Input.MouseMode == Input.MouseModeEnum.Confined,
+                HasMouse
+            )
+                is { } p
+            ? new Vector2(p.X, p.Y)
+            : null;
     }
 
     // A finding only the view gathers: shown once and logged once, as WARN.

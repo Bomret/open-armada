@@ -8,6 +8,7 @@ format notes.
 
 - Domain terms: `CONTEXT.md`.
 - Combat rules and their recovered values: `docs/combat-rules.md`.
+- How the game draws a unit's status in the world: `docs/selection-display.md`.
 - Decisions: `docs/adr/`. Invariants: `docs/invariants.md`.
 - Source layout, controls, and the asset check: `README.md`.
 - The log of a run: `godot.log` in Godot's user-data folder; its path per system, entry format, levels, and areas are in `README.md`, "Read the log". The asset check's report appears there and on standard output. After a run, read its `WARN` and `ERROR` entries first.

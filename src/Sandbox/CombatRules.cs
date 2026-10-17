@@ -44,17 +44,28 @@ public static class CombatRules
         return weapon.ShotDelay * CrewFactor(shooter, race.WeaponYellow, race.WeaponRed);
     }
 
-    // The race factor for the unit's crew ratio (current crew over maximumCrew): `red` at or below the race's
-    // crewRedStatus, else `yellow` at or below its crewYellowStatus, else 1.
-    static float CrewFactor(UnitCombatState unit, float yellow, float red)
+    /// <summary>
+    /// The unit's crew status by its crew ratio (current crew over maximumCrew): red at or below the race's
+    /// crewRedStatus, else yellow at or below its crewYellowStatus, else green.
+    /// </summary>
+    public static CrewStatus CrewStatusOf(UnitCombatState unit)
     {
         var race = unit.Profile.Race;
         var ratio = unit.Crew / unit.Profile.MaximumCrew;
 
-        return ratio <= race.CrewRedStatus ? red
-            : ratio <= race.CrewYellowStatus ? yellow
-            : 1;
+        return ratio <= race.CrewRedStatus ? CrewStatus.Red
+            : ratio <= race.CrewYellowStatus ? CrewStatus.Yellow
+            : CrewStatus.Green;
     }
+
+    // The race factor for the unit's crew status: `red`, `yellow`, or 1 for green.
+    static float CrewFactor(UnitCombatState unit, float yellow, float red) =>
+        CrewStatusOf(unit) switch
+        {
+            CrewStatus.Red => red,
+            CrewStatus.Yellow => yellow,
+            _ => 1,
+        };
 
     /// <summary>
     /// The damage of a landing shot: damageBase plus up to damageVariance either way, for a <c>random</c> in [0, 1].

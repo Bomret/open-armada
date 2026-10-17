@@ -169,6 +169,21 @@ _Avoid_: dead ship, disabled ship, wreck
 A hit that lands on no ship system and not on the hull. It destroys the unit.
 _Avoid_: core breach, instant kill
 
+**Crew status**
+The state of a unit's crew against its race's crew levels: green, yellow at or below `crewYellowStatus`,
+red at or below `crewRedStatus`. It slows weapons and repair, and it colors the crew dot.
+_Avoid_: crew level, crew health
+
+**Selection display**
+The game's status display drawn in the world around a unit: the shield bar above it and the crew dot at
+its corner. A selected unit shows both, and the unit under the cursor shows its shield bar.
+_Avoid_: health bar, unit overlay, HUD
+
+**Screen box**
+The smallest screen rectangle around a unit's projected bounding box. The selection display is placed
+relative to it.
+_Avoid_: bounding rectangle, screen bounds
+
 ## Tools
 
 **Asset check**

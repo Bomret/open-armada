@@ -14,8 +14,8 @@ namespace OpenArmada.Sandbox;
 /// torpedo (<c>launcher</c>) weapons are read; special weapons are out of scope and skipped without a gap.
 /// Each gap is logged once per cause as a WARN; a definition or constants file that exists but cannot be read is
 /// logged instead as one ERROR per file, with its name and reason (INV-0005, INV-0002).
-/// A value the install lacks takes a stand-in and is reported when the rules need it; no profile value is a
-/// non-number and MaximumCrew is above zero (INV-0003).
+/// A value the install lacks takes a stand-in (INV-0003) and is reported when the rules need it; no profile value is
+/// a non-number. MaximumCrew is above zero: a maximumCrew missing or 0 takes the stand-in crewCost, at least 1.
 /// </summary>
 public sealed class CombatPlan
 {

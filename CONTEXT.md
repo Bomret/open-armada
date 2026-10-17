@@ -182,8 +182,19 @@ _Avoid_: crew level, crew health
 
 **Selection display**
 The game's status display drawn in the world around a unit: the shield bar above it and the crew dot at
-its corner. A selected unit shows both, and the unit under the cursor shows its shield bar.
+its corner. Only the hovered unit and the units of its team show it, and of those only a selected unit
+shows the crew dot. A selected unit that is not in that group shows nothing.
 _Avoid_: health bar, unit overlay, HUD
+
+**Hovered unit**
+The unit under the cursor, as the selection display uses it. It stays the hovered unit for a short hold
+after the cursor leaves it.
+_Avoid_: mouse-over unit, highlighted unit
+
+**Display fade**
+The selection display's opacity for the units of the hovered unit's team. It grows while the hovered team
+stays the same and starts over when the hovered team changes.
+_Avoid_: hover alpha, fade-in timer
 
 **Screen box**
 The smallest screen rectangle around a unit's projected bounding box. The selection display is placed

@@ -39,3 +39,12 @@ Concepts: Log entry, Asset check, Stand-in
 Statement: A log entry's level states what happened, the same for one cause in every mode: `ERROR` when something broke — an asset failed to load, the engine caught a fault, or a mode failed to open — whether or not the run goes on; `WARN` when the engine went on by design with a stand-in, absent data, a skip, or an unsupported asset; `INFO` for context.
 Breaks: silently
 Check: none — the level of each call site is a judgment; the asset check's marker-to-level mapping has its own test, and reviewers check every other call site against this rule.
+
+### INV-0006
+
+Class: behavior
+Concepts: Selection display, Hovered unit, Display fade
+Statement: The selection display shows only through the hovered unit: no unit shows a shield bar or a crew dot because it is selected unless it is the hovered unit or of the hovered unit's team.
+Breaks: silently
+Check: a unit test that selects units with no hovered unit, and with a hovered unit of another team, and finds no shield bar and no crew dot.
+Paths: src/Sandbox/SelectionDisplay.cs, src/Viewer/SelectionDisplayView.cs

@@ -168,6 +168,36 @@ public class CombatAlertTests
     }
 
     [TestMethod]
+    public void AMoveOrderReplacedByAnAttackOrderLeavesTheUnitIdleOnceTheTargetIsDestroyed()
+    {
+        var a = Ship("a", 1, 0);
+        var far = Target("far", 2, 1000);
+        var near = Target("near", 3, 70);
+        var world = World(a, far, near);
+        world.Move(a.Object, -500, 0);
+        world.Attack(a.Object, far.Object);
+        world.State(far.Object)!.Destroyed = true;
+        world.Step(0.02);
+        Assert.AreSame(world.State(near.Object), world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void AMoveOrderLostToDestroyedEnginesDoesNotKeepTheRepairedUnitBusy()
+    {
+        var a = new Spec(Placed("a", 1, 0), Profile(new[] { Weapon(range: 100) }, systems: new[] { Sys("Engines") }));
+        var t = Target("t", 2, 70);
+        var world = World(a, t);
+        var engines = world.State(a.Object)!.Systems["Engines"];
+        world.Move(a.Object, -500, 0);
+        engines.Destroyed = true;
+        world.Step(0.02);
+        engines.HitPoints = engines.Max;
+        engines.Destroyed = false;
+        world.Step(0.02);
+        Assert.AreSame(world.State(t.Object), world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
     public void AMoveOrderEndsOnArrivalAndTheUnitIsIdleAgain()
     {
         var a = Ship("a", 1, 0);

@@ -174,7 +174,8 @@ public sealed class CombatWorld
             u.AutoOrder = false;
             u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
         }
-        // What red gave the unit ends with red: the auto order and the walk toward an attacker (a player's order stays).
+        // stand-in: what red gave the unit ends with red, the auto order and the walk toward an attacker (a
+        // player's order stays); the game's behavior is not known.
         if (u.Alert != AlertStance.Red && (u.AutoOrder || u.AutoMove))
         {
             if (u.AutoOrder)

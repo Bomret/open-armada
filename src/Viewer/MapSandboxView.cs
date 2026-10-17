@@ -46,11 +46,16 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
 
         var window = GetWindow();
         // The window reports only a later enter or exit, so the start state comes from the cursor's place on screen.
-        _mouseInWindow = new Rect2I(DisplayServer.WindowGetPosition(), DisplayServer.WindowGetSize()).HasPoint(
-            DisplayServer.MouseGetPosition()
-        );
-        window.MouseEntered += () => _mouseInWindow = true;
-        window.MouseExited += () => _mouseInWindow = false;
+        // A run without a mouse (headless, screenshot, play) never has the cursor inside: no edge scroll.
+        if (HasMouse)
+        {
+            _mouseInWindow = new Rect2I(DisplayServer.WindowGetPosition(), DisplayServer.WindowGetSize()).HasPoint(
+                DisplayServer.MouseGetPosition()
+            );
+            window.MouseEntered += () => _mouseInWindow = true;
+            window.MouseExited += () => _mouseInWindow = false;
+        }
+
         // stand-in: the game ran full screen, where the screen edge holds the cursor in the scroll border; the
         // sandbox confines the cursor to its window while the window has focus. Losing focus releases it; Esc
         // releases it until the window gains focus again. A headless or screenshot run never confines.
@@ -183,13 +188,11 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         {
             // The units a script can address are those at the start; a destroyed unit leaves the selection. The
             // driver comes after the orders node, so each frame's combat step runs before the script's steps.
-            var state = new PlayState(
-                new UnitNames(selection.Units.Select(u => u.Object)),
-                orders.Pose,
-                orders.Combat.Units.ToList()
-            );
+            var names = new UnitNames(selection.Units.Select(u => u.Object));
+            var state = new PlayState(names, orders.Pose, orders.Combat.Units.ToList());
             var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
-            AddChild(new PlayDriver(new PlayRun(play, state, folder)));
+            var input = new PlayInput(this, names, selection, nodes, (float)_rig.CombatPlaneHeight, folder);
+            AddChild(new PlayDriver(new PlayRun(play, state, folder, input.Run)));
         }
 
         sandbox.LogOpened(selection.Units.Count);
@@ -250,8 +253,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         return true;
     }
 
-    // A headless or screenshot run has no mouse.
-    bool HasMouse => DisplayServer.GetName() != "headless" && screenshot == null;
+    // A headless, screenshot, or play run has no mouse: the real mouse neither confines nor scrolls nor hovers.
+    bool HasMouse => DisplayServer.GetName() != "headless" && screenshot == null && play == null;
 
     // The point the cursor hovers for the selection display; null outside the window or without a mouse.
     Vector2? HoverPoint()
@@ -421,7 +424,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             _rig.Scroll(
                 cursor,
                 new System.Numerics.Vector2(size.X, size.Y),
-                GetWindow().HasFocus(),
+                play != null || GetWindow().HasFocus(), // a play run's keys count whichever window has focus
                 new System.Numerics.Vector2(keys.X, keys.Y),
                 delta
             );

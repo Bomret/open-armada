@@ -119,6 +119,5 @@ public sealed class PlayRun(
     }
 
     // An input step goes to the executor, which sends it to the sandbox as input events.
-    string? Input(PlayStep step) =>
-        input == null ? $"step '{step.GetType().Name}' cannot run here" : input(step);
+    string? Input(PlayStep step) => input == null ? $"step '{step.GetType().Name}' cannot run here" : input(step);
 }

@@ -275,7 +275,15 @@ public sealed class PlayScript
                 if (!Number(args[1], out var z))
                     return (null, $"'{args[1]}' is not a number");
 
-                return (new MoveStep { Line = number, X = x, Z = z }, null);
+                return (
+                    new MoveStep
+                    {
+                        Line = number,
+                        X = x,
+                        Z = z,
+                    },
+                    null
+                );
             case "box":
                 return ParseBox(args, number);
             case "hold":
@@ -284,7 +292,15 @@ public sealed class PlayScript
                 if (!Number(args[1], out var seconds) || seconds < 0)
                     return (null, $"'{args[1]}' is not a number of seconds of zero or more");
 
-                return (new HoldStep { Line = number, Key = args[0], Seconds = seconds }, null);
+                return (
+                    new HoldStep
+                    {
+                        Line = number,
+                        Key = args[0],
+                        Seconds = seconds,
+                    },
+                    null
+                );
             case "scroll":
                 if (args.Length is not (1 or 2))
                     return (null, $"'scroll' takes 1 or 2 arguments, found {args.Length}");
@@ -293,13 +309,19 @@ public sealed class PlayScript
                 var count = 1;
                 if (
                     args.Length == 2
-                    && (
-                        !int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out count) || count < 1
-                    )
+                    && (!int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out count) || count < 1)
                 )
                     return (null, $"'{args[1]}' is not a whole number of one or more");
 
-                return (new ScrollStep { Line = number, Up = args[0] == "up", Count = count }, null);
+                return (
+                    new ScrollStep
+                    {
+                        Line = number,
+                        Up = args[0] == "up",
+                        Count = count,
+                    },
+                    null
+                );
             case "turn":
                 if (args.Length != 1)
                     return Wrong(word, 1, args.Length);

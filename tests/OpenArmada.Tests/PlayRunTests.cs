@@ -19,12 +19,7 @@ public class PlayRunTests
         readonly PlayRun _run;
         public readonly PlayState State;
 
-        public Fight(
-            PlayScript script,
-            string folder,
-            bool lethal = false,
-            Func<PlayStep, string?>? input = null
-        )
+        public Fight(PlayScript script, string folder, bool lethal = false, Func<PlayStep, string?>? input = null)
         {
             var a = Placed("a", 1, 0);
             var b = Placed("b", 2, 10);
@@ -197,14 +192,16 @@ public class PlayRunTests
             Temp(),
             input: step =>
             {
-                log.Add(step switch
-                {
-                    SelectStep s => $"select {s.Unit}",
-                    HoldStep h => $"down {h.Key}",
-                    ReleaseStep r => $"up {r.Key}",
-                    PressStep p => $"press {p.Key}",
-                    _ => "?",
-                });
+                log.Add(
+                    step switch
+                    {
+                        SelectStep s => $"select {s.Unit}",
+                        HoldStep h => $"down {h.Key}",
+                        ReleaseStep r => $"up {r.Key}",
+                        PressStep p => $"press {p.Key}",
+                        _ => "?",
+                    }
+                );
 
                 return null;
             }
@@ -224,10 +221,7 @@ public class PlayRunTests
 
         fight.Play();
 
-        CollectionAssert.AreEqual(
-            new[] { "x.play line 2: unit 'a' is off screen" },
-            fight.Run.Problems.ToArray()
-        );
+        CollectionAssert.AreEqual(new[] { "x.play line 2: unit 'a' is off screen" }, fight.Run.Problems.ToArray());
     }
 
     [TestMethod]

@@ -221,7 +221,7 @@ public partial class CombatView : Node3D
         if (_art.Sprite(name) is not { } art || Texture(art.Sprite.Texture) is not { } tex)
             return;
         var from = shot.Shooter.Unit;
-        if (At(from) is not { } center || Source(from, shot.Hardpoint) is not { } source)
+        if (At(from) is null || Source(from, shot.Hardpoint) is not { } source)
             return;
         if (At(shot.Target.Unit) is not { } targetAt)
             return;
@@ -272,8 +272,9 @@ public partial class CombatView : Node3D
         };
         if (drawn.Missed)
         {
-            // The world drops a missed shot at once; it is drawn aimed beside the target and flies on straight.
-            drawn.AimOffset = Gd(ShotGeometry.MissAim(Num(center), Num(targetAt), shot.Target.Radius)) - targetAt;
+            // The world drops a missed shot at once; it is drawn aimed beside the target, off the line from the
+            // hardpoint it leaves from, and flies on straight.
+            drawn.AimOffset = Gd(ShotGeometry.MissAim(Num(at), Num(targetAt), shot.Target.Radius)) - targetAt;
             drawn.Direction = (targetAt + drawn.AimOffset - at).Normalized();
         }
 

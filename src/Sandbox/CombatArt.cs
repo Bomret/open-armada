@@ -53,7 +53,7 @@ public sealed class CombatArt
                 if (art.ResolveSound(weapon.FireSound, weapon.Name, NoSound, MissingSound, unit))
                     art._fireSounds.Add(weapon.FireSound);
                 foreach (var hardpoint in weapon.Hardpoints)
-                    if (hardpoint != null && !nodes.ContainsKey(hardpoint))
+                    if (!nodes.ContainsKey(hardpoint))
                         art._gaps.Add(MissingHardpoint, hardpoint, unit);
             }
             if (art.ResolveExplosion(profile.Fireball, unit) is { } explosion)

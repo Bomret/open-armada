@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using OpenArmada.Assets;
 using OpenArmada.Sandbox;
@@ -49,7 +50,7 @@ static class CombatFixtures
         new(
             1,
             "w",
-            new string[hardpoints],
+            Enumerable.Range(1, hardpoints).Select(i => $"hp{i}").ToArray(),
             delay,
             range,
             TargetValue.Of(hitChance),

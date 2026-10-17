@@ -293,7 +293,7 @@ public sealed class CombatWorld
 
     // One shot of the weapon at the target, with its to-hit rolled now. A shot that missed is reported and not kept.
     // stand-in: a missed shot hits nothing and flies on to nowhere; the game's miss behavior is not known.
-    Shot Launch(UnitCombatState shooter, WeaponProfile weapon, UnitCombatState target, string? hardpoint)
+    Shot Launch(UnitCombatState shooter, WeaponProfile weapon, UnitCombatState target, string hardpoint)
     {
         // stand-in: nothing in the engine is at warp yet, so the warp modifiers never apply
         var chance = CombatRules.ToHitChance(

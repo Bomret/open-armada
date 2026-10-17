@@ -135,14 +135,11 @@ public partial class CombatView : Node3D
 
     // The node a shot leaves from: the hardpoint's node, or the unit's own node when the model lacks the hardpoint
     // (reported when built); null when the unit's node is gone.
-    Node3D? Source(PlacedObject unit, string? name)
+    Node3D? Source(PlacedObject unit, string name)
     {
         if (!_nodes.TryGetValue(unit, out var node) || !IsInstanceValid(node))
             return null;
-        return
-            name != null
-            && _art.Hardpoint(unit, name) is { } exact
-            && node.FindChild(exact, true, false) is Node3D hardpoint
+        return _art.Hardpoint(unit, name) is { } exact && node.FindChild(exact, true, false) is Node3D hardpoint
             ? hardpoint
             : node;
     }

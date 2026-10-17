@@ -174,6 +174,28 @@ public class ViewerLogTests
     }
 
     [TestMethod]
+    public void Asset_using_a_texture_that_failed_without_an_asset_is_one_info_pointing_back()
+    {
+        using var log = new CapturedLog();
+        ViewerLog.TextureFailed(Area.Render, "mixed01", new InvalidDataException("bad magic"));
+        ViewerLog.TextureFailed(Area.Browser, "mixed01", new InvalidDataException("bad magic"), "a.spr");
+        Assert.AreEqual(2, log.Lines.Count);
+        StringAssert.Matches(
+            log.Lines[1],
+            new Regex(" INFO browser: a.spr: texture \"mixed01\" did not load \\(see its first entry above\\)$")
+        );
+    }
+
+    [TestMethod]
+    public void Asset_less_load_after_an_asset_failure_writes_nothing()
+    {
+        using var log = new CapturedLog();
+        ViewerLog.TextureFailed(Area.Render, "mixed02", new InvalidDataException("bad magic"), "a.sod");
+        ViewerLog.TextureFailed(Area.Render, "mixed02", new InvalidDataException("bad magic"));
+        Assert.ContainsSingle(log.Lines);
+    }
+
+    [TestMethod]
     public void Texture_logged_in_one_captured_log_is_logged_again_in_the_next()
     {
         using (new CapturedLog())

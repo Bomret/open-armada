@@ -141,6 +141,25 @@ public class AssetCheckTests
         Assert.AreEqual(plain, AssetCheck.Run(game, [new ModelKind()]));
     }
 
+    [TestMethod]
+    public void ExitCodeIgnoresEntriesWrittenBeforeTheCheck()
+    {
+        var game = Install(("SOD/a.sod", Sod(1.8f)));
+        using var log = new CapturedLog();
+        Log.Error(Area.Run, "earlier error");
+        Log.Error(Area.Run, "another");
+        Assert.AreEqual(0, AssetCheck.Run(game, [new ModelKind()]));
+    }
+
+    [TestMethod]
+    public void ExitCodeIgnoresLogCountsWhenTheSinkThrows()
+    {
+        var game = Install(("SOD/a.sod", Sod(1.8f)));
+        using var _ = Log.Redirect(_ => throw new InvalidOperationException("sink broke"));
+        Log.Error(Area.Run, "earlier error");
+        Assert.AreEqual(0, AssetCheck.Run(game, [new ModelKind()]));
+    }
+
     // Per-test temp folders, deleted by CleanUp; one instance per test, so nothing is shared.
     readonly TempInstall temp = new();
 

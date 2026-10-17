@@ -92,8 +92,11 @@ public static class Log
         }
     }
 
-    /// <summary>The lowercase word of an area.</summary>
-    public static string AreaName(Area area) => area.ToString().ToLowerInvariant();
+    /// <summary>The lowercase word of an area; throws for a value outside <see cref="Area"/>.</summary>
+    public static string AreaName(Area area) =>
+        Enum.IsDefined(area)
+            ? area.ToString().ToLowerInvariant()
+            : throw new ArgumentOutOfRangeException(nameof(area), area, "not a defined area");
 
     /// <summary>Writes an <see cref="Level.Error"/> entry: something broke.</summary>
     public static void Error(Area area, string text) => Write(Level.Error, area, text);
@@ -130,7 +133,12 @@ public static class Log
                 $"{DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffzzz", CultureInfo.InvariantCulture)} "
                 + $"{level.ToString().ToUpperInvariant()} {AreaName(area)}: ";
             var lines = text.Split(_breaks, StringSplitOptions.None);
-            var count = lines.Length > 1 && lines[^1] == "" ? lines.Length - 1 : lines.Length;
+            var count = lines.Length;
+            while (count > 1 && lines[count - 1] == "")
+            {
+                count--;
+            }
+
             lock (_lock)
             {
                 if (level == Level.Warn)

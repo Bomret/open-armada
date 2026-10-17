@@ -55,6 +55,27 @@ public class LogTests
         Assert.AreEqual(1, Log.ErrorCount);
     }
 
+    [DataTestMethod]
+    [DataRow("a\nb\n\n")]
+    [DataRow("a\r\nb\r\n\r\n")]
+    [DataRow("a\nb\n\n\n")]
+    public void AllTrailingEmptyLinesAreDropped(string text)
+    {
+        using var log = new CapturedLog();
+        Log.Error(Area.Run, text);
+        Assert.AreEqual(2, log.Lines.Count, log.Text);
+    }
+
+    [TestMethod]
+    public void UndefinedAreaIsRejectedAndWritesNoEntry()
+    {
+        using var log = new CapturedLog();
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Log.AreaName((Area)99));
+        Log.Error((Area)99, "x");
+        Assert.AreEqual(0, log.Lines.Count, log.Text);
+        Assert.AreEqual(0, Log.ErrorCount);
+    }
+
     [TestMethod]
     public void CountsTrackWarnAndErrorEntriesNotInfo()
     {

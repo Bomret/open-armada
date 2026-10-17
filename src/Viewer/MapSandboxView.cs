@@ -133,18 +133,18 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             (float)_rig.CombatPlaneHeight,
             bounds,
             combat,
-            AddGap
+            gap => AddGap(gap)
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
-        AddChild(new AlertKeys(AlertBindings.Read(files, AddGap), selection, orders.Combat));
+        AddChild(new AlertKeys(AlertBindings.Read(files, gap => AddGap(gap)), selection, orders.Combat));
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.
         var art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
         var (eye, target) = _rig.Pose; // the camera's opening pose: no input has moved it yet
         var falloff = SoundFalloff.For(System.Numerics.Vector3.Distance(eye, target));
-        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, AddGap));
+        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, gap => AddGap(gap)));
         _gaps.AddRange(art.Reports.Select(r => r.Text));
 
         AddChild(new AsteroidFieldsView(files, plan, Note, Unreadable));
@@ -207,23 +207,25 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
 
     // Shows a gap on the label once. The producers that pass this (the orders, the combat view) log their own
     // findings, and so does AlertBindings.Read for the alert keys.
-    void AddGap(string gap)
+    // Returns whether the gap was new.
+    bool AddGap(string gap)
     {
-        if (!_gaps.Contains(gap))
+        if (_gaps.Contains(gap))
         {
-            _gaps.Add(gap);
+            return false;
         }
+
+        _gaps.Add(gap);
+        return true;
     }
 
     // A finding only the view gathers: shown once and logged once, as WARN.
     void Note(string gap)
     {
-        if (!_gaps.Contains(gap))
+        if (AddGap(gap))
         {
             Log.Warn(Area.Sandbox, gap);
         }
-
-        AddGap(gap);
     }
 
     // A model that cannot be read: an asset failed, so one ERROR per model however many producers report it;
@@ -387,10 +389,18 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         string? failure;
         try
         {
-            var saved = GetViewport().GetTexture().GetImage().SavePng(screenshot);
-            failure = saved == Error.Ok ? null : saved.ToString();
+            var image = GetViewport().GetTexture().GetImage();
+            if (image == null)
+            {
+                failure = "no viewport image (headless)";
+            }
+            else
+            {
+                var saved = image.SavePng(screenshot);
+                failure = saved == Error.Ok ? null : saved.ToString();
+            }
         }
-        catch (Exception e) // no image to take (headless: no viewport texture) is a failed save (INV-0002)
+        catch (Exception e) // any other capture failure is a failed save too (INV-0002)
         {
             failure = e.Message;
         }

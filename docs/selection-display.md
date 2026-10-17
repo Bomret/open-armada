@@ -38,12 +38,16 @@ The display holds a hovered unit, a group key, and a display fade, updated once 
 
 - The hovered unit is the unit the pick finds under the cursor. A pick of another unit hovers that unit at
   once. When the pick finds no unit, the last hovered unit stays hovered until 0.4 seconds have passed
-  (0x60d7f0).
+  (0x60d7f0). Each pick of a unit, the held one included, restarts the 0.4 seconds.
 - The group key is the hovered unit's team, the number at field 0x194; without a hovered unit it is 0.
-  That field is the team is shown by target validity (0x42faa0), which uses it as a bit index into the
+  That field is the team, as shown by target validity (0x42faa0), which uses it as a bit index into the
   target's ally mask.
 - The display fade starts at 0 and grows each frame by that frame's time, up to 1. It starts over at 0
   on the frame the group key changes, and keeps growing while the hover moves between units of one team.
+  The team compare is the only reset. No hover and a hovered unit of team 0 both give key 0, so the
+  first hover of a team-0 unit keeps the fade that grew while nothing was hovered. The tooltip timer
+  at 0x78 in the same update does start over when a unit becomes hovered, but the display reads only
+  the fade at 0x80 (0x49b6a0).
 
 The display walks every object each frame (0x49b6a0). An object that is not shown, or that is off
 screen, gets nothing. Of the rest:

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Numerics;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
@@ -180,6 +181,19 @@ public class MovePlanTests
         CollectionAssert.AreEqual(new[] { "a", "b" }, report.Names.ToArray());
         Assert.AreEqual(3, report.Count);
         StringAssert.Contains(report.Text, "physics definition cannot be read");
+    }
+
+    [TestMethod]
+    public void APhysicsDefinitionThatCannotBeReadIsOneErrorEntryWithItsNameAndReason()
+    {
+        // a compressed archive entry, used by two ships: an asset failed to load, one cause (INV-0005, INV-0002)
+        var archive = System.Text.Encoding.Latin1.GetString(
+            ZfsBuilder.Build(0, ZfsBuilder.M("p.odf", "impulseSpeed = 1\r\nyawRotationRate = 1", 2))
+        );
+        using var log = new CapturedLog();
+        Plan(new[] { "a", "b" }, new[] { ("a", Ship), ("b", Ship) }, archive, "addon/x.zfs");
+        var entries = log.Lines.Where(l => l.Contains("physics definition")).ToList();
+        StringAssert.Matches(entries.Single(), new Regex(@" ERROR sandbox: physics definition p\.odf: \S"));
     }
 
     [TestMethod]

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 
 namespace OpenArmada.Sandbox;
 
@@ -12,6 +14,8 @@ namespace OpenArmada.Sandbox;
 /// </summary>
 public sealed class MovePlan
 {
+    const string CannotBeRead = "physics definition cannot be read, ships cannot move";
+
     /// <summary>The movement values of each ship that can move; a ship with a gap has no entry.</summary>
     public IReadOnlyDictionary<PlacedObject, PhysicsValues> Physics { get; }
 
@@ -32,19 +36,35 @@ public sealed class MovePlan
     {
         var physics = new Dictionary<PlacedObject, PhysicsValues>();
         var gaps = new Gaps();
+        var failedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var unit in units)
         {
             if (unit.Unit is not Ship || !unit.Movable)
                 continue;
             var o = unit.Object;
             ResolvedDefinition definition;
+            var file = plan.Resolved[o.Class].GetString("physicsFile");
             try
             {
-                definition = ResolvedDefinition.Resolve(files, plan.Resolved[o.Class].GetString("physicsFile"));
+                definition = ResolvedDefinition.Resolve(files, file);
             }
-            catch (Exception) // a physics definition the install holds but that cannot be read is a gap, whatever the reason (INV-0002)
+            catch (Exception e) // a physics definition that cannot be resolved is a gap, whatever the reason (INV-0002)
             {
-                gaps.Add("physics definition cannot be read, ships cannot move", o.Class);
+                if (e is FileNotFoundException)
+                {
+                    // absent data, such as a base definition the install does not hold: the WARN of the gap
+                    gaps.Add("physics definition missing, ships cannot move", o.Class);
+                }
+                else
+                {
+                    // an asset failed to load: one ERROR with its name and reason per file (INV-0005, INV-0002)
+                    if (failedFiles.Add(file))
+                    {
+                        Log.Error(Area.Sandbox, $"physics definition {file}: {e.Message}");
+                    }
+
+                    gaps.Add(CannotBeRead, o.Class);
+                }
 
                 continue;
             }
@@ -82,7 +102,7 @@ public sealed class MovePlan
             };
         }
 
-        return new MovePlan(physics, Gaps.Logged(gaps.Entries));
+        return new MovePlan(physics, Gaps.Logged(gaps.Entries, CannotBeRead));
     }
 
     // The key's value when it is a number above 0; otherwise null, and a gap of the cause and class is added.

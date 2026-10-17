@@ -58,6 +58,15 @@ public sealed class CombatArt
         return art;
     }
 
+    // Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.
+    public IEnumerable<SpriteArt> Sprites => _sprites.Values;
+
+    public IEnumerable<string> Sounds =>
+        _sounds.Values.Concat(_explosions.Values.Select(e => e.Sound).OfType<string>()).Distinct();
+
+    public IEnumerable<string> ExplosionModels =>
+        _explosions.Values.Select(e => e.Model).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase);
+
     // The shot sprite of an ordnance's `Sprite` name; null when it is missing (a gap).
     public SpriteArt? Sprite(string name) => _sprites.GetValueOrDefault(name);
 

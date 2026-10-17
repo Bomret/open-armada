@@ -89,10 +89,7 @@ public class CombatArtTests
     public void OrdnanceWithoutASpriteNameIsAGapNamingItsWeapon() =>
         CollectionAssert.AreEqual(
             new[] { "w" },
-            CombatArt
-                .Build(Install(), new[] { Unit(Armed("", "ph.wav", "hp01")) })
-                .Reports.Single()
-                .Names.ToArray()
+            CombatArt.Build(Install(), new[] { Unit(Armed("", "ph.wav", "hp01")) }).Reports.Single().Names.ToArray()
         );
 
     [TestMethod]
@@ -123,7 +120,13 @@ public class CombatArtTests
     [TestMethod]
     public void ModelThatCannotBeReadLeavesEveryHardpointMissing()
     {
-        var unit = (Placed("ship", 1, 0) with { Model = "nomodel" }, Profile(new[] { Armed("phaser", "ph.wav", "hp01") }));
+        var unit = (
+            Placed("ship", 1, 0) with
+            {
+                Model = "nomodel",
+            },
+            Profile(new[] { Armed("phaser", "ph.wav", "hp01") })
+        );
         var art = CombatArt.Build(Install(), new[] { unit });
         Assert.IsFalse(art.Hardpoint(unit.Item1, "hp01"));
     }
@@ -168,6 +171,17 @@ public class CombatArtTests
         Assert.IsNull(explosion.Sound);
         Assert.AreEqual("xplode", explosion.Model);
         CollectionAssert.AreEqual(new[] { "none.wav" }, art.Reports.Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void ListsWhatTheFightCanShowOnceEach()
+    {
+        var a = Unit(Armed("phaser", "ph.wav", "hp01"));
+        var b = Unit(Armed("phaser", "ph.wav", "hp01"));
+        var art = CombatArt.Build(Install(), new[] { a, b });
+        Assert.AreEqual(1, art.Sprites.Count());
+        CollectionAssert.AreEquivalent(new[] { "ph.wav", "boom.wav" }, art.Sounds.ToArray());
+        CollectionAssert.AreEqual(new[] { "xplode" }, art.ExplosionModels.ToArray());
     }
 
     [TestMethod]

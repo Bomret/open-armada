@@ -49,7 +49,8 @@ public static class WavLevelMeter
                     return (null, $"unfinished file (data size {size} but {wav.Length - body} bytes follow)");
                 return Window(wav.AsSpan(body, (int)size), channels, rate, from, to);
             }
-            pos += 8 + size + (size & 1);
+            // Long arithmetic: size is uint, and a uint sum wraps to a zero or short advance.
+            pos += 8L + size + (size & 1);
         }
         return (null, "not a WAV file (no data chunk)");
     }

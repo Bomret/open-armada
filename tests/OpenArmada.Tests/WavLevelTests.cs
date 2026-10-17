@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using WavLevel;
 
@@ -89,6 +90,26 @@ public class WavLevelTests
         wav.AsSpan(36).CopyTo(junk.AsSpan(44));
 
         StringAssert.Contains(Problem(junk), "no data chunk");
+    }
+
+    [TestMethod]
+    [DataRow(0xFFFFFFF7u)]
+    [DataRow(0xFFFFFFF8u)]
+    [DataRow(0xFFFFFFFFu)]
+    public void ChunkSizeThatWrapsTheAdvanceIsReportedNotLooped(uint size)
+    {
+        var wav = Wav(i => Sine(i), 100);
+        var junk = new byte[wav.Length + 8];
+        wav.AsSpan(0, 36).CopyTo(junk);
+        "JUNK"u8.CopyTo(junk.AsSpan(36));
+        BitConverter.GetBytes(size).CopyTo(junk, 40);
+        wav.AsSpan(36).CopyTo(junk.AsSpan(44));
+
+        // A looping Measure is abandoned on a pool thread so the suite fails instead of hanging.
+        var measure = Task.Run(() => Problem(junk));
+
+        Assert.IsTrue(measure.Wait(TimeSpan.FromSeconds(5)), "Measure did not return");
+        StringAssert.Contains(measure.Result, "no data chunk");
     }
 
     [TestMethod]

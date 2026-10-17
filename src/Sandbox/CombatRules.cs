@@ -44,8 +44,9 @@ public static class CombatRules
 
     // The damage of a landing shot: damageBase plus up to damageVariance either way, for a `random` in [0, 1].
     // stand-in: the random part is uniform; the game's distribution is not known.
+    // stand-in: a roll below zero (a variance above the base) deals none; the game's handling is not known.
     public static double Damage(OrdnanceProfile ordnance, string target, double random) =>
-        ordnance.DamageBase.For(target) + ordnance.DamageVariance.For(target) * (2 * random - 1);
+        Math.Max(0, ordnance.DamageBase.For(target) + ordnance.DamageVariance.For(target) * (2 * random - 1));
 
     static readonly string[] SystemOrder = { "Engines", "LifeSupport", "Weapons", "ShieldGenerator", "Sensors" };
 

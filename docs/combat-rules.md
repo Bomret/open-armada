@@ -112,6 +112,7 @@ The ordnance definition's `classLabel` decides how a shot travels.
 ## Damage
 
 A shot that lands deals `damageBase` plus a random part of up to `damageVariance` either way (0x4e7158).
+A roll below zero deals no damage (**stand-in**; the game's handling is not known).
 
 ### Hit location
 

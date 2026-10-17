@@ -76,6 +76,17 @@ public class CombatRulesTests
     }
 
     [TestMethod]
+    public void ARollBelowZeroDealsNoneAndNeverRaisesTheShields()
+    {
+        var ordnance = Beam(damage: 2, variance: 4);
+        var target = State(Profile(maxHealth: 100));
+        target.Shields = 50;
+        var hit = CombatRules.Apply(target, ordnance, CombatRules.Damage(ordnance, "t", 0), HitLocation.Hull, 1);
+        Assert.AreEqual(0, hit.Damage, 1e-6);
+        Assert.AreEqual(50, target.Shields, 1e-6);
+    }
+
+    [TestMethod]
     public void DamageTakesTheOverrideOfTheTargetsDefinitionName()
     {
         var ordnance = Beam() with

@@ -39,3 +39,18 @@ Concepts: Log entry, Asset check, Stand-in
 Statement: A log entry's level states what happened, the same for one cause in every mode: `ERROR` when something broke — an asset failed to load, the engine caught a fault, or a mode failed to open — whether or not the run goes on; `WARN` when the engine went on by design with a stand-in, absent data, a skip, or an unsupported asset; `INFO` for context.
 Breaks: silently
 Check: none — the level of each call site is a judgment; the asset check's marker-to-level mapping has its own test, and reviewers check every other call site against this rule.
+
+### INV-0006
+
+Class: behavior
+Concepts: Play run, Play script, State dump
+Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map and one play script write identical state dumps.
+Breaks: silently
+Check: a unit test that runs one play script twice against the same sandbox plan and compares the state dumps.
+
+### INV-0007
+
+Class: behavior
+Concepts: Play script, Play run, Log entry
+Statement: A play script that cannot be read, a step that cannot run, or an expectation that does not hold is reported as a log entry naming the script, the line, and, for an expectation, the expected and actual values; the play run then quits with a non-zero exit code and never throws out of the sandbox.
+Breaks: loudly

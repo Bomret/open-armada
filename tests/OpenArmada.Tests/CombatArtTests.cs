@@ -247,6 +247,17 @@ public class CombatArtTests
     }
 
     [TestMethod]
+    public void FireAndExplosionSoundThatDifferOnlyInCaseAreListedOnce()
+    {
+        var unit = Unit(Armed("phaser", "boom.wav", "hp01"));
+        var art = CombatArt.Build(
+            Install(("addon/xfb.odf", Explosion.Replace("boom.wav", "BOOM.WAV"))),
+            new[] { unit }
+        );
+        Assert.AreEqual(1, art.Sounds.Count());
+    }
+
+    [TestMethod]
     public void ViewFailuresJoinTheReportsOncePerCause()
     {
         var art = CombatArt.Build(Install(), new[] { Unit(Armed("phaser", "ph.wav", "hp01")) });

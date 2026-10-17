@@ -106,9 +106,11 @@ public sealed class CombatArt
     /// <summary>Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.</summary>
     public IEnumerable<SpriteArt> Sprites => _sprites.Values;
 
-    /// <summary>Every fire and explosion sound the install holds, each once.</summary>
+    /// <summary>Every fire and explosion sound the install holds, each once (ignoring case).</summary>
     public IEnumerable<string> Sounds =>
-        _fireSounds.Concat(_explosions.Values.Select(e => e.Sound).OfType<string>()).Distinct();
+        _fireSounds
+            .Concat(_explosions.Values.Select(e => e.Sound).OfType<string>())
+            .Distinct(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Every explosion model the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
     public IEnumerable<string> ExplosionModels =>

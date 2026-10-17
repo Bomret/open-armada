@@ -72,13 +72,15 @@ public sealed class NodeAnimation
         var parts = string.Concat(tokens).Trim('(', ')').Split(',').Select(Number).ToArray();
         if (parts.Any(p => p == null))
             return null;
-        return field == "colour"
-            ? parts.Length == 3
-                ? new Vector3((float)parts[0]!.Value, (float)parts[1]!.Value, (float)parts[2]!.Value)
-                : null
-            : parts.Length == 1
-                ? new Vector3((float)parts[0]!.Value, 0, 0)
-                : null;
+        if (field == "colour")
+        {
+            if (parts.Length != 3)
+                return null;
+            return new Vector3((float)parts[0]!.Value, (float)parts[1]!.Value, (float)parts[2]!.Value);
+        }
+        if (parts.Length != 1)
+            return null;
+        return new Vector3((float)parts[0]!.Value, 0, 0);
     }
 
     static double? Number(string s) =>

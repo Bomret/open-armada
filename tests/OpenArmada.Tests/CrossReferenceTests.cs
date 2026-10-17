@@ -35,6 +35,7 @@ public class CrossReferenceTests
         {
             b.Objects.Add(new(c, 1, new Vector3(100, 0, 100)));
         }
+
         return Latin1(b.Build());
     }
 

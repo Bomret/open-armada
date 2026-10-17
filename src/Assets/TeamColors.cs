@@ -70,6 +70,7 @@ public sealed class TeamColors
         {
             team._notes.Add("teamcolor.odf not found: every team color is black");
         }
+
         foreach (var name in SlotNames)
         {
             var match = file?.Values.FirstOrDefault(v => v.Key.StartsWith(name, StringComparison.OrdinalIgnoreCase));
@@ -79,8 +80,10 @@ public sealed class TeamColors
             {
                 team._notes.Add($"teamcolor.odf: color '{name}' (key '{match.Key}') is not three numbers: black");
             }
+
             team._colors[name] = valid ? color : Vector3.Zero;
         }
+
         return team;
     }
 
@@ -98,7 +101,9 @@ public sealed class TeamColors
             )
                 return false;
         }
+
         color = new Vector3(v[0], v[1], v[2]);
+
         return true;
     }
 }

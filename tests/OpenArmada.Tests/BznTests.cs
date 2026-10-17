@@ -15,6 +15,7 @@ public class BznTests
     {
         var b = new BznBuilder();
         b.Objects.Add(new("fbattle", 2, new Vector3(100, 38.5f, 200), "ship1", 5));
+
         return b;
     }
 

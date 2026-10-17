@@ -24,6 +24,7 @@ public sealed class ModelPreview : KindPreview
         {
             pick.AddItem(slot);
         }
+
         void Choose(int index) => builder.SetTeamColor(team.Color(TeamColors.SlotNames[index]));
         pick.ItemSelected += i => Choose((int)i);
         var args = OS.GetCmdlineUserArgs().ToList();
@@ -49,6 +50,7 @@ public sealed class ModelPreview : KindPreview
         var box = new VBoxContainer();
         box.AddChild(bar);
         box.AddChild(new ModelPreviewPane(model));
+
         return box;
     }
 }

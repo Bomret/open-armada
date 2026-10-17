@@ -54,6 +54,7 @@ public sealed class CombatArt
                 {
                     art._fireSounds.Add(weapon.FireSound);
                 }
+
                 foreach (var hardpoint in weapon.Hardpoints)
                 {
                     if (!nodes.ContainsKey(hardpoint))
@@ -62,11 +63,13 @@ public sealed class CombatArt
                     }
                 }
             }
+
             if (art.ResolveExplosion(profile.Fireball, unit) is { } explosion)
             {
                 art._explosions[unit] = explosion;
             }
         }
+
         return art;
     }
 
@@ -108,8 +111,10 @@ public sealed class CombatArt
                 }
             }
             catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
+
             _nodesOfModel[model] = nodes;
         }
+
         return nodes;
     }
 
@@ -119,14 +124,18 @@ public sealed class CombatArt
         if (name.Length == 0)
         {
             _gaps.Add(NoSprite, weapon.Name, unit);
+
             return;
         }
+
         _rows ??= LoadRows();
         if (!_rows.TryGetValue(name, out var row))
         {
             _gaps.Add(MissingSprite, name, unit);
+
             return;
         }
+
         var frames = row.Table.Frames(row.Sprite);
         // stand-in: only a flipbook (@auto) animates; an animation of explicit keyframes shows its first frame.
         var seconds =
@@ -154,11 +163,13 @@ public sealed class CombatArt
             {
                 continue;
             }
+
             foreach (var sprite in table.Sprites)
             {
                 rows.TryAdd(sprite.Name, (table, sprite));
             }
         }
+
         return rows;
     }
 
@@ -175,6 +186,7 @@ public sealed class CombatArt
         }
         else
             return true;
+
         return false;
     }
 
@@ -183,8 +195,10 @@ public sealed class CombatArt
         if (fireball.Length == 0)
         {
             _gaps.Add(NoFireball, unit.Class, unit);
+
             return null;
         }
+
         ResolvedDefinition definition;
         try
         {
@@ -193,8 +207,10 @@ public sealed class CombatArt
         catch (Exception e) // unreadable for whatever reason: reported, the destruction shows none (INV-0002)
         {
             _gaps.Add(e is FileNotFoundException ? MissingExplosion : BadExplosion, fireball, unit);
+
             return null;
         }
+
         string sound,
             model;
         ExplosionArt art;
@@ -211,8 +227,10 @@ public sealed class CombatArt
         catch (DefinitionException)
         {
             _gaps.Add(BadExplosion, fireball, unit);
+
             return null;
         }
+
         if (art.Sound == null)
         {
             _gaps.Add(
@@ -221,10 +239,12 @@ public sealed class CombatArt
                 unit
             );
         }
+
         if (art.Model == null)
         {
             _gaps.Add(NoExplosionModel, model.Length == 0 ? fireball : model, unit);
         }
+
         return art;
     }
 }

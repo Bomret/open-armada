@@ -49,6 +49,7 @@ public class CombatPlanTests
         {
             loose = loose.Append(("addon/races.odf", "numberOfRaces = 1\r\nrace0 = \"fed.odf\"\r\n")).ToArray();
         }
+
         var install = new GameFileSystem(
             temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).Concat(loose).ToArray())
         );
@@ -57,6 +58,7 @@ public class CombatPlanTests
         {
             map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
         }
+
         var asset = new MapAsset(
             "bzn/t.bzn",
             Bzn.Read(map.Build()),
@@ -66,6 +68,7 @@ public class CombatPlanTests
         );
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
         var units = UnitPlan.Build(install, plan, _ => true).Units.ToArray();
+
         return (CombatPlan.Build(install, plan, units), units);
     }
 
@@ -192,6 +195,7 @@ public class CombatPlanTests
             1,
             () => 0
         );
+
         return (world, ship, foe);
     }
 

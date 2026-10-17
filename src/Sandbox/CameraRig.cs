@@ -67,6 +67,7 @@ public sealed class CameraRig
                 MaxZ = Math.Max(bounds.MinZ, bounds.MaxZ),
             };
         }
+
         _bounds = bounds;
         if (constants == null)
         {
@@ -80,13 +81,17 @@ public sealed class CameraRig
             if (!constants.TryNumber(name, out var value, out var problem))
             {
                 problems.Add($"{problem}: the camera uses the stand-in {standIn}");
+
                 return standIn;
             }
+
             if (!double.IsFinite(value) || !legal(value))
             {
                 problems.Add($"constant {name} is {value}, {rule}: the camera uses the stand-in {standIn}");
+
                 return standIn;
             }
+
             return value;
         }
 
@@ -102,6 +107,7 @@ public sealed class CameraRig
             );
             (min, max) = (10, 700);
         }
+
         _minHeight = min;
         MaxHeight = max;
         var init = Get("OVERVIEW_INIT_HEIGHT", 450, v => v > 0, "not above 0");
@@ -112,6 +118,7 @@ public sealed class CameraRig
                 $"constant OVERVIEW_INIT_HEIGHT {init} lies outside {min} to {max}: the camera starts at {_initHeight}"
             );
         }
+
         Rotation = Wrap(Get("OVERVIEW_INIT_ROTATION", 0, _ => true, ""));
         _scrollCoefficient = Get("SCROLL_COEFFICIENT", 90000, v => v > 0, "not above 0");
         ZoomStep = Get("ZOOM_SCROLL_COEFFICIENT", 0.1, v => v > 0, "not above 0");
@@ -137,6 +144,7 @@ public sealed class CameraRig
         get
         {
             var d = Math.Sqrt(_focus * _height);
+
             return (
                 new Vector3((float)(_x - d * Math.Sin(Rotation)), (float)_height, (float)(_z - d * Math.Cos(Rotation))),
                 new Vector3((float)_x, (float)_targetY, (float)_z)
@@ -206,11 +214,14 @@ public sealed class CameraRig
                 direction += edge.Length() > 1 ? Vector2.Normalize(edge) : edge;
             }
         }
+
         if (direction == Vector2.Zero)
         {
             ScrollSpeed = _initSpeed;
+
             return;
         }
+
         Pan(direction * (float)(_acceleration * ScrollSpeed * dt));
         ScrollSpeed = Math.Min(_maxSpeed, ScrollSpeed + _timeScale * dt);
     }
@@ -231,6 +242,7 @@ public sealed class CameraRig
         {
             r += 2 * Math.PI;
         }
+
         return r >= 2 * Math.PI ? 0 : r;
     }
 }

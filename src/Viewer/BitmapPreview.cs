@@ -14,6 +14,7 @@ public sealed class BitmapPreview : KindPreview
         var info = (BmpInfo)kind.Load(files, name);
         var image = GodotDecoders.Bmp(files.ReadAllBytes(name), name);
         var summary = $"{info.Width}x{info.Height}, BMP {info.BitsPerPixel}-bit";
+
         return new ImagePane(summary, new[] { (name, image) });
     }
 }

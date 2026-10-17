@@ -76,6 +76,7 @@ public sealed class ResolvedDefinition
     {
         var def = new ResolvedDefinition(name);
         def.Visit(files, name, new List<string>(), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+
         return def;
     }
 
@@ -94,8 +95,10 @@ public sealed class ResolvedDefinition
             var start = members.IndexOf(members.Min(StringComparer.OrdinalIgnoreCase)!);
             var cycle = members.Skip(start).Concat(members.Take(start)).ToList();
             AddProblem($"include cycle {string.Join(" -> ", cycle.Append(cycle[0]))}");
+
             return false;
         }
+
         // The engine's rule: a definition cut by the depth limit and walked again by a shallower path adds
         // the keys it recovers after every key added since the cut, so those rank below them (this arises
         // only in chains deeper than 64). The depth problem stays listed after the recovery, because the
@@ -107,8 +110,10 @@ public sealed class ResolvedDefinition
         if (path.Count >= MaxDepth)
         {
             AddProblem($"include chain deeper than {MaxDepth} at '{name}'");
+
             return true;
         }
+
         byte[] bytes;
         try
         {
@@ -130,8 +135,10 @@ public sealed class ResolvedDefinition
             {
                 AddProblem($"include '{name}' cannot be read (included by {path[^1]}): {e.Message}");
             }
+
             return false;
         }
+
         var odf = Odf.Parse(Windows1252.Encoding.GetString(bytes));
         visited.Add(name);
         // The definition's own notes carry no name: the check line and the preview already show it.
@@ -149,6 +156,7 @@ public sealed class ResolvedDefinition
         {
             own[e.Key] = e;
         }
+
         foreach (var e in own.Values)
         {
             if (_index.TryAdd(e.Key, _values.Count))
@@ -185,6 +193,7 @@ public sealed class ResolvedDefinition
         {
             cut |= Visit(files, includes[i], path, visited);
         }
+
         path.RemoveAt(path.Count - 1);
         if (cut)
         {
@@ -194,6 +203,7 @@ public sealed class ResolvedDefinition
         {
             _cut.Remove(name);
         }
+
         return cut;
     }
 
@@ -230,6 +240,7 @@ public sealed class ResolvedDefinition
                 );
             }
         }
+
         return found.OrderBy(f => f.N).Select(f => f.Value).ToList();
     }
 
@@ -239,6 +250,7 @@ public sealed class ResolvedDefinition
     public string GetString(string key)
     {
         var t = Get(key).Tokens;
+
         return t.Count switch
         {
             0 => "",
@@ -253,6 +265,7 @@ public sealed class ResolvedDefinition
         var t = Get(key).Tokens;
         if (t.Count == 1 && TryNumber(t[0], out var f))
             return f;
+
         throw Wrong(key, "a number", t);
     }
 
@@ -281,6 +294,7 @@ public sealed class ResolvedDefinition
                 overrides[t[i]] = v;
             }
         }
+
         return new TargetValue(def, overrides);
     }
 
@@ -292,6 +306,7 @@ public sealed class ResolvedDefinition
             return n;
         if (t.Count == 1 && TryNumber(t[0], out var f) && f == MathF.Floor(f) && MathF.Abs(f) < int.MaxValue)
             return (int)f;
+
         throw Wrong(key, "an integer", t);
     }
 

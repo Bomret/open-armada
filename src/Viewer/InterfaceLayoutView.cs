@@ -29,6 +29,7 @@ public partial class InterfaceLayoutView : Control
             {
                 DrawTextureRectRegion(texture, rect, region);
             }
+
             DrawRect(rect, e.IsPanel ? Colors.Cyan : Colors.Green, false);
             DrawString(
                 ThemeDB.FallbackFont,

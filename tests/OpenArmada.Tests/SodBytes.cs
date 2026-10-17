@@ -40,6 +40,7 @@ internal sealed class SodBytes
             _w.Write(e.Dst);
             _w.Write(e.Filter);
         }
+
         return this;
     }
 
@@ -53,9 +54,11 @@ internal sealed class SodBytes
             {
                 _w.Write(0.5f); // ambient, diffuse, specular
             }
+
             _w.Write(m.Power);
             _w.Write(m.Model);
         }
+
         return this;
     }
 
@@ -72,11 +75,13 @@ internal sealed class SodBytes
             {
                 _w.Write(i % 4 == 0 ? 1f : 0f);
             }
+
             if (n.Mesh is { } m)
             {
                 Mesh(m);
             }
         }
+
         return this;
     }
 
@@ -86,6 +91,7 @@ internal sealed class SodBytes
         {
             Id(m.TextureMaterial);
         }
+
         Id(m.Texture);
         _w.Write((ushort)m.Vertices);
         _w.Write((ushort)m.TexCoords);
@@ -94,10 +100,12 @@ internal sealed class SodBytes
         {
             _w.Write((float)i);
         }
+
         for (var i = 0; i < m.TexCoords * 2; i++)
         {
             _w.Write(0.5f);
         }
+
         _w.Write((ushort)(m.Corners.Length / 3));
         Id(m.Lighting);
         foreach (var (v, t) in m.Corners)
@@ -105,6 +113,7 @@ internal sealed class SodBytes
             _w.Write((ushort)v);
             _w.Write((ushort)t);
         }
+
         _w.Write((byte)1); // backface cull
         _w.Write((ushort)0);
     }
@@ -126,6 +135,7 @@ internal sealed class SodBytes
                 _w.Write(r.Offset);
             }
         }
+
         return _ms.ToArray();
     }
 

@@ -64,8 +64,10 @@ public sealed class ZfsArchive
             zfs.ReadBlock((int)pos);
             pos = U((int)pos);
         }
+
         if (pos != 0)
             throw new InvalidDataException($"block chain continues past the {blocks} blocks the header counts");
+
         return zfs;
     }
 
@@ -115,6 +117,7 @@ public sealed class ZfsArchive
                 word ^= _key; // little-endian host, as the archive's words are
             }
         }
+
         return bytes;
     }
 }

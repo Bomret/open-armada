@@ -34,6 +34,7 @@ public static class CombatRules
         if (!weapon.CrewAffectsWeaponDelay)
             return weapon.ShotDelay;
         var race = shooter.Profile.Race;
+
         return weapon.ShotDelay * CrewFactor(shooter, race.WeaponYellow, race.WeaponRed);
     }
 
@@ -43,6 +44,7 @@ public static class CombatRules
     {
         var race = unit.Profile.Race;
         var ratio = unit.Crew / unit.Profile.MaximumCrew;
+
         return ratio <= race.CrewRedStatus ? red
             : ratio <= race.CrewYellowStatus ? yellow
             : 1;
@@ -84,9 +86,11 @@ public static class CombatRules
             {
                 left -= s.Profile.HitPercent + share;
             }
+
             if (left < 0)
                 return (HitLocation)i;
         }
+
         return left - target.Profile.HullHitPercent < 0 ? HitLocation.Hull : HitLocation.Critical;
     }
 
@@ -157,6 +161,7 @@ public static class CombatRules
             {
                 crewLoss += Math.Min(excess, 1) + target.Crew * ordnance.ShieldCrewModifier.For(name) * excess / 100;
             }
+
             shieldLoss = Math.Min(shieldPart, target.Shields);
             target.Shields -= shieldPart;
             if (target.Shields <= 0)
@@ -181,9 +186,11 @@ public static class CombatRules
             {
                 case HitLocation.Hull:
                     crewLoss += Math.Min(points, 1) + target.Crew * ordnance.HullCrewModifier.For(name) * points / 100;
+
                     break;
                 case HitLocation.Critical:
                     destroyed = true;
+
                     break;
                 default:
                     if (target.Systems.TryGetValue(SystemOrder[(int)location], out var system) && !system.Destroyed)
@@ -198,15 +205,19 @@ public static class CombatRules
                             }
                         }
                     }
+
                     break;
             }
         }
+
         target.Crew = Math.Max(0, target.Crew - crewLoss);
         if (crewLoss > 0)
         {
             CheckCrew(target);
         }
+
         target.Destroyed |= destroyed;
+
         return new Hit(location, damage, shieldLoss, crewLoss, points, destroyed);
     }
 

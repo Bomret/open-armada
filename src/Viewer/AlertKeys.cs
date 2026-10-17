@@ -34,6 +34,7 @@ public partial class AlertKeys : Node
                 state.Alert = stance;
             }
         }
+
         GetViewport().SetInputAsHandled();
     }
 }

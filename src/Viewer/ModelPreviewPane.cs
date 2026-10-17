@@ -56,6 +56,7 @@ public partial class ModelPreviewPane : SubViewportContainer
             var b = m.GlobalTransform * m.GetAabb();
             box = box?.Merge(b) ?? b;
         }
+
         return box ?? new Aabb(Vector3.Zero, Vector3.One);
     }
 
@@ -78,14 +79,17 @@ public partial class ModelPreviewPane : SubViewportContainer
                 _yaw -= m.Relative.X * 0.01f;
                 _pitch = Math.Clamp(_pitch - m.Relative.Y * 0.01f, -1.5f, 1.5f);
                 UpdateCamera();
+
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp }:
                 _distance *= 0.9f;
                 UpdateCamera();
+
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelDown }:
                 _distance *= 1.1f;
                 UpdateCamera();
+
                 break;
         }
     }

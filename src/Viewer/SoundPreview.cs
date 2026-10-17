@@ -33,11 +33,13 @@ public sealed class SoundPreview : KindPreview
             {
                 player.Play();
             }
+
             play.Text = player.Playing ? "Stop" : "Play";
         };
         player.Finished += () => play.Text = "Play";
         box.AddChild(player);
         box.AddChild(play);
+
         return box;
     }
 }

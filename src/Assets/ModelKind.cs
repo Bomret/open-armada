@@ -24,6 +24,7 @@ public sealed class ModelKind : AssetKind
         var sod = (Sod)Load(files, name);
         var textures = sod.Nodes.Where(n => n.Mesh != null).Select(n => ModelRules.Look(sod, n.Mesh!).Texture);
         var animations = ModelRules.Analyze(files, sod).MissingAnimations.Select(m => m.Animation);
+
         return AssetReferences
             .Missing(textures, n => AssetReferences.HasTexture(files, n))
             .Concat(AssetReferences.Missing(animations, _ => false))
@@ -44,6 +45,7 @@ public sealed class ModelKind : AssetKind
                 lines.Remove(m.Problem);
             }
         }
+
         return lines;
     }
 }

@@ -21,6 +21,7 @@ public class TgaTests
             header[6] = 1;
             header[7] = 24;
         } // 256 entries, 24 bits each
+
         header[12] = (byte)w;
         header[13] = (byte)(w >> 8);
         header[14] = (byte)h;
@@ -30,6 +31,7 @@ public class TgaTests
         var pixels = pixelBytes >= 0 ? pixelBytes : w * h * bpp / 8;
         var all = new byte[18 + map + pixels];
         header.CopyTo(all, 0);
+
         return all;
     }
 

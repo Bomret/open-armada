@@ -15,6 +15,7 @@ public static class Palette
         {
             colors[i] = (data[i * 3], data[i * 3 + 1], data[i * 3 + 2]);
         }
+
         return colors;
     }
 }

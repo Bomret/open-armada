@@ -23,6 +23,7 @@ public static class ShotGeometry
         var x = Vector3.Normalize(along);
         var up = System.MathF.Abs(x.Y) > 0.99f ? -Vector3.UnitZ : Vector3.UnitY;
         var z = Vector3.Normalize(Vector3.Cross(x, up));
+
         return new BeamPose((start + end) / 2, along, Vector3.Cross(z, x), z);
     }
 
@@ -36,6 +37,7 @@ public static class ShotGeometry
                 : Vector3.UnitY;
         var side = Vector3.Cross(line, up);
         side = side.LengthSquared() < 1e-12f ? Vector3.UnitX : Vector3.Normalize(side);
+
         return center + side * (radius * MissRadii);
     }
 }

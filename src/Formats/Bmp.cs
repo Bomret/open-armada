@@ -31,6 +31,7 @@ public static class Bmp
         var need = offset + ((long)width * bpp + 31) / 32 * 4 * Math.Abs((long)height);
         if (need > d.Length)
             throw new InvalidDataException($"BMP is cut off ({d.Length} of {need} bytes)");
+
         return new BmpInfo(width, Math.Abs(height), bpp);
     }
 }

@@ -24,10 +24,12 @@ public static class SurfaceMaterial
         {
             mat.SetShaderParameter("albedo_tex", texture);
         }
+
         mat.SetShaderParameter("has_tex", texture != null);
         mat.SetShaderParameter("opacity", blend.Opacity);
         mat.SetShaderParameter("uv_offset", Vector2.Zero);
         Apply(mat, surface);
+
         return mat;
     }
 
@@ -52,10 +54,12 @@ public static class SurfaceMaterial
         {
             render.Add("unshaded");
         }
+
         if (blend.Mode == BlendMode.Add)
         {
             render.Add("blend_add");
         }
+
         var alpha = blend.Mode switch
         {
             BlendMode.Cutout => "if (a < 128.0 / 255.0) discard;",
@@ -94,6 +98,7 @@ void light() {{
 }}
 ",
         };
+
         return Shaders[key] = shader;
     }
 }

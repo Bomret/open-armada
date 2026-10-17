@@ -53,6 +53,7 @@ public sealed class MapKind : AssetKind
         {
             cache[name] = asset = Read(files, name);
         }
+
         return asset;
     }
 
@@ -69,6 +70,7 @@ public sealed class MapKind : AssetKind
                 starts.Add(new MapStart(i + 1, cells[i]));
             }
         }
+
         var overview = files.Find(stem + ".bmp") != null ? stem + ".bmp" : null;
         var paths = files
             .Inventory()
@@ -79,6 +81,7 @@ public sealed class MapKind : AssetKind
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
             .Select(f => new MapPath(f[PathFolder.Length..], ReadPth(files, f)))
             .ToList();
+
         return new MapAsset(name, map, starts, overview, paths);
     }
 
@@ -107,6 +110,7 @@ public sealed class MapKind : AssetKind
     public override IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         var map = ((MapAsset)Load(files, name)).Map;
+
         return map
             .Objects.Where(o => !map.Bounds.Contains(o.Position.X, o.Position.Z))
             .Select(o =>

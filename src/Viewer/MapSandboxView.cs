@@ -42,8 +42,10 @@ public partial class MapSandboxView : Node3D
         if (_sandbox.Problem != null)
         {
             Show(_sandbox.Problem);
+
             return;
         }
+
         var window = GetWindow();
         window.MouseEntered += () => _mouseInWindow = true;
         window.MouseExited += () => _mouseInWindow = false;
@@ -59,6 +61,7 @@ public partial class MapSandboxView : Node3D
                 Input.MouseMode = Input.MouseModeEnum.Confined;
             }
         }
+
         var files = _sandbox.Files!;
         var plan = _sandbox.Plan!;
         var team = TeamColors.Load(files);
@@ -96,6 +99,7 @@ public partial class MapSandboxView : Node3D
             AddChild(node);
             nodes[o] = node;
         }
+
         var selection = new UnitSelection(files, plan, nodes);
         AddChild(selection);
         _gaps.AddRange(selection.Reports.Select(r => r.Text));
@@ -114,10 +118,12 @@ public partial class MapSandboxView : Node3D
             AddGap($"{GameConstantsKind.FileName} cannot be read: {e.Message}");
             _rig = new CameraRig(null, bounds);
         }
+
         foreach (var problem in _rig.Problems)
         {
             AddGap(problem);
         }
+
         var orders = new UnitOrders(
             files,
             plan,
@@ -158,6 +164,7 @@ public partial class MapSandboxView : Node3D
         {
             AddBackground(files, builder, team, plan.Background, camera, reach);
         }
+
         Show(null);
     }
 
@@ -175,18 +182,22 @@ public partial class MapSandboxView : Node3D
             {
                 _sods[model] = sod = Sod.Read(files.ReadAllBytes(model + ".sod"));
             }
+
             var node = builder.Build(sod, team.Color(TeamColors.SlotNames[slot]));
             foreach (var problem in builder.Problems)
             {
                 AddGap($"{model}: {problem}");
             }
+
             _templates[(model, slot)] = node;
+
             return node;
         }
         catch (Exception e) // a model that cannot be read is a gap, whatever the reason, and is read once (INV-0002)
         {
             _unreadable.Add(model);
             AddGap($"model '{model}' cannot be read: {e.Message}");
+
             return null;
         }
     }
@@ -259,6 +270,7 @@ public partial class MapSandboxView : Node3D
         {
             GD.PrintErr(text);
         }
+
         var layer = new CanvasLayer();
         AddChild(layer);
         layer.AddChild(
@@ -337,11 +349,13 @@ public partial class MapSandboxView : Node3D
             );
             PlaceCamera();
         }
+
         // The background keeps its centering offset from the camera and never turns with it.
         if (_background != null && _camera != null)
         {
             _background.GlobalPosition = _camera.GlobalPosition + _backgroundOffset;
         }
+
         // Wait a few frames so textures are uploaded before capturing.
         if (_screenshot == null || ++_frames < 5)
             return;

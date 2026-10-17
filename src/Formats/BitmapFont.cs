@@ -42,6 +42,7 @@ public sealed class BitmapFont
             if ((long)BitConverter.ToUInt32(data, HeaderSize + i * 4) + 4 > data.Length)
                 throw new InvalidDataException($"{name}: glyph {i} starts past the end of the file");
         }
+
         // Only a well-formed font of another glyph count is unsupported, so the checks above come first.
         if (count != CodeCount)
             throw new UnsupportedFormatException(
@@ -56,6 +57,7 @@ public sealed class BitmapFont
                 throw new InvalidDataException($"{name}: glyph {i} (width {width}) runs past the end of the file");
             glyphs.Add(new FontGlyph((int)width, data[(int)(at + 4)..(int)(at + 4 + width * height)]));
         }
+
         return new BitmapFont((int)height, (int)BitConverter.ToUInt32(data, 12), glyphs);
     }
 }

@@ -23,6 +23,7 @@ public class AlertBindingsTests
     (AlertBindings Bindings, List<string> Gaps) Read(params (string Path, string Content)[] files)
     {
         var gaps = new List<string>();
+
         return (AlertBindings.Read(new GameFileSystem(temp.MakeInstall(files)), gaps.Add), gaps);
     }
 

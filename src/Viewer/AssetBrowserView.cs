@@ -44,7 +44,9 @@ public partial class AssetBrowserView : Control
                 Console.Out.WriteLine($"asset check crashed: {e}");
                 code = 1;
             }
+
             GetTree().Quit(code);
+
             return;
         }
 
@@ -57,8 +59,10 @@ public partial class AssetBrowserView : Control
             MouseFilter = MouseFilterEnum.Ignore;
             AddChild(new MapSandboxView(MapSandbox.Open(game, map, args.Problems), _screenshot));
             _screenshot = null;
+
             return;
         }
+
         var registered = AssetKind.Discover();
         _browser = AssetBrowser.Open(game, registered);
         _previews = KindPreview.Discover(registered.Select(k => k.Name), out var previewProblems);
@@ -76,9 +80,12 @@ public partial class AssetBrowserView : Control
         if (startProblems.Count > 0)
         {
             var text = string.Join("\n", startProblems);
+
             GD.PrintErr(text);
+
             left.AddChild(new Label { Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart });
         }
+
         _pane = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         split.AddChild(_pane);
         _message = new Label
@@ -93,13 +100,17 @@ public partial class AssetBrowserView : Control
         if (_browser.Problem != null)
         {
             _message.Text = _browser.Problem;
+
             GD.PrintErr(_browser.Problem);
+
             return;
         }
+
         foreach (var kind in _browser.Kinds)
         {
             _kinds.AddItem(kind.Name);
         }
+
         _kinds.ItemSelected += i =>
         {
             _browser.SelectKind((int)i);
@@ -122,11 +133,14 @@ public partial class AssetBrowserView : Control
         {
             _assets.AddItem(name);
         }
+
         if (_browser.Assets.Count == 0)
         {
             ShowMessage(_browser.Notice ?? $"no {_browser.Kind!.Name} in this install");
+
             return;
         }
+
         int index = Math.Max(0, wanted);
         _assets.Select(index);
         _assets.EnsureCurrentIsVisible();
@@ -147,8 +161,10 @@ public partial class AssetBrowserView : Control
         if (!_previews.TryGetValue(kind.Name, out var preview))
         {
             ShowMessage($"no preview for {kind.Name}");
+
             return;
         }
+
         try
         {
             var control = preview.Create(_browser.Files!, kind, name);

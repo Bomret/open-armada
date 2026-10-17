@@ -23,6 +23,7 @@ public abstract class AssetKind
     public virtual IReadOnlyList<string> Check(GameFileSystem files, string name)
     {
         Load(files, name);
+
         return Array.Empty<string>();
     }
 
@@ -59,6 +60,7 @@ public abstract class AssetKind
                 yield return files.Find(n) == files.Find(folder + "/" + n) && bare.Add(n) ? n : folder + "/" + n;
             }
         }
+
         foreach (var n in DefinitionKind.Named(files, extension))
         {
             if (bare.Add(n))

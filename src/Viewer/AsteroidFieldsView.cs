@@ -40,6 +40,7 @@ public partial class AsteroidFieldsView : Node3D
                 {
                     gap($"{model}: {problem}");
                 }
+
                 var found = VisibleMeshes.Of(node);
                 node.Free();
                 parts[model] = found;
@@ -57,6 +58,7 @@ public partial class AsteroidFieldsView : Node3D
                 gap($"model '{model}' cannot be read: {e.Message}");
             }
         }
+
         var byModel = new Dictionary<string, List<Rock>>(StringComparer.OrdinalIgnoreCase);
         foreach (var field in plan.Fields)
         {
@@ -69,9 +71,11 @@ public partial class AsteroidFieldsView : Node3D
                 {
                     byModel[rock.Model] = list = new List<Rock>();
                 }
+
                 list.Add(rock);
             }
         }
+
         // Rocks move within their field's sphere and reach past it by their extent, so the box of every draw is the union of the fields' draw boxes.
         Aabb? bounds = null;
         foreach (var f in plan.Fields)
@@ -83,6 +87,7 @@ public partial class AsteroidFieldsView : Node3D
             );
             bounds = bounds?.Merge(box) ?? box;
         }
+
         foreach (var (model, rocks) in byModel)
         {
             var group = new Group(rocks, new Transform3D[rocks.Count]);
@@ -100,6 +105,7 @@ public partial class AsteroidFieldsView : Node3D
                 _draws.Add(new Draw(multi, transform, group.Pose, new float[rocks.Count * 12]));
             }
         }
+
         _start = Time.GetTicksMsec();
     }
 
@@ -119,6 +125,7 @@ public partial class AsteroidFieldsView : Node3D
                 );
             }
         }
+
         foreach (var draw in _draws)
         {
             for (var i = 0; i < draw.Pose.Length; i++)
@@ -139,6 +146,7 @@ public partial class AsteroidFieldsView : Node3D
                 b[o + 10] = m.Basis.Row2.Z;
                 b[o + 11] = m.Origin.Z;
             }
+
             draw.Multi.Buffer = draw.Buffer;
         }
     }

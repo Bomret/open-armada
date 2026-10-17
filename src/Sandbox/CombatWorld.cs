@@ -87,6 +87,7 @@ public sealed class CombatWorld
         a.AutoMove = false;
         a.PlayerMove = null;
         a.Intent = default;
+
         return true;
     }
 
@@ -134,12 +135,14 @@ public sealed class CombatWorld
                 u.PlayerMove = null;
             }
         }
+
         _pending += Math.Max(0, seconds);
         while (_pending + Epsilon >= Tick)
         {
             _pending -= Tick;
             RunTick(events);
         }
+
         return events;
     }
 
@@ -156,6 +159,7 @@ public sealed class CombatWorld
                 u.Intent = new MoveIntent(MoveKind.Stop); // no order moves a derelict ship or one with dead engines
                 u.PlayerMove = null;
             }
+
             Fire(u, events);
             CombatRules.RegainShields(u, Tick);
             CombatRules.Sustain(u, Tick);
@@ -185,6 +189,7 @@ public sealed class CombatWorld
             u.AutoOrder = false;
             u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
         }
+
         // stand-in: what red gave the unit ends with red, the auto order and the walk toward an attacker (a
         // player's order stays); the game's behavior is not known.
         if (u.Alert != AlertStance.Red && (u.AutoOrder || u.AutoMove))
@@ -193,9 +198,11 @@ public sealed class CombatWorld
             {
                 u.Order = null;
             }
+
             u.AutoOrder = u.AutoMove = false;
             u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
         }
+
         var range = LongestRange(u);
         var radius = range - 25;
         if (u.Order == null)
@@ -220,6 +227,7 @@ public sealed class CombatWorld
                 var at = Position(attacker); // else go to where the unit that hit it is
                 u.Intent = new MoveIntent(MoveKind.MoveTo, at.X, at.Z);
                 u.AutoMove = true;
+
                 return;
             }
             else
@@ -229,10 +237,13 @@ public sealed class CombatWorld
                 {
                     u.Intent = new MoveIntent(MoveKind.Stop);
                 }
+
                 u.AutoMove = false;
+
                 return;
             }
         }
+
         var order = u.Order!;
         var distance = Surface(u, order);
         if (u.Mobile)
@@ -242,11 +253,14 @@ public sealed class CombatWorld
             // range, then holds position and turns toward it.
             u.Intent = new MoveIntent(distance > range - 50 ? MoveKind.MoveTo : MoveKind.Face, there.X, there.Z);
         }
+
         if (distance <= range)
         {
             u.Target = order;
+
             return;
         }
+
         // An ordered target out of range: the weapons fire at the unit's own pick (none at green).
         u.Target = u.Alert == AlertStance.Green ? null : Select(u, held, radius);
     }
@@ -282,8 +296,10 @@ public sealed class CombatWorld
             if (u.Derelict || u.SystemDestroyed(SystemNames.Weapons) || u.Target is not { } target)
             {
                 weapon.Cooldown = Math.Max(0, weapon.Cooldown); // an idle weapon does not store shots
+
                 continue;
             }
+
             var delay = CombatRules.ReloadDelay(weapon.Profile, u);
             // A delay below a tick fires several rounds in one tick; a delay of zero fires one round per tick. A
             // round is one shot per hardpoint, so a weapon without hardpoints fires nothing.
@@ -293,10 +309,12 @@ public sealed class CombatWorld
                 {
                     events.Add(new ShotFired(Launch(u, weapon.Profile, target, hardpoint)));
                 }
+
                 weapon.Cooldown += delay;
                 if (delay <= Epsilon)
                 {
                     weapon.Cooldown = 0;
+
                     break;
                 }
             }
@@ -341,6 +359,7 @@ public sealed class CombatWorld
         {
             _shots.Add(shot);
         }
+
         return shot;
     }
 
@@ -351,8 +370,10 @@ public sealed class CombatWorld
             if (shot.Target.Destroyed)
             {
                 _shots.Remove(shot);
+
                 continue;
             }
+
             shot.Age += Tick;
             var ordnance = shot.Weapon.Ordnance;
             if (shot.Kind == ShotKind.Beam)
@@ -367,12 +388,15 @@ public sealed class CombatWorld
                     _shots.Remove(shot);
                     Land(shot, events);
                 }
+
                 continue;
             }
+
             if (shot.Kind == ShotKind.Torpedo && shot.Age <= ordnance.SeekTime)
             {
                 shot.Direction = Steer(shot, Tick);
             }
+
             var step = shot.Direction * ordnance.ShotSpeed * (float)Tick;
             var reach =
                 shot.Target.Radius == 0 ? ZeroRadiusContactReach
@@ -408,6 +432,7 @@ public sealed class CombatWorld
             return want;
         var axis = Vector3.Cross(shot.Direction, want);
         axis = axis.LengthSquared() < 1e-12f ? Vector3.UnitY : Vector3.Normalize(axis);
+
         return Vector3.Transform(shot.Direction, Quaternion.CreateFromAxisAngle(axis, most));
     }
 
@@ -417,6 +442,7 @@ public sealed class CombatWorld
         var along = to - from;
         var length = along.LengthSquared();
         var t = length == 0 ? 0 : Math.Clamp(Vector3.Dot(point - from, along) / length, 0, 1);
+
         return Vector3.Distance(from + along * t, point);
     }
 

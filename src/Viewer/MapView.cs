@@ -53,6 +53,7 @@ public partial class MapView : Control
         {
             DrawRect(rect, new Color(0.08f, 0.08f, 0.1f));
         }
+
         if (!showObjects)
             return;
         foreach (var o in map.Map.Objects)
@@ -62,6 +63,7 @@ public partial class MapView : Control
                 DrawCircle(p, o.Team == 0 ? 1.5f : 3f, TeamColors[o.Team]);
             }
         }
+
         var font = ThemeDB.FallbackFont;
         foreach (var s in map.Starts)
         {
@@ -89,6 +91,7 @@ public partial class MapView : Control
     {
         var (col, row) = map.Map.Bounds.ToImage(o.Position.X, o.Position.Z, size);
         p = new Vector2(col, row);
+
         return col >= 0 && col <= size && row >= 0 && row <= size;
     }
 }

@@ -17,6 +17,7 @@ public sealed class TexturePreview : KindPreview
             .Mips.Prepend(t.Base)
             .Select(l => ($"{l.Name}: {Describe(l.Info)}", GodotDecoders.Tga(l.Data, l.Name)))
             .ToList();
+
         return new ImagePane($"{Describe(t.Base.Info)}, {t.Mips.Count} mip level(s)", images);
     }
 

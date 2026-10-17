@@ -50,6 +50,7 @@ public sealed class CursorImage
         {
             colors = 256;
         }
+
         var palette = dib + (int)headerSize;
         var pixels = palette + colors * 4;
         var maskRow = (w + 31) / 32 * 4;
@@ -63,10 +64,12 @@ public sealed class CursorImage
         {
             notes.Add($"{name}: {images} images; only the first is read");
         }
+
         if (hotX >= w || hotY >= h)
         {
             notes.Add($"{name}: hotspot ({hotX}, {hotY}) is outside the {w}x{h} image");
         }
+
         var rgba = new byte[w * h * 4];
         for (var y = 0; y < h; y++)
         {
@@ -84,6 +87,7 @@ public sealed class CursorImage
                 rgba[o + 3] = (byte)((d[mask + src * maskRow + x / 8] >> (7 - x % 8) & 1) == 1 ? 0 : 255);
             }
         }
+
         return new CursorImage(w, h, hotX, hotY, rgba, notes);
     }
 }

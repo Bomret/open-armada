@@ -51,11 +51,13 @@ public abstract class KindPreview
                         () =>
                         {
                             var p = PreviewMatch.Create<KindPreview>(t);
+
                             return (p.KindName, p);
                         }
                     )
                 )
             );
+
         return PreviewMatch.Match(candidates, kindNames, out problems);
     }
 }

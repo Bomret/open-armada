@@ -33,6 +33,7 @@ public sealed record MapSandbox(GameFileSystem? Files, SandboxPlan? Plan, string
                 SandboxPlan.Definitions(files, asset),
                 model => files.Find(model + ".sod") != null
             );
+
             return new MapSandbox(files, plan, null);
         }
         catch (Exception e) // a map that cannot be read is a message, whatever the reason (INV-0002)

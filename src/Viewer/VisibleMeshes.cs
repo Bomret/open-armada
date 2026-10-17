@@ -19,16 +19,20 @@ public static class VisibleMeshes
             {
                 transform *= node.Transform;
             }
+
             if (node is MeshInstance3D m && m.Mesh != null)
             {
                 found.Add((m.Mesh, transform));
             }
+
             foreach (var child in node.GetChildren().OfType<Node3D>())
             {
                 Walk(child, transform);
             }
         }
+
         Walk(root, Transform3D.Identity);
+
         return found;
     }
 
@@ -41,6 +45,7 @@ public static class VisibleMeshes
             var placed = frame * t * mesh.GetAabb();
             box = box?.Merge(placed) ?? placed;
         }
+
         return box;
     }
 }

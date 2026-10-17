@@ -58,6 +58,7 @@ public partial class UnitOrders : Node3D
         {
             gap(report.Text);
         }
+
         var random = new System.Random();
         _world = new CombatWorld(
             _poses,
@@ -117,8 +118,10 @@ public partial class UnitOrders : Node3D
             if (clicked != null && CombatRules.Hostile(unit.Object.Team, clicked.Object.Team))
             {
                 _world.Attack(unit.Object, clicked.Object); // refused for a unit without weapons: it ignores the click
+
                 continue;
             }
+
             // a ship with destroyed engines, or a derelict one, takes no move order
             if (
                 target is not { } to
@@ -152,6 +155,7 @@ public partial class UnitOrders : Node3D
             heading,
             node.Transform.Basis.Scale
         );
+
         return motion;
     }
 
@@ -165,16 +169,20 @@ public partial class UnitOrders : Node3D
                 {
                     case MoveKind.MoveTo:
                         motion.SetTarget(unit.Intent.X, unit.Intent.Z);
+
                         break;
                     case MoveKind.Face:
                         motion.Face(unit.Intent.X, unit.Intent.Z);
+
                         break;
                     default:
                         motion.Stop();
+
                         break;
                 }
             }
         }
+
         foreach (var (o, (motion, initial, start, scale)) in _moving)
         {
             var pose = _poses.Advance(o, motion, delta);
@@ -184,6 +192,7 @@ public partial class UnitOrders : Node3D
                 new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z)
             );
         }
+
         // A failure of one frame's combat never stops the sandbox (INV-0002); the next frame goes on.
         try
         {
@@ -193,6 +202,7 @@ public partial class UnitOrders : Node3D
         {
             GD.PrintErr($"combat step failed: {e.Message}");
         }
+
         // The world, not the step's events, says who is gone, so a failed step still takes its destroyed units out.
         foreach (var unit in _fighting.Where(u => _world.State(u) == null).ToList())
         {

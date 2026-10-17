@@ -129,8 +129,10 @@ public class AsteroidFieldTests
             {
                 t += step;
             }
+
             return t;
         }
+
         var a = rock.Pose(Advance(0.5));
         var b = rock.Pose(Advance(0.125));
         Assert.AreEqual(a.Position, b.Position);
@@ -168,6 +170,7 @@ public class AsteroidFieldTests
             var install = new GameFileSystem(temp.MakeInstall(("addon/mafield.odf", odf)));
             var parsed = Bzn.Read(map.Build());
             var asset = new MapAsset("bzn/t.bzn", parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+
             return AsteroidField.Collect(
                 parsed,
                 SandboxPlan.Definitions(install, asset).Found,
@@ -184,6 +187,7 @@ public class AsteroidFieldTests
     {
         var b = new BznBuilder { Background = "", Description = description };
         b.Objects.AddRange(objects);
+
         return b;
     }
 
@@ -284,6 +288,7 @@ public class AsteroidFieldTests
             var install = new GameFileSystem(temp.MakeInstall(("addon/mafield.odf", Good)));
             var parsed = Bzn.Read(MapOf(description, Obj("mafield", 1)).Build());
             var asset = new MapAsset(path, parsed, Array.Empty<MapStart>(), null, Array.Empty<MapPath>());
+
             return SandboxPlan
                 .Build(asset, SandboxPlan.Definitions(install, asset), m => Eight.Contains(m))
                 .Fields.Single()

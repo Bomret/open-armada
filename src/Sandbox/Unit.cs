@@ -22,6 +22,7 @@ public static class UnitRules
         var name = definition.Has("unitName")
             ? definition.GetString("unitName")
             : definition.Name.Replace(".odf", "", StringComparison.OrdinalIgnoreCase);
+
         return definition.Has("is_starbase") && definition.GetInt("is_starbase") != 0
             ? new Station(name)
             : new Ship(name);

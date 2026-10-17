@@ -36,6 +36,7 @@ public class MovePlanTests
         {
             map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
         }
+
         var asset = new MapAsset(
             "bzn/t.bzn",
             Bzn.Read(map.Build()),
@@ -44,6 +45,7 @@ public class MovePlanTests
             Array.Empty<MapPath>()
         );
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
+
         return MovePlan.Build(plan, UnitPlan.Build(install, plan, _ => true).Units, install);
     }
 

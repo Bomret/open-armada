@@ -36,6 +36,7 @@ public sealed class TextureKind : AssetKind
     public TextureLevel LoadBase(GameFileSystem files, string name)
     {
         var data = files.ReadAllBytes(name);
+
         return new TextureLevel(name, Tga.Read(data), data);
     }
 
@@ -50,6 +51,7 @@ public sealed class TextureKind : AssetKind
             return last.Asset;
         var asset = Read(files, name);
         _last = (files, name, asset);
+
         return asset;
     }
 
@@ -79,16 +81,20 @@ public sealed class TextureKind : AssetKind
             {
                 throw new UnsupportedFormatException($"{mipName}: {e.Message}");
             }
+
             int wantW = Math.Max(1, previous.Width / 2),
                 wantH = Math.Max(1, previous.Height / 2);
             if (info.Width != wantW || info.Height != wantH)
             {
                 notes.Add($"level {mipName} is {info.Width}x{info.Height}, expected {wantW}x{wantH}");
+
                 break;
             }
+
             mips.Add(new TextureLevel(mipName, info, bytes));
             previous = info;
         }
+
         return new TextureAsset(baseLevel, mips, notes);
     }
 
@@ -109,6 +115,7 @@ public sealed class TextureKind : AssetKind
             );
         }
         catch (Exception) { }
+
         return reads;
     }
 }

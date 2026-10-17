@@ -29,6 +29,7 @@ public sealed class TextTableKind : AssetKind
         var key = TextTable.KeyFrom(Launcher, exe);
         var raw =
             files.ReadByPath(name) ?? throw new FileNotFoundException($"'{name}' is not in the install root", name);
+
         return TextTable.Read(name, raw, key, files.ReadByPath);
     }
 

@@ -22,6 +22,7 @@ public class TextTableTests
         {
             bytes[i] ^= k[i % k.Length];
         }
+
         return bytes;
     }
 
@@ -29,6 +30,7 @@ public class TextTableTests
     static TextTable Read(string text, params (string Name, string Text)[] others)
     {
         var map = others.ToDictionary(o => o.Name, o => Encode(o.Text));
+
         return TextTable.Read("t.ldl", Encode(text), Key, n => map.GetValueOrDefault(n));
     }
 
@@ -186,6 +188,7 @@ public class TextTableTests
         {
             all.Add(("splash.exe", Latin1(exe)));
         }
+
         return new GameFileSystem(temp.MakeInstall(all.ToArray()));
     }
 

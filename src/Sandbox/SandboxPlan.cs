@@ -96,6 +96,7 @@ public sealed class SandboxPlan
                 unreadable.Add(cls);
             } // INV-0002: a gap of its objects, the map still opens
         }
+
         return (found, unreadable);
     }
 
@@ -114,13 +115,17 @@ public sealed class SandboxPlan
             if (definitions.Unreadable.Contains(o.Class))
             {
                 gaps.Add(UnreadableDefinition, o.Class);
+
                 continue;
             }
+
             if (!definitions.Found.TryGetValue(o.Class, out var definition))
             {
                 gaps.Add(MissingDefinition, o.Class);
+
                 continue;
             }
+
             if (
                 definition
                     .Find("classLabel")
@@ -146,8 +151,10 @@ public sealed class SandboxPlan
                 )
             );
         }
+
         var background = BackgroundOf(map, hasModel, gaps);
         var (fields, fieldReports) = AsteroidField.Collect(map, definitions.Found, hasModel);
+
         return new SandboxPlan(
             placed,
             gaps.Entries.Concat(fieldReports).ToList(),
@@ -170,6 +177,7 @@ public sealed class SandboxPlan
         if (hasModel(name))
             return name;
         gaps.Add(MissingModel, name);
+
         return null;
     }
 
@@ -181,6 +189,7 @@ public sealed class SandboxPlan
         if (hasModel(name))
             return name;
         gaps.Add(MissingModel, name);
+
         return null;
     }
 
@@ -201,8 +210,10 @@ public sealed class SandboxPlan
         if (!finite || lengths == 0 || Math.Abs(Vector3.Dot(o.Right, Vector3.Cross(o.Up, o.Front))) / lengths < 0.001f)
         {
             gaps.Add(DegenerateOrientation, $"{o.Label} ({o.Class})");
+
             return (Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
         }
+
         return (
             new Vector3(o.Right.X, o.Right.Y, -o.Right.Z),
             new Vector3(o.Up.X, o.Up.Y, -o.Up.Z),
@@ -220,16 +231,20 @@ public sealed class SandboxPlan
         if (team < 0 || team >= map.Teams.Count)
         {
             gaps.Add(BadSlot, $"team {team} has no record");
+
             return own;
         }
+
         var record = map.Teams[team].Color;
         if (record == 0)
             return own;
         if (record < 0 || record >= slots)
         {
             gaps.Add(BadSlot, record.ToString());
+
             return own;
         }
+
         return record;
     }
 }

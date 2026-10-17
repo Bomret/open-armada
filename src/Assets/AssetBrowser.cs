@@ -81,6 +81,7 @@ public sealed class AssetBrowser
                 kind = i;
             }
         }
+
         if (kind < 0)
             return -1;
         SelectKind(kind);
@@ -92,6 +93,7 @@ public sealed class AssetBrowser
             )
                 return i;
         }
+
         return -1;
     }
 

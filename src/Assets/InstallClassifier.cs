@@ -39,10 +39,12 @@ public static class InstallClassifier
         var entries = inventory.ToList();
         var all = new HashSet<string>(entries.Select(e => e.ToLowerInvariant()));
         var reads = files == null ? null : Reads(files);
+
         return entries
             .Select(e =>
             {
                 var (c, g) = Safe(e.ToLowerInvariant(), all, reads);
+
                 return new Classified(e, c, g);
             })
             .ToList();
@@ -70,6 +72,7 @@ public static class InstallClassifier
             }
             catch (Exception) { }
         }
+
         return reads;
     }
 
@@ -95,6 +98,7 @@ public static class InstallClassifier
         if (rule.Item1 != FileClass.Loaded)
             return rule;
         var name = Bare(entry);
+
         return reads.Names.Contains(name) ? Known("shadowed copies")
             : Numbered.IsMatch(Path.GetExtension(name)) ? Known("texture extras")
             : rule;
@@ -119,6 +123,7 @@ public static class InstallClassifier
         var parts = entry.Split('/');
         var ext = Path.GetExtension(parts[^1]);
         var depth = parts.Length;
+
         return parts[0] switch
         {
             _ when depth == 1 => RootFile(parts[0], ext),
@@ -240,6 +245,7 @@ public static class InstallClassifier
         if (!int.TryParse(ext[1..], out var level) || level is < 1 or > 9)
             return Known("texture extras");
         var chain = all.Contains(stem + ".tga") && Enumerable.Range(1, level - 1).All(i => all.Contains($"{stem}.{i}"));
+
         return chain ? Loaded("textures") : Known("texture extras");
     }
 }

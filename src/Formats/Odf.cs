@@ -48,6 +48,7 @@ public sealed class Odf
                 {
                     odf._problems.Add($"line {n}: bad include ({why ?? "expected one name"})");
                 }
+
                 current = null;
             }
             else if (trimmed[0] == '[' && trimmed[^1] == ']')
@@ -61,8 +62,10 @@ public sealed class Odf
                 if (!Tokenize(m.Groups[2].Value, out var tokens, out var why))
                 {
                     odf._problems.Add($"line {n}: {why}");
+
                     continue;
                 }
+
                 odf._entries.Add(new OdfEntry(m.Groups[1].Value, tokens, section));
                 current = tokens;
             }
@@ -82,6 +85,7 @@ public sealed class Odf
                 odf._problems.Add($"line {n}: not a key = value line: {Clip(trimmed)}");
             }
         }
+
         return odf;
     }
 
@@ -100,6 +104,7 @@ public sealed class Odf
             else if (!quoted && line[i] == '/' && i + 1 < line.Length && line[i + 1] == '/')
                 return line[..i];
         }
+
         return line;
     }
 
@@ -114,27 +119,35 @@ public sealed class Odf
             if (char.IsWhiteSpace(s[i]))
             {
                 i++;
+
                 continue;
             }
+
             if (s[i] == '"')
             {
                 var end = s.IndexOf('"', i + 1);
                 if (end < 0)
                 {
                     problem = "unterminated quote";
+
                     return false;
                 }
+
                 tokens.Add(s[(i + 1)..end]);
                 i = end + 1;
+
                 continue;
             }
+
             var start = i;
             while (i < s.Length && !char.IsWhiteSpace(s[i]))
             {
                 i++;
             }
+
             tokens.Add(s[start..i]);
         }
+
         return true;
     }
 }

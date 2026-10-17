@@ -65,6 +65,7 @@ public sealed class TextTable
             throw new UnsupportedFormatException($"{name}: the text table key is {key.Length} bytes, not {KeyLength}");
         var t = new TextTable(name);
         t.ReadFile(name, Decode(name, file, key), key, open, new List<string> { name });
+
         return t;
     }
 
@@ -79,6 +80,7 @@ public sealed class TextTable
                     $"{file}: does not decode to text with the key read from splash.exe (byte 0x{plain[i]:x2} at offset {i})"
                 );
         }
+
         return Windows1252.Encoding.GetString(plain);
     }
 
@@ -127,8 +129,10 @@ public sealed class TextTable
                 {
                     _notes.Add($"{At(line)}: 'string' entry is cut off");
                     k = tokens.Count;
+
                     continue;
                 }
+
                 var (name, value) = (tokens[++k].Text, Unquote(tokens[++k].Text));
                 if (blocks.Count == 0)
                 {
@@ -158,6 +162,7 @@ public sealed class TextTable
                         $"{At(line)}: block '{path}' is reopened with parent '{parent}'; it keeps its first parent '{first.Parent ?? "(none)"}'"
                     );
                 }
+
                 blocks.Add((path, line));
                 k++;
             }
@@ -166,6 +171,7 @@ public sealed class TextTable
                 _notes.Add($"{At(line)}: unrecognized statement '{tok}'");
             }
         }
+
         foreach (var (path, line) in blocks)
         {
             _notes.Add($"{At(line)}: block '{path}' is not closed");
@@ -180,14 +186,18 @@ public sealed class TextTable
         if (stack.Contains(target, StringComparer.OrdinalIgnoreCase))
         {
             _notes.Add($"{at}: import cycle through '{target}'");
+
             return;
         }
+
         var raw = open(target);
         if (raw == null)
         {
             _notes.Add($"{at}: import '{target}' not found");
+
             return;
         }
+
         string decoded;
         try
         {
@@ -196,8 +206,10 @@ public sealed class TextTable
         catch (UnsupportedFormatException e)
         {
             _notes.Add($"{at}: import '{target}': {e.Message}");
+
             return;
         }
+
         stack.Add(target);
         ReadFile(target, decoded, key, open, stack);
         stack.RemoveAt(stack.Count - 1);
@@ -218,8 +230,10 @@ public sealed class TextTable
                 {
                     line++;
                 }
+
                 continue;
             }
+
             var (start, startLine) = (i, line);
             if (s[i] == '"')
             {
@@ -229,11 +243,13 @@ public sealed class TextTable
                     {
                         i++; // the next character cannot end the token
                     }
+
                     if (s[i] == '\n')
                     {
                         line++;
                     }
                 }
+
                 if (i >= s.Length)
                 {
                     _notes.Add($"{file}:{startLine}: text is not closed");
@@ -242,17 +258,22 @@ public sealed class TextTable
                 {
                     i++;
                 }
+
                 tokens.Add((s[start..i], startLine));
+
                 continue;
             }
+
             while (i < s.Length && !char.IsWhiteSpace(s[i]) && s[i] != '#')
             {
                 i++;
             }
+
             if (i > start)
             {
                 tokens.Add((s[start..i], startLine));
             }
+
             if (i < s.Length && s[i] == '#')
             {
                 while (i < s.Length && s[i] != '\n')
@@ -261,6 +282,7 @@ public sealed class TextTable
                 }
             }
         }
+
         return tokens;
     }
 
@@ -275,44 +297,56 @@ public sealed class TextTable
             if (token[i] != '\\')
             {
                 sb.Append(token[i]);
+
                 continue;
             }
+
             if (++i >= token.Length)
                 break;
             switch (token[i])
             {
                 case '"' or '\\':
                     sb.Append(token[i]);
+
                     break;
                 case 'a':
                     sb.Append('\a');
+
                     break;
                 case 'b':
                     sb.Append('\b');
+
                     break;
                 case 'f':
                     sb.Append('\f');
+
                     break;
                 case 'n':
                     sb.Append('\n');
+
                     break;
                 case 'r':
                     sb.Append('\r');
+
                     break;
                 case 't':
                     sb.Append('\t');
+
                     break;
                 case 'v':
                     sb.Append('\v');
+
                     break;
                 case '\t' or '\n' or '\r' or ' ':
                     while (i < token.Length && token[i] != '\n')
                     {
                         i++;
                     }
+
                     break; // line continuation
             }
         }
+
         return sb.ToString();
     }
 }

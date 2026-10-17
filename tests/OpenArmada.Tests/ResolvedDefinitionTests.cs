@@ -20,6 +20,7 @@ public class ResolvedDefinitionTests
     {
         var zix = "1\n-\nDIR: assets.zfs\n-\n" + string.Concat(archive.Select(d => "1 " + d.Name + "\n"));
         var zfs = Build(0, archive.Select(d => M(d.Name, d.Text)).ToArray());
+
         return new GameFileSystem(
             temp.MakeInstall(
                 new[] { ("assets.zfs", Encoding.Latin1.GetString(zfs)), ("startrek.zix", zix) }
@@ -244,6 +245,7 @@ public class ResolvedDefinitionTests
         {
             defs.Add(($"long{i}.odf", $"#include \"{(i + 1 < longChain ? $"long{i + 1}" : "mid")}.odf\""));
         }
+
         var def = Resolve("root.odf", defs.ToArray());
         Assert.AreEqual(2, def.GetInt("y"));
         Assert.AreEqual(1, def.Chain.Count(c => c == "mid.odf"));
@@ -265,6 +267,7 @@ public class ResolvedDefinitionTests
         {
             defs.Add(($"long{i}.odf", $"#include \"{(i + 1 < longChain ? $"long{i + 1}" : "mid")}.odf\""));
         }
+
         var def = Resolve("root.odf", defs.ToArray());
         Assert.AreEqual(3, def.GetInt("z"));
         Assert.AreEqual(1, def.Problems.Count(p => p.Contains("cycle")));
@@ -287,6 +290,7 @@ public class ResolvedDefinitionTests
         {
             defs.Add(($"long{i}.odf", $"#include \"{(i + 1 < longChain ? $"long{i + 1}" : "mid")}.odf\""));
         }
+
         var def = Resolve("root.odf", defs.ToArray());
         CollectionAssert.AreEqual(
             new[] { "include cycle deep.odf -> mid.odf -> deep.odf" },
@@ -302,6 +306,7 @@ public class ResolvedDefinitionTests
         {
             Assert.Inconclusive("needs POSIX file modes");
         }
+
         var root = temp.MakeInstall(("addon/a.odf", "#include \"x.odf\"\r\nx = 1"), ("addon/x.odf", "y = 2"));
         var locked = System.IO.Path.Combine(root, "addon", "x.odf");
         System.IO.File.SetUnixFileMode(locked, System.IO.UnixFileMode.None);
@@ -312,6 +317,7 @@ public class ResolvedDefinitionTests
             Assert.Inconclusive("the file stays readable (running as root)");
         }
         catch (System.UnauthorizedAccessException) { }
+
         var def = ResolvedDefinition.Resolve(new GameFileSystem(root), "a.odf");
         Assert.AreEqual(1, def.Problems.Count);
         StringAssert.Contains(def.Problems[0], "x.odf");
@@ -361,6 +367,7 @@ public class ResolvedDefinitionTests
                 $"'{key}'"
             );
         }
+
         Assert.AreEqual(1f, def.GetFloat("e"));
     }
 

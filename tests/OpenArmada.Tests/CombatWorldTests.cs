@@ -23,6 +23,7 @@ public class CombatWorldTests
     static CombatWorld World(out UnitPoses poses, Func<double>? random = null, params Spec[] specs)
     {
         poses = new UnitPoses(specs.Select(s => s.Object));
+
         return new CombatWorld(
             poses,
             specs.Select(s => new CombatUnit(s.Object, s.Profile, s.Object.Label + ".odf", s.Radius, s.Mobile)),
@@ -82,6 +83,7 @@ public class CombatWorldTests
     {
         var motion = new ShipMotion(new PhysicsValues(10, 1, null), o.Position, 0);
         motion.SetTarget(x, z);
+
         return motion;
     }
 
@@ -447,8 +449,10 @@ public class CombatWorldTests
             world.Attack(b.Object, a.Object);
             world.Attack(c.Object, d.Object);
             world.Attack(d.Object, c.Object);
+
             return world;
         }
+
         var longWorld = Build(out var t1);
         var longEvents = longWorld.Step(5);
         var shortWorld = Build(out var t2);
@@ -457,6 +461,7 @@ public class CombatWorldTests
         {
             shortEvents.AddRange(shortWorld.Step(0.01));
         }
+
         Assert.AreEqual(shortEvents.OfType<ShotFired>().Count(), longEvents.OfType<ShotFired>().Count());
         Assert.AreEqual(shortEvents.OfType<ShotLanded>().Count(), longEvents.OfType<ShotLanded>().Count());
         Assert.AreEqual(shortWorld.State(t2)!.Shields, longWorld.State(t1)!.Shields, 1e-6);
@@ -754,6 +759,7 @@ public class CombatWorldTests
         state.Systems["LifeSupport"].Destroyed = true;
         state.Systems["LifeSupport"].HitPoints = 0;
         state.Systems["Sensors"].HitPoints = 1;
+
         return (world, state);
     }
 
@@ -779,6 +785,7 @@ public class CombatWorldTests
         {
             many.Step(0.02);
         }
+
         Assert.AreEqual(onceState.Crew, manyState.Crew, 1e-6);
         Assert.AreEqual(onceState.Systems["Sensors"].HitPoints, manyState.Systems["Sensors"].HitPoints, 1e-6);
         Assert.AreEqual(onceState.Systems["LifeSupport"].HitPoints, manyState.Systems["LifeSupport"].HitPoints, 1e-6);

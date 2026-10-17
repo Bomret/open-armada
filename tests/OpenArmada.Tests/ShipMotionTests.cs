@@ -29,6 +29,7 @@ public class ShipMotionTests
             maxBank = MathF.Max(maxBank, MathF.Abs(pose.Bank));
             maxTurn = MathF.Max(maxTurn, MathF.Abs(Wrap(pose.Heading - before)) / (float)dt);
         }
+
         return (pose, maxBank, maxTurn);
     }
 
@@ -113,6 +114,7 @@ public class ShipMotionTests
         {
             pose = ship.Step(0.05); // 5 seconds
         }
+
         Assert.IsTrue(
             new Vector2(pose.Position.X - 100, pose.Position.Z - 100).Length() > 50,
             "the ship has not arrived"
@@ -133,11 +135,13 @@ public class ShipMotionTests
         {
             pose = fine.Step(0.01);
         }
+
         Assert.AreEqual(-8.58, pose.Position.Z, 0.05);
         for (var i = 0; i < 8; i++)
         {
             pose = coarse.Step(0.5);
         }
+
         Assert.AreEqual(-8.58, pose.Position.Z, 0.05);
     }
 

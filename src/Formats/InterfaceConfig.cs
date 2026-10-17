@@ -56,6 +56,7 @@ public sealed class InterfaceConfig
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { name }
         );
         c.BuildLayout();
+
         return c;
     }
 
@@ -74,36 +75,48 @@ public sealed class InterfaceConfig
                 if (!inc.Success)
                 {
                     _notes.Add($"{at}: unrecognized line '{line}'");
+
                     continue;
                 }
+
                 var target = inc.Groups[1].Value;
                 if (stack.Contains(target, StringComparer.OrdinalIgnoreCase))
                 {
                     _notes.Add($"{at}: include cycle through '{target}'");
+
                     continue;
                 }
+
                 if (!seen.Add(target))
                 {
                     _notes.Add($"{at}: include '{target}' already read; skipped");
+
                     continue;
                 } // adds nothing the second time
+
                 var body = open(target);
                 if (body == null)
                 {
                     _notes.Add($"{at}: include '{target}' not found");
+
                     continue;
                 }
+
                 stack.Add(target);
                 ReadText(target, body, open, stack, seen);
                 stack.RemoveAt(stack.Count - 1);
+
                 continue;
             }
+
             var m = Assign.Match(line);
             if (!m.Success)
             {
                 _notes.Add($"{at}: unrecognized line '{line}'");
+
                 continue;
             }
+
             var key = m.Groups[1].Value;
             var value = m.Groups[2].Value.Trim();
             if (value.StartsWith('"'))
@@ -117,8 +130,10 @@ public sealed class InterfaceConfig
                 {
                     _notes.Add($"{at}: unterminated text in '{line}'");
                 }
+
                 continue;
             }
+
             var tokens = value.Split("//")[0].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             if (
                 tokens.Length == 0
@@ -149,6 +164,7 @@ public sealed class InterfaceConfig
         {
             byKey[e.Key] = e; // a later line overrides an earlier one
         }
+
         string? Text(string key) => byKey.TryGetValue(key, out var e) && e.IsText ? e.Values[0] : null;
 
         // A panel group "g" has gDefaultCursor and gPanelArea.
@@ -160,6 +176,7 @@ public sealed class InterfaceConfig
                 origins[k[..^9]] = (n[0], n[1]);
             }
         }
+
         (float X, float Y) Origin(string key) =>
             origins
                 .Where(o => key.StartsWith(o.Key))
@@ -174,8 +191,10 @@ public sealed class InterfaceConfig
                 if (Numbers(e) is not { } n)
                 {
                     _notes.Add($"{e.File}:{e.Line}: '{e.Key}' is not four numbers (x y width height)");
+
                     continue;
                 }
+
                 var isPanel = e.Key.EndsWith("PanelArea") && origins.ContainsKey(e.Key[..^9]);
                 var o = isPanel ? (X: 0f, Y: 0f) : Origin(e.Key);
                 var stem = e.Key[..^4];
@@ -196,8 +215,10 @@ public sealed class InterfaceConfig
                 if (Numbers(e) is not { } r)
                 {
                     _notes.Add($"{e.File}:{e.Line}: '{e.Key}' is not four numbers (x y width height)");
+
                     continue;
                 }
+
                 var o = Origin(e.Key);
                 _elements.Add(
                     new LayoutElement(e.Key, r[0] + o.X, r[1] + o.Y, r[2], r[3], $"{sprite}.{p.Groups[2].Value}", false)

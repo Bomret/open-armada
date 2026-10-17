@@ -339,4 +339,36 @@ public class SandboxPlanTests
         CollectionAssert.AreEqual(new[] { "mbgstars" }, plan.Reports.Single().Names.ToArray());
         Assert.AreEqual(1, plan.Objects.Count);
     }
+
+    // A map can stack two objects of the same values; each is its own value, so every collection keeps both.
+    [TestMethod]
+    public void TwoPlacedObjectsWithIdenticalFieldsAreTwoValues()
+    {
+        PlacedObject Twin() =>
+            new()
+            {
+                Label = "s",
+                Class = "fbattle",
+                Model = "fdreadnought",
+                Team = 1,
+                Slot = 0,
+                Position = new Vector3(1, 2, 3),
+                AxisX = Vector3.UnitX,
+                AxisY = Vector3.UnitY,
+                AxisZ = Vector3.UnitZ,
+            };
+        var (one, two) = (Twin(), Twin());
+        Assert.AreNotEqual(one, two);
+        Assert.AreEqual(2, new HashSet<PlacedObject> { one, two }.Count);
+        Assert.AreEqual(2, new Dictionary<PlacedObject, int> { [one] = 1, [two] = 2 }.Count);
+    }
+
+    [TestMethod]
+    public void AMapOfTwoIdenticalObjectsPlansBoth()
+    {
+        var plan = Plan(MapOf(Ship(), Ship()), Fbattle, "fdreadnought");
+        Assert.AreEqual(2, plan.Objects.Count);
+        Assert.AreNotSame(plan.Objects[0], plan.Objects[1]);
+        Assert.AreEqual(2, plan.Objects.Distinct().Count());
+    }
 }

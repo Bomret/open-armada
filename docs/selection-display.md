@@ -75,8 +75,8 @@ Its color depends on the crew ratio, the current crew over `maximumCrew`:
 - Else at or below the race's `crewYellowStatus`, it takes the yellow color.
 - Else it takes the green color.
 
-The game sets the three colors at run time (0x690b20, 0x690b40, 0x690b50). That they are red, yellow, and
-green is **inferred** from the threshold names.
+A static initializer sets the three colors at start (file offset 0x17f9b8): red is (1, 0, 0) at 0x690b50,
+yellow is (1, 1, 0) at 0x690b20, and green is (0, 1, 0) at 0x690b40.
 
 ## System icons
 

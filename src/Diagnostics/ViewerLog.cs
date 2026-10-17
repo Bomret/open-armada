@@ -55,6 +55,9 @@ public static class ViewerLog
     // simplicity: a plain set, as the views load textures on Godot's main thread only.
     static readonly HashSet<string> LoggedTextures = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Forgets the textures logged so far, so a test starts a fresh run.</summary>
+    internal static void ResetTextures() => LoggedTextures.Clear();
+
     /// <summary>
     /// The texture <c>name</c> did not load, once per run in <c>area</c>, the area of the view that loaded it
     /// first: WARN when the install lacks it (<see cref="FileNotFoundException"/>, absent data), else ERROR, an

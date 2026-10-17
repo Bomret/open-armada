@@ -94,8 +94,6 @@ public class ViewerLogTests
         Assert.AreEqual(0, log.Lines.Count);
     }
 
-    // TextureFailed logs a texture once per run, so each test names a texture of its own.
-
     [TestMethod]
     public void Texture_missing_from_the_install_is_one_warn_naming_texture_and_reason()
     {
@@ -127,6 +125,19 @@ public class ViewerLogTests
         using var log = new CapturedLog();
         ViewerLog.TextureFailed(Area.Render, "twice01", new InvalidDataException("bad magic"));
         ViewerLog.TextureFailed(Area.Combat, "TWICE01", new InvalidDataException("bad magic"));
+        Assert.ContainsSingle(log.Lines);
+    }
+
+    [TestMethod]
+    public void Texture_logged_in_one_captured_log_is_logged_again_in_the_next()
+    {
+        using (new CapturedLog())
+        {
+            ViewerLog.TextureFailed(Area.Render, "again01", new InvalidDataException("bad magic"));
+        }
+
+        using var log = new CapturedLog();
+        ViewerLog.TextureFailed(Area.Render, "again01", new InvalidDataException("bad magic"));
         Assert.ContainsSingle(log.Lines);
     }
 

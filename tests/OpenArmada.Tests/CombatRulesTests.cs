@@ -228,6 +228,85 @@ public class CombatRulesTests
         }
     }
 
+    static double Live(UnitCombatState unit, string name) => unit.Systems[name].HitPercent;
+
+    [TestMethod]
+    public void RestoringAWorkingSystemLeavesEveryLivePercentUnchanged()
+    {
+        var target = WithSystems(Sys("Engines", percent: 20), Sys("Weapons", percent: 10), Sys("Sensors", percent: 10));
+        target.DestroySystem("Engines");
+        target.RestoreSystem("Weapons");
+        Assert.AreEqual(0, Live(target, "Engines"), 1e-6);
+        Assert.AreEqual(20, Live(target, "Weapons"), 1e-6);
+        Assert.AreEqual(20, Live(target, "Sensors"), 1e-6);
+    }
+
+    [TestMethod]
+    public void UnequalPercentsGiveBackInProportionToTheExcessWhateverTheRestoreOrder()
+    {
+        var target = WithSystems(
+            Sys("Engines", percent: 30),
+            Sys("LifeSupport", percent: 10),
+            Sys("Weapons", percent: 10),
+            Sys("Sensors", percent: 10)
+        );
+        target.DestroySystem("Engines");
+        target.DestroySystem("LifeSupport");
+        Assert.AreEqual(30, Live(target, "Weapons"), 1e-6);
+        Assert.AreEqual(30, Live(target, "Sensors"), 1e-6);
+        // engines first: weapons and sensors hold 20 excess each, engines take 30 of the 40
+        target.RestoreSystem("Engines");
+        Assert.AreEqual(30, Live(target, "Engines"), 1e-6);
+        Assert.AreEqual(15, Live(target, "Weapons"), 1e-6);
+        Assert.AreEqual(15, Live(target, "Sensors"), 1e-6);
+        target.RestoreSystem("LifeSupport");
+        Assert.AreEqual(30, Live(target, "Engines"), 1e-6);
+        Assert.AreEqual(10, Live(target, "LifeSupport"), 1e-6);
+        Assert.AreEqual(10, Live(target, "Weapons"), 1e-6);
+        Assert.AreEqual(10, Live(target, "Sensors"), 1e-6);
+    }
+
+    [TestMethod]
+    public void UnequalPercentsGiveBackInProportionWhenTheOtherOrderRestores()
+    {
+        var target = WithSystems(
+            Sys("Engines", percent: 30),
+            Sys("LifeSupport", percent: 10),
+            Sys("Weapons", percent: 10),
+            Sys("Sensors", percent: 10)
+        );
+        target.DestroySystem("Engines");
+        target.DestroySystem("LifeSupport");
+        // life support first: it takes 10 of the 40 excess, a quarter from each donor
+        target.RestoreSystem("LifeSupport");
+        Assert.AreEqual(0, Live(target, "Engines"), 1e-6);
+        Assert.AreEqual(10, Live(target, "LifeSupport"), 1e-6);
+        Assert.AreEqual(25, Live(target, "Weapons"), 1e-6);
+        Assert.AreEqual(25, Live(target, "Sensors"), 1e-6);
+        target.RestoreSystem("Engines");
+        Assert.AreEqual(30, Live(target, "Engines"), 1e-6);
+        Assert.AreEqual(10, Live(target, "LifeSupport"), 1e-6);
+        Assert.AreEqual(10, Live(target, "Weapons"), 1e-6);
+        Assert.AreEqual(10, Live(target, "Sensors"), 1e-6);
+    }
+
+    [TestMethod]
+    public void ASystemRestoredWhileAnotherIsStillDestroyedTakesItsPercentFromTheCriticalShareWhenNoSystemHoldsExcess()
+    {
+        var target = WithSystems(Sys("Engines", percent: 20), Sys("Weapons", percent: 10));
+        target.DestroySystem("Engines");
+        target.DestroySystem("Weapons");
+        target.RestoreSystem("Engines");
+        Assert.AreEqual(20, Live(target, "Engines"), 1e-6);
+        Assert.AreEqual(0, Live(target, "Weapons"), 1e-6);
+        Assert.AreEqual(HitLocation.Engines, CombatRules.Location(target, 19));
+        Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 20));
+        Assert.AreEqual(HitLocation.Critical, CombatRules.Location(target, 30));
+        target.RestoreSystem("Weapons");
+        Assert.AreEqual(20, Live(target, "Engines"), 1e-6);
+        Assert.AreEqual(10, Live(target, "Weapons"), 1e-6);
+    }
+
     [TestMethod]
     public void ADestroyingHitOnADerelictUnitFreesItsPercentForCriticalAndACriticalHitDestroysTheUnit()
     {

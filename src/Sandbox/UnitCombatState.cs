@@ -123,11 +123,16 @@ public sealed class UnitCombatState(
     /// <summary>
     /// Restores the system <c>name</c> and gives it its own hit percent back (0x467600), so the total is conserved.
     /// The other working systems give it up in proportion to their excess over their own percents; what their
-    /// excess does not cover comes out of the critical share.
+    /// excess does not cover comes out of the critical share. A system that is not destroyed keeps its live percent.
     /// </summary>
     public void RestoreSystem(string name)
     {
         var system = Systems[name];
+        if (!system.Destroyed)
+        {
+            return;
+        }
+
         system.Destroyed = false;
         system.HitPercent = system.Profile.HitPercent;
         var donors = Systems.Values.Where(s => s != system && !s.Destroyed).ToList();

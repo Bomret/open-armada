@@ -31,7 +31,7 @@ The sandbox behaves as follows:
 
 - Camera: the arrow keys and the window edges scroll the camera. The mouse wheel changes its height. A middle-button drag rotates it. On a trackpad, a two-finger pan changes the height and rotates, and a pinch changes the height. The camera limits and rates come from the install's `RTS_CFG.h`.
 - The sandbox confines the cursor to its window while the window has focus. Esc releases it until the window gains focus again.
-- Left-click selects a unit, and a left-button drag selects the units in the box. Right-click on a hostile unit orders the selected units to attack it. Right-click elsewhere sends the selected ships to that point; a point outside the map sends them to the nearest point of the map's edge. Stations do not move.
+- Left-click selects a unit, and a left-button drag selects the units in the box. Right-click on a hostile unit orders the selected units that have weapons to attack it; a unit without weapons ignores the click. Right-click elsewhere sends the selected ships to that point; a point outside the map sends them to the nearest point of the map's edge. Stations do not move.
 - The green, yellow, and red alert keys set the alert stance of the selected units. The keys come from the install's `Input.map` (Shift+G, Shift+Y, and Shift+R in the reference install).
 - A map object or definition that cannot be read is reported as a gap, printed and counted on screen, and the map still opens.
 
@@ -41,8 +41,8 @@ These rules apply to every map the sandbox opens.
 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
 - `src/Rendering/` — converts parsed data into Godot nodes.
-- `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene with its selection, orders, alert keys, and the drawing and sound of the fight.
-- `src/Sandbox/` — the map sandbox's plans, camera rig, ship motion, and combat (the combat plan read from the install, the combat world and its rules, and the art of the fight); plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
+- `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene. The scene handles selection, orders, alert keys, and the drawing and sound of the fight.
+- `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
 - `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.
 

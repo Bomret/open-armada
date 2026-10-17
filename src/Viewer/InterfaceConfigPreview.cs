@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
@@ -32,7 +33,7 @@ public sealed class InterfaceConfigPreview : KindPreview
             {
                 if (!textures.TryGetValue(s.Texture, out var loaded))
                 {
-                    textures[s.Texture] = loaded = TryLoadTexture(files, s.Texture);
+                    textures[s.Texture] = loaded = TryLoadTexture(files, s.Texture, name);
                 }
 
                 if (loaded is { } l)
@@ -81,13 +82,26 @@ public sealed class InterfaceConfigPreview : KindPreview
                     $"{cfg.Entries.Count} entries, {cfg.Elements.Count} positioned elements, {items.Count(i => i.Item2 != null)} with sprites, {cfg.Notes.Count} notes",
             }
         );
+        var failed = textures.Where(t => t.Value == null).Select(t => t.Key).ToList();
+        if (failed.Count > 0)
+        {
+            box.AddChild(
+                new Label
+                {
+                    Text =
+                        $"{failed.Count} textures not found or unreadable, their elements show no sprite: {string.Join(", ", failed)}",
+                }
+            );
+        }
+
         box.AddChild(row);
 
         return box;
     }
 
-    // The texture's image and Godot texture, or null when its file is missing, unreadable or in a format not decoded.
-    static (Image Image, ImageTexture Texture)? TryLoadTexture(GameFileSystem files, string texture)
+    // The texture's image and Godot texture, or null when its file is missing, unreadable or in a format not
+    // decoded; a failed texture is logged once per run, and once per later asset that uses it (ViewerLog.TextureFailed).
+    static (Image Image, ImageTexture Texture)? TryLoadTexture(GameFileSystem files, string texture, string asset)
     {
         try
         {
@@ -98,6 +112,8 @@ public sealed class InterfaceConfigPreview : KindPreview
         catch (System.Exception ex)
             when (ex is System.IO.IOException or System.IO.InvalidDataException or UnsupportedFormatException)
         {
+            ViewerLog.TextureFailed(Area.Browser, texture, ex, asset);
+
             return null;
         }
     }

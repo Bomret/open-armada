@@ -13,7 +13,7 @@ namespace OpenArmada.Viewer;
 /// asset.
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; [--model Fente] [--screenshot out.png]
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]   (the map sandbox)
-///   godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; --map &lt;name&gt; --play &lt;file&gt;   (a play run)
+///   mkdir -p play-out/&lt;stem&gt;; godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; --map &lt;name&gt; --play &lt;file&gt;   (a play run)
 ///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
 /// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--map</c>.
 /// </summary>
@@ -243,7 +243,8 @@ public partial class AssetBrowserView : Control
     }
 
     // Starts a play run of the map sandbox, or logs why it cannot and quits with exit code 1 (INV-0007); the window
-    // never stays open. Every problem here is one log entry, except a bare --play, whose entry the run start wrote.
+    // never stays open. A run that cannot start is one log entry: a bare --play is the entry the run start wrote,
+    // and a launch problem that comes with it stays unlogged.
     void StartPlayRun(LaunchArgs args, string? game)
     {
         var problem = PlayRun.LaunchProblem(OS.HasFeature("movie"), args.Has("--map"), args.Has("--screenshot"));
@@ -253,7 +254,7 @@ public partial class AssetBrowserView : Control
         }
 
         var file = args.Value("--play");
-        if (problem != null)
+        if (problem != null && file != null)
         {
             Log.Error(Area.Run, problem);
         }

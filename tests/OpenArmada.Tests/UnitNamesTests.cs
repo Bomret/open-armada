@@ -40,6 +40,17 @@ public class UnitNamesTests
     }
 
     [TestMethod]
+    public void ALabelThatReadsLikeAGeneratedNameIsDumpedUnderAQuotedName()
+    {
+        var second = Of("ship");
+        var labelled = Of("ship#2");
+        var names = new UnitNames([Of("ship"), second, labelled]);
+
+        Assert.AreEqual("ship#2", names.Name(second));
+        Assert.AreEqual("\"ship#2\"", names.Name(labelled));
+    }
+
+    [TestMethod]
     public void ALabelThatReadsLikeAGeneratedNameIsAProblemNamingBoth()
     {
         var names = new UnitNames([Of("ship"), Of("ship"), Of("ship#2")]);

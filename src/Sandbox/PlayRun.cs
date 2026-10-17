@@ -29,7 +29,8 @@ public sealed class PlayRun(PlayScript script, PlayState state, string outputFol
     /// <summary>
     /// The problem with the Movie Maker output, or null: Movie Maker opens its PNG and WAV files at engine start
     /// and writes nothing, yet the run goes on, when the folder of <c>moviePath</c> (the <c>--write-movie</c> value)
-    /// does not exist.
+    /// does not exist. A relative path is checked against the working directory, which is where Godot resolves it:
+    /// <c>--path</c> makes the project folder the working directory before any script runs.
     /// </summary>
     public static string? MovieProblem(string moviePath)
     {

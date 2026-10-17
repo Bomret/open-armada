@@ -42,8 +42,9 @@ public sealed record ExpectStep : PlayStep
     /// <summary>The value as written: a number, <c>true</c> or <c>false</c>, or a unit name or <c>none</c> for <c>target</c>.</summary>
     public required string Value { get; init; }
 
-    /// <summary>The number a numeric field's <see cref="Value"/> reads as; the parser has checked that it does.</summary>
-    public double Number => double.Parse(Value, NumberStyles.Float, CultureInfo.InvariantCulture);
+    /// <summary>The number <see cref="Value"/> reads as, or null for a <c>destroyed</c> or <c>target</c> step.</summary>
+    public double? Number =>
+        double.TryParse(Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null;
 }
 
 /// <summary>

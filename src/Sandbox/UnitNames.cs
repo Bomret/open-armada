@@ -7,7 +7,7 @@ namespace OpenArmada.Sandbox;
 /// The names a play script addresses units by. A unit is named by its map label, or by its class when the label
 /// is empty. When several units share a name, <c>name#k</c> is the k-th of them (from 1) in the order the units
 /// were given, and the bare name is ambiguous. A label that itself reads like such a name (<c>ship#2</c> beside
-/// two units named <c>ship</c>) is ambiguous too.
+/// two units named <c>ship</c>) is ambiguous too, and <see cref="Name"/> gives it in quotes.
 /// </summary>
 public sealed class UnitNames
 {
@@ -34,6 +34,16 @@ public sealed class UnitNames
             for (var k = 0; k < same.Count; k++)
             {
                 _names[same[k]] = same.Count == 1 ? name : $"{name}#{k + 1}";
+            }
+        }
+
+        // A label that equals another unit's generated name would repeat it in the dump: show the label quoted.
+        // Resolve reports that name as a problem, so no script addresses either unit by it.
+        foreach (var unit in Units)
+        {
+            if (unit.Label.Length > 0 && _names[unit] == unit.Label && _names.Count(n => n.Value == unit.Label) > 1)
+            {
+                _names[unit] = $"\"{unit.Label}\"";
             }
         }
     }

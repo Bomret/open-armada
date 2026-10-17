@@ -22,7 +22,7 @@ public class PlayScriptTests
         Assert.AreEqual(1.5, ((WaitStep)script.Steps[0]).Seconds);
         Assert.AreEqual("first", ((DumpStep)script.Steps[1]).Name);
         var expect = (ExpectStep)script.Steps[2];
-        Assert.AreEqual(("a", "shields", ">=", 10.0), (expect.Unit, expect.Field, expect.Op, expect.Number));
+        Assert.AreEqual(("a", "shields", ">=", 10.0), (expect.Unit, expect.Field, expect.Op, expect.Number!.Value));
     }
 
     [TestMethod]

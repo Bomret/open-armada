@@ -135,7 +135,7 @@ public sealed class PlayState
                 }
 
                 actual = value.ToString("F2", CultureInfo.InvariantCulture);
-                holds = Compare(value, step.Op, step.Number);
+                holds = Compare(value, step.Op, step.Number!.Value); // the parser accepts only a number here
 
                 break;
         }

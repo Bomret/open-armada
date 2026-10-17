@@ -1,6 +1,5 @@
 using System;
 using System.Buffers.Binary;
-using System.Globalization;
 using System.Text;
 
 namespace WavLevel;
@@ -22,12 +21,12 @@ public static class WavLevelMeter
             rate = 0,
             bits = 0;
         var haveFormat = false;
-        var pos = 12;
+        long pos = 12;
         while (pos + 8 <= wav.Length)
         {
-            var id = Tag(wav, pos);
-            var size = BinaryPrimitives.ReadUInt32LittleEndian(wav.AsSpan(pos + 4));
-            var body = pos + 8;
+            var id = Tag(wav, (int)pos);
+            var size = BinaryPrimitives.ReadUInt32LittleEndian(wav.AsSpan((int)pos + 4));
+            var body = (int)pos + 8;
             if (id == "fmt " && size >= 16 && body + 16 <= wav.Length)
             {
                 format = BinaryPrimitives.ReadUInt16LittleEndian(wav.AsSpan(body));
@@ -50,7 +49,7 @@ public static class WavLevelMeter
                     return (null, $"unfinished file (data size {size} but {wav.Length - body} bytes follow)");
                 return Window(wav.AsSpan(body, (int)size), channels, rate, from, to);
             }
-            pos = body + (int)Math.Min(size + (size & 1), int.MaxValue - body);
+            pos += 8 + size + (size & 1);
         }
         return (null, "not a WAV file (no data chunk)");
     }
@@ -61,15 +60,13 @@ public static class WavLevelMeter
         var duration = (double)frames / rate;
         var start = from ?? 0;
         var end = to ?? duration;
+        if (!double.IsFinite(start) || !double.IsFinite(end))
+            return (null, "--from and --to need finite seconds");
         if (start < 0 || start > duration || end < 0 || end > duration)
-        {
-            var window =
-                $"{start.ToString(CultureInfo.InvariantCulture)} to {end.ToString(CultureInfo.InvariantCulture)}";
             return (
                 null,
-                $"window {window} s is outside the audio (0 to {duration.ToString("0.###", CultureInfo.InvariantCulture)} s)"
+                FormattableString.Invariant($"window {start} to {end} s is outside the audio (0 to {duration:0.###} s)")
             );
-        }
         if (start > end)
             return (null, "--from is after --to");
         var first = (int)Math.Round(start * rate);

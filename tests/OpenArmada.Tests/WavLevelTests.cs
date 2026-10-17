@@ -74,7 +74,31 @@ public class WavLevelTests
         var (quiet, _) = WavLevelMeter.Measure(wav, from: 1, to: 2);
 
         Assert.AreEqual(0, loud!.PeakDb, 0.1);
+        Assert.AreEqual(-3.01, loud.RmsDb, 0.1);
         Assert.IsTrue(double.IsNegativeInfinity(quiet!.PeakDb));
+    }
+
+    [TestMethod]
+    public void ChunkWithAHugeSizeBeforeTheDataIsReportedNotThrown()
+    {
+        var wav = Wav(i => Sine(i), 100);
+        var junk = new byte[wav.Length + 8];
+        wav.AsSpan(0, 36).CopyTo(junk);
+        "JUNK"u8.CopyTo(junk.AsSpan(36));
+        BitConverter.GetBytes(0x7FFFFFF0).CopyTo(junk, 40);
+        wav.AsSpan(36).CopyTo(junk.AsSpan(44));
+
+        StringAssert.Contains(Problem(junk), "no data chunk");
+    }
+
+    [TestMethod]
+    public void SecondsThatAreNotFiniteAreRejected()
+    {
+        var wav = Wav(i => Sine(i), Rate);
+
+        StringAssert.Contains(Problem(wav, from: double.NaN), "finite");
+        StringAssert.Contains(Problem(wav, to: double.NaN), "finite");
+        StringAssert.Contains(Problem(wav, to: double.PositiveInfinity), "finite");
     }
 
     static string Problem(byte[] wav, double? from = null, double? to = null)

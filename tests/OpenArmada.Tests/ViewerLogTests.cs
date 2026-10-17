@@ -148,10 +148,28 @@ public class ViewerLogTests
             ["hull01"] = "not a readable TGA",
             ["glow"] = "missing",
         };
-        ViewerLog.TexturesUnavailable(misses, new System.Collections.Generic.HashSet<string> { "HULL01" });
+        ViewerLog.TexturesUnavailable(
+            misses,
+            new System.Collections.Generic.HashSet<string> { "HULL01" },
+            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        );
         Assert.AreEqual(1, log.Lines.Count);
         StringAssert.Contains(log.Text, " WARN render: ");
         StringAssert.Contains(log.Text, "glow");
+    }
+
+    [TestMethod]
+    public void A_builder_logs_a_missing_mesh_texture_once_across_builds()
+    {
+        using var log = new CapturedLog();
+        var logged = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var none = new System.Collections.Generic.HashSet<string>();
+        for (var build = 0; build < 2; build++)
+        {
+            var misses = new System.Collections.Generic.Dictionary<string, string?> { ["glow"] = "missing" };
+            ViewerLog.TexturesUnavailable(misses, none, logged);
+        }
+        Assert.AreEqual(1, log.Lines.Count);
     }
 
     [TestMethod]

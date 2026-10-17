@@ -61,13 +61,19 @@ public static class ViewerLog
 
     /// <summary>
     /// WARN in area render, one entry per texture in <c>misses</c> (name to reason) that is not in
-    /// <c>problems</c>: a texture that became a Problems entry is logged by the preview, not twice.
+    /// <c>problems</c> and not yet in <c>logged</c>: a texture that became a Problems entry is logged by the
+    /// preview, not twice. Each texture it logs is added to <c>logged</c>, which the builder keeps for its
+    /// lifetime, so a texture is logged once per builder however many models it builds.
     /// </summary>
-    public static void TexturesUnavailable(IReadOnlyDictionary<string, string?> misses, IEnumerable<string> problems)
+    public static void TexturesUnavailable(
+        IReadOnlyDictionary<string, string?> misses,
+        IEnumerable<string> problems,
+        ISet<string> logged
+    )
     {
         foreach (var (name, reason) in misses)
         {
-            if (!problems.Contains(name, StringComparer.OrdinalIgnoreCase))
+            if (!problems.Contains(name, StringComparer.OrdinalIgnoreCase) && logged.Add(name))
             {
                 TextureUnavailable(name, reason);
             }

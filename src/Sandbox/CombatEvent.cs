@@ -103,8 +103,9 @@ public enum ShotKind
 }
 
 /// <summary>
-/// One shot in flight. A beam holds no position; a torpedo and a pulse fly from Position along Direction. Hits is
-/// the to-hit roll made at fire time: a shot that missed is reported and then dropped.
+/// One shot in flight. A beam keeps the shooter's center at fire time as its Position; a torpedo and a pulse fly from
+/// Position along Direction. Hits is the to-hit roll made at fire time: a shot that missed is reported and then
+/// dropped.
 /// </summary>
 public sealed class Shot(
     ShotKind kind,

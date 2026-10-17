@@ -4,7 +4,7 @@ namespace OpenArmada.Assets;
 
 /// <summary>
 /// The team colors: teamcolor.odf, read once as one asset. The check lists a missing file and a slot whose
-/// first matching key is not three numbers (each such slot is black), once for the install.
+/// first matching key is not at least three numbers (each such slot is black), once for the install.
 /// </summary>
 public sealed class TeamColorKind : AssetKind
 {

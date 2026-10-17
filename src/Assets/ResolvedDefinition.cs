@@ -311,7 +311,10 @@ public sealed class ResolvedDefinition
         throw Wrong(key, "a number", t);
     }
 
-    static bool TryNumber(string token, out float f) =>
+    /// <summary>
+    /// Parses one definition number: invariant culture, at most one <c>f</c> or <c>F</c> suffix, and finite.
+    /// </summary>
+    internal static bool TryNumber(string token, out float f) =>
         float.TryParse(
             token.EndsWith('f') || token.EndsWith('F') ? token[..^1] : token,
             NumberStyles.Float,

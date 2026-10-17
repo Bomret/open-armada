@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -13,7 +12,7 @@ namespace OpenArmada.Assets;
 /// <c>team*</c> materials take one of these colors. As in the game's getter (0x554320, <c>_strnicmp</c> over the
 /// file's lines), a slot takes the first key that starts with its name, regardless of case. A slot no key
 /// matches is black and is no note, as the game copies a zero vector (0x68bb00) without a report. A first
-/// match that is not three numbers is black and a note; the scan does not go on to a later key.
+/// match that is not at least three numbers is black and a note; the scan does not go on to a later key.
 /// </summary>
 public sealed class TeamColors
 {
@@ -54,7 +53,7 @@ public sealed class TeamColors
 
     /// <summary>
     /// What the asset check prints without failing: a missing teamcolor.odf, and each slot whose first matching key
-    /// is not three numbers (that slot is black).
+    /// is not at least three numbers (that slot is black).
     /// </summary>
     public IReadOnlyList<string> Notes => _notes;
 
@@ -89,7 +88,9 @@ public sealed class TeamColors
             var valid = match != null && TryColor(match.Tokens, out color);
             if (match != null && !valid)
             {
-                team._notes.Add($"teamcolor.odf: color '{name}' (key '{match.Key}') is not three numbers: black");
+                team._notes.Add(
+                    $"teamcolor.odf: color '{name}' (key '{match.Key}') is not at least three numbers: black"
+                );
             }
 
             team._colors[name] = valid ? color : Vector3.Zero;
@@ -106,10 +107,7 @@ public sealed class TeamColors
         var v = new float[3];
         for (var i = 0; i < 3; i++)
         {
-            if (
-                !float.TryParse(t[i].TrimEnd('f'), NumberStyles.Float, CultureInfo.InvariantCulture, out v[i])
-                || !float.IsFinite(v[i])
-            )
+            if (!ResolvedDefinition.TryNumber(t[i], out v[i]))
                 return false;
         }
 

@@ -150,15 +150,15 @@ public class EngineLoggingTests
     }
 
     [TestMethod]
-    [DataRow("Formats/Bzn.cs", "Log.Warn(Area.Assets, \"x\");")]
+    [DataRow("Formats/Bzn.cs", "Log.Warn(Area.Render, \"x\");")]
     [DataRow("Formats/Bzn.cs", "ViewerLog.Failed(x);")]
-    [DataRow("Formats/Bzn.cs", "var f = new RepeatedFaults(Area.Assets);")]
+    [DataRow("Formats/Bzn.cs", "var f = new RepeatedFaults(Area.Render);")]
     [DataRow("Formats/Bzn.cs", "using static OpenArmada.Diagnostics.Log;")]
     [DataRow("Formats/Bzn.cs", "using static OpenArmada.Diagnostics.ViewerLog;")]
-    [DataRow("Assets/AssetKind.cs", "public abstract class AssetKind { void F() { Log.Warn(Area.Assets, \"x\"); } }")]
+    [DataRow("Assets/AssetKind.cs", "public abstract class AssetKind { void F() { Log.Warn(Area.Render, \"x\"); } }")]
     [DataRow(
         "Assets/FooKind.cs",
-        "public sealed class FooKind : AssetKind { void F() { Log.Error(Area.Assets, \"x\"); } }"
+        "public sealed class FooKind : AssetKind { void F() { Log.Error(Area.Render, \"x\"); } }"
     )]
     public void LogInAParserOrAnAssetKindIsNamed(string path, string text)
     {

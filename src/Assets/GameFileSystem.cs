@@ -216,7 +216,7 @@ public sealed class GameFileSystem
     /// </summary>
     public byte[]? ReadBeside(string name, string sibling) => Beside(name, sibling) is { } hit ? Read(hit) : null;
 
-    /// <summary>The Inventory entry of the file <c>name</c> resolves to, and of the file ReadBeside reads; null when there is none.</summary>
+    /// <summary>The Inventory entry of the file <c>name</c> resolves to; null when there is none.</summary>
     public string? Entry(string name) => Locate(name) is { } hit ? Entry(hit) : null;
 
     /// <summary>

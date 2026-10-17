@@ -184,7 +184,16 @@ public sealed class CombatWorld
             while (weapon.Cooldown <= Epsilon)
             {
                 for (var i = 0; i < Math.Max(1, weapon.Profile.Hardpoints.Count); i++)
-                    events.Add(new ShotFired(Launch(u, weapon.Profile, target)));
+                    events.Add(
+                        new ShotFired(
+                            Launch(
+                                u,
+                                weapon.Profile,
+                                target,
+                                i < weapon.Profile.Hardpoints.Count ? weapon.Profile.Hardpoints[i] : null
+                            )
+                        )
+                    );
                 weapon.Cooldown += delay;
                 if (delay <= Epsilon)
                 {
@@ -197,7 +206,7 @@ public sealed class CombatWorld
 
     // One shot of the weapon at the target, with its to-hit rolled now. A shot that missed is reported and not kept.
     // stand-in: a missed shot hits nothing and flies on to nowhere; the game's miss behavior is not known.
-    Shot Launch(UnitCombatState shooter, WeaponProfile weapon, UnitCombatState target)
+    Shot Launch(UnitCombatState shooter, WeaponProfile weapon, UnitCombatState target, string? hardpoint)
     {
         // stand-in: nothing in the engine is at warp yet, so the warp modifiers never apply
         var chance = CombatRules.ToHitChance(
@@ -209,7 +218,8 @@ public sealed class CombatWorld
             target.Stopped
         );
         var hits = _random() <= chance;
-        // stand-in: shots start from the shooter's center; the hardpoint positions are not used yet.
+        // The world's shot flies from the shooter's center (it knows no model); the view offsets what it draws to
+        // the shot's hardpoint.
         var from = Position(shooter);
         var toward = Position(target) - from;
         var kind = weapon.Ordnance.ClassLabel switch
@@ -225,7 +235,8 @@ public sealed class CombatWorld
             weapon,
             hits,
             from,
-            toward == Vector3.Zero ? Vector3.UnitZ : Vector3.Normalize(toward)
+            toward == Vector3.Zero ? Vector3.UnitZ : Vector3.Normalize(toward),
+            hardpoint
         );
         if (hits)
             _shots.Add(shot);

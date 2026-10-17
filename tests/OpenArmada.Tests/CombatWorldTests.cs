@@ -135,6 +135,20 @@ public class CombatWorldTests
     }
 
     [TestMethod]
+    public void EachShotNamesTheHardpointItLeavesFrom()
+    {
+        var weapon = Weapon(range: 200) with { Hardpoints = new[] { "hp01", "hp02" } };
+        var a = Fighter("a", 1, 0, weapon);
+        var b = Fighter("b", 2, 100);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        CollectionAssert.AreEqual(
+            new[] { "hp01", "hp02" },
+            world.Step(0.02).OfType<ShotFired>().Select(e => e.Shot.Hardpoint).ToArray()
+        );
+    }
+
+    [TestMethod]
     public void ANoCrewFactorWeaponReloadsAtShotDelayAndACrewFactorOneSlowsWithTheCrew()
     {
         var weapon = Weapon(delay: 1, range: 200, crewAffects: true);

@@ -41,8 +41,8 @@ These rules apply to every map the sandbox opens.
 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
 - `src/Rendering/` — converts parsed data into Godot nodes.
-- `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene with its selection and move orders.
-- `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion; plain C# without Godot dependencies.
+- `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene with its selection, orders, alert keys, and the drawing and sound of the fight.
+- `src/Sandbox/` — the map sandbox's plans, camera rig, ship motion, and combat (the combat plan read from the install, the combat world and its rules, and the art of the fight); plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
 - `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.
 

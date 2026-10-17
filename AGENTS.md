@@ -4,6 +4,13 @@ An open-source engine for Star Trek: Armada (2000) on Godot 4 with C#. It ships 
 reads the files of an Armada install the user owns. See `README.md` for layout, usage, and the SOD
 format notes.
 
+## Where to read
+
+- Domain terms: `CONTEXT.md`.
+- Combat rules and their recovered values: `docs/combat-rules.md`.
+- Decisions: `docs/adr/`. Invariants: `docs/invariants.md`.
+- Source layout, controls, and the asset check: `README.md`.
+
 ## Agent skills
 
 ### Slice store

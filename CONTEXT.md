@@ -137,6 +137,20 @@ _Avoid_: gun, turret, hardpoint
 The definition a weapon names in its `ordName` key: what one shot does on a hit and how it is drawn.
 _Avoid_: projectile, shot definition, ammo
 
+**Alert stance**
+One of three settings of a unit, red, yellow, or green, that decides whether it picks targets and moves on its own.
+The player sets it with a key chord.
+_Avoid_: alert level, stance, combat mode
+
+**Attack order**
+An order that names one hostile unit as the target of a unit with weapons. The unit closes on the target and
+fires at it, and the order ends when the target is destroyed.
+_Avoid_: attack command, focus fire
+
+**Key chord**
+A key and the modifiers (Shift, Control, Alt) held with it, as a binding of the install's `Input.map` names them.
+_Avoid_: hotkey, shortcut, key combo
+
 **Ship system**
 One of the five parts of a unit that can be destroyed apart from the unit: engines, life support, weapons,
 shield generator, and sensors. Each has hit points and repairs itself over time.
@@ -171,8 +185,8 @@ The engine's interactive mode for picking any asset of an install and inspecting
 _Avoid_: model viewer, asset viewer
 
 **Map sandbox**
-The engine's mode that opens one map as a live 3D scene, where units can be selected and ships ordered to
-move.
+The engine's mode that opens one map as a live 3D scene, where units can be selected, ships ordered to
+move, and units ordered to attack and fight.
 _Avoid_: map viewer, 3D preview, game mode
 
 **Preview**

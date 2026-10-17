@@ -21,6 +21,10 @@ public sealed class SodBuilder
     const string NoSpriteTexture = "sprite texture cannot be read, its sprite node is not drawn";
 
     readonly GameFileSystem _files;
+
+    // Why a texture did not load, and the textures already logged as unavailable.
+    readonly Dictionary<string, string?> _why = new(System.StringComparer.OrdinalIgnoreCase);
+    readonly HashSet<string> _logged = new(System.StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
     readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
     readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
@@ -132,7 +136,8 @@ public sealed class SodBuilder
             }
             else
             {
-                gaps.Add(NoSpriteTexture, sprite.Sprite.Sprite.Texture, sprite.Node);
+                var name = sprite.Sprite.Sprite.Texture;
+                gaps.Add(NoSpriteTexture, _why.TryGetValue(name, out var why) ? $"{name} ({why})" : name, sprite.Node);
             }
         }
 
@@ -151,6 +156,12 @@ public sealed class SodBuilder
         // A blend the engine does not know is listed in Problems (ModelRules.Check) and drawn opaque.
         var blend = look.Blend ?? new BlendState { Mode = BlendMode.Opaque, Opacity = 1f };
         var texture = Texture(look.Texture);
+        // An untextured model is logged here, once per texture; a sprite node's texture is a Problems entry.
+        if (texture == null && _why.TryGetValue(look.Texture, out var reason) && _logged.Add(look.Texture))
+        {
+            ViewerLog.TextureUnavailable(look.Texture, reason);
+        }
+
         var materials = new List<ShaderMaterial>();
         var array = new ArrayMesh();
         foreach (var group in mesh.Groups)
@@ -263,7 +274,7 @@ public sealed class SodBuilder
 
         if (tex == null)
         {
-            ViewerLog.TextureUnavailable(name, why);
+            _why[name] = why;
         }
 
         return _textures[name] = tex;

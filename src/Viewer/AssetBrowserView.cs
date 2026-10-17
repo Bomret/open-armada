@@ -222,8 +222,9 @@ public partial class AssetBrowserView : Control
         }
         catch (Exception e) // a failed asset never stops the browser (INV-0002)
         {
-            ViewerLog.PreviewFailed(name, e);
-            ShowMessage(AssetBrowser.FailureMessage(name, e));
+            var message = AssetBrowser.FailureMessage(name, e);
+            ViewerLog.Failed(message);
+            ShowMessage(message);
         }
     }
 

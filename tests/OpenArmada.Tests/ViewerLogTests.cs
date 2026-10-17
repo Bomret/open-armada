@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
 
 namespace OpenArmada.Tests;
@@ -62,7 +63,7 @@ public class ViewerLogTests
     public void Failed_preview_is_one_error_with_asset_name_and_reason()
     {
         using var log = new CapturedLog();
-        ViewerLog.PreviewFailed("Wviracod", new InvalidDataException("bad magic"));
+        ViewerLog.Failed(AssetBrowser.FailureMessage("Wviracod", new InvalidDataException("bad magic")));
         Assert.AreEqual(1, log.Lines.Count);
         StringAssert.Contains(log.Text, " ERROR browser: Wviracod: bad magic");
     }

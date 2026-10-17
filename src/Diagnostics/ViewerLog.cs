@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using OpenArmada.Assets;
 
 namespace OpenArmada.Diagnostics;
 
@@ -20,7 +19,7 @@ public static class ViewerLog
 
     /// <summary>
     /// ERROR: the browser cannot open or a category cannot list its assets; <c>text</c> is what the pane shows
-    /// (<c>AssetBrowser.Problem</c> or <c>Notice</c>). Nothing is written when it is null.
+    /// (<c>AssetBrowser.Problem</c>, <c>Notice</c>, or <c>FailureMessage</c> of a failed preview). Nothing is written when it is null.
     /// </summary>
     public static void Failed(string? text)
     {
@@ -29,10 +28,6 @@ public static class ViewerLog
             Log.Error(Area.Browser, text);
         }
     }
-
-    /// <summary>ERROR: the preview of <c>asset</c> failed with <c>e</c>; the browser goes on.</summary>
-    public static void PreviewFailed(string asset, Exception e) =>
-        Log.Error(Area.Browser, AssetBrowser.FailureMessage(asset, e));
 
     /// <summary>WARN: the sprite table <c>table</c> shows texture <c>texture</c> as not found or unreadable.</summary>
     public static void TextureNotLoaded(string table, string texture, Exception e) =>

@@ -73,6 +73,7 @@ public class DefinitionKindTests
         var remarks = DefinitionText.Remarks(def);
         Assert.AreEqual(def.Problems.Count + def.Notes.Count, remarks.Count);
         Assert.IsTrue(remarks.Count >= 2);
+        Assert.IsTrue(remarks.Any(r => r.StartsWith("problem: ") && r.Contains("gone.odf")));
         foreach (var remark in remarks)
         {
             StringAssert.Contains(DefinitionText.Format(def), remark);

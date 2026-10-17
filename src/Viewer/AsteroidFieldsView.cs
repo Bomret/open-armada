@@ -46,7 +46,10 @@ public partial class AsteroidFieldsView : Node3D
         var builder = new SodBuilder(files);
         var parts = new Dictionary<string, List<(Mesh Mesh, Transform3D Transform)>>(StringComparer.OrdinalIgnoreCase);
         var sprites = new Dictionary<string, List<SpritePart>>(StringComparer.OrdinalIgnoreCase);
+        // `extent` reaches the farthest mesh corner and places the rocks; `drawExtent` also reaches the farthest
+        // sprite-node quad corner and sizes the draw box, so a sprite past its rock's mesh is not culled.
         var extent = 0f;
+        var drawExtent = 0f;
         foreach (var model in plan.Fields.SelectMany(f => f.Models).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             try
@@ -74,6 +77,13 @@ public partial class AsteroidFieldsView : Node3D
                     foreach (var i in Enumerable.Range(0, 8))
                         extent = MathF.Max(extent, box.GetEndpoint(i).Length());
                 }
+                drawExtent = MathF.Max(drawExtent, extent);
+                foreach (var sprite in sprites[model])
+                {
+                    var box = sprite.Part * sprite.Mesh.GetAabb();
+                    foreach (var i in Enumerable.Range(0, 8))
+                        drawExtent = MathF.Max(drawExtent, box.GetEndpoint(i).Length());
+                }
             }
             catch (Exception e) // a model that cannot be read is a gap and its rocks are left out (INV-0002)
             {
@@ -93,11 +103,12 @@ public partial class AsteroidFieldsView : Node3D
                 list.Add(rock);
             }
         }
-        // Rocks move within their field's sphere and reach past it by their extent, so the box of every draw is the union of the fields' draw boxes.
+        // Rocks move within their field's sphere and reach past it by their extent, their meshes and sprite nodes
+        // included, so the box of every draw is the union of the fields' draw boxes.
         Aabb? bounds = null;
         foreach (var f in plan.Fields)
         {
-            var (min, max) = f.DrawBox(extent);
+            var (min, max) = f.DrawBox(drawExtent);
             var box = new Aabb(
                 new Vector3(min.X, min.Y, min.Z),
                 new Vector3(max.X - min.X, max.Y - min.Y, max.Z - min.Z)

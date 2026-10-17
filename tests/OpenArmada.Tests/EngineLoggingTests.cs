@@ -9,7 +9,7 @@ namespace OpenArmada.Tests;
 
 /// <summary>
 /// Finds the lines of one engine source that break INV-0004. A parser is a file under <c>Formats/</c>; an asset
-/// kind is any file declaring <c>AssetKind</c> or a subclass of it.<c>ViewerLog</c> and <c>RepeatedFaults</c> count as
+/// kind is any file declaring <c>AssetKind</c> or a subclass of it. <c>ViewerLog</c> and <c>RepeatedFaults</c> count as
 /// <c>Log</c> because they only forward to it.
 /// </summary>
 static class EngineLogScan
@@ -25,7 +25,7 @@ static class EngineLogScan
     static readonly Regex Output = new(
         @"\bConsole\s*\.|using\s+static\s+(System\.)?Console\b|\bGD\s*\.\s*(Print\w*|Push(Error|Warning))\b"
             + @"|using\s+static\s+Godot\.GD\b|\b(Debug|Trace)\s*\.\s*Write\w*"
-            + @"|using\s+\w+\s*=\s*(System\.Console|Godot\.GD)\b"
+            + @"|using\s+\w+\s*=\s*(global::)?(System\.Console|Godot\.GD)\b"
     );
 
     static readonly Regex LogUse = new(
@@ -111,6 +111,8 @@ public class EngineLoggingTests
     [DataRow("Trace.WriteLine(x);")]
     [DataRow("using C = System.Console;")]
     [DataRow("using G = Godot.GD;")]
+    [DataRow("using G = global::System.Console;")]
+    [DataRow("using G = global::Godot.GD;")]
     public void EverySpellingOfAnOutputCallIsCaught(string line)
     {
         Assert.AreEqual(1, EngineLogScan.Violations("Viewer/Foo.cs", line).Count, line);

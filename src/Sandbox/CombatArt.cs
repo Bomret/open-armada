@@ -35,7 +35,7 @@ public sealed class CombatArt
     readonly HashSet<string> _fireSounds = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<PlacedObject, ExplosionArt> _explosions = new(ReferenceEqualityComparer.Instance);
 
-    // Per model: each node name, matched without regard to case, to the node's exact name.
+    // Per model: each node name, matched without regard to case, to the name the built node carries.
     readonly Dictionary<string, Dictionary<string, string>> _nodesOfModel = new(StringComparer.OrdinalIgnoreCase);
     Dictionary<string, (SpriteTable Table, Sprite Sprite)>? _rows;
 

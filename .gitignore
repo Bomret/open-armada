@@ -4,3 +4,4 @@ obj/
 *.user
 .superdev/
 .DS_Store
+CLAUDE.local.md

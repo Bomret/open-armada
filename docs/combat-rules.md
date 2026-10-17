@@ -76,7 +76,9 @@ An attack order (0x4294e0) names one target unit.
 ## Firing
 
 A weapon fires when its reload delay has passed and its unit holds a target (0x509bd0). It fires from
-each hardpoint its `weaponHardpointsN` key names. No order is needed beyond the target the unit holds.
+each hardpoint its `weaponHardpointsN` key names. No order is needed beyond the target the unit holds. A
+weapon whose `weaponHardpointsN` key names no hardpoint is reported and left out, so it does not count as a
+weapon of its unit.
 
 After each shot the reload delay is `shotDelay`, multiplied by a crew factor when the weapon sets
 `crewAffectsWeaponDelay` (0x506452, 0x50b690). With the crew ratio as current crew over `maximumCrew`,

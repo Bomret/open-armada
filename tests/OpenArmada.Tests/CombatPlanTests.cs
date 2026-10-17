@@ -166,6 +166,47 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void AWeaponWithoutHardpointsIsReportedAndLeftOut()
+    {
+        var r = OneShip("weapon1 = \"beam\"\r\nweapon2 = \"beam\"\r\nweaponHardpoints2 = \"b\"\r\n");
+        Assert.AreEqual(2, ProfileOf(r).Weapons.Single().Slot);
+        Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause == "weapon without hardpoints, weapon left out"));
+    }
+
+    // A world of the plan's one ship and a hostile unit 50 units away, at red alert.
+    static (CombatWorld World, PlacedObject Ship, PlacedObject Foe) WithFoe((CombatPlan Plan, SelectableUnit[] Units) r)
+    {
+        var ship = r.Units[0].Object;
+        var foe = CombatFixtures.Placed("foe", 2, 50);
+        var world = new CombatWorld(
+            new UnitPoses(new[] { ship, foe }),
+            new[]
+            {
+                new CombatUnit(ship, ProfileOf(r), "s.odf", 0, true),
+                new CombatUnit(foe, CombatFixtures.Profile(), "foe.odf", 0, true),
+            },
+            1,
+            () => 0
+        );
+        return (world, ship, foe);
+    }
+
+    [TestMethod]
+    public void AUnitWhoseOnlyWeaponHasNoHardpointsRefusesAnAttackOrder()
+    {
+        var (world, ship, foe) = WithFoe(OneShip("weapon1 = \"beam\"\r\n"));
+        Assert.IsFalse(world.Attack(ship, foe));
+    }
+
+    [TestMethod]
+    public void AUnitWhoseOnlyWeaponHasNoHardpointsTakesNoAutoOrderAtRed()
+    {
+        var (world, ship, _) = WithFoe(OneShip("weapon1 = \"beam\"\r\n"));
+        world.Step(0.1);
+        Assert.IsNull(world.State(ship)!.Order);
+    }
+
+    [TestMethod]
     public void AMalformedOverrideIsReportedWithClassAndKeyAndTheDefaultStands()
     {
         var r = OneShip(

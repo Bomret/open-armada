@@ -205,7 +205,11 @@ public sealed class CombatPlan
                 var o = new Values(ordnance, gaps);
                 var hardpoints = unit.List($"weaponHardpoints{n}");
                 if (hardpoints.Count == 0)
-                    unit.Gap("weapon without hardpoints, it cannot fire");
+                {
+                    // a weapon without hardpoints fires no shot, so it would make its unit an attacker that never fires
+                    unit.Gap("weapon without hardpoints, weapon left out");
+                    continue;
+                }
                 weapons.Add(
                     new WeaponProfile(
                         n,

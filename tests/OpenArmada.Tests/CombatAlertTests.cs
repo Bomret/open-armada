@@ -242,10 +242,10 @@ public class CombatAlertTests
         var world = World(a, t);
         var engines = world.State(a.Object)!.Systems["Engines"];
         world.Move(a.Object, -500, 0);
-        engines.Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Engines");
         world.Step(0.02);
         engines.HitPoints = engines.Max;
-        engines.Destroyed = false;
+        world.State(a.Object)!.RestoreSystem("Engines");
         world.Step(0.02);
         Assert.AreEqual(
             new MoveIntent

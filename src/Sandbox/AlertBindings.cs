@@ -66,8 +66,15 @@ public sealed class AlertBindings
 
             bool Held(string modifier) =>
                 lines.Any(e => e.Sign == "+" && e.Value.Equals(modifier, StringComparison.OrdinalIgnoreCase));
-            bindings._chords[new KeyChord(key.Value.ToUpperInvariant(), Held("Shift"), Held("Control"), Held("Alt"))] =
-                stance;
+            bindings._chords[
+                new KeyChord
+                {
+                    Key = key.Value.ToUpperInvariant(),
+                    Shift = Held("Shift"),
+                    Control = Held("Control"),
+                    Alt = Held("Alt"),
+                }
+            ] = stance;
         }
 
         return bindings;

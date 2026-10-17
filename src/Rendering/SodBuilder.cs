@@ -123,7 +123,7 @@ public sealed class SodBuilder
         var mesh = data.Mesh!;
         var look = ModelRules.Look(sod, mesh);
         // A blend the engine does not know is listed in Problems (ModelRules.Check) and drawn opaque.
-        var blend = look.Blend ?? new BlendState(BlendMode.Opaque, 1f);
+        var blend = look.Blend ?? new BlendState { Mode = BlendMode.Opaque, Opacity = 1f };
         var texture = Texture(look.Texture);
         var materials = new List<ShaderMaterial>();
         var array = new ArrayMesh();
@@ -189,14 +189,15 @@ public sealed class SodBuilder
         var surface = material == null ? null : ModelRules.Lighting(material);
 
         return surface
-            ?? new Surface(
-                LightingModel.Lambert,
-                System.Numerics.Vector3.Zero,
-                System.Numerics.Vector3.One,
-                System.Numerics.Vector3.Zero,
-                1f,
-                ModelRules.IsTeam(name)
-            );
+            ?? new Surface
+            {
+                Model = LightingModel.Lambert,
+                Ambient = System.Numerics.Vector3.Zero,
+                Diffuse = System.Numerics.Vector3.One,
+                Specular = System.Numerics.Vector3.Zero,
+                Power = 1f,
+                Team = ModelRules.IsTeam(name),
+            };
     }
 
     Texture2D? Texture(string name)

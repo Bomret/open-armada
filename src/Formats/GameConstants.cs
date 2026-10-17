@@ -9,7 +9,15 @@ namespace OpenArmada.Formats;
 // One named value of a header: a number (a literal such as -20, +1.0, 4.0, 1e-3 or 0.5f, with a sign, an
 // exponent and an f or F suffix allowed; an int takes only an integer literal, as in C) or Text. Text is the quoted string of a #define (IsString) or the unevaluated
 // expression or constant name of a value that is not a literal. Type is "float", "int" or "define".
-public sealed record GameConstant(string Name, string Type, double? Number, string? Text, bool IsString, int Line);
+public sealed record GameConstant
+{
+    public required string Name { get; init; }
+    public required string Type { get; init; }
+    public required double? Number { get; init; }
+    public required string? Text { get; init; }
+    public required bool IsString { get; init; }
+    public required int Line { get; init; }
+}
 
 // The game constants: the named values of the install's RTS_CFG.h, in file order, with the headers it
 // names by #include (named, not followed) and Notes. The grammar is the C-like subset of that file: "//"
@@ -130,15 +138,39 @@ public sealed class GameConstants
         GameConstant c;
         if (Quoted.Match(value) is { Success: true } q)
         {
-            c = new(name, type, null, q.Groups[1].Value, true, line);
+            c = new()
+            {
+                Name = name,
+                Type = type,
+                Number = null,
+                Text = q.Groups[1].Value,
+                IsString = true,
+                Line = line,
+            };
         }
         else if (Literal.IsMatch(value) && (type != "int" || IntLiteral.IsMatch(value)))
         {
-            c = new(name, type, double.Parse(value.TrimEnd('f', 'F'), CultureInfo.InvariantCulture), null, false, line);
+            c = new()
+            {
+                Name = name,
+                Type = type,
+                Number = double.Parse(value.TrimEnd('f', 'F'), CultureInfo.InvariantCulture),
+                Text = null,
+                IsString = false,
+                Line = line,
+            };
         }
         else
         {
-            c = new(name, type, null, value, false, line);
+            c = new()
+            {
+                Name = name,
+                Type = type,
+                Number = null,
+                Text = value,
+                IsString = false,
+                Line = line,
+            };
             _notes.Add($"{at}: {name} is not a literal, kept as text: {value}");
         }
 

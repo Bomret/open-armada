@@ -21,8 +21,24 @@ public class MapKindTests
     static BznBuilder Sample()
     {
         var b = new BznBuilder();
-        b.Objects.Add(new("fbattle", 1, new Vector3(100, 38.5f, 200), "ship1"));
-        b.Objects.Add(new("Msun1", 0, new Vector3(16000, 0, 3000), "sun"));
+        b.Objects.Add(
+            new()
+            {
+                Class = "fbattle",
+                Team = 1,
+                Position = new Vector3(100, 38.5f, 200),
+                Label = "ship1",
+            }
+        );
+        b.Objects.Add(
+            new()
+            {
+                Class = "Msun1",
+                Team = 0,
+                Position = new Vector3(16000, 0, 3000),
+                Label = "sun",
+            }
+        );
 
         return b;
     }

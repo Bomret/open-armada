@@ -20,7 +20,14 @@ public class MapSandboxTests
     string Install(string mapFile = "bzn/2duel.bzn", string? content = null)
     {
         var b = new BznBuilder { Background = "" };
-        b.Objects.Add(new("fbattle", 1, new Vector3(1, 2, 3)));
+        b.Objects.Add(
+            new()
+            {
+                Class = "fbattle",
+                Team = 1,
+                Position = new Vector3(1, 2, 3),
+            }
+        );
 
         return temp.MakeInstall(
             (mapFile, content ?? Encoding.Latin1.GetString(b.Build())),

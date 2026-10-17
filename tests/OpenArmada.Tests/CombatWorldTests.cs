@@ -15,10 +15,20 @@ namespace OpenArmada.Tests;
 public class CombatWorldTests
 {
     // A unit of the world under test: its object and the profile it fights with.
-    sealed record Spec(PlacedObject Object, CombatProfile Profile, bool Mobile = true, float Radius = 0);
+    sealed record Spec
+    {
+        public required PlacedObject Object { get; init; }
+        public required CombatProfile Profile { get; init; }
+        public bool Mobile { get; init; } = true;
+        public float Radius { get; init; } = 0;
+    }
 
     static Spec Fighter(string label, int team, float x, WeaponProfile? weapon = null, float shields = 100) =>
-        new(Placed(label, team, x), Profile(weapon == null ? null : new[] { weapon }, maxHealth: shields, hull: 100));
+        new()
+        {
+            Object = Placed(label, team, x),
+            Profile = Profile(weapon == null ? null : new[] { weapon }, maxHealth: shields, hull: 100),
+        };
 
     static CombatWorld World(out UnitPoses poses, Func<double>? random = null, params Spec[] specs)
     {
@@ -26,7 +36,14 @@ public class CombatWorldTests
 
         return new CombatWorld(
             poses,
-            specs.Select(s => new CombatUnit(s.Object, s.Profile, s.Object.Label + ".odf", s.Radius, s.Mobile)),
+            specs.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = s.Radius,
+                Mobile = s.Mobile,
+            }),
             1,
             random ?? (() => 0)
         );
@@ -72,16 +89,41 @@ public class CombatWorldTests
         var world = World(out var poses, null, a, b);
         world.Attack(a.Object, b.Object);
         world.Step(0.02);
-        Assert.AreEqual(new MoveIntent(MoveKind.MoveTo, 400, 0), world.State(a.Object)!.Intent);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 400,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
         // surface distance 150 is within 200 - 50
         poses.Advance(a.Object, MovingTo(a.Object, 250, 0), 1000);
         world.Step(0.02);
-        Assert.AreEqual(new MoveIntent(MoveKind.Face, 400, 0), world.State(a.Object)!.Intent);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.Face,
+                X = 400,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
     }
 
     static ShipMotion MovingTo(PlacedObject o, float x, float z)
     {
-        var motion = new ShipMotion(new PhysicsValues(10, 1, null), o.Position, 0);
+        var motion = new ShipMotion(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 10,
+                YawRotationRate = 1,
+                MaxRoll = null,
+            },
+            o.Position,
+            0
+        );
         motion.SetTarget(x, z);
 
         return motion;
@@ -90,14 +132,38 @@ public class CombatWorldTests
     [TestMethod]
     public void TheClosingRangeIsMeasuredSurfaceToSurface()
     {
-        var a = new Spec(Placed("a", 1, 0), Profile(new[] { Weapon(range: 200) }), true, 30);
-        var b = new Spec(Placed("b", 2, 300), Profile(), true, 20);
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(range: 200) }),
+            Mobile = true,
+            Radius = 30,
+        };
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 300),
+            Profile = Profile(),
+            Mobile = true,
+            Radius = 20,
+        };
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
         world.Step(0.02); // surface distance 250 is beyond 150
         Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
-        var near = new Spec(Placed("a", 1, 0), Profile(new[] { Weapon(range: 200) }), true, 30);
-        var other = new Spec(Placed("b", 2, 200), Profile(), true, 20); // surface distance 150
+        var near = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(range: 200) }),
+            Mobile = true,
+            Radius = 30,
+        };
+        var other = new Spec
+        {
+            Object = Placed("b", 2, 200),
+            Profile = Profile(),
+            Mobile = true,
+            Radius = 20,
+        }; // surface distance 150
         var world2 = World(null, near, other);
         world2.Attack(near.Object, other.Object);
         world2.Step(0.02);
@@ -107,7 +173,12 @@ public class CombatWorldTests
     [TestMethod]
     public void AStationFiresAtItsTargetAndNeverMoves()
     {
-        var station = new Spec(Placed("s", 1, 0), Profile(new[] { Weapon(range: 200) }), false);
+        var station = new Spec
+        {
+            Object = Placed("s", 1, 0),
+            Profile = Profile(new[] { Weapon(range: 200) }),
+            Mobile = false,
+        };
         var b = Fighter("b", 2, 100);
         var world = World(null, station, b);
         world.Attack(station.Object, b.Object);
@@ -164,7 +235,11 @@ public class CombatWorldTests
     public void ANoCrewFactorWeaponReloadsAtShotDelayAndACrewFactorOneSlowsWithTheCrew()
     {
         var weapon = Weapon(delay: 1, range: 200, crewAffects: true);
-        var a = new Spec(Placed("a", 1, 0), Profile(new[] { weapon }, crew: 10, maximumCrew: 100));
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { weapon }, crew: 10, maximumCrew: 100),
+        };
         var b = Fighter("b", 2, 100);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
@@ -301,7 +376,13 @@ public class CombatWorldTests
     {
         var torpedo = Beam(label: "photontorpedo", speed: 50, life: 10, omega: 0, threshold: 99);
         var a = Fighter("a", 1, 0, Weapon(torpedo, delay: 100, range: 200));
-        var b = new Spec(Placed("b", 2, 100), Profile(maxHealth: 0, hull: 100), true, 2);
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 100),
+            Profile = Profile(maxHealth: 0, hull: 100),
+            Mobile = true,
+            Radius = 2,
+        };
         var world = World(out var poses, null, a, b);
         world.Attack(a.Object, b.Object);
         world.Step(0.02);
@@ -316,8 +397,20 @@ public class CombatWorldTests
         // life 1.55 s at 50 per second flies 77.5 of the 100 to the center: inside the bubble, short of the hull
         var torpedo = Beam(label: "photontorpedo", speed: 50, life: 1.55f, threshold: 99);
         var a = Fighter("a", 1, 0, Weapon(torpedo, delay: 100, range: 200));
-        var shielded = new Spec(Placed("b", 2, 100), Profile(maxHealth: 100), true, 20);
-        var bare = new Spec(Placed("c", 2, 100), Profile(maxHealth: 0), true, 20);
+        var shielded = new Spec
+        {
+            Object = Placed("b", 2, 100),
+            Profile = Profile(maxHealth: 100),
+            Mobile = true,
+            Radius = 20,
+        };
+        var bare = new Spec
+        {
+            Object = Placed("c", 2, 100),
+            Profile = Profile(maxHealth: 0),
+            Mobile = true,
+            Radius = 20,
+        };
         var withShields = World(null, a, shielded);
         withShields.Attack(a.Object, shielded.Object);
         Assert.AreEqual(1, withShields.Step(1.6).OfType<ShotLanded>().Count());
@@ -370,7 +463,7 @@ public class CombatWorldTests
     public void ACriticalHitDestroysTheTargetAndTheOrderEnds()
     {
         var a = Fighter("a", 1, 0, Weapon(Beam(damage: 200, life: 0.1f), delay: 100, range: 200));
-        var b = new Spec(Placed("b", 2, 100), Profile(maxHealth: 0, hull: 0));
+        var b = new Spec { Object = Placed("b", 2, 100), Profile = Profile(maxHealth: 0, hull: 0) };
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
         var events = world.Step(1);
@@ -386,7 +479,7 @@ public class CombatWorldTests
         var torpedo = Beam(label: "photontorpedo", speed: 20, life: 20, damage: 200);
         var a = Fighter("a", 1, 0, Weapon(torpedo, delay: 0.5f, range: 400));
         var killer = Fighter("k", 3, 400, Weapon(Beam(damage: 200, life: 0.1f), delay: 100, range: 400));
-        var b = new Spec(Placed("b", 2, 200), Profile(maxHealth: 0, hull: 0));
+        var b = new Spec { Object = Placed("b", 2, 200), Profile = Profile(maxHealth: 0, hull: 0) };
         var world = World(null, a, b, killer);
         world.Attack(a.Object, b.Object);
         world.Attack(killer.Object, b.Object);
@@ -419,13 +512,21 @@ public class CombatWorldTests
         world.Attack(a.Object, b.Object);
         world.Attack(a.Object, c.Object);
         world.Step(0.02);
-        Assert.AreEqual(new MoveIntent(MoveKind.MoveTo, -400, 0), world.State(a.Object)!.Intent);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = -400,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
     }
 
     [TestMethod]
     public void ShieldsRegainOverTime()
     {
-        var weak = new Spec(Placed("a", 1, 0), Profile(maxHealth: 100, shieldRate: 10));
+        var weak = new Spec { Object = Placed("a", 1, 0), Profile = Profile(maxHealth: 100, shieldRate: 10) };
         var world = World(null, weak);
         world.State(weak.Object)!.Shields = 50;
         world.Step(2);
@@ -441,8 +542,16 @@ public class CombatWorldTests
             var b = Fighter("b", 2, 100, Weapon(Beam(life: 0.3f, threshold: 99), delay: 0.23f, range: 200));
             var torpedo = Beam(label: "photontorpedo", damage: 1, speed: 50, life: 10, threshold: 99);
             var pulse = Beam(label: "pphaser", damage: 1, speed: 50, life: 10, threshold: 99);
-            var c = new Spec(Placed("c", 1, 0, 300), Profile(new[] { Weapon(torpedo, delay: 0.7f, range: 200) }));
-            var d = new Spec(Placed("d", 2, 100, 300), Profile(new[] { Weapon(pulse, delay: 0.9f, range: 200) }));
+            var c = new Spec
+            {
+                Object = Placed("c", 1, 0, 300),
+                Profile = Profile(new[] { Weapon(torpedo, delay: 0.7f, range: 200) }),
+            };
+            var d = new Spec
+            {
+                Object = Placed("d", 2, 100, 300),
+                Profile = Profile(new[] { Weapon(pulse, delay: 0.9f, range: 200) }),
+            };
             target = b.Object;
             var world = World(null, a, b, c, d);
             world.Attack(a.Object, b.Object);
@@ -475,9 +584,13 @@ public class CombatWorldTests
     {
         var weapon = Weapon(range: 200) with
         {
-            HitChance = new TargetValue(0.5f, new Dictionary<string, float> { ["b.odf"] = 1 }),
+            HitChance = new TargetValue
+            {
+                Default = 0.5f,
+                Overrides = new Dictionary<string, float> { ["b.odf"] = 1 },
+            },
         };
-        var a = new Spec(Placed("a", 1, 0), Profile(new[] { weapon }));
+        var a = new Spec { Object = Placed("a", 1, 0), Profile = Profile(new[] { weapon }) };
         var b = Fighter("b", 2, 100);
         var c = Fighter("c", 3, -100);
         var world = World(() => 0.9, a, b, c);
@@ -574,10 +687,11 @@ public class CombatWorldTests
     }
 
     static Spec WithSystems(string label, int team, float x, WeaponProfile? weapon, params SystemProfile[] systems) =>
-        new(
-            Placed(label, team, x),
-            Profile(weapon == null ? null : new[] { weapon }, maxHealth: 100, hull: 100, systems: systems)
-        );
+        new()
+        {
+            Object = Placed(label, team, x),
+            Profile = Profile(weapon == null ? null : new[] { weapon }, maxHealth: 100, hull: 100, systems: systems),
+        };
 
     [TestMethod]
     public void AShipWithDestroyedEnginesStopsUnderItsAttackOrderAndEveryShotAtItHits()
@@ -659,7 +773,14 @@ public class CombatWorldTests
         // shield damage protection 0.5: half the damage reaches the systems while the shields stay up
         var world = new CombatWorld(
             poses,
-            new[] { a, b }.Select(s => new CombatUnit(s.Object, s.Profile, s.Object.Label + ".odf", 0, true)),
+            new[] { a, b }.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = 0,
+                Mobile = true,
+            }),
             0.5,
             () => 0
         );
@@ -698,11 +819,12 @@ public class CombatWorldTests
     [TestMethod]
     public void AnAttackOrderOnADerelictShipStaysUntilACriticalHitDestroysIt()
     {
-        var a = new Spec(
-            Placed("a", 1, 0),
-            Profile(new[] { Weapon(Beam(damage: 1, life: 0.1f), delay: 0.5f, range: 500) })
-        );
-        var b = new Spec(Placed("b", 2, 100), Profile(hull: 0, maxHealth: 0)); // every roll is a critical hit
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 1, life: 0.1f), delay: 0.5f, range: 500) }),
+        };
+        var b = new Spec { Object = Placed("b", 2, 100), Profile = Profile(hull: 0, maxHealth: 0) }; // every roll is a critical hit
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
         MakeDerelict(world, b);
@@ -715,11 +837,12 @@ public class CombatWorldTests
     [TestMethod]
     public void ADerelictShipSurvivesHitsThatAreNotCritical()
     {
-        var a = new Spec(
-            Placed("a", 1, 0),
-            Profile(new[] { Weapon(Beam(damage: 1, life: 0.1f), delay: 0.5f, range: 500) })
-        );
-        var b = new Spec(Placed("b", 2, 100), Profile(hull: 100, maxHealth: 0));
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 1, life: 0.1f), delay: 0.5f, range: 500) }),
+        };
+        var b = new Spec { Object = Placed("b", 2, 100), Profile = Profile(hull: 100, maxHealth: 0) };
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
         MakeDerelict(world, b);
@@ -731,10 +854,11 @@ public class CombatWorldTests
     [TestMethod]
     public void ADestroyedShieldGeneratorKeepsTheShieldsWhereTheyAre()
     {
-        var a = new Spec(
-            Placed("a", 1, 0),
-            Profile(maxHealth: 100, shieldRate: 10, systems: new[] { Sys("ShieldGenerator") })
-        );
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(maxHealth: 100, shieldRate: 10, systems: new[] { Sys("ShieldGenerator") }),
+        };
         var world = World(null, a);
         var state = world.State(a.Object)!;
         state.Shields = 40;
@@ -745,15 +869,16 @@ public class CombatWorldTests
 
     static (CombatWorld World, UnitCombatState State) Ailing()
     {
-        var a = new Spec(
-            Placed("a", 1, 0),
-            Profile(
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(
                 crew: 100,
                 maximumCrew: 100,
                 lifeSupportLoss: 5,
                 systems: new[] { Sys("LifeSupport", 4, repairTime: 40), Sys("Sensors", 4, repairTime: 8) }
-            )
-        );
+            ),
+        };
         var world = World(null, a);
         var state = world.State(a.Object)!;
         state.Systems["LifeSupport"].Destroyed = true;
@@ -795,10 +920,20 @@ public class CombatWorldTests
     [TestMethod]
     public void TheSystemHitPointsBonusReachesEveryUnitsSystems()
     {
-        var a = new Spec(Placed("a", 1, 0), Profile(systems: new[] { Sys("Engines", 3) }));
+        var a = new Spec { Object = Placed("a", 1, 0), Profile = Profile(systems: new[] { Sys("Engines", 3) }) };
         var world = new CombatWorld(
             new UnitPoses(new[] { a.Object }),
-            new[] { new CombatUnit(a.Object, a.Profile, "a.odf", 0, true) },
+            new[]
+            {
+                new CombatUnit
+                {
+                    Unit = a.Object,
+                    Profile = a.Profile,
+                    DefinitionName = "a.odf",
+                    Radius = 0,
+                    Mobile = true,
+                },
+            },
             1,
             () => 0,
             2

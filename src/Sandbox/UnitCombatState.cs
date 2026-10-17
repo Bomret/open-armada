@@ -14,7 +14,12 @@ public enum MoveKind
     Face,
 }
 
-public readonly record struct MoveIntent(MoveKind Kind, float X = 0, float Z = 0);
+public readonly record struct MoveIntent
+{
+    public required MoveKind Kind { get; init; }
+    public float X { get; init; }
+    public float Z { get; init; }
+}
 
 // One weapon of a unit and the seconds until it has reloaded (at or below zero it is ready).
 public sealed class WeaponState(WeaponProfile profile)

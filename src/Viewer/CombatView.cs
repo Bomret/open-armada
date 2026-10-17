@@ -184,7 +184,9 @@ public partial class CombatView : Node3D
     // stand-in: a render type the engine does not know is drawn alpha blended.
     static void Blend(StandardMaterial3D material, string? renderType)
     {
-        var blend = (renderType == null ? null : ModelRules.Blend(renderType)) ?? new BlendState(BlendMode.Alpha, 1f);
+        var blend =
+            (renderType == null ? null : ModelRules.Blend(renderType))
+            ?? new BlendState { Mode = BlendMode.Alpha, Opacity = 1f };
         material.Transparency = blend.Mode switch
         {
             BlendMode.Opaque => BaseMaterial3D.TransparencyEnum.Disabled,

@@ -17,7 +17,22 @@ public partial class SpriteSheetView : Control
         TextureFilter = TextureFilterEnum.Nearest;
         foreach (var s in sprites)
         {
-            _regions.Add((s, Region(s, new SpriteFrame(s.U, s.V, s.W, s.H), image.GetSize())));
+            _regions.Add(
+                (
+                    s,
+                    Region(
+                        s,
+                        new SpriteFrame
+                        {
+                            U = s.U,
+                            V = s.V,
+                            W = s.W,
+                            H = s.H,
+                        },
+                        image.GetSize()
+                    )
+                )
+            );
         }
     }
 

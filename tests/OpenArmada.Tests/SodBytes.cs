@@ -139,20 +139,35 @@ internal sealed class SodBytes
         return _ms.ToArray();
     }
 
-    internal sealed record MeshSpec(
-        string TextureMaterial,
-        string Texture,
-        string Lighting,
-        int Vertices,
-        int TexCoords,
-        (int Vertex, int TexCoord)[] Corners
-    );
+    internal sealed record MeshSpec
+    {
+        public required string TextureMaterial { get; init; }
+        public required string Texture { get; init; }
+        public required string Lighting { get; init; }
+        public required int Vertices { get; init; }
+        public required int TexCoords { get; init; }
+        public required (int Vertex, int TexCoord)[] Corners { get; init; }
+    }
 
-    internal sealed record NodeSpec(string Name, string Parent, MeshSpec? Mesh = null);
+    internal sealed record NodeSpec
+    {
+        public required string Name { get; init; }
+        public required string Parent { get; init; }
+        public MeshSpec? Mesh { get; init; } = null;
+    }
 
     internal static MeshSpec Triangle(
         string textureMaterial = "default",
         string texture = "tex",
         string lighting = "lit"
-    ) => new(textureMaterial, texture, lighting, 3, 3, new[] { (0, 0), (1, 1), (2, 2) });
+    ) =>
+        new()
+        {
+            TextureMaterial = textureMaterial,
+            Texture = texture,
+            Lighting = lighting,
+            Vertices = 3,
+            TexCoords = 3,
+            Corners = new[] { (0, 0), (1, 1), (2, 2) },
+        };
 }

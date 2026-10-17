@@ -17,7 +17,13 @@ public enum ValueOrigin
 }
 
 // One resolved key. Source is the definition (as named in the include) that holds the winning value.
-public sealed record DefinitionValue(string Key, IReadOnlyList<string> Tokens, ValueOrigin Origin, string Source);
+public sealed record DefinitionValue
+{
+    public required string Key { get; init; }
+    public required IReadOnlyList<string> Tokens { get; init; }
+    public required ValueOrigin Origin { get; init; }
+    public required string Source { get; init; }
+}
 
 // A key that is missing or whose value has the wrong type. The message names the definition and the key.
 public sealed class DefinitionException : Exception
@@ -161,7 +167,15 @@ public sealed class ResolvedDefinition
         {
             if (_index.TryAdd(e.Key, _values.Count))
             {
-                _values.Add(new DefinitionValue(e.Key, e.Tokens, origin, name));
+                _values.Add(
+                    new DefinitionValue
+                    {
+                        Key = e.Key,
+                        Tokens = e.Tokens,
+                        Origin = origin,
+                        Source = name,
+                    }
+                );
             }
         }
 
@@ -288,14 +302,19 @@ public sealed class ResolvedDefinition
         for (var i = 1; i < t.Count; i += 2)
         {
             if (i + 1 >= t.Count || !TryNumber(t[i + 1], out var v))
-                return new TargetValue(def, new Dictionary<string, float>(), Malformed: true);
+                return new TargetValue
+                {
+                    Default = def,
+                    Overrides = new Dictionary<string, float>(),
+                    Malformed = true,
+                };
             else
             {
                 overrides[t[i]] = v;
             }
         }
 
-        return new TargetValue(def, overrides);
+        return new TargetValue { Default = def, Overrides = overrides };
     }
 
     // One whole number: written as an integer or as a float with no fraction (1.0, 1f).

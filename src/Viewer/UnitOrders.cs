@@ -64,14 +64,15 @@ public partial class UnitOrders : Node3D
             _poses,
             selection
                 .Units.Where(u => combat.Profiles.ContainsKey(u.Object))
-                .Select(u => new CombatUnit(
-                    u.Object,
-                    combat.Profiles[u.Object],
-                    // inferred: per-target values name a definition with its `.odf` suffix (docs/combat-rules.md)
-                    u.Object.Class + ".odf",
-                    Radius(nodes[u.Object]),
-                    u.Movable && u.Unit is Ship && _plan.Physics.ContainsKey(u.Object)
-                )),
+                .Select(u => new CombatUnit
+                {
+                    Unit = u.Object,
+                    Profile = combat.Profiles[u.Object],
+                    DefinitionName = // inferred: per-target values name a definition with its `.odf` suffix (docs/combat-rules.md)
+                        u.Object.Class + ".odf",
+                    Radius = Radius(nodes[u.Object]),
+                    Mobile = u.Movable && u.Unit is Ship && _plan.Physics.ContainsKey(u.Object),
+                }),
             combat.ShieldDamageProtection,
             random.NextDouble,
             combat.SystemHitpointsBonus

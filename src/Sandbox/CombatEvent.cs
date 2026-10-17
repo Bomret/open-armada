@@ -27,14 +27,15 @@ public static class SystemNames
 
 // The outcome of one hit on a unit: where it landed, the damage rolled, the shield points lost, the crew lost,
 // the whole points of the systems part that passed on, and whether it destroyed the unit.
-public sealed record Hit(
-    HitLocation Location,
-    double Damage,
-    double ShieldLoss,
-    double CrewLoss,
-    int Points,
-    bool Destroyed
-);
+public sealed record Hit
+{
+    public required HitLocation Location { get; init; }
+    public required double Damage { get; init; }
+    public required double ShieldLoss { get; init; }
+    public required double CrewLoss { get; init; }
+    public required int Points { get; init; }
+    public required bool Destroyed { get; init; }
+}
 
 public enum ShotKind
 {
@@ -72,8 +73,18 @@ public sealed class Shot(
 // What happened in one world step.
 public abstract record CombatEvent;
 
-public sealed record ShotFired(Shot Shot) : CombatEvent;
+public sealed record ShotFired : CombatEvent
+{
+    public required Shot Shot { get; init; }
+}
 
-public sealed record ShotLanded(Shot Shot, Hit Hit) : CombatEvent;
+public sealed record ShotLanded : CombatEvent
+{
+    public required Shot Shot { get; init; }
+    public required Hit Hit { get; init; }
+}
 
-public sealed record UnitDestroyed(PlacedObject Unit) : CombatEvent;
+public sealed record UnitDestroyed : CombatEvent
+{
+    public required PlacedObject Unit { get; init; }
+}

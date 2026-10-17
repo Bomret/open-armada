@@ -4,11 +4,21 @@ using System.Numerics;
 namespace OpenArmada.Sandbox;
 
 // The movement values of a ship's physics definition. MaxRoll is in degrees; null when the definition has none.
-public sealed record PhysicsValues(double ImpulseSpeed, double YawRotationRate, double? MaxRoll);
+public sealed record PhysicsValues
+{
+    public required double ImpulseSpeed { get; init; }
+    public required double YawRotationRate { get; init; }
+    public required double? MaxRoll { get; init; }
+}
 
 // A ship's pose: Heading is the yaw about +Y (0 faces +Z, a positive heading turns toward +X), Bank the roll
 // about the ship's forward axis in radians (negative leans into a turn toward +X).
-public readonly record struct ShipPose(Vector3 Position, float Heading, float Bank);
+public readonly record struct ShipPose
+{
+    public required Vector3 Position { get; init; }
+    public required float Heading { get; init; }
+    public required float Bank { get; init; }
+}
 
 // The kinematic model of ADR 0003: a ship turns toward its target at yawRotationRate, travels at impulseSpeed
 // along its heading, banks into the turn up to maxRoll, and stops at the target. The scene only asks it for a pose.
@@ -65,7 +75,13 @@ public sealed class ShipMotion
         _facing = new Vector2(x, z);
     }
 
-    public ShipPose Pose => new(_position, _heading, _bank);
+    public ShipPose Pose =>
+        new()
+        {
+            Position = _position,
+            Heading = _heading,
+            Bank = _bank,
+        };
 
     public ShipPose Step(double seconds)
     {

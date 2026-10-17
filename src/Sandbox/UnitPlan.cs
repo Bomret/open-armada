@@ -6,7 +6,12 @@ namespace OpenArmada.Sandbox;
 
 // A unit of the scene: the placed object, what it is, and whether it can move. Movable is false when the
 // definition's physics definition is missing (the unit stays selectable; orders skip it).
-public sealed record SelectableUnit(PlacedObject Object, Unit Unit, bool Movable);
+public sealed record SelectableUnit
+{
+    public required PlacedObject Object { get; init; }
+    public required Unit Unit { get; init; }
+    public required bool Movable { get; init; }
+}
 
 // The units among a scene plan's objects, with the gaps found while telling them apart (INV-0002).
 public sealed class UnitPlan
@@ -69,7 +74,7 @@ public sealed class UnitPlan
                     }
                 }
 
-                unit = station ? new Station(name) : new Ship(name);
+                unit = station ? new Station { Name = name } : new Ship { Name = name };
             }
 
             if (unit == null)
@@ -89,7 +94,14 @@ public sealed class UnitPlan
                 gaps.Add(BadPhysics, o.Class);
             }
 
-            units.Add(new SelectableUnit(o, unit, movable));
+            units.Add(
+                new SelectableUnit
+                {
+                    Object = o,
+                    Unit = unit,
+                    Movable = movable,
+                }
+            );
         }
 
         return new UnitPlan(units, gaps.Entries);

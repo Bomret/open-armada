@@ -6,7 +6,11 @@ using System.Linq;
 namespace OpenArmada.Formats;
 
 // One object of a tech tree and the objects it requires before it can be built.
-public sealed record TechEntry(string Name, IReadOnlyList<string> Requires);
+public sealed record TechEntry
+{
+    public required string Name { get; init; }
+    public required IReadOnlyList<string> Requires { get; init; }
+}
 
 // A tech tree (.tt): one object per line as `name count required...`, where count is the number of
 // required names that follow. A tree names no race; the race of an entry is the `race` of its object
@@ -32,7 +36,7 @@ public sealed class TechTree
                 throw new InvalidDataException(
                     $"tech tree line {n}: expected 'name count' followed by that many names"
                 );
-            entries.Add(new TechEntry(parts[0], parts.Skip(2).ToList()));
+            entries.Add(new TechEntry { Name = parts[0], Requires = parts.Skip(2).ToList() });
         }
 
         return new TechTree(entries);

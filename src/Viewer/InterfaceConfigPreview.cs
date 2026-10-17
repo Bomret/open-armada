@@ -35,7 +35,17 @@ public sealed class InterfaceConfigPreview : KindPreview
                 {
                     (texture, region) = (
                         l.Texture,
-                        SpriteSheetView.Region(s, new SpriteFrame(s.U, s.V, s.W, s.H), l.Image.GetSize())
+                        SpriteSheetView.Region(
+                            s,
+                            new SpriteFrame
+                            {
+                                U = s.U,
+                                V = s.V,
+                                W = s.W,
+                                H = s.H,
+                            },
+                            l.Image.GetSize()
+                        )
                     );
                 }
             }

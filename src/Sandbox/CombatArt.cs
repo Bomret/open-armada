@@ -8,10 +8,20 @@ using OpenArmada.Formats;
 namespace OpenArmada.Sandbox;
 
 // A shot's sprite: its row, whose Material is its blend, and its frames in play order, each for FrameSeconds.
-public sealed record SpriteArt(Sprite Sprite, IReadOnlyList<SpriteFrame> Frames, double FrameSeconds);
+public sealed record SpriteArt
+{
+    public required Sprite Sprite { get; init; }
+    public required IReadOnlyList<SpriteFrame> Frames { get; init; }
+    public required double FrameSeconds { get; init; }
+}
 
 // A unit's explosion: the sound and the model it shows for Length seconds. Each is null when the install lacks it.
-public sealed record ExplosionArt(string? Sound, string? Model, float Length);
+public sealed record ExplosionArt
+{
+    public required string? Sound { get; init; }
+    public required string? Model { get; init; }
+    public required float Length { get; init; }
+}
 
 // What the fight looks and sounds like, resolved once from the install for the units of a map. Every lookup
 // that fails is a gap, reported once per cause with its names and the number of units it touches (INV-0002).
@@ -142,7 +152,12 @@ public sealed class CombatArt
             frames.Count > 1 && row.Sprite.Anim != null && row.Table.Animations.TryGetValue(row.Sprite.Anim, out var a)
                 ? a.FrameSeconds
                 : 0;
-        _sprites[name] = new SpriteArt(row.Sprite, frames, seconds);
+        _sprites[name] = new SpriteArt
+        {
+            Sprite = row.Sprite,
+            Frames = frames,
+            FrameSeconds = seconds,
+        };
     }
 
     // Every sprite of the install's tables by name. Each table is read with the animations of all the others, as
@@ -218,11 +233,12 @@ public sealed class CombatArt
         {
             sound = definition.Has("explSound") ? definition.GetString("explSound") : "";
             model = definition.Has("dbName") ? definition.GetString("dbName") : "";
-            art = new ExplosionArt(
-                sound.Length > 0 && _files.Find(sound) != null ? sound : null,
-                model.Length > 0 && _files.Find(model + ".sod") != null ? model : null,
-                definition.Has("length") ? definition.GetFloat("length") : 0 // stand-in: an explosion naming no length ends at once
-            );
+            art = new ExplosionArt
+            {
+                Sound = sound.Length > 0 && _files.Find(sound) != null ? sound : null,
+                Model = model.Length > 0 && _files.Find(model + ".sod") != null ? model : null,
+                Length = definition.Has("length") ? definition.GetFloat("length") : 0, // stand-in: an explosion naming no length ends at once
+            };
         }
         catch (DefinitionException)
         {

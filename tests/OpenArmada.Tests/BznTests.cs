@@ -14,7 +14,16 @@ public class BznTests
     static BznBuilder Sample()
     {
         var b = new BznBuilder();
-        b.Objects.Add(new("fbattle", 2, new Vector3(100, 38.5f, 200), "ship1", 5));
+        b.Objects.Add(
+            new()
+            {
+                Class = "fbattle",
+                Team = 2,
+                Position = new Vector3(100, 38.5f, 200),
+                Label = "ship1",
+                Pointer = 5,
+            }
+        );
 
         return b;
     }
@@ -27,7 +36,18 @@ public class BznTests
             (2051, "Test Map", "tech1.tt", "federation", "mbgstars.sod"),
             (map.Version, map.Description, map.TechTree, map.Race, map.BackgroundArt)
         );
-        Assert.AreEqual(new MapBounds(0, 6400, -28.5f, 105.5f, 0, 6400), map.Bounds);
+        Assert.AreEqual(
+            new MapBounds
+            {
+                MinX = 0,
+                MaxX = 6400,
+                MinY = -28.5f,
+                MaxY = 105.5f,
+                MinZ = 0,
+                MaxZ = 6400,
+            },
+            map.Bounds
+        );
     }
 
     [TestMethod]
@@ -149,7 +169,15 @@ public class BznTests
     {
         var b = Sample();
         b.Objects[0] = b.Objects[0] with { NoTail = true };
-        b.Objects.Add(new("fcruiser", 3, new Vector3(5, 38.5f, 6), "ship2"));
+        b.Objects.Add(
+            new()
+            {
+                Class = "fcruiser",
+                Team = 3,
+                Position = new Vector3(5, 38.5f, 6),
+                Label = "ship2",
+            }
+        );
         var bytes = b.Build();
         var e = Assert.ThrowsExactly<InvalidDataException>(() => Bzn.Read(bytes));
         StringAssert.Contains(e.Message, $"at offset {ObjectOffset(bytes, "fbattle")}");

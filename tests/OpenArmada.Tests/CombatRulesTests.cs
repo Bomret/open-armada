@@ -27,7 +27,11 @@ public class CombatRulesTests
     [TestMethod]
     public void ToHitChanceTakesTheOverrideOfTheTargetsDefinitionName()
     {
-        var hit = new TargetValue(0.5f, new Dictionary<string, float> { ["zmama.odf"] = 0.9f });
+        var hit = new TargetValue
+        {
+            Default = 0.5f,
+            Overrides = new Dictionary<string, float> { ["zmama.odf"] = 0.9f },
+        };
         var weapon = Weapon() with { HitChance = hit };
         Assert.AreEqual(0.9, CombatRules.ToHitChance(weapon, "zmama.odf", false, false, false, false), 1e-6);
         Assert.AreEqual(0.5, CombatRules.ToHitChance(weapon, "other.odf", false, false, false, false), 1e-6);
@@ -92,7 +96,11 @@ public class CombatRulesTests
     {
         var ordnance = Beam() with
         {
-            DamageBase = new TargetValue(30, new Dictionary<string, float> { ["zmama.odf"] = 2 }),
+            DamageBase = new TargetValue
+            {
+                Default = 30,
+                Overrides = new Dictionary<string, float> { ["zmama.odf"] = 2 },
+            },
         };
         Assert.AreEqual(2, CombatRules.Damage(ordnance, "zmama.odf", 0.5), 1e-6);
         Assert.AreEqual(30, CombatRules.Damage(ordnance, "zmama", 0.5), 1e-6);
@@ -103,7 +111,25 @@ public class CombatRulesTests
     {
         var profile = Profile(hull: 30) with
         {
-            Systems = new List<SystemProfile> { new("Engines", 5, 10, 0, 0), new("LifeSupport", 5, 20, 0, 0) },
+            Systems = new List<SystemProfile>
+            {
+                new()
+                {
+                    Name = "Engines",
+                    HitPoints = 5,
+                    HitPercent = 10,
+                    CrewLoss = 0,
+                    RepairTime = 0,
+                },
+                new()
+                {
+                    Name = "LifeSupport",
+                    HitPoints = 5,
+                    HitPercent = 20,
+                    CrewLoss = 0,
+                    RepairTime = 0,
+                },
+            },
         };
         // (the roll is read through a state, so the shares of destroyed systems apply)
         var target = State(profile);
@@ -292,7 +318,16 @@ public class CombatRulesTests
         Assert.IsTrue(CombatRules.Apply(target, Beam(), 1, HitLocation.Critical, 1).Destroyed);
     }
 
-    static readonly RaceValues RepairRace = new(0.5f, 0.25f, 2, 3, 2, 4, 1.5f);
+    static readonly RaceValues RepairRace = new()
+    {
+        CrewYellowStatus = 0.5f,
+        CrewRedStatus = 0.25f,
+        WeaponYellow = 2,
+        WeaponRed = 3,
+        RepairYellow = 2,
+        RepairRed = 4,
+        RepairStrength = 1.5f,
+    };
 
     static UnitCombatState Damaged(double hitPoints, double crew = 100, bool destroyed = false)
     {
@@ -432,7 +467,11 @@ public class CombatRulesTests
     }
 
     static TargetValue Overridden(float value, float forTarget) =>
-        new(value, new Dictionary<string, float> { ["t.odf"] = forTarget });
+        new()
+        {
+            Default = value,
+            Overrides = new Dictionary<string, float> { ["t.odf"] = forTarget },
+        };
 
     [TestMethod]
     public void TheDamageThresholdTakesTheOverrideOfTheTargetsDefinitionName()

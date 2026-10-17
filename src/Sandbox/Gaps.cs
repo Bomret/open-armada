@@ -33,5 +33,12 @@ internal sealed class Gaps
     }
 
     public IReadOnlyList<ReportEntry> Entries =>
-        _causes.Select(c => new ReportEntry(c, _byCause[c].Names, _byCause[c].Count)).ToList();
+        _causes
+            .Select(c => new ReportEntry
+            {
+                Cause = c,
+                Names = _byCause[c].Names,
+                Count = _byCause[c].Count,
+            })
+            .ToList();
 }

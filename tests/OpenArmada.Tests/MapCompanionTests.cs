@@ -13,7 +13,14 @@ public class MapCompanionTests
     public void MdfHoldsOneStartCellPerLocation()
     {
         var starts = Mdf.Read("StartLocations = 2\r\nStart1 = 53 61\r\nStart2 = 63 61\r\n");
-        CollectionAssert.AreEqual(new[] { new StartCell(53, 61), new StartCell(63, 61) }, starts.ToArray());
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new StartCell { X = 53, Y = 61 },
+                new StartCell { X = 63, Y = 61 },
+            },
+            starts.ToArray()
+        );
     }
 
     [TestMethod]
@@ -85,15 +92,31 @@ public class MapCompanionTests
     [TestMethod]
     public void StartCellsMapToTheGroundWithNorthUp()
     {
-        var b = new MapBounds(0, 6400, -28.5f, 105.5f, 0, 3200);
-        Assert.AreEqual((0f, 3200f), b.FromStartCell(new StartCell(0, 0)));
-        Assert.AreEqual((6400f, 0f), b.FromStartCell(new StartCell(117, 117)));
+        var b = new MapBounds
+        {
+            MinX = 0,
+            MaxX = 6400,
+            MinY = -28.5f,
+            MaxY = 105.5f,
+            MinZ = 0,
+            MaxZ = 3200,
+        };
+        Assert.AreEqual((0f, 3200f), b.FromStartCell(new StartCell { X = 0, Y = 0 }));
+        Assert.AreEqual((6400f, 0f), b.FromStartCell(new StartCell { X = 117, Y = 117 }));
     }
 
     [TestMethod]
     public void ImageMappingPutsPlusXRightAndMaxZAtTheTopOfTheLetterbox()
     {
-        var b = new MapBounds(0, 6400, 0, 1, 0, 3200); // twice as wide as deep: rows 32..96 of 128
+        var b = new MapBounds
+        {
+            MinX = 0,
+            MaxX = 6400,
+            MinY = 0,
+            MaxY = 1,
+            MinZ = 0,
+            MaxZ = 3200,
+        }; // twice as wide as deep: rows 32..96 of 128
         Assert.AreEqual((0f, 96f), b.ToImage(0, 0, 128));
         Assert.AreEqual((128f, 32f), b.ToImage(6400, 3200, 128));
     }

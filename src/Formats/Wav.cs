@@ -3,7 +3,13 @@ using System.IO;
 
 namespace OpenArmada.Formats;
 
-public sealed record WavInfo(int SampleRate, int Channels, int BitsPerSample, byte[] Data);
+public sealed record WavInfo
+{
+    public required int SampleRate { get; init; }
+    public required int Channels { get; init; }
+    public required int BitsPerSample { get; init; }
+    public required byte[] Data { get; init; }
+}
 
 // Reads a PCM WAV and checks that its header agrees with its data: format fields among
 // themselves, and the data chunk's declared size against the bytes that follow.
@@ -67,7 +73,13 @@ public static class Wav
                         $"WAV data of {size} bytes is not a whole number of {channels * bits / 8}-byte frames"
                     );
 
-                return new WavInfo(rate, channels, bits, d[(int)body..(int)(body + size)]);
+                return new WavInfo
+                {
+                    SampleRate = rate,
+                    Channels = channels,
+                    BitsPerSample = bits,
+                    Data = d[(int)body..(int)(body + size)],
+                };
             }
 
             pos = body + size + (size & 1); // chunks are padded to an even size

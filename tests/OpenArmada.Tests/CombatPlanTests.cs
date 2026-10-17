@@ -56,16 +56,25 @@ public class CombatPlanTests
         var map = new BznBuilder { Background = "" };
         foreach (var c in classes)
         {
-            map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
+            map.Objects.Add(
+                new BznBuilder.Obj
+                {
+                    Class = c,
+                    Team = 1,
+                    Position = new Vector3(1, 2, 3),
+                    Label = c,
+                }
+            );
         }
 
-        var asset = new MapAsset(
-            "bzn/t.bzn",
-            Bzn.Read(map.Build()),
-            Array.Empty<MapStart>(),
-            null,
-            Array.Empty<MapPath>()
-        );
+        var asset = new MapAsset
+        {
+            Name = "bzn/t.bzn",
+            Map = Bzn.Read(map.Build()),
+            Starts = Array.Empty<MapStart>(),
+            Overview = null,
+            ScriptedPaths = Array.Empty<MapPath>(),
+        };
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
         var units = UnitPlan.Build(install, plan, _ => true).Units.ToArray();
 
@@ -189,8 +198,22 @@ public class CombatPlanTests
             new UnitPoses(new[] { ship, foe }),
             new[]
             {
-                new CombatUnit(ship, ProfileOf(r), "s.odf", 0, true),
-                new CombatUnit(foe, CombatFixtures.Profile(), "foe.odf", 0, true),
+                new CombatUnit
+                {
+                    Unit = ship,
+                    Profile = ProfileOf(r),
+                    DefinitionName = "s.odf",
+                    Radius = 0,
+                    Mobile = true,
+                },
+                new CombatUnit
+                {
+                    Unit = foe,
+                    Profile = CombatFixtures.Profile(),
+                    DefinitionName = "foe.odf",
+                    Radius = 0,
+                    Mobile = true,
+                },
             },
             1,
             () => 0

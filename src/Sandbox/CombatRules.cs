@@ -218,7 +218,15 @@ public static class CombatRules
 
         target.Destroyed |= destroyed;
 
-        return new Hit(location, damage, shieldLoss, crewLoss, points, destroyed);
+        return new Hit
+        {
+            Location = location,
+            Damage = damage,
+            ShieldLoss = shieldLoss,
+            CrewLoss = crewLoss,
+            Points = points,
+            Destroyed = destroyed,
+        };
     }
 
     // Regains shield points for `seconds`: nothing while the shields are down after reaching zero, then the

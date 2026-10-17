@@ -65,7 +65,12 @@ public sealed class MovePlan
                 }
             }
 
-            physics[o] = new PhysicsValues(speed.Value, yaw.Value, roll);
+            physics[o] = new PhysicsValues
+            {
+                ImpulseSpeed = speed.Value,
+                YawRotationRate = yaw.Value,
+                MaxRoll = roll,
+            };
         }
 
         return new MovePlan(physics, gaps.Entries);

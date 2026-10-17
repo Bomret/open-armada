@@ -53,7 +53,14 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("lit", 1f, 1))
-                        .Nodes(new NodeSpec("hull", "", Triangle("sparkly")))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle("sparkly"),
+                            }
+                        )
                         .End()
                 )
             )
@@ -69,7 +76,19 @@ public class ModelCheckTests
         var files = Install(
             (
                 "SOD/m.sod",
-                Latin1(new SodBytes(1.8f).Lighting(("lit", 1f, 9)).Nodes(new NodeSpec("hull", "", Triangle())).End())
+                Latin1(
+                    new SodBytes(1.8f)
+                        .Lighting(("lit", 1f, 9))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(),
+                            }
+                        )
+                        .End()
+                )
             )
         );
         StringAssert.Contains(new ModelKind().Check(files, "m.sod").Single(), "'lit'");
@@ -84,7 +103,14 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("lit", 1f, 1))
-                        .Nodes(new NodeSpec("hull", "", Triangle()))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(),
+                            }
+                        )
                         .End((4, "hull", "spin", 0f))
                 )
             )
@@ -103,7 +129,14 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("lit", 1f, 1))
-                        .Nodes(new NodeSpec("hull", "", Triangle()))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(),
+                            }
+                        )
                         .End((4, "hull", "spin", 0f), (4, "hull", "spin", 0f))
                 )
             )
@@ -127,7 +160,14 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("lit", 1f, 1))
-                        .Nodes(new NodeSpec("hull", "", Triangle()))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(),
+                            }
+                        )
                         .End((4, "hull", "flip", 0.5f))
                 )
             )
@@ -145,13 +185,33 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("lit", 1f, 1))
-                        .Nodes(new NodeSpec("hull", "", bad), new NodeSpec("lost", "nowhere"))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = bad,
+                            },
+                            new NodeSpec { Name = "lost", Parent = "nowhere" }
+                        )
                         .End()
                 )
             ),
             (
                 "SOD/ok.sod",
-                Latin1(new SodBytes(1.8f).Lighting(("lit", 1f, 1)).Nodes(new NodeSpec("hull", "", Triangle())).End())
+                Latin1(
+                    new SodBytes(1.8f)
+                        .Lighting(("lit", 1f, 1))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(),
+                            }
+                        )
+                        .End()
+                )
             )
         );
         var output = new StringWriter();
@@ -178,11 +238,30 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("shared", 1f, 2))
-                        .Nodes(new NodeSpec("hull", "", Triangle(lighting: "shared")))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(lighting: "shared"),
+                            }
+                        )
                         .End()
                 )
             ),
-            ("SOD/b.sod", Latin1(Model(new NodeSpec("hull", "", Triangle(lighting: "shared")))))
+            (
+                "SOD/b.sod",
+                Latin1(
+                    Model(
+                        new NodeSpec
+                        {
+                            Name = "hull",
+                            Parent = "",
+                            Mesh = Triangle(lighting: "shared"),
+                        }
+                    )
+                )
+            )
         );
         var b = (Sod)new ModelKind().Load(files, "b.sod");
         Assert.AreEqual(2, ModelRules.FindLightingMaterial(files, b, "shared")!.Model);
@@ -197,7 +276,19 @@ public class ModelCheckTests
         var files = Install(
             ("SOD/a.sod", Latin1(new SodBytes(1.8f).Lighting(("shared", 1f, 1)).Nodes().End())),
             ("addon/a.sod", Latin1(new SodBytes(1.8f).Lighting(("shared", 1f, 2)).Nodes().End())),
-            ("SOD/b.sod", Latin1(Model(new NodeSpec("hull", "", Triangle(lighting: "shared")))))
+            (
+                "SOD/b.sod",
+                Latin1(
+                    Model(
+                        new NodeSpec
+                        {
+                            Name = "hull",
+                            Parent = "",
+                            Mesh = Triangle(lighting: "shared"),
+                        }
+                    )
+                )
+            )
         );
         var b = (Sod)new ModelKind().Load(files, "b.sod");
         Assert.AreEqual(2, ModelRules.FindLightingMaterial(files, b, "shared")!.Model);
@@ -211,7 +302,19 @@ public class ModelCheckTests
         var files = Install(
             ("SOD/a.sod", Latin1(Model())),
             ("SOD/Software/a.sod", Latin1(new SodBytes(1.8f).Lighting(("soft", 1f, 2)).Nodes().End())),
-            ("SOD/b.sod", Latin1(Model(new NodeSpec("hull", "", Triangle(lighting: "soft")))))
+            (
+                "SOD/b.sod",
+                Latin1(
+                    Model(
+                        new NodeSpec
+                        {
+                            Name = "hull",
+                            Parent = "",
+                            Mesh = Triangle(lighting: "soft"),
+                        }
+                    )
+                )
+            )
         );
         var b = (Sod)new ModelKind().Load(files, "b.sod");
         Assert.IsNull(ModelRules.FindLightingMaterial(files, b, "soft"));
@@ -226,7 +329,14 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("", 1f, 2))
-                        .Nodes(new NodeSpec("hull", "", Triangle(lighting: "")))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(lighting: ""),
+                            }
+                        )
                         .End()
                 )
             )
@@ -239,7 +349,21 @@ public class ModelCheckTests
     [TestMethod]
     public void LightingMaterialNoModelDefinesIsReportedWithNodeAndName()
     {
-        var files = Install(("SOD/m.sod", Latin1(Model(new NodeSpec("hull", "", Triangle(lighting: "ghost"))))));
+        var files = Install(
+            (
+                "SOD/m.sod",
+                Latin1(
+                    Model(
+                        new NodeSpec
+                        {
+                            Name = "hull",
+                            Parent = "",
+                            Mesh = Triangle(lighting: "ghost"),
+                        }
+                    )
+                )
+            )
+        );
         var note = new ModelKind().Check(files, "m.sod").Single();
         StringAssert.Contains(note, "'hull'");
         StringAssert.Contains(note, "'ghost'");
@@ -253,7 +377,20 @@ public class ModelCheckTests
             (
                 "SOD/m.sod",
                 Latin1(
-                    Model(new NodeSpec("a", "", Triangle(lighting: "")), new NodeSpec("b", "", Triangle(lighting: "")))
+                    Model(
+                        new NodeSpec
+                        {
+                            Name = "a",
+                            Parent = "",
+                            Mesh = Triangle(lighting: ""),
+                        },
+                        new NodeSpec
+                        {
+                            Name = "b",
+                            Parent = "",
+                            Mesh = Triangle(lighting: ""),
+                        }
+                    )
                 )
             )
         );
@@ -308,7 +445,14 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("lit", 1f, 1))
-                        .Nodes(new NodeSpec("hull", "", Triangle()))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(),
+                            }
+                        )
                         .End((4, "gone", "flip", 0f))
                 )
             )
@@ -326,7 +470,7 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("lit", 1f, 1))
-                        .Nodes(new NodeSpec("pivot", ""))
+                        .Nodes(new NodeSpec { Name = "pivot", Parent = "" })
                         .End((4, "pivot", "flip", 0f))
                 )
             )
@@ -344,7 +488,20 @@ public class ModelCheckTests
                 Latin1(
                     new SodBytes(1.8f)
                         .Lighting(("lit", 1f, 1))
-                        .Nodes(new NodeSpec("hull", "", Triangle()), new NodeSpec("hull", "", Triangle()))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(),
+                            },
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle(),
+                            }
+                        )
                         .End((4, "hull", "flip", 0f))
                 )
             )
@@ -363,7 +520,14 @@ public class ModelCheckTests
                     new SodBytes(1.4f)
                         .TextureMaterials()
                         .Lighting(("old", 1f, 0))
-                        .Nodes(new NodeSpec("hull", "", Triangle("default", "", "old")))
+                        .Nodes(
+                            new NodeSpec
+                            {
+                                Name = "hull",
+                                Parent = "",
+                                Mesh = Triangle("default", "", "old"),
+                            }
+                        )
                         .End()
                 )
             )

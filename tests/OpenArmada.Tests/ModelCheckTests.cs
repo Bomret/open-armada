@@ -545,6 +545,25 @@ public class ModelCheckTests
         Assert.AreEqual(new Vector3(0f, 0.4f, 1f), team.Color("Blue"));
     }
 
+    // A color number parses as every definition number does: one f or F suffix, no more.
+    [TestMethod]
+    public void ColorNumbersTakeOneFloatSuffixOfEitherCase()
+    {
+        var team = TeamColors.Load(Install(("addon/teamcolor.odf", "red = 1F 0f 0.5F\nblue = 1ff 0 0\n")));
+        Assert.AreEqual(new Vector3(1f, 0f, 0.5f), team.Color("red"));
+        Assert.AreEqual(Vector3.Zero, team.Color("blue"));
+        Assert.IsTrue(team.Notes.Any(n => n.Contains("'blue'")));
+        Assert.IsFalse(team.Notes.Any(n => n.Contains("'red'")));
+    }
+
+    [TestMethod]
+    public void TokensAfterTheFirstThreeNumbersAreIgnored()
+    {
+        var team = TeamColors.Load(Install(("addon/teamcolor.odf", "red = 1 0 0 0.5\n")));
+        Assert.AreEqual(new Vector3(1f, 0f, 0f), team.Color("red"));
+        Assert.IsFalse(team.Notes.Any(n => n.Contains("'red'")));
+    }
+
     [TestMethod]
     public void SlotTakesTheFirstKeyThatStartsWithItsName()
     {

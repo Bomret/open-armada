@@ -72,11 +72,18 @@ public partial class AsteroidFieldsView : Node3D
 
     /// <summary>
     /// Builds each asteroid model of the plan's fields from <c>files</c> and adds one MultiMeshInstance3D child per
-    /// visible mesh of a model. Each problem of a built model, and each model that cannot be read, goes to
-    /// <c>gap</c> as one line; the rocks of a model that cannot be read are left out. A plan without fields adds
-    /// nothing.
+    /// visible mesh of a model. Each problem of a built model goes to <c>gap</c> as one line, each texture failure
+    /// of a built model, which the builder already logged, goes to <c>shown</c> as one line, and each model that
+    /// cannot be read goes to <c>unreadable</c> with its name and the reason; the rocks of a model that cannot be
+    /// read are left out. A plan without fields adds nothing.
     /// </summary>
-    public AsteroidFieldsView(GameFileSystem files, SandboxPlan plan, Action<string> gap)
+    public AsteroidFieldsView(
+        GameFileSystem files,
+        SandboxPlan plan,
+        Action<string> gap,
+        Action<string> shown,
+        Action<string, string> unreadable
+    )
     {
         if (plan.Fields.Count == 0)
             return;
@@ -95,6 +102,11 @@ public partial class AsteroidFieldsView : Node3D
                 foreach (var problem in builder.Problems)
                 {
                     gap($"{model}: {problem}");
+                }
+
+                foreach (var failure in builder.TextureFailures)
+                {
+                    shown($"{model}: {failure}");
                 }
 
                 var found = VisibleMeshes.Of(node);
@@ -133,7 +145,7 @@ public partial class AsteroidFieldsView : Node3D
             }
             catch (Exception e) // a model that cannot be read is a gap and its rocks are left out (INV-0002)
             {
-                gap($"model '{model}' cannot be read: {e.Message}");
+                unreadable(model, e.Message);
             }
         }
 

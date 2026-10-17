@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Sandbox;
@@ -115,6 +116,22 @@ public class AlertBindingsTests
         Assert.AreEqual(1, gaps.Count);
         StringAssert.Contains(gaps[0], "Input.map:");
         StringAssert.Contains(gaps[0], "unrecognized line '+ keyboard'");
+    }
+
+    [TestMethod]
+    public void AnUnreadableInputMapIsOneErrorEntryEqualToItsGapLine()
+    {
+        using var log = new CapturedLog();
+        var (_, gaps) = Read(("other.txt", "x"));
+        StringAssert.EndsWith(log.Lines.Single(), " ERROR combat: " + gaps.Single());
+    }
+
+    [TestMethod]
+    public void AMissingBindingIsOneWarnEntryEqualToItsGapLine()
+    {
+        using var log = new CapturedLog();
+        var (_, gaps) = Read(("Input.map", Reference.Replace("yellow {", "other {")));
+        StringAssert.EndsWith(log.Lines.Single(), " WARN combat: " + gaps.Single());
     }
 
     [TestMethod]

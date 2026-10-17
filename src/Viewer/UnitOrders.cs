@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 
@@ -21,6 +22,7 @@ namespace OpenArmada.Viewer;
 public partial class UnitOrders : Node3D
 {
     readonly UnitSelection _selection;
+    readonly RepeatedFaults _faults = new(Area.Combat);
     readonly Dictionary<PlacedObject, Node3D> _nodes;
 
     // Scale is the node basis's scale (negative on all axes for a mirrored basis); the rotation is rebuilt around it.
@@ -165,6 +167,12 @@ public partial class UnitOrders : Node3D
         return motion;
     }
 
+    /// <summary>
+    /// Logs the count of repeated step faults. Godot exits the children of a node before the node, so this runs
+    /// before the run-end entry of the AssetBrowserView above the sandbox.
+    /// </summary>
+    public override void _ExitTree() => _faults.Flush();
+
     /// <inheritdoc/>
     public override void _Process(double delta)
     {
@@ -207,7 +215,7 @@ public partial class UnitOrders : Node3D
         }
         catch (Exception e)
         {
-            GD.PrintErr($"combat step failed: {e.Message}");
+            _faults.Report($"combat step failed: {e.Message}");
         }
 
         // The world, not the step's events, says who is gone, so a failed step still takes its destroyed units out.

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
@@ -12,6 +12,8 @@ namespace OpenArmada.Sandbox;
 /// The combat profile of every unit of a map, read once from the install, with the gaps found while
 /// reading (INV-0002: a gap is reported with its cause once and the map still opens). Beam (<c>cannon</c>) and
 /// torpedo (<c>launcher</c>) weapons are read; special weapons are out of scope and skipped without a gap.
+/// Each gap is logged once per cause as a WARN; a definition or constants file that exists but cannot be read is
+/// logged instead as one ERROR per file, with its name and reason (INV-0005, INV-0002).
 /// A value the install lacks takes a stand-in and is reported when the rules need it; no profile value is a
 /// non-number and MaximumCrew is above zero (INV-0003).
 /// </summary>
@@ -80,8 +82,22 @@ public sealed class CombatPlan
             }
         }
 
-        return new CombatPlan(profiles, gaps.Entries, protection, bonus);
+        // The plan is complete: each grouped report is one WARN, the same text as its on-screen line. A definition
+        // that cannot be read is an ERROR entry of its own instead (see Failed); its grouped line is display only.
+        var reports = gaps.Entries;
+        foreach (var report in reports.Where(r => !r.Cause.Contains(CannotBeRead)))
+        {
+            Log.Warn(Area.Combat, report.Text);
+        }
+
+        return new CombatPlan(profiles, reports, protection, bonus);
     }
+
+    // Marks the causes of an asset that failed to load; each is logged as one ERROR at the failure site.
+    const string CannotBeRead = "cannot be read";
+
+    // An asset that failed to load: INV-0005 (ERROR), INV-0002 (name and reason). Called once per asset.
+    static void Failed(string asset, Exception e) => Log.Error(Area.Combat, $"{asset}: {e.Message}");
 
     static (float Protection, float Bonus) ReadConstants(GameFileSystem files, Gaps gaps)
     {
@@ -92,7 +108,15 @@ public sealed class CombatPlan
         }
         catch (Exception e) // a header that is missing or cannot be read is a gap, whatever the reason (INV-0002)
         {
-            gaps.Add($"{GameConstantsKind.FileName} cannot be read, stand-ins used for its constants", e.Message);
+            if (Log.IsAbsent(e))
+            {
+                gaps.Add($"{GameConstantsKind.FileName} missing, stand-ins used for its constants", e.Message);
+            }
+            else
+            {
+                Failed(GameConstantsKind.FileName, e);
+                gaps.Add($"{GameConstantsKind.FileName} {CannotBeRead}, stand-ins used for its constants", e.Message);
+            }
         }
 
         float Constant(string name, float standIn)
@@ -304,11 +328,16 @@ public sealed class CombatPlan
                 }
                 catch (Exception e) // unreadable for whatever reason: reported, the weapon is left out (INV-0002)
                 {
+                    if (!Log.IsAbsent(e))
+                    {
+                        Failed($"{what} definition {name}", e);
+                    }
+
                     _resolved[file] = found = (
                         null,
-                        e is FileNotFoundException
+                        Log.IsAbsent(e)
                             ? $"{what} definition missing, weapon left out"
-                            : $"{what} definition cannot be read, weapon left out"
+                            : $"{what} definition {CannotBeRead}, weapon left out"
                     );
                 }
             }
@@ -353,7 +382,7 @@ public sealed class CombatPlan
             {
                 unit.Gap(
                     _raceFileUnreadable
-                        ? "race definition cannot be read, stand-in race values used"
+                        ? $"race definition {CannotBeRead}, stand-in race values used"
                         : "race definition missing, stand-in race values used",
                     race
                 );
@@ -376,10 +405,14 @@ public sealed class CombatPlan
                 }
                 catch (Exception e) // missing or unreadable for whatever reason: a gap, whatever the reason (INV-0002)
                 {
-                    _racesProblem =
-                        e is FileNotFoundException
-                            ? "races.odf missing, stand-in race values used"
-                            : "races.odf cannot be read, stand-in race values used";
+                    if (!Log.IsAbsent(e))
+                    {
+                        Failed("races.odf", e);
+                    }
+
+                    _racesProblem = Log.IsAbsent(e)
+                        ? "races.odf missing, stand-in race values used"
+                        : $"races.odf {CannotBeRead}, stand-in race values used";
 
                     return null;
                 }
@@ -396,7 +429,11 @@ public sealed class CombatPlan
                     }
                     catch (Exception e) // a race file that cannot be read is no race: its race is reported as unreadable
                     {
-                        _raceFileUnreadable |= e is not FileNotFoundException;
+                        if (!Log.IsAbsent(e))
+                        {
+                            _raceFileUnreadable = true;
+                            Failed($"race definition {list.GetString(slot.Key)}", e);
+                        }
                     }
                 }
             }

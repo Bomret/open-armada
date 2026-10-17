@@ -311,4 +311,63 @@ public class CombatArtTests
         art.Report("sound cannot be decoded", "ph.wav");
         Assert.AreEqual(2, art.Reports.Single().Count);
     }
+
+    [TestMethod]
+    public void EachGapCauseFoundWhileBuildingIsOneWarnEntryEqualToItsLabelLine()
+    {
+        using var log = new CapturedLog();
+        var art = CombatArt.Build(
+            Install(),
+            new[] { Unit(Armed("phaser", "gone.wav", "hp01", "hp99")), Unit(Armed("phaser", "gone2.wav", "hp99")) }
+        );
+
+        Assert.IsTrue(art.Reports.Count >= 2);
+        Assert.AreEqual(art.Reports.Count, log.Lines.Count, log.Text);
+        for (var i = 0; i < log.Lines.Count; i++)
+        {
+            StringAssert.Contains(log.Lines[i], " WARN combat: " + art.Reports[i].Text);
+        }
+    }
+
+    [TestMethod]
+    public void AnExplosionDefinitionThatCannotBeReadIsOneErrorEntryWithItsNameAndReasonAndTheGroupedLineIsNotLogged()
+    {
+        // xfc.odf is an archive member stored compressed, so reading it throws
+        var archive = Encoding.Latin1.GetString(ZfsBuilder.Build(0, ZfsBuilder.M("xfc.odf", Explosion, 2)));
+        using var log = new CapturedLog();
+        var a = Unit(Armed("phaser", "ph.wav", "hp01"), "xfc");
+        var b = Unit(Armed("phaser", "ph.wav", "hp01"), "xfc");
+        var art = CombatArt.Build(Install(("addon/x.zfs", archive)), new[] { a, b });
+
+        var entry = log.Lines.Single(l => l.Contains("xfc"));
+        StringAssert.Contains(entry, " ERROR combat: explosion definition xfc: ");
+        Assert.IsTrue(entry.Split("xfc: ")[1].Length > 0, entry);
+        Assert.IsFalse(log.Lines.Any(l => l.Contains(" WARN ") && l.Contains("explosion definition cannot be read")));
+        StringAssert.Contains(art.Reports.Single().Cause, "explosion definition cannot be read");
+    }
+
+    [TestMethod]
+    public void AnExplosionDefinitionWithANonNumericLengthIsOneErrorEntryWithItsNameAndReason()
+    {
+        using var log = new CapturedLog();
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01"), "xfc");
+        var art = CombatArt.Build(Install(("addon/xfc.odf", Explosion.Replace("3.5", "\"long\""))), new[] { unit });
+
+        var entry = log.Lines.Single(l => l.Contains("xfc"));
+        StringAssert.Contains(entry, " ERROR combat: explosion definition xfc: ");
+        Assert.IsTrue(entry.Split("xfc: ")[1].Length > 0, entry);
+        Assert.IsFalse(log.Lines.Any(l => l.Contains(" WARN ") && l.Contains("explosion definition cannot be read")));
+        StringAssert.Contains(art.Reports.Single().Cause, "explosion definition cannot be read");
+    }
+
+    [TestMethod]
+    public void ASoundThatCannotBeDecodedIsOneErrorEntryWithItsNameAndReasonAndTheGroupedLineIsNotLogged()
+    {
+        var art = CombatArt.Build(Install(), new[] { Unit(Armed("phaser", "ph.wav", "hp01")) });
+        using var log = new CapturedLog();
+        art.Fail("sound", "ph.wav", "bad RIFF header", "sound cannot be decoded, it is not played");
+
+        StringAssert.Contains(log.Lines.Single(), " ERROR combat: sound ph.wav: bad RIFF header");
+        StringAssert.Contains(art.Reports.Single().Text, "sound cannot be decoded");
+    }
 }

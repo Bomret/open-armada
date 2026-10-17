@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Numerics;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
@@ -125,8 +125,8 @@ public sealed class SandboxPlan
 
     /// <summary>
     /// The resolved definition of each object class of the map, by class name without regard to case, and the
-    /// classes whose definition the install holds but that cannot be read, whatever the reason. A class the
-    /// install has no definition for is in neither.
+    /// classes whose definition the install holds but that cannot be read, whatever the reason, each logged as one
+    /// ERROR with its reason. A class the install has no definition for is in neither.
     /// </summary>
     public static (IReadOnlyDictionary<string, ResolvedDefinition> Found, IReadOnlySet<string> Unreadable) Definitions(
         GameFileSystem files,
@@ -141,11 +141,14 @@ public sealed class SandboxPlan
             {
                 found[cls] = ResolvedDefinition.Resolve(files, cls + ".odf");
             }
-            catch (FileNotFoundException) { }
-            catch (Exception)
+            catch (Exception e) when (Log.IsAbsent(e)) { }
+            catch (Exception e)
             {
+                // an asset failed to load: one ERROR with its name and reason (INV-0005); the gap of its
+                // objects is display only, and the map still opens (INV-0002)
+                Log.Error(Area.Sandbox, $"object definition {cls}.odf: {e.Message}");
                 unreadable.Add(cls);
-            } // INV-0002: a gap of its objects, the map still opens
+            }
         }
 
         return (found, unreadable);
@@ -209,7 +212,7 @@ public sealed class SandboxPlan
 
         return new SandboxPlan(
             placed,
-            gaps.Entries.Concat(fieldReports).ToList(),
+            Gaps.Logged(gaps.Entries.Concat(fieldReports).ToList(), UnreadableDefinition),
             map.Ambient,
             background,
             map.Bounds,

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 
@@ -18,9 +19,20 @@ namespace OpenArmada.Rendering;
 public sealed class SodBuilder
 {
     const string NoSpriteTexture = "sprite texture cannot be read, its sprite node is not drawn";
+    const string MissingSpriteTexture = "sprite texture missing, its sprite node is not drawn";
+    const string UnnamedSpriteTexture = "sprite names no texture, its sprite node is not drawn";
 
     readonly GameFileSystem _files;
+
+    // Why a texture did not load.
+    readonly Dictionary<string, System.Exception> _why = new(System.StringComparer.OrdinalIgnoreCase);
+
+    // Each texture is loaded once per builder; a texture that fails is logged once per run (ViewerLog.TextureFailed),
+    // and a later builder's load of it names the asset being built (_asset) as INFO.
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
+
+    // The asset the current Build draws, named in the log entry of a texture that fails; null when not given.
+    string? _asset;
     readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
     readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
     System.Numerics.Vector3 _teamColor = new(0.5f, 0.5f, 0.5f);
@@ -30,6 +42,13 @@ public sealed class SodBuilder
 
     /// <summary>What the last Build could not draw as the data says (ModelRules.Check), one line each.</summary>
     public IReadOnlyList<string> Problems { get; private set; } = new List<string>();
+
+    /// <summary>
+    /// The sprite nodes the last Build could not draw because their texture is missing or cannot be read, one line
+    /// each, for display: the builder logs each texture that fails when it loads it, once per run
+    /// (ViewerLog.TextureFailed: WARN when missing, else ERROR), so a caller shows these lines and does not log them.
+    /// </summary>
+    public IReadOnlyList<string> TextureFailures { get; private set; } = new List<string>();
 
     /// <summary>
     /// Recolors the team materials of the model built last. Each Build makes its own materials, so a model
@@ -44,9 +63,13 @@ public sealed class SodBuilder
         }
     }
 
-    /// <summary>Builds the model with its team materials in <c>teamColor</c> (the last color set when null).</summary>
-    public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null)
+    /// <summary>
+    /// Builds the model with its team materials in <c>teamColor</c> (the last color set when null); <c>asset</c>,
+    /// the model's name, is named in the log entry of a texture that fails (ViewerLog.TextureFailed).
+    /// </summary>
+    public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null, string? asset = null)
     {
+        _asset = asset;
         if (teamColor != null)
         {
             _teamColor = teamColor.Value;
@@ -119,23 +142,35 @@ public sealed class SodBuilder
 
         root.AddChild(animator);
 
-        // A sprite node's gaps, and a sprite texture that cannot be read, are problems; the model still builds.
+        // A sprite node's gaps, a sprite naming no texture included, are problems and a sprite texture that did
+        // not load is a texture failure; the model still builds.
         var sprites = SpriteNodes.For(_files, sod);
+        var unnamed = new Gaps();
         var gaps = new Gaps();
         var built = nodes.ToDictionary(n => n.Data, n => n.Node);
         foreach (var sprite in sprites.Nodes)
         {
-            if (Texture(sprite.Sprite.Sprite.Texture) is { } texture)
+            var name = sprite.Sprite.Sprite.Texture;
+            if (Texture(name) is { } texture)
             {
                 built[sprite.Node].AddChild(SpriteNodeQuad.Create(sprite, texture));
             }
+            else if (_why.TryGetValue(name, out var why))
+            {
+                var cause = Log.IsAbsent(why) ? MissingSpriteTexture : NoSpriteTexture;
+                gaps.Add(cause, $"{name} ({why.Message})", sprite.Node);
+            }
             else
             {
-                gaps.Add(NoSpriteTexture, sprite.Sprite.Sprite.Texture, sprite.Node);
+                unnamed.Add(UnnamedSpriteTexture, sprite.Sprite.Sprite.Name, sprite.Node);
             }
         }
 
-        Problems = analysis.Problems.Concat(sprites.Reports.Concat(gaps.Entries).Select(r => r.Text)).ToList();
+        Problems = analysis
+            .Problems.Concat(sprites.Reports.Select(r => r.Text))
+            .Concat(unnamed.Entries.Select(r => r.Text))
+            .ToList();
+        TextureFailures = gaps.Entries.Select(r => r.Text).ToList();
 
         return root;
     }
@@ -149,6 +184,7 @@ public sealed class SodBuilder
         var look = ModelRules.Look(sod, mesh);
         // A blend the engine does not know is listed in Problems (ModelRules.Check) and drawn opaque.
         var blend = look.Blend ?? new BlendState { Mode = BlendMode.Opaque, Opacity = 1f };
+        // A texture that did not load is logged by Texture; the mesh draws untextured.
         var texture = Texture(look.Texture);
         var materials = new List<ShaderMaterial>();
         var array = new ArrayMesh();
@@ -233,7 +269,7 @@ public sealed class SodBuilder
             return cached;
         Texture2D? tex = null;
         // Textures come through the textures kind: full-color wins over 8-bit palette TGAs.
-        string? why = null;
+        System.Exception? why = null;
         try
         {
             // Base level only: a bad mip level must not leave the model untextured.
@@ -246,7 +282,7 @@ public sealed class SodBuilder
             }
             else
             {
-                why = "not a readable TGA";
+                why = new InvalidDataException("not a readable TGA");
             }
         }
         catch (System.Exception e)
@@ -257,12 +293,13 @@ public sealed class SodBuilder
                         or System.IO.InvalidDataException
             )
         {
-            why = e.Message;
+            why = e;
         }
 
-        if (tex == null)
+        if (why != null)
         {
-            GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
+            _why[name] = why;
+            ViewerLog.TextureFailed(Area.Render, name, why, _asset);
         }
 
         return _textures[name] = tex;

@@ -11,6 +11,19 @@ format notes.
 - How the game draws a unit's status in the world: `docs/selection-display.md`.
 - Decisions: `docs/adr/`. Invariants: `docs/invariants.md`.
 - Source layout, controls, and the asset check: `README.md`.
+- The log of a run: `godot.log` in Godot's user-data folder; its path per system, entry format, levels, and areas are in `README.md`, "Read the log". The asset check's report appears there and on standard output. After a run, read its `WARN` and `ERROR` entries first.
+- Logging rules: `docs/invariants.md` (INV-0004, INV-0005) and `docs/adr/0005-runs-log-into-godots-own-log.md`. All output goes through `Log` in `src/Diagnostics/`; parsers and asset kinds never log.
+
+## Game install
+
+The path of the local Armada 1.2 install is in `CLAUDE.local.md`, a gitignored file per checkout.
+Read it there, and ask the user for the path when the file is missing. The 1.2 `Armada.exe` has
+the SHA-256 that `docs/combat-rules.md` cites.
+
+Investigate the game's logic and rules in the `Armada.exe` of that install with REA (the
+`reverse-engineer-anything` skill and the `rea` MCP tools) before you build a rule. Do not guess a
+rule or copy one from a fan source. Record each recovered rule in our own words with its address as evidence (ADR 0004,
+INV-0001). Mark a rule that the program does not confirm as **inferred** or **stand-in**.
 
 ## Game install
 

@@ -17,7 +17,7 @@ public sealed class KeyMapPreview : KindPreview
         var map = (MapFile)kind.Load(files, name);
 
         return ReadOnlyText(
-            NotesBlock(map.Notes)
+            NotesBlock(name, map.Notes)
                 + string.Join("\n", map.Entries.Select(e => $"{e.Section, -28} {e.Sign} {e.Key, -14} {e.Value}")),
             true
         );

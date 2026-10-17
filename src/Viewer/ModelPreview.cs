@@ -1,6 +1,7 @@
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Rendering;
 
@@ -21,7 +22,7 @@ public sealed class ModelPreview : KindPreview
     {
         var builder = new SodBuilder(files);
         var team = TeamColors.Load(files);
-        var model = builder.Build((Sod)kind.Load(files, name));
+        var model = builder.Build((Sod)kind.Load(files, name), asset: name);
 
         var pick = new OptionButton();
         foreach (var slot in TeamColors.SlotNames)
@@ -45,7 +46,10 @@ public sealed class ModelPreview : KindPreview
         var bar = new HBoxContainer();
         bar.AddChild(new Label { Text = "Team color" });
         bar.AddChild(pick);
-        var problems = builder.Problems.Concat(team.Notes).ToList();
+        // The builder logged each texture that failed (ViewerLog.TextureFailed); its lines are only shown.
+        var notes = builder.Problems.Concat(team.Notes).ToList();
+        ViewerLog.Notes(name, notes);
+        var problems = notes.Concat(builder.TextureFailures).ToList();
         if (problems.Count > 0)
         {
             bar.AddChild(new Label { Text = $"{problems.Count} problems: {string.Join("; ", problems)}" });

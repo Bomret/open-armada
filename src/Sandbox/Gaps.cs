@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using OpenArmada.Diagnostics;
 
 namespace OpenArmada.Sandbox;
 
@@ -30,6 +31,19 @@ internal sealed class Gaps
         }
 
         _byCause[cause] = gap;
+    }
+
+    // Writes each report as one WARN entry of area sandbox, with the text the label shows (INV-0002), and returns
+    // them. A plan that owns its reports calls this once, when it is complete. A report of cause `failed` is
+    // display only: an asset failed to load, and the plan logged it as one ERROR at the failure site (INV-0005).
+    public static IReadOnlyList<ReportEntry> Logged(IReadOnlyList<ReportEntry> reports, string? failed = null)
+    {
+        foreach (var report in reports.Where(r => r.Cause != failed))
+        {
+            Log.Warn(Area.Sandbox, report.Text);
+        }
+
+        return reports;
     }
 
     public IReadOnlyList<ReportEntry> Entries =>

@@ -214,11 +214,10 @@ public class ModelCheckTests
                 )
             )
         );
-        var output = new StringWriter();
+        using var output = new CapturedLog();
         var code = AssetCheck.Run(
             Path.GetDirectoryName(Path.GetDirectoryName(files.Find("bad.sod")!)!),
-            new AssetKind[] { new ModelKind() },
-            output
+            new AssetKind[] { new ModelKind() }
         );
         Assert.AreEqual(0, code);
         StringAssert.Contains(output.ToString(), "NOTE models/bad.sod: node 'hull': a face corner uses vertex 50");

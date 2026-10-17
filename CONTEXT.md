@@ -197,3 +197,19 @@ _Avoid_: map viewer, 3D preview, game mode
 The asset browser's rendering of one asset, showing that its meaning was understood: a model as the game
 draws it, a map from above, a sound as playback, a definition as its resolved values.
 _Avoid_: thumbnail, view
+
+**Run**
+One start of the engine in one mode (asset browser, map sandbox, or asset check) until it quits.
+_Avoid_: session, launch, execution
+
+**Log**
+The file `godot.log` in Godot's user-data folder that holds the log entries of the latest run beside
+Godot's own lines. Godot keeps the logs of earlier runs as dated copies.
+_Avoid_: log file, trace, diagnostics file, console output
+
+**Log entry**
+One line of the log that the engine writes: its local time, its level, its area, and its text. The level
+is `ERROR` when something broke (an asset failed to load, the engine caught a fault, or a mode failed to
+open), `WARN` when the engine went on by design with a stand-in, absent data, a skip, or an unsupported
+asset, and `INFO` for context. The area names the part of the engine that wrote it.
+_Avoid_: log message, log line, event

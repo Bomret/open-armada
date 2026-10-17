@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
@@ -26,28 +27,62 @@ public partial class AssetBrowserView : Control
     Node? _preview;
     string? _screenshot;
     int _frames;
+    int? _checkCode;
 
     /// <inheritdoc/>
     public override void _Ready()
     {
-        var args = new LaunchArgs(OS.GetCmdlineUserArgs());
-        var game = args.Value("--game") ?? System.Environment.GetEnvironmentVariable("ARMADA_DIR");
+        // First statement: every entry of the run, the engine's own ones too, lands in godot.log.
+        Log.Sink = line => GD.Print(line);
+        var userArgs = OS.GetCmdlineUserArgs();
+        var args = new LaunchArgs(userArgs);
+        var gameArg = args.Value("--game");
+        var envGame = System.Environment.GetEnvironmentVariable("ARMADA_DIR");
+        var game = gameArg ?? envGame;
         _screenshot = args.Value("--screenshot");
         var model = args.Value("--model");
-        if (args.Has("--check"))
+        var check = args.Has("--check");
+        if (!check && args.Has("--map"))
+        {
+            args.Value("--map"); // looked up now so its problem is known at run start
+        }
+
+        var mode =
+            check ? "check"
+            : args.Has("--map") ? "map"
+            : "browser";
+        var source =
+            gameArg != null ? "--game"
+            : envGame != null ? "ARMADA_DIR"
+            : "none";
+        var logFile = ProjectSettings.GlobalizePath(
+            (string)ProjectSettings.GetSetting("debug/file_logging/log_path", "user://logs/godot.log")
+        );
+        Log.Info(
+            Area.Run,
+            $"run start: mode {mode}, install {(game == null ? "none" : Log.Quote(game))} (from {source}), "
+                + $"arguments [{string.Join(", ", userArgs.Select(Log.Quote))}], log {Log.Quote(logFile)}"
+        );
+        foreach (var problem in args.Problems)
+        {
+            Log.Warn(Area.Run, problem);
+        }
+
+        if (check)
         {
             // A Godot callback exception does not set the exit code, so the check owns it.
             int code;
             try
             {
-                code = AssetCheck.Run(game, AssetKind.Discover(), Console.Out, GodotDecoders.Check);
+                code = AssetCheck.Run(game, AssetKind.Discover(), GodotDecoders.Check);
             }
             catch (Exception e)
             {
-                Console.Out.WriteLine($"asset check crashed: {e}");
+                Log.Error(Area.Check, $"asset check crashed: {e}");
                 code = 1;
             }
 
+            _checkCode = code;
             GetTree().Quit(code);
 
             return;
@@ -84,7 +119,8 @@ public partial class AssetBrowserView : Control
         {
             var text = string.Join("\n", startProblems);
 
-            GD.PrintErr(text);
+            // The launch-argument problems are in the log since run start; the registry's are logged here.
+            ViewerLog.StartProblems(previewProblems);
 
             left.AddChild(new Label { Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart });
         }
@@ -104,7 +140,7 @@ public partial class AssetBrowserView : Control
         {
             _message.Text = _browser.Problem;
 
-            GD.PrintErr(_browser.Problem);
+            ViewerLog.Failed(_browser.Problem);
 
             return;
         }
@@ -131,11 +167,14 @@ public partial class AssetBrowserView : Control
     // Lists the selected kind's assets and selects the one at `wanted`, or else the first.
     void FillAssets(int wanted)
     {
+        ViewerLog.CategorySelected(_browser.Kind!.Name);
         _assets.Clear();
         foreach (var name in _browser.Assets)
         {
             _assets.AddItem(name);
         }
+
+        ViewerLog.Failed(_browser.Notice);
 
         if (_browser.Assets.Count == 0)
         {
@@ -161,8 +200,12 @@ public partial class AssetBrowserView : Control
     {
         var kind = _browser.Kind!;
         var name = _browser.Assets[index];
+
+        ViewerLog.AssetSelected(kind.Name, name);
+
         if (!_previews.TryGetValue(kind.Name, out var preview))
         {
+            ViewerLog.NoPreview(kind.Name);
             ShowMessage($"no preview for {kind.Name}");
 
             return;
@@ -179,8 +222,18 @@ public partial class AssetBrowserView : Control
         }
         catch (Exception e) // a failed asset never stops the browser (INV-0002)
         {
-            ShowMessage(AssetBrowser.FailureMessage(name, e));
+            var message = AssetBrowser.FailureMessage(name, e);
+            ViewerLog.Failed(message);
+            ShowMessage(message);
         }
+    }
+
+    /// <inheritdoc/>
+    public override void _ExitTree()
+    {
+        // The end entry does not count itself; a print from here reaches godot.log on quit.
+        var counts = $"{Log.WarnCount} WARN, {Log.ErrorCount} ERROR";
+        Log.Info(Area.Run, _checkCode is { } code ? $"run end: {counts}, exit code {code}" : $"run end: {counts}");
     }
 
     /// <inheritdoc/>
@@ -189,7 +242,31 @@ public partial class AssetBrowserView : Control
         // Wait a few frames so textures are uploaded before capturing.
         if (_screenshot == null || ++_frames < 5)
             return;
-        GetViewport().GetTexture().GetImage().SavePng(_screenshot);
+        // A viewport can have no image (a headless run has no renderer); that and a failed save are one ERROR.
+        string? saveError = null;
+        var captured = false;
+        try
+        {
+            var image = GetViewport().GetTexture().GetImage();
+            if (image != null)
+            {
+                captured = true;
+                var saved = image.SavePng(_screenshot);
+                saveError = saved == Error.Ok ? null : saved.ToString();
+            }
+        }
+        catch (Exception e) // a capture that throws is a failed save, never an endless retry
+        {
+            captured = true;
+            saveError = e.Message;
+        }
+
+        // user:// and res:// paths are Godot's; the log names the file on disk.
+        ViewerLog.Screenshot(
+            Area.Browser,
+            ProjectSettings.GlobalizePath(_screenshot),
+            ViewerLog.CaptureFailure(captured, saveError)
+        );
         GetTree().Quit();
     }
 }

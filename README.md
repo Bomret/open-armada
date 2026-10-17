@@ -30,7 +30,7 @@ godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 
 `ARMADA_DIR` can replace `--game`. The preview shows the asset selected in the category and asset lists. In a model preview, drag to orbit and use the mouse wheel to zoom. `--model <name>` opens the named model. `--screenshot out.png` renders one frame to a file and quits.
 
-A model preview also draws the model's sprite nodes. A sprite node is a sprite that the install's sprite tables attach to a model node by name, such as a running light or an explosion's fireball. Its node animation loops. The preview frames a model made only of sprite nodes, such as the explosion model `xplode`, by its sprites.
+A model preview also draws the model's sprite nodes. A sprite node is a sprite that the install's sprite tables attach to a model node by name. Examples are a running light and an explosion's fireball. Its node animation loops. The preview frames a model made only of sprite nodes, such as the explosion model `xplode`, by its sprites.
 
 ## Run the map sandbox
 
@@ -47,7 +47,7 @@ The sandbox behaves as follows:
 - Left-click selects a unit, and a left-button drag selects the units in the box. Right-click on a hostile unit orders the selected units that have weapons to attack it; a unit without weapons ignores the click. Right-click elsewhere sends the selected ships to that point; a point outside the map sends them to the nearest point of the map's edge. Stations do not move.
 - The green, yellow, and red alert keys set the alert stance of the selected units. The keys come from the install's `Input.map` (Shift+G, Shift+Y, and Shift+R in the reference install).
 - Units and other models draw their sprite nodes, as the model preview does. The rocks of an asteroid field draw theirs too. A destroyed unit shows its explosion at its last position, and the explosion plays its sprite nodes once.
-- Fire and explosion sounds fade with their distance from the camera, and from the camera's opening distance they stay audible. The install defines no falloff, so the engine uses a stand-in.
+- Fire and explosion sounds fade with their distance from the camera. Nothing is cut off, and a sound at the camera's opening distance stays audible. The install defines no falloff, so the engine uses a stand-in.
 - A map object or definition that cannot be read is reported as a gap, printed and counted on screen, and the map still opens.
 
 These rules apply to every map the sandbox opens.

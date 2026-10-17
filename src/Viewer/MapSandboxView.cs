@@ -230,7 +230,6 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         return true;
     }
 
-    // A finding only the view gathers: shown once and logged once, as WARN.
     // A headless or screenshot run has no mouse.
     bool HasMouse => DisplayServer.GetName() != "headless" && screenshot == null;
 
@@ -246,6 +245,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             : null;
     }
 
+    // A finding only the view gathers: shown once and logged once, as WARN.
     void Note(string gap)
     {
         if (AddGap(gap))

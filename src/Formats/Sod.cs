@@ -219,10 +219,22 @@ public sealed class Sod
     /// </summary>
     /// <exception cref="InvalidDataException">
     /// when the magic is neither "Storm3D_SW" nor "StarTrekDB", the version is not one the reader decodes, a node has
-    /// an unknown type, or bytes follow the last section.
+    /// an unknown type, bytes follow the last section, or the file is cut off.
     /// </exception>
     /// <exception cref="UnsupportedFormatException">when the file is of version 1.0.</exception>
     public static Sod Read(byte[] data)
+    {
+        try
+        {
+            return ReadFile(data);
+        }
+        catch (EndOfStreamException)
+        {
+            throw new InvalidDataException($"SOD is cut off ({data.Length} bytes)");
+        }
+    }
+
+    static Sod ReadFile(byte[] data)
     {
         var r = new BinaryReader(new MemoryStream(data), Encoding.ASCII);
         var magic = Encoding.ASCII.GetString(r.ReadBytes(10));
@@ -520,7 +532,15 @@ public sealed class Sod
         return mesh;
     }
 
-    static string Id(BinaryReader r) => Windows1252.Encoding.GetString(r.ReadBytes(r.ReadUInt16()));
+    static string Id(BinaryReader r)
+    {
+        int length = r.ReadUInt16();
+        var bytes = r.ReadBytes(length);
+        if (bytes.Length != length)
+            throw new EndOfStreamException();
+
+        return Windows1252.Encoding.GetString(bytes);
+    }
 
     static Vector3 Vec3(BinaryReader r) => new(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
 

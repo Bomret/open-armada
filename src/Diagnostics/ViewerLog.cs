@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using OpenArmada.Assets;
 
 namespace OpenArmada.Diagnostics;
 
@@ -17,14 +18,25 @@ public static class ViewerLog
     public static void AssetSelected(string category, string asset) =>
         Log.Info(Area.Browser, $"asset selected: {asset} (category {category})");
 
-    /// <summary>ERROR: the browser cannot open; <c>problem</c> says why.</summary>
-    public static void OpenFailed(string problem) => Log.Error(Area.Browser, problem);
-
-    /// <summary>ERROR: a category cannot list its assets; <c>notice</c> names the category and the reason.</summary>
-    public static void ListFailed(string notice) => Log.Error(Area.Browser, notice);
+    /// <summary>
+    /// ERROR: the browser cannot open or a category cannot list its assets; <c>text</c> is what the pane shows
+    /// (<c>AssetBrowser.Problem</c> or <c>Notice</c>). Nothing is written when it is null.
+    /// </summary>
+    public static void Failed(string? text)
+    {
+        if (text != null)
+        {
+            Log.Error(Area.Browser, text);
+        }
+    }
 
     /// <summary>ERROR: the preview of <c>asset</c> failed with <c>e</c>; the browser goes on.</summary>
-    public static void PreviewFailed(string asset, Exception e) => Log.Error(Area.Browser, $"{asset}: {e.Message}");
+    public static void PreviewFailed(string asset, Exception e) =>
+        Log.Error(Area.Browser, AssetBrowser.FailureMessage(asset, e));
+
+    /// <summary>WARN: the sprite table <c>table</c> shows texture <c>texture</c> as not found or unreadable.</summary>
+    public static void TextureNotLoaded(string table, string texture, Exception e) =>
+        Log.Warn(Area.Browser, $"{table}: texture {Log.Quote(texture)} not loaded: {e.Message}");
 
     /// <summary>WARN, one entry per problem: a start problem of the preview registry.</summary>
     public static void StartProblems(IEnumerable<string> problems)

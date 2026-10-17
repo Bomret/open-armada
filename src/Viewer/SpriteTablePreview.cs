@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
@@ -37,6 +38,8 @@ public sealed class SpriteTablePreview : KindPreview
                 catch (System.Exception e)
                     when (e is System.IO.IOException or System.IO.InvalidDataException or UnsupportedFormatException)
                 {
+                    // One entry per texture: the loaded cache holds it, so a later sprite of it skips the load.
+                    ViewerLog.TextureNotLoaded(name, sprite.Texture, e);
                     loaded[sprite.Texture] = null;
                 }
             }

@@ -30,21 +30,32 @@ public class ViewerLogTests
     }
 
     [TestMethod]
-    public void Browser_problem_is_one_error()
+    public void Browser_failure_is_one_error()
     {
         using var log = new CapturedLog();
-        ViewerLog.OpenFailed("no install given");
+        ViewerLog.Failed("no install given");
         StringAssert.Contains(log.Text, " ERROR browser: no install given");
         Assert.AreEqual(1, Log.ErrorCount);
     }
 
     [TestMethod]
-    public void Category_that_cannot_list_is_one_error_with_the_notice()
+    public void No_browser_failure_writes_nothing()
     {
         using var log = new CapturedLog();
-        ViewerLog.ListFailed("cannot list models: disk gone");
-        StringAssert.Contains(log.Text, " ERROR browser: cannot list models: disk gone");
+        ViewerLog.Failed(null);
+        Assert.AreEqual(0, log.Lines.Count);
+    }
+
+    [TestMethod]
+    public void Sprite_table_texture_that_did_not_load_is_one_warn_with_texture_and_reason()
+    {
+        using var log = new CapturedLog();
+        ViewerLog.TextureNotLoaded("sprites.spr", "hull01", new InvalidDataException("bad magic"));
         Assert.AreEqual(1, log.Lines.Count);
+        StringAssert.Contains(log.Text, " WARN browser: ");
+        StringAssert.Contains(log.Text, "sprites.spr");
+        StringAssert.Contains(log.Text, "hull01");
+        StringAssert.Contains(log.Text, "bad magic");
     }
 
     [TestMethod]

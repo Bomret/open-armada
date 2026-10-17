@@ -140,7 +140,7 @@ public partial class AssetBrowserView : Control
         {
             _message.Text = _browser.Problem;
 
-            ViewerLog.OpenFailed(_browser.Problem);
+            ViewerLog.Failed(_browser.Problem);
 
             return;
         }
@@ -174,10 +174,7 @@ public partial class AssetBrowserView : Control
             _assets.AddItem(name);
         }
 
-        if (_browser.Notice != null)
-        {
-            ViewerLog.ListFailed(_browser.Notice);
-        }
+        ViewerLog.Failed(_browser.Notice);
 
         if (_browser.Assets.Count == 0)
         {
@@ -245,7 +242,8 @@ public partial class AssetBrowserView : Control
         if (_screenshot == null || ++_frames < 5)
             return;
         var saved = GetViewport().GetTexture().GetImage().SavePng(_screenshot);
-        ViewerLog.Screenshot(_screenshot, saved == Error.Ok ? null : saved.ToString());
+        // user:// and res:// paths are Godot's; the log names the file on disk.
+        ViewerLog.Screenshot(ProjectSettings.GlobalizePath(_screenshot), saved == Error.Ok ? null : saved.ToString());
         GetTree().Quit();
     }
 }

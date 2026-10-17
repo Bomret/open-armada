@@ -12,6 +12,13 @@ public static class DefinitionText
     const string Unknown = "unknown race";
 
     /// <summary>
+    /// The lines <see cref="Format(ResolvedDefinition)"/> shows for the definition's problems, then its notes
+    /// (<c>problem: …</c>, <c>note: …</c>); the preview logs the same lines.
+    /// </summary>
+    public static IReadOnlyList<string> Remarks(ResolvedDefinition def) =>
+        def.Problems.Select(p => "problem: " + p).Concat(def.Notes.Select(n => "note: " + n)).ToList();
+
+    /// <summary>
     /// The chain, the problems, then one line per key: <c>key = value    [mark]</c>, the mark saying whether the
     /// value is the definition's own, inherited from an include, or overridden by the override layer.
     /// </summary>
@@ -19,14 +26,9 @@ public static class DefinitionText
     {
         var sb = new StringBuilder();
         sb.Append(def.Name).Append(" (").AppendJoin(" <- ", def.Chain).Append(")\n");
-        foreach (var p in def.Problems)
+        foreach (var remark in Remarks(def))
         {
-            sb.Append("problem: ").Append(p).Append('\n');
-        }
-
-        foreach (var n in def.Notes)
-        {
-            sb.Append("note: ").Append(n).Append('\n');
+            sb.Append(remark).Append('\n');
         }
 
         sb.Append('\n');

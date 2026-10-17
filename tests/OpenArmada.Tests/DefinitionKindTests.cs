@@ -62,4 +62,20 @@ public class DefinitionKindTests
         StringAssert.Contains(text, "speed = 5    [inherited from p.odf]");
         StringAssert.Contains(text, "gone.odf");
     }
+
+    [TestMethod]
+    public void RemarksListEachProblemAndNoteTheTextShows()
+    {
+        var install = defs.Install(
+            new[] { ("p.odf", "speed = 5\r\nwhat is this"), ("c.odf", "#include \"p.odf\"\r\n#include \"gone.odf\"") }
+        );
+        var def = ResolvedDefinition.Resolve(install, "c.odf");
+        var remarks = DefinitionText.Remarks(def);
+        Assert.AreEqual(def.Problems.Count + def.Notes.Count, remarks.Count);
+        Assert.IsTrue(remarks.Count >= 2);
+        foreach (var remark in remarks)
+        {
+            StringAssert.Contains(DefinitionText.Format(def), remark);
+        }
+    }
 }

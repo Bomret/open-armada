@@ -119,7 +119,8 @@ public partial class AssetBrowserView : Control
         {
             var text = string.Join("\n", startProblems);
 
-            GD.PrintErr(text);
+            // The launch-argument problems are in the log since run start; the registry's are logged here.
+            ViewerLog.StartProblems(previewProblems);
 
             left.AddChild(new Label { Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart });
         }
@@ -139,7 +140,7 @@ public partial class AssetBrowserView : Control
         {
             _message.Text = _browser.Problem;
 
-            GD.PrintErr(_browser.Problem);
+            ViewerLog.Failed(_browser.Problem);
 
             return;
         }
@@ -166,11 +167,14 @@ public partial class AssetBrowserView : Control
     // Lists the selected kind's assets and selects the one at `wanted`, or else the first.
     void FillAssets(int wanted)
     {
+        ViewerLog.CategorySelected(_browser.Kind!.Name);
         _assets.Clear();
         foreach (var name in _browser.Assets)
         {
             _assets.AddItem(name);
         }
+
+        ViewerLog.Failed(_browser.Notice);
 
         if (_browser.Assets.Count == 0)
         {
@@ -196,8 +200,12 @@ public partial class AssetBrowserView : Control
     {
         var kind = _browser.Kind!;
         var name = _browser.Assets[index];
+
+        ViewerLog.AssetSelected(kind.Name, name);
+
         if (!_previews.TryGetValue(kind.Name, out var preview))
         {
+            ViewerLog.NoPreview(kind.Name);
             ShowMessage($"no preview for {kind.Name}");
 
             return;
@@ -214,7 +222,9 @@ public partial class AssetBrowserView : Control
         }
         catch (Exception e) // a failed asset never stops the browser (INV-0002)
         {
-            ShowMessage(AssetBrowser.FailureMessage(name, e));
+            var message = AssetBrowser.FailureMessage(name, e);
+            ViewerLog.Failed(message);
+            ShowMessage(message);
         }
     }
 
@@ -232,7 +242,27 @@ public partial class AssetBrowserView : Control
         // Wait a few frames so textures are uploaded before capturing.
         if (_screenshot == null || ++_frames < 5)
             return;
-        GetViewport().GetTexture().GetImage().SavePng(_screenshot);
+        // A viewport can have no image (a headless run has no renderer); that and a failed save are one ERROR.
+        string? saveError = null;
+        var captured = false;
+        try
+        {
+            var image = GetViewport().GetTexture().GetImage();
+            if (image != null)
+            {
+                captured = true;
+                var saved = image.SavePng(_screenshot);
+                saveError = saved == Error.Ok ? null : saved.ToString();
+            }
+        }
+        catch (Exception e) // a capture that throws is a failed save, never an endless retry
+        {
+            captured = true;
+            saveError = e.Message;
+        }
+
+        // user:// and res:// paths are Godot's; the log names the file on disk.
+        ViewerLog.Screenshot(ProjectSettings.GlobalizePath(_screenshot), ViewerLog.CaptureFailure(captured, saveError));
         GetTree().Quit();
     }
 }

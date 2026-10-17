@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 
@@ -20,6 +21,15 @@ public sealed class SodBuilder
     const string NoSpriteTexture = "sprite texture cannot be read, its sprite node is not drawn";
 
     readonly GameFileSystem _files;
+
+    // Why a texture did not load.
+    readonly Dictionary<string, string?> _why = new(System.StringComparer.OrdinalIgnoreCase);
+
+    // Mesh textures that failed to load in the current Build (name to reason); logged after the sprite pass.
+    readonly Dictionary<string, string?> _meshMisses = new(System.StringComparer.OrdinalIgnoreCase);
+
+    // Textures already logged as unavailable, for the builder's lifetime: WARN render once per builder.
+    readonly HashSet<string> _logged = new(System.StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
     readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
     readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
@@ -47,6 +57,8 @@ public sealed class SodBuilder
     /// <summary>Builds the model with its team materials in <c>teamColor</c> (the last color set when null).</summary>
     public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null)
     {
+        // A Build that threw leaves its misses behind; they belong to no later model.
+        _meshMisses.Clear();
         if (teamColor != null)
         {
             _teamColor = teamColor.Value;
@@ -122,6 +134,7 @@ public sealed class SodBuilder
         // A sprite node's gaps, and a sprite texture that cannot be read, are problems; the model still builds.
         var sprites = SpriteNodes.For(_files, sod);
         var gaps = new Gaps();
+        var spriteMisses = new List<string>();
         var built = nodes.ToDictionary(n => n.Data, n => n.Node);
         foreach (var sprite in sprites.Nodes)
         {
@@ -131,11 +144,16 @@ public sealed class SodBuilder
             }
             else
             {
-                gaps.Add(NoSpriteTexture, sprite.Sprite.Sprite.Texture, sprite.Node);
+                var name = sprite.Sprite.Sprite.Texture;
+                spriteMisses.Add(name);
+                gaps.Add(NoSpriteTexture, _why.TryGetValue(name, out var why) ? $"{name} ({why})" : name, sprite.Node);
             }
         }
 
         Problems = analysis.Problems.Concat(sprites.Reports.Concat(gaps.Entries).Select(r => r.Text)).ToList();
+
+        // A mesh texture that is also a sprite texture became a Problems entry, which the preview logs.
+        ViewerLog.TexturesUnavailable(_meshMisses, spriteMisses, _logged);
 
         return root;
     }
@@ -150,6 +168,12 @@ public sealed class SodBuilder
         // A blend the engine does not know is listed in Problems (ModelRules.Check) and drawn opaque.
         var blend = look.Blend ?? new BlendState { Mode = BlendMode.Opaque, Opacity = 1f };
         var texture = Texture(look.Texture);
+        // An untextured model is logged once per builder, after the sprite pass (Build).
+        if (texture == null && _why.TryGetValue(look.Texture, out var reason))
+        {
+            _meshMisses[look.Texture] = reason;
+        }
+
         var materials = new List<ShaderMaterial>();
         var array = new ArrayMesh();
         foreach (var group in mesh.Groups)
@@ -262,7 +286,7 @@ public sealed class SodBuilder
 
         if (tex == null)
         {
-            GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
+            _why[name] = why;
         }
 
         return _textures[name] = tex;

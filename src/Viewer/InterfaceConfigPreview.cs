@@ -63,7 +63,7 @@ public sealed class InterfaceConfigPreview : KindPreview
                 $"{e.File}:{e.Line}  {e.Key} = {(e.IsText ? "\"" + e.Values[0] + "\"" : string.Join(" ", e.Values))}"
             )
         );
-        var text = NotesBlock(cfg.Notes) + entries;
+        var text = NotesBlock(name, cfg.Notes) + entries;
         var row = new HBoxContainer
         {
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,

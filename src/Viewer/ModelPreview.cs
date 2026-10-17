@@ -1,6 +1,7 @@
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Rendering;
 
@@ -46,6 +47,7 @@ public sealed class ModelPreview : KindPreview
         bar.AddChild(new Label { Text = "Team color" });
         bar.AddChild(pick);
         var problems = builder.Problems.Concat(team.Notes).ToList();
+        ViewerLog.Notes(name, problems);
         if (problems.Count > 0)
         {
             bar.AddChild(new Label { Text = $"{problems.Count} problems: {string.Join("; ", problems)}" });

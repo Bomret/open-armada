@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
@@ -103,6 +104,7 @@ public sealed class CombatArt
 
     readonly GameFileSystem _files;
     readonly Gaps _gaps = new();
+    readonly HashSet<string> _unreadable = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, SpriteArt> _sprites = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> _fireSounds = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<PlacedObject, ExplosionArt> _explosions = new(ReferenceEqualityComparer.Instance);
@@ -115,7 +117,7 @@ public sealed class CombatArt
 
     /// <summary>
     /// Resolves the shot sprites, fire sounds, hardpoints, and explosions of the units from the install. Every failed
-    /// lookup becomes a gap in <see cref="Reports"/>. Reads the sprite tables once, on the first sprite, and each
+    /// lookup becomes a gap in <see cref="Reports"/>, logged once per cause as a WARN (an unreadable explosion definition: one ERROR). Reads the sprite tables once, on the first sprite, and each
     /// model once.
     /// </summary>
     public static CombatArt Build(GameFileSystem files, IEnumerable<(PlacedObject Unit, CombatProfile Profile)> units)
@@ -145,6 +147,13 @@ public sealed class CombatArt
             {
                 art._explosions[unit] = explosion;
             }
+        }
+
+        // Each cause is one WARN entry with the text of its screen line (the sandbox and the view print the same);
+        // an unreadable explosion definition is an ERROR entry of its own instead (see Unreadable).
+        foreach (var report in art._gaps.Entries.Where(r => r.Cause != BadExplosion))
+        {
+            Log.Warn(Area.Combat, report.Text);
         }
 
         return art;
@@ -177,6 +186,16 @@ public sealed class CombatArt
 
     /// <summary>A failure of the view (a texture or a sound that cannot be decoded) joins the gaps, once per cause.</summary>
     public void Report(string cause, string name) => _gaps.Add(cause, name);
+
+    /// <summary>
+    /// A failure of the view: joins the gaps like <see cref="Report"/> (the grouped line is display only) and is one
+    /// ERROR entry of its own, <c>&lt;kind&gt; &lt;name&gt;: &lt;reason&gt;</c>.
+    /// </summary>
+    public void Fail(string kind, string name, string reason, string cause)
+    {
+        Report(cause, name);
+        Log.Error(Area.Combat, $"{kind} {name}: {reason}");
+    }
 
     /// <summary>The gaps found by <see cref="Build"/> and <see cref="Report"/>, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports => _gaps.Entries;
@@ -240,6 +259,17 @@ public sealed class CombatArt
         return false;
     }
 
+    // An explosion definition that cannot be read is a gap (the grouped line is display only) and one ERROR entry
+    // of its own per definition: INV-0005 (an asset that failed to load), INV-0002 (name and reason).
+    void Unreadable(string fireball, string reason, PlacedObject unit)
+    {
+        _gaps.Add(BadExplosion, fireball, unit);
+        if (_unreadable.Add(fireball))
+        {
+            Log.Error(Area.Combat, $"explosion definition {fireball}: {reason}");
+        }
+    }
+
     ExplosionArt? ResolveExplosion(string fireball, PlacedObject unit)
     {
         if (fireball.Length == 0)
@@ -256,7 +286,14 @@ public sealed class CombatArt
         }
         catch (Exception e) // unreadable for whatever reason: reported, the destruction shows none (INV-0002)
         {
-            _gaps.Add(e is FileNotFoundException ? MissingExplosion : BadExplosion, fireball, unit);
+            if (Log.IsAbsent(e))
+            {
+                _gaps.Add(MissingExplosion, fireball, unit);
+            }
+            else
+            {
+                Unreadable(fireball, e.Message, unit);
+            }
 
             return null;
         }
@@ -275,9 +312,9 @@ public sealed class CombatArt
                 Length = definition.Has("length") ? definition.GetFloat("length") : 0, // stand-in: an explosion naming no length ends at once
             };
         }
-        catch (DefinitionException)
+        catch (DefinitionException e)
         {
-            _gaps.Add(BadExplosion, fireball, unit);
+            Unreadable(fireball, e.Message, unit);
 
             return null;
         }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Rendering;
 using OpenArmada.Sandbox;
@@ -61,7 +62,12 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         var plan = sandbox.Plan!;
         var team = TeamColors.Load(files);
         var builder = new SodBuilder(files);
-        _gaps.AddRange(team.Notes);
+        foreach (var note in team.Notes)
+        {
+            Note(note);
+        }
+
+        // The plans log their own reports when complete; the label only shows them.
         _gaps.AddRange(plan.Reports.Select(r => r.Text));
 
         // The scene's ambient light is the map's. stand-in: the directional light (its direction and
@@ -110,13 +116,16 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         }
         catch (Exception e) // no readable RTS_CFG.h: the camera uses its stand-ins (INV-0002)
         {
-            AddGap($"{GameConstantsKind.FileName} cannot be read: {e.Message}");
+            // CombatPlan.Build read the same file above and logged its cause (WARN missing, ERROR unreadable);
+            // this line is only shown.
+            var what = Log.IsAbsent(e) ? "missing" : "cannot be read";
+            AddGap($"{GameConstantsKind.FileName} {what}, the camera uses its stand-ins: {e.Message}");
             _rig = new CameraRig(null, bounds);
         }
 
         foreach (var problem in _rig.Problems)
         {
-            AddGap(problem);
+            Note(problem);
         }
 
         var orders = new UnitOrders(
@@ -127,21 +136,21 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             (float)_rig.CombatPlaneHeight,
             bounds,
             combat,
-            AddGap
+            gap => AddGap(gap)
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
-        AddChild(new AlertKeys(AlertBindings.Read(files, AddGap), selection, orders.Combat));
+        AddChild(new AlertKeys(AlertBindings.Read(files, gap => AddGap(gap)), selection, orders.Combat));
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.
         var art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
         var (eye, target) = _rig.Pose; // the camera's opening pose: no input has moved it yet
         var falloff = SoundFalloff.For(System.Numerics.Vector3.Distance(eye, target));
-        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, AddGap));
+        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, gap => AddGap(gap)));
         _gaps.AddRange(art.Reports.Select(r => r.Text));
 
-        AddChild(new AsteroidFieldsView(files, plan, AddGap));
+        AddChild(new AsteroidFieldsView(files, plan, Note, gap => AddGap(gap), Unreadable));
 
         // The sandbox's reach: no camera is farther from an object than the rig's greatest eye distance from its
         // look-at point (which stays within the map) plus the map's diagonal.
@@ -162,6 +171,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             AddBackground(files, builder, team, plan.Background, camera, reach);
         }
 
+        sandbox.LogOpened(selection.Units.Count);
         Show(null);
     }
 
@@ -183,7 +193,13 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             var node = builder.Build(sod, team.Color(TeamColors.SlotNames[slot]));
             foreach (var problem in builder.Problems)
             {
-                AddGap($"{model}: {problem}");
+                Note($"{model}: {problem}");
+            }
+
+            // The builder logged each texture that failed (ViewerLog.TextureFailed); these lines are only shown.
+            foreach (var failure in builder.TextureFailures)
+            {
+                AddGap($"{model}: {failure}");
             }
 
             _templates[(model, slot)] = node;
@@ -192,18 +208,43 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         }
         catch (Exception e) // a model that cannot be read is a gap, whatever the reason, and is read once (INV-0002)
         {
-            _unreadable.Add(model);
-            AddGap($"model '{model}' cannot be read: {e.Message}");
+            Unreadable(model, e.Message);
 
             return null;
         }
     }
 
-    void AddGap(string gap)
+    // Shows a gap on the label once. The producers that pass this (the orders, the combat view, the model
+    // builder's texture failures, the camera's RTS_CFG.h, which CombatPlan.Build logs) log their own findings,
+    // and so does AlertBindings.Read for the alert keys.
+    // Returns whether the gap was new.
+    bool AddGap(string gap)
     {
-        if (!_gaps.Contains(gap))
+        if (_gaps.Contains(gap))
         {
-            _gaps.Add(gap);
+            return false;
+        }
+
+        _gaps.Add(gap);
+        return true;
+    }
+
+    // A finding only the view gathers: shown once and logged once, as WARN.
+    void Note(string gap)
+    {
+        if (AddGap(gap))
+        {
+            Log.Warn(Area.Sandbox, gap);
+        }
+    }
+
+    // A model that cannot be read: an asset failed, so one ERROR per model however many producers report it;
+    // shown on the label like any gap.
+    void Unreadable(string model, string reason)
+    {
+        if (_unreadable.Add(model))
+        {
+            AddGap(MapSandbox.LogUnreadableModel(model, reason));
         }
     }
 
@@ -259,15 +300,11 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         _camera = camera;
     }
 
-    // Prints the gaps and shows them on a label with their count, or a problem in place of the scene.
+    // Shows the gaps on a label with their count, or a problem in place of the scene. The log has each of them
+    // already (MapSandbox.Open logs the problem).
     void Show(string? problem)
     {
         var text = problem ?? (_gaps.Count == 0 ? "" : $"{_gaps.Count} gaps:\n{string.Join("\n", _gaps)}");
-        if (text.Length > 0)
-        {
-            GD.PrintErr(text);
-        }
-
         var layer = new CanvasLayer();
         AddChild(layer);
         layer.AddChild(
@@ -359,7 +396,31 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         // Wait a few frames so textures are uploaded before capturing.
         if (screenshot == null || ++_frames < 5)
             return;
-        GetViewport().GetTexture().GetImage().SavePng(screenshot);
+        // A viewport can have no image (a headless run has no renderer); that and a failed save are one ERROR.
+        string? saveError = null;
+        var captured = false;
+        try
+        {
+            var image = GetViewport().GetTexture().GetImage();
+            if (image != null)
+            {
+                captured = true;
+                var saved = image.SavePng(screenshot);
+                saveError = saved == Error.Ok ? null : saved.ToString();
+            }
+        }
+        catch (Exception e) // any other capture failure is a failed save too (INV-0002)
+        {
+            captured = true;
+            saveError = e.Message;
+        }
+
+        // user:// and res:// paths are Godot's; the log names the file on disk.
+        ViewerLog.Screenshot(
+            Area.Sandbox,
+            ProjectSettings.GlobalizePath(screenshot),
+            ViewerLog.CaptureFailure(captured, saveError)
+        );
         GetTree().Quit();
     }
 }

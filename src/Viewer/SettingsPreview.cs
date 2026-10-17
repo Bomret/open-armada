@@ -17,7 +17,7 @@ public sealed class SettingsPreview : KindPreview
         var s = (SettingsFile)kind.Load(files, name);
 
         return ReadOnlyText(
-            NotesBlock(s.Notes) + string.Join("\n", s.Entries.Select(e => $"{e.Line, 3}  {e.Text}")),
+            NotesBlock(name, s.Notes) + string.Join("\n", s.Entries.Select(e => $"{e.Line, 3}  {e.Text}")),
             true
         );
     }

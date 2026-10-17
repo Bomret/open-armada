@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenArmada.Assets;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
@@ -34,7 +35,9 @@ public sealed class AlertBindings
         }
         catch (Exception e)
         {
-            gap($"Input.map cannot be read, so the alert keys are unbound: {e.Message}");
+            var text = $"Input.map cannot be read, so the alert keys are unbound: {e.Message}";
+            Log.Error(Area.Combat, text);
+            gap(text);
 
             return bindings;
         }
@@ -60,10 +63,11 @@ public sealed class AlertBindings
             {
                 // a malformed line of the block is the likely cause, so the gap names it
                 var cause = map.Notes.Where(n => n.EndsWith($"in block '{section}'", StringComparison.Ordinal));
-                gap(
+                var text =
                     $"Input.map has no keyboard binding for '{section}' alert, so that key is unbound"
-                        + string.Concat(cause.Select(n => $" ({n})"))
-                );
+                    + string.Concat(cause.Select(n => $" ({n})"));
+                Log.Warn(Area.Combat, text);
+                gap(text);
 
                 continue;
             }

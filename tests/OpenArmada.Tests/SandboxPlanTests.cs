@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
@@ -248,6 +249,29 @@ public class SandboxPlanTests
     }
 
     [TestMethod]
+    public void ADefinitionThatCannotBeReadIsOneErrorEntryWithItsNameAndReason()
+    {
+        // a compressed archive entry used by two objects: an asset failed to load, one cause (INV-0005, INV-0002)
+        var archive = System.Text.Encoding.Latin1.GetString(
+            ZfsBuilder.Build(0, ZfsBuilder.M("ghost.odf", "baseName = fdreadnought", 2))
+        );
+        var install = new GameFileSystem(temp.MakeInstall(("addon/x.zfs", archive)));
+        var map = MapOf(Ship("ghost", label: "a"), Ship("ghost", label: "b"));
+        var asset = new MapAsset
+        {
+            Name = "bzn/t.bzn",
+            Map = Bzn.Read(map.Build()),
+            Starts = Array.Empty<MapStart>(),
+            Overview = null,
+            ScriptedPaths = Array.Empty<MapPath>(),
+        };
+        using var log = new CapturedLog();
+        SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
+        var entries = log.Lines.Where(l => l.Contains("ghost")).ToList();
+        StringAssert.Matches(entries.Single(), new Regex(@" ERROR sandbox: object definition ghost\.odf: \S"));
+    }
+
+    [TestMethod]
     public void ABaseNameOfAMissingModelIsReportedWithoutAFallback()
     {
         var plan = Plan(MapOf(Ship(), Ship()), Fbattle, "fbattle");
@@ -276,6 +300,37 @@ public class SandboxPlanTests
         Assert.AreEqual(1, plan.Fields.Count);
         Assert.AreEqual(1, plan.Reports.Count); // six of the eight models are missing
         Assert.AreEqual(6, plan.Reports.Single().Names.Count);
+    }
+
+    [TestMethod]
+    public void AGapOfOneCauseOnManyObjectsIsOneWarnEntryWithTheLabelLine()
+    {
+        using var log = new CapturedLog();
+        var plan = Plan(
+            MapOf(Ship(), Ship(), Ship("fother")),
+            Fbattle.Append(("fother", "baseName = fdreadnought")).ToArray()
+        );
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.EndsWith(line, " WARN sandbox: " + plan.Reports.Single().Text);
+    }
+
+    [TestMethod]
+    public void AnAsteroidFieldsGapIsLoggedOnceBySandboxPlanAndNotAgain()
+    {
+        const string odf =
+            "classLabel = AsteroidField\nminAsteroids = 1\nmaxAsteroids = 2\nfieldRadius = 50\nrotationSpeed = 1\norbitingSpeed = 1";
+        using var log = new CapturedLog();
+        var plan = Plan(MapOf(Ship("mafield")), new[] { ("mafield", odf) }, "master", "master1");
+        var line = Assert.ContainsSingle(log.Lines);
+        StringAssert.EndsWith(line, plan.Reports.Single().Text);
+    }
+
+    [TestMethod]
+    public void APlanWithoutGapsLogsNothing()
+    {
+        using var log = new CapturedLog();
+        Plan(MapOf(Ship()), Fbattle, "fdreadnought");
+        Assert.AreEqual(0, log.Lines.Count);
     }
 
     [TestMethod]

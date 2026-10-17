@@ -70,7 +70,8 @@ public partial class UnitOrders : Node3D
                     u.Movable && u.Unit is Ship && _plan.Physics.ContainsKey(u.Object)
                 )),
             combat.ShieldDamageProtection,
-            random.NextDouble
+            random.NextDouble,
+            combat.SystemHitpointsBonus
         );
         _fighting = _world.Units.Select(u => u.Unit).ToHashSet();
     }
@@ -113,7 +114,13 @@ public partial class UnitOrders : Node3D
                 _world.Attack(unit.Object, clicked.Object); // refused for a unit without weapons: it ignores the click
                 continue;
             }
-            if (target is not { } to || !unit.Movable || Motion(unit.Object) is not { } motion)
+            // a ship with destroyed engines, or a derelict one, takes no move order
+            if (
+                target is not { } to
+                || !unit.Movable
+                || _world.State(unit.Object) is { Immobile: true }
+                || Motion(unit.Object) is not { } motion
+            )
                 continue;
             _world.ClearOrder(unit.Object);
             motion.SetTarget(to.X, to.Y);

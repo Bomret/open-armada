@@ -69,7 +69,10 @@ static class CombatFixtures
         float shieldDelay = 0,
         float crew = 100,
         float maximumCrew = 100,
-        float hull = 100
+        float hull = 100,
+        IReadOnlyList<SystemProfile>? systems = null,
+        float lifeSupportLoss = 0,
+        RaceValues? race = null
     ) =>
         new(
             weapons ?? new List<WeaponProfile>(),
@@ -78,14 +81,23 @@ static class CombatFixtures
             shieldDelay,
             crew,
             maximumCrew,
-            new List<SystemProfile>(),
+            systems ?? new List<SystemProfile>(),
             hull,
-            0,
+            lifeSupportLoss,
             false,
             true,
             "",
-            Race
+            race ?? Race
         );
+
+    // A ship system: hit points, hit percent, crew loss percent, repair time (seconds for the whole system).
+    public static SystemProfile Sys(
+        string name,
+        float hitPoints = 5,
+        float percent = 10,
+        float crewLoss = 0,
+        float repairTime = 10
+    ) => new(name, hitPoints, percent, crewLoss, repairTime);
 
     public static PlacedObject Placed(string label, int team, float x, float z = 0) =>
         new(label, "c", "m", team, 0, new Vector3(x, 0, z), Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);

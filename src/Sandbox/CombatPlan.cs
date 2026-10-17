@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
@@ -109,7 +108,7 @@ public sealed class CombatPlan
         }
         catch (Exception e) // a header that is missing or cannot be read is a gap, whatever the reason (INV-0002)
         {
-            if (e is FileNotFoundException)
+            if (Log.IsAbsent(e))
             {
                 gaps.Add($"{GameConstantsKind.FileName} missing, stand-ins used for its constants", e.Message);
             }
@@ -329,14 +328,14 @@ public sealed class CombatPlan
                 }
                 catch (Exception e) // unreadable for whatever reason: reported, the weapon is left out (INV-0002)
                 {
-                    if (e is not FileNotFoundException)
+                    if (!Log.IsAbsent(e))
                     {
                         Failed($"{what} definition {name}", e);
                     }
 
                     _resolved[file] = found = (
                         null,
-                        e is FileNotFoundException
+                        Log.IsAbsent(e)
                             ? $"{what} definition missing, weapon left out"
                             : $"{what} definition {CannotBeRead}, weapon left out"
                     );
@@ -406,15 +405,14 @@ public sealed class CombatPlan
                 }
                 catch (Exception e) // missing or unreadable for whatever reason: a gap, whatever the reason (INV-0002)
                 {
-                    if (e is not FileNotFoundException)
+                    if (!Log.IsAbsent(e))
                     {
                         Failed("races.odf", e);
                     }
 
-                    _racesProblem =
-                        e is FileNotFoundException
-                            ? "races.odf missing, stand-in race values used"
-                            : $"races.odf {CannotBeRead}, stand-in race values used";
+                    _racesProblem = Log.IsAbsent(e)
+                        ? "races.odf missing, stand-in race values used"
+                        : $"races.odf {CannotBeRead}, stand-in race values used";
 
                     return null;
                 }
@@ -431,7 +429,7 @@ public sealed class CombatPlan
                     }
                     catch (Exception e) // a race file that cannot be read is no race: its race is reported as unreadable
                     {
-                        if (e is not FileNotFoundException)
+                        if (!Log.IsAbsent(e))
                         {
                             _raceFileUnreadable = true;
                             Failed($"race definition {list.GetString(slot.Key)}", e);

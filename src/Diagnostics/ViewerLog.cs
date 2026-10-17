@@ -60,14 +60,14 @@ public static class ViewerLog
 
     /// <summary>
     /// The texture <c>name</c> did not load, once per run in <c>area</c>, the area of the view that loaded it
-    /// first: WARN when the install lacks it (<see cref="FileNotFoundException"/>, absent data), else ERROR, an
+    /// first: WARN when the install lacks it (<see cref="Log.IsAbsent"/>, absent data), else ERROR, an
     /// asset that failed to load (INV-0005); both name the texture and the reason (INV-0002).
     /// </summary>
     public static void TextureFailed(Area area, string name, Exception e)
     {
         if (!LoggedTextures.Add(name))
             return;
-        if (e is FileNotFoundException)
+        if (Log.IsAbsent(e))
         {
             Log.Warn(area, $"texture {Log.Quote(name)} missing: {e.Message}");
         }

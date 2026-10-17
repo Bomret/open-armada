@@ -286,7 +286,7 @@ public sealed class CombatArt
         }
         catch (Exception e) // unreadable for whatever reason: reported, the destruction shows none (INV-0002)
         {
-            if (e is FileNotFoundException)
+            if (Log.IsAbsent(e))
             {
                 _gaps.Add(MissingExplosion, fireball, unit);
             }

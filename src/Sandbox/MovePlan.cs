@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
 
@@ -50,7 +49,7 @@ public sealed class MovePlan
             }
             catch (Exception e) // a physics definition that cannot be resolved is a gap, whatever the reason (INV-0002)
             {
-                if (e is FileNotFoundException)
+                if (Log.IsAbsent(e))
                 {
                     // absent data, such as a base definition the install does not hold: the WARN of the gap
                     gaps.Add("physics definition missing, ships cannot move", o.Class);

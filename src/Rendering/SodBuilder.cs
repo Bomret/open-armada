@@ -149,7 +149,7 @@ public sealed class SodBuilder
             }
             else if (_why.TryGetValue(name, out var why))
             {
-                var cause = why is FileNotFoundException ? MissingSpriteTexture : NoSpriteTexture;
+                var cause = Log.IsAbsent(why) ? MissingSpriteTexture : NoSpriteTexture;
                 gaps.Add(cause, $"{name} ({why.Message})", sprite.Node);
             }
             else

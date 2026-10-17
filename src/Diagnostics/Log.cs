@@ -102,6 +102,12 @@ public static class Log
     public static string Quote(string value) =>
         "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r") + "\"";
 
+    /// <summary>
+    /// Whether <c>e</c> says the install lacks the data, as opposed to data that failed to load: absent data
+    /// is a WARN, a failed load an ERROR (INV-0005).
+    /// </summary>
+    public static bool IsAbsent(Exception e) => e is System.IO.FileNotFoundException;
+
     /// <summary>Writes an <see cref="Level.Error"/> entry: something broke.</summary>
     public static void Error(Area area, string text) => Write(Level.Error, area, text);
 

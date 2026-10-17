@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Numerics;
 using OpenArmada.Assets;
@@ -142,7 +141,7 @@ public sealed class SandboxPlan
             {
                 found[cls] = ResolvedDefinition.Resolve(files, cls + ".odf");
             }
-            catch (FileNotFoundException) { }
+            catch (Exception e) when (Log.IsAbsent(e)) { }
             catch (Exception e)
             {
                 // an asset failed to load: one ERROR with its name and reason (INV-0005); the gap of its

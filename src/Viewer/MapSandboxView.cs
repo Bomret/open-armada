@@ -118,7 +118,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         {
             // CombatPlan.Build read the same file above and logged its cause (WARN missing, ERROR unreadable);
             // this line is only shown.
-            var what = e is System.IO.FileNotFoundException ? "missing" : "cannot be read";
+            var what = Log.IsAbsent(e) ? "missing" : "cannot be read";
             AddGap($"{GameConstantsKind.FileName} {what}, the camera uses its stand-ins: {e.Message}");
             _rig = new CameraRig(null, bounds);
         }

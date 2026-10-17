@@ -132,7 +132,7 @@ public partial class CombatView : Node3D
         {
             // The grouped gap is display only; the texture is one entry per run, WARN when missing, else ERROR.
             _art.Report(
-                e is System.IO.FileNotFoundException
+                Log.IsAbsent(e)
                     ? "sprite texture missing, its shots are not drawn"
                     : "sprite texture cannot be read, its shots are not drawn",
                 name

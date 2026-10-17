@@ -15,7 +15,7 @@ The KB is **human-consumption first**.
 
   - `Players` → `Getting started`, `Known limitations`
   - `Modders` → `File formats` (one page per format: `SOD models`, `ODF definitions`, `BZN maps`,
-    `SPR sprites`, `Textures`), `Asset loading`
+    `SPR sprites`, `Textures`), `Asset loading`, `Built-in maps`
   - `Developers` → `Architecture`, `Build and setup`, `Roadmap`, `Selection display`, `ADR summaries` (aggregate,
     sections `## ADR NNNN: <title>`), `Changelog` (aggregate, sections `## <feature>`)
 

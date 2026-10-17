@@ -109,6 +109,9 @@ The ordnance definition's `classLabel` decides how a shot travels.
 - **Poleron torpedo** (`polerontorpedo`) flies as a torpedo, and **pulse phaser** (`pphaser`) flies
   straight at `shotSpeed` and hits on contact (**stand-in** for both).
 
+A flying shot touches a unit within at least 5 world units of its center, so a unit whose model has no
+meshes (radius 0) can be hit (**stand-in**; the game's collision radius is not known).
+
 ## Damage
 
 A shot that lands deals `damageBase` plus a random part of up to `damageVariance` either way (0x4e7158).

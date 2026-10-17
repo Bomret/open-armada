@@ -281,6 +281,20 @@ public class CombatWorldTests
     }
 
     [TestMethod]
+    public void ATorpedoHitsAZeroRadiusTargetItPassesClosely()
+    {
+        var torpedo = Beam(label: "photontorpedo", speed: 50, life: 10, omega: 0, threshold: 99);
+        var a = Fighter("a", 1, 0, Weapon(torpedo, delay: 100, range: 200));
+        var b = Fighter("b", 2, 100, shields: 0); // radius 0, as a unit whose model has no meshes
+        var world = World(out var poses, null, a, b);
+        world.Attack(a.Object, b.Object);
+        world.Step(0.02);
+        // the target moves one unit aside; the torpedo flies on straight and passes one unit from its center
+        poses.Advance(b.Object, MovingTo(b.Object, 100, 1), 1000);
+        Assert.AreEqual(1, world.Step(3).OfType<ShotLanded>().Count());
+    }
+
+    [TestMethod]
     public void ATorpedoHitsTheShieldBubbleWhileShieldsAreUp()
     {
         // life 1.55 s at 50 per second flies 77.5 of the 100 to the center: inside the bubble, short of the hull

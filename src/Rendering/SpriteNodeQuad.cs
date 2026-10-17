@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 using OpenArmada.Sandbox;
 
@@ -7,7 +8,8 @@ namespace OpenArmada.Rendering;
 // hidden while the node is. It shows its sprite's flipbook and its node animation (drawn or not, colour) on its own
 // clock, started when it enters the scene and advanced by elapsed time, so the pace holds at any frame rate.
 // A copy of a built model (Duplicate) carries the resolved sprite node in metadata and takes its own material and
-// clock when it enters the scene, so copies of one template animate independently.
+// clock when it enters the scene, so copies of one template animate independently. Node animations loop unless
+// PlayOnce says otherwise; playing once holds the last keyframe.
 public partial class SpriteNodeQuad : MeshInstance3D
 {
     const string Meta = "sprite_node";
@@ -19,6 +21,7 @@ public partial class SpriteNodeQuad : MeshInstance3D
         public Texture2D Texture = null!;
     }
 
+    bool _loop = true;
     Data? _data;
     StandardMaterial3D? _material;
     float _opacity;
@@ -48,6 +51,13 @@ public partial class SpriteNodeQuad : MeshInstance3D
         return quad;
     }
 
+    // Every sprite node under `root` plays its node animation once from when it enters the scene.
+    public static void PlayOnce(Node root)
+    {
+        foreach (var quad in root.FindChildren("*", "", true, false).OfType<SpriteNodeQuad>())
+            quad._loop = false;
+    }
+
     public override void _Ready()
     {
         _data = GetMeta(Meta).As<Data>();
@@ -67,7 +77,7 @@ public partial class SpriteNodeQuad : MeshInstance3D
     {
         if (_data == null || _material == null)
             return;
-        var (draw, colour) = _data.Node.At(_time, loop: true);
+        var (draw, colour) = _data.Node.At(_time, _loop);
         Visible = draw;
         _material.AlbedoColor = new Color(colour.X, colour.Y, colour.Z, _opacity);
         SpriteMaterial.ShowFrame(_material, _data.Node.Sprite.Sprite, _data.Node.Sprite.FrameAt(_time), _data.Texture);

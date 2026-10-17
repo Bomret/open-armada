@@ -131,7 +131,9 @@ public partial class MapSandboxView : Node3D
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.
         var art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
-        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders));
+        var (eye, target) = _rig.Pose; // the camera's opening pose: no input has moved it yet
+        var falloff = SoundFalloff.For(System.Numerics.Vector3.Distance(eye, target));
+        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, AddGap));
         _gaps.AddRange(art.Reports.Select(r => r.Text));
 
         AddChild(new AsteroidFieldsView(files, plan, AddGap));

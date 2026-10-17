@@ -47,19 +47,24 @@ public partial class CombatView : Node3D
     readonly Dictionary<string, Node3D> _models = new(StringComparer.OrdinalIgnoreCase);
     readonly List<Drawn> _drawn = new();
     readonly GameFileSystem _files;
+    readonly SoundFalloff _falloff;
 
     // Reads every texture, sound, and model the fight can show now, so what fails is reported with the map's
-    // gaps. `nodes` are the unit nodes of the scene; `models` build the explosion models.
+    // gaps. `nodes` are the unit nodes of the scene; `models` build the explosion models, whose problems go to
+    // `gap`; `falloff` is how every fire and explosion sound fades with distance.
     public CombatView(
         GameFileSystem files,
         CombatArt art,
         CombatWorld world,
         Dictionary<PlacedObject, Node3D> nodes,
         SodBuilder builder,
-        UnitOrders orders
+        UnitOrders orders,
+        SoundFalloff falloff,
+        Action<string> gap
     )
     {
         _files = files;
+        _falloff = falloff;
         _art = art;
         _world = world;
         _nodes = nodes;
@@ -78,7 +83,11 @@ public partial class CombatView : Node3D
         foreach (var name in art.ExplosionModels)
             try
             {
-                _models[name] = builder.Build(Sod.Read(files.ReadAllBytes(name + ".sod")));
+                {
+                    _models[name] = builder.Build(Sod.Read(files.ReadAllBytes(name + ".sod")));
+                    foreach (var problem in builder.Problems)
+                        gap($"{name}: {problem}");
+                }
             }
             catch (Exception e) // a model that cannot be read is a gap, whatever the reason (INV-0002)
             {
@@ -152,7 +161,16 @@ public partial class CombatView : Node3D
     {
         if (!_sounds.TryGetValue(name, out var stream)) // only a sound the install holds and Godot decodes is read
             return;
-        var player = new AudioStreamPlayer3D { Stream = stream, Position = at };
+        // stand-in: the attenuation filter is off (20500 Hz), so a far sound is quieter but not muffled.
+        var player = new AudioStreamPlayer3D
+        {
+            Stream = stream,
+            Position = at,
+            UnitSize = _falloff.UnitSize,
+            MaxDb = _falloff.MaxDb,
+            MaxDistance = _falloff.MaxDistance,
+            AttenuationFilterCutoffHz = 20500,
+        };
         player.Finished += player.QueueFree;
         AddChild(player);
         player.Play();
@@ -257,7 +275,10 @@ public partial class CombatView : Node3D
         PlaySound(explosion.Sound ?? "", at);
         if (explosion.Model == null || !_models.TryGetValue(explosion.Model, out var template))
             return;
+        // Each explosion plays its sprite nodes once from the moment of destruction, on its own clock.
+        // stand-in: the install does not say whether explosions loop.
         var node = (Node3D)template.Duplicate();
+        SpriteNodeQuad.PlayOnce(node);
         node.Position = at;
         AddChild(node);
         GetTree().CreateTimer(explosion.Length).Timeout += () =>
@@ -265,6 +286,16 @@ public partial class CombatView : Node3D
             if (IsInstanceValid(node))
                 node.QueueFree();
         };
+    }
+
+    // The explosion templates are never in the scene, so they go with the view.
+    public override void _Notification(int what)
+    {
+        if (what != NotificationPredelete)
+            return;
+        foreach (var template in _models.Values)
+            if (IsInstanceValid(template))
+                template.Free();
     }
 
     public override void _Process(double delta)

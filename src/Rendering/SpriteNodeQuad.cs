@@ -73,13 +73,36 @@ public partial class SpriteNodeQuad : MeshInstance3D
         Apply();
     }
 
+    // The resolved sprite node and its texture, for a draw that shows this quad's sprite node elsewhere.
+    public (SpriteNode Node, Texture2D Texture) Sprite
+    {
+        get
+        {
+            var data = GetMeta(Meta).As<Data>();
+            return (data.Node, data.Texture);
+        }
+    }
+
     void Apply()
     {
         if (_data == null || _material == null)
             return;
-        var (draw, colour) = _data.Node.At(_time, _loop);
-        Visible = draw;
-        _material.AlbedoColor = new Color(colour.X, colour.Y, colour.Z, _opacity);
-        SpriteMaterial.ShowFrame(_material, _data.Node.Sprite.Sprite, _data.Node.Sprite.FrameAt(_time), _data.Texture);
+        Visible = Show(_material, _data.Node, _data.Texture, _opacity, _time, _loop);
+    }
+
+    // Sets `material` to the sprite node's frame and colour at `seconds` (`opacity` is the blend's); whether it is drawn.
+    public static bool Show(
+        StandardMaterial3D material,
+        SpriteNode node,
+        Texture2D texture,
+        float opacity,
+        double seconds,
+        bool loop
+    )
+    {
+        var (draw, colour) = node.At(seconds, loop);
+        material.AlbedoColor = new Color(colour.X, colour.Y, colour.Z, opacity);
+        SpriteMaterial.ShowFrame(material, node.Sprite.Sprite, node.Sprite.FrameAt(seconds), texture);
+        return draw;
     }
 }

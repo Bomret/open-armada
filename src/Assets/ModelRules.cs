@@ -97,6 +97,9 @@ public static class ModelRules
     // Whether a sprite's or mesh's texture material names a render type the engine draws.
     public static bool IsRenderType(string name) => Named.ContainsKey(name);
 
+    // The draw state of a named render type, whatever its case; null when the engine does not know the name.
+    public static BlendState? Blend(string name) => Named.GetValueOrDefault(name);
+
     // The texture and blend of a mesh. Versions from 1.7 name the render type; older files name an entry of
     // their own texture material table. The game itself rejects files below 1.4 (Armada.exe FUN_0059b450);
     // the engine still draws the 1.2 models of the install, blended by their entries.

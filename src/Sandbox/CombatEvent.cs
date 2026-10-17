@@ -41,9 +41,13 @@ public sealed class Shot(
     WeaponProfile weapon,
     bool hits,
     Vector3 position,
-    Vector3 direction
+    Vector3 direction,
+    string? hardpoint = null
 )
 {
+    // The name of the hardpoint node the weapon fires this shot from; null when the weapon names none.
+    public string? Hardpoint { get; } = hardpoint;
+
     public ShotKind Kind { get; } = kind;
     public UnitCombatState Shooter { get; } = shooter;
     public UnitCombatState Target { get; } = target;

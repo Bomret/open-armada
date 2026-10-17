@@ -79,6 +79,9 @@ public partial class UnitOrders : Node3D
     // The combat state of the units still in the fight.
     public CombatWorld Combat => _world;
 
+    // Raised with the events of each frame's step, before a destroyed unit's node leaves the scene.
+    public event Action<IReadOnlyList<CombatEvent>>? Stepped;
+
     // Half the longest side of the box around the model's meshes, as the selection's picks take it; 0 without meshes.
     // stand-in: the unit radius is read from the mesh box; the game's collision radius is not known.
     static float Radius(Node3D node) =>
@@ -178,7 +181,7 @@ public partial class UnitOrders : Node3D
         // A failure of one frame's combat never stops the sandbox (INV-0002); the next frame goes on.
         try
         {
-            _world.Step(delta);
+            Stepped?.Invoke(_world.Step(delta));
         }
         catch (Exception e)
         {

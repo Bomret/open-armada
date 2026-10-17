@@ -287,8 +287,7 @@ public class SandboxPlanTests
             Fbattle.Append(("fother", "baseName = fdreadnought")).ToArray()
         );
         var line = Assert.ContainsSingle(log.Lines);
-        StringAssert.Contains(line, " WARN sandbox: " + plan.Reports.Single().Text);
-        Assert.AreEqual(1, log.Lines.Count);
+        StringAssert.EndsWith(line, " WARN sandbox: " + plan.Reports.Single().Text);
     }
 
     [TestMethod]

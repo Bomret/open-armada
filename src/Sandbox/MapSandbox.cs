@@ -27,7 +27,12 @@ public sealed record MapSandbox
     public static MapSandbox Open(string? game, string? map, IReadOnlyList<string> argProblems)
     {
         if (argProblems.Count > 0)
-            return Failed(string.Join("; ", argProblems), argumentProblems: true);
+        {
+            Log.Error(Area.Sandbox, "map sandbox cannot open: the launch arguments have problems");
+
+            return Unopened(string.Join("; ", argProblems));
+        }
+
         var browser = AssetBrowser.Open(game, Array.Empty<AssetKind>());
         if (browser.Problem != null)
             return Failed(browser.Problem);
@@ -80,7 +85,7 @@ public sealed record MapSandbox
     /// <summary>Logs a screenshot run's end: INFO with the absolute path when <c>failure</c> is null, else ERROR with path and reason.</summary>
     public static void LogScreenshot(string path, string? failure)
     {
-        var full = Path.GetFullPath(path);
+        var full = Log.Quote(Path.GetFullPath(path));
         if (failure == null)
             Log.Info(Area.Sandbox, $"screenshot saved: {full}");
         else
@@ -89,18 +94,18 @@ public sealed record MapSandbox
 
     // The problem that stops the sandbox opening is one ERROR entry. The command line's own problems are logged
     // once as WARN entries of area run at run start, so their text is not repeated here.
-    static MapSandbox Failed(string problem, bool argumentProblems = false)
+    static MapSandbox Failed(string problem)
     {
-        Log.Error(
-            Area.Sandbox,
-            argumentProblems ? "map sandbox cannot open: the launch arguments have problems" : problem
-        );
+        Log.Error(Area.Sandbox, problem);
 
-        return new()
+        return Unopened(problem);
+    }
+
+    static MapSandbox Unopened(string problem) =>
+        new()
         {
             Files = null,
             Plan = null,
             Problem = problem,
         };
-    }
 }

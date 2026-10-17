@@ -2,6 +2,7 @@ using System;
 using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenArmada.Diagnostics;
 using OpenArmada.Sandbox;
 
 namespace OpenArmada.Tests;
@@ -115,7 +116,10 @@ public class MapSandboxTests
         using var log = new CapturedLog();
         MapSandbox.LogScreenshot("shot.png", null);
         var line = Assert.ContainsSingle(log.Lines);
-        StringAssert.EndsWith(line, " INFO sandbox: screenshot saved: " + System.IO.Path.GetFullPath("shot.png"));
+        StringAssert.EndsWith(
+            line,
+            " INFO sandbox: screenshot saved: " + Log.Quote(System.IO.Path.GetFullPath("shot.png"))
+        );
     }
 
     [TestMethod]
@@ -125,7 +129,7 @@ public class MapSandboxTests
         MapSandbox.LogScreenshot("shot.png", "ERR_FILE_CANT_WRITE");
         var line = Assert.ContainsSingle(log.Lines);
         StringAssert.Contains(line, " ERROR sandbox: ");
-        StringAssert.Contains(line, System.IO.Path.GetFullPath("shot.png"));
+        StringAssert.Contains(line, Log.Quote(System.IO.Path.GetFullPath("shot.png")));
         StringAssert.Contains(line, "ERR_FILE_CANT_WRITE");
     }
 

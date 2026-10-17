@@ -199,15 +199,14 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         }
         catch (Exception e) // a model that cannot be read is a gap, whatever the reason, and is read once (INV-0002)
         {
-            _unreadable.Add(model);
             Unreadable(model, e.Message);
 
             return null;
         }
     }
 
-    // Shows a gap on the label once. The producers that pass this (the orders, the combat view, the alert keys)
-    // log their own findings.
+    // Shows a gap on the label once. The producers that pass this (the orders, the combat view) log their own
+    // findings, and so does AlertBindings.Read for the alert keys.
     void AddGap(string gap)
     {
         if (!_gaps.Contains(gap))
@@ -222,12 +221,20 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         if (!_gaps.Contains(gap))
         {
             Log.Warn(Area.Sandbox, gap);
-            _gaps.Add(gap);
         }
+
+        AddGap(gap);
     }
 
-    // A model that cannot be read: an asset failed, so ERROR; shown on the label like any gap.
-    void Unreadable(string model, string reason) => AddGap(MapSandbox.LogUnreadableModel(model, reason));
+    // A model that cannot be read: an asset failed, so one ERROR per model however many producers report it;
+    // shown on the label like any gap.
+    void Unreadable(string model, string reason)
+    {
+        if (_unreadable.Add(model))
+        {
+            AddGap(MapSandbox.LogUnreadableModel(model, reason));
+        }
+    }
 
     // The background model sits behind every other object: it is scaled until its origin's nearest distance to
     // a face of its box passes the sandbox's reach, kept with its box center (its origin when inside) on the camera, and the far plane
@@ -377,8 +384,18 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         // Wait a few frames so textures are uploaded before capturing.
         if (screenshot == null || ++_frames < 5)
             return;
-        var saved = GetViewport().GetTexture().GetImage().SavePng(screenshot);
-        MapSandbox.LogScreenshot(screenshot, saved == Error.Ok ? null : saved.ToString());
+        string? failure;
+        try
+        {
+            var saved = GetViewport().GetTexture().GetImage().SavePng(screenshot);
+            failure = saved == Error.Ok ? null : saved.ToString();
+        }
+        catch (Exception e) // no image to take (headless: no viewport texture) is a failed save (INV-0002)
+        {
+            failure = e.Message;
+        }
+
+        MapSandbox.LogScreenshot(screenshot, failure);
         GetTree().Quit();
     }
 }

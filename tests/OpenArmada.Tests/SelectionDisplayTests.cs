@@ -265,6 +265,15 @@ public class SelectionDisplayTests
     }
 
     [TestMethod]
+    public void APickOfTheHeldUnitRestartsTheHold()
+    {
+        var hover = Hover(null, 0.3, Hover(A1));
+        hover = Hover(A1, 0.01, hover);
+        hover = Hover(null, 0.3, hover);
+        Assert.AreEqual(A1, hover.Hovered);
+    }
+
+    [TestMethod]
     public void ARemovedUnitEndsTheHoverOnThatFrameAndItsTeamIsNoLongerTheKey()
     {
         var hover = Hover(A1, 0.5, Hover(A1));

@@ -14,7 +14,9 @@ public sealed class PalettePreview : KindPreview
         var colors = (IReadOnlyList<(byte R, byte G, byte B)>)kind.Load(files, name);
         var image = Image.CreateEmpty(16, 16, false, Image.Format.Rgb8);
         for (var i = 0; i < colors.Count; i++)
+        {
             image.SetPixel(i % 16, i / 16, Color.Color8(colors[i].R, colors[i].G, colors[i].B));
+        }
         var swatches = new TextureRect
         {
             Texture = ImageTexture.CreateFromImage(image),

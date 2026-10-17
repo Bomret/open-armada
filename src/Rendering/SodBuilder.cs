@@ -31,14 +31,18 @@ public sealed class SodBuilder
     {
         _teamColor = color;
         foreach (var (material, surface) in _team)
+        {
             SurfaceMaterial.Apply(material, surface.WithTeam(color));
+        }
     }
 
     // Builds the model with its team materials in `teamColor` (the last color set when null).
     public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null)
     {
         if (teamColor != null)
+        {
             _teamColor = teamColor.Value;
+        }
         _team.Clear();
         _byNode.Clear();
         var analysis = ModelRules.Analyze(_files, sod);
@@ -54,23 +58,35 @@ public sealed class SodBuilder
         // in Problems), hangs from the root.
         var byName = new Dictionary<string, Node3D>();
         foreach (var (data, node) in nodes)
+        {
             byName.TryAdd(data.Name, node);
+        }
         Node3D? root = null;
         foreach (var (data, node) in nodes)
         {
             if (data.Parent.Length > 0 && byName.TryGetValue(data.Parent, out var parent) && !sod.InParentCycle(data))
+            {
                 parent.AddChild(node);
+            }
             else if (root == null)
+            {
                 root = node;
+            }
             else
+            {
                 root.AddChild(node);
+            }
         }
         root ??= new Node3D();
 
         // Damage and borgification overlays only appear in those game states.
         foreach (var node in root.FindChildren("*", "", true, false).OfType<Node3D>())
+        {
             if (((string)node.Name).ToLowerInvariant() is "damage" or "borg")
+            {
                 node.Visible = false;
+            }
+        }
 
         // A LOD control node holds one child per detail level; show only the most detailed.
         foreach (var lod in sod.Nodes.Where(n => n.Type == Sod.NodeType.LodControl).Select(n => byName[n.Name]))
@@ -78,12 +94,16 @@ public sealed class SodBuilder
             var levels = lod.GetChildren().OfType<Node3D>().ToList();
             var best = levels.OrderByDescending(VertexCount).FirstOrDefault();
             foreach (var level in levels)
+            {
                 level.Visible = level == best;
+            }
         }
 
         var animator = new TextureAnimator();
         foreach (var (node, flipbook) in analysis.Runs)
+        {
             animator.Add(_byNode[node], flipbook);
+        }
         root.AddChild(animator);
         Problems = analysis.Problems;
         return root;
@@ -124,12 +144,16 @@ public sealed class SodBuilder
                 }
             }
             if (!blend.Wireframe)
+            {
                 st.GenerateNormals();
+            }
             var surface = SurfaceOf(sod, group.Material);
             // Lines carry no normals, so a wireframe shades constant whatever the lighting material says
             // (the game keeps the material's model and shades the lines with it).
             if (blend.Wireframe)
+            {
                 surface = surface with { Model = LightingModel.Constant };
+            }
             var material = SurfaceMaterial.Create(surface, blend, texture, mesh.BackfaceCull);
             if (surface.Team)
             {
@@ -182,7 +206,9 @@ public sealed class SodBuilder
                 tex = ImageTexture.CreateFromImage(image);
             }
             else
+            {
                 why = "not a readable TGA";
+            }
         }
         catch (System.Exception e)
             when (e
@@ -195,7 +221,9 @@ public sealed class SodBuilder
             why = e.Message;
         }
         if (tex == null)
+        {
             GD.Print($"texture '{name}' unavailable ({why}), rendering untextured");
+        }
         return _textures[name] = tex;
     }
 

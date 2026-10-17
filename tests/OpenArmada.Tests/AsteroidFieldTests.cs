@@ -49,11 +49,15 @@ public class AsteroidFieldTests
         const float extent = 10,
             r = 100 - extent;
         foreach (var s in Enumerable.Range(0, 50))
-        foreach (var rock in Field((uint)s, 20, 30).Rocks(extent))
-        foreach (var t in new[] { 0.0, 3.7 })
         {
-            var d = rock.Pose(t).Position - new Vector3(10, 20, 30);
-            Assert.IsTrue(d.X * d.X / (r * r) + d.Y * d.Y / (r * r * 0.25f) + d.Z * d.Z / (r * r) <= 1.0001f);
+            foreach (var rock in Field((uint)s, 20, 30).Rocks(extent))
+            {
+                foreach (var t in new[] { 0.0, 3.7 })
+                {
+                    var d = rock.Pose(t).Position - new Vector3(10, 20, 30);
+                    Assert.IsTrue(d.X * d.X / (r * r) + d.Y * d.Y / (r * r * 0.25f) + d.Z * d.Z / (r * r) <= 1.0001f);
+                }
+            }
         }
     }
 
@@ -73,10 +77,14 @@ public class AsteroidFieldTests
         var field = Field(5, 20, 30, 100);
         var (min, max) = field.DrawBox(extent);
         foreach (var rock in field.Rocks(extent))
-        foreach (var t in new[] { 0.0, 1.3, 7.9, 25.0 })
         {
-            var p = rock.Pose(t).Position;
-            Assert.IsTrue(p.X >= min.X && p.Y >= min.Y && p.Z >= min.Z && p.X <= max.X && p.Y <= max.Y && p.Z <= max.Z);
+            foreach (var t in new[] { 0.0, 1.3, 7.9, 25.0 })
+            {
+                var p = rock.Pose(t).Position;
+                Assert.IsTrue(
+                    p.X >= min.X && p.Y >= min.Y && p.Z >= min.Z && p.X <= max.X && p.Y <= max.Y && p.Z <= max.Z
+                );
+            }
         }
     }
 
@@ -118,7 +126,9 @@ public class AsteroidFieldTests
         {
             double t = 0;
             for (var i = 0; i < 10 / step; i++)
+            {
                 t += step;
+            }
             return t;
         }
         var a = rock.Pose(Advance(0.5));

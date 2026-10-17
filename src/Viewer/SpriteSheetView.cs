@@ -16,7 +16,9 @@ public partial class SpriteSheetView : Control
         CustomMinimumSize = new Vector2(image.GetWidth(), image.GetHeight());
         TextureFilter = TextureFilterEnum.Nearest;
         foreach (var s in sprites)
+        {
             _regions.Add((s, Region(s, new SpriteFrame(s.U, s.V, s.W, s.H), image.GetSize())));
+        }
     }
 
     // A frame in reference pixels as a rectangle of the texture; without a reference it is in texture pixels.

@@ -47,7 +47,9 @@ public sealed class GameConstants
         var c = new GameConstants(name);
         var lines = text.Split('\n');
         for (var i = 0; i < lines.Length; i++)
+        {
             c.ReadLine(StripComment(lines[i]).Trim(), i + 1);
+        }
         return c;
     }
 
@@ -63,7 +65,9 @@ public sealed class GameConstants
             : c.Number == null ? $"{Name}: constant {name} is not a literal: {c.Text}"
             : "";
         if (c?.Number is { } n)
+        {
             value = n;
+        }
         return problem.Length == 0;
     }
 
@@ -74,7 +78,9 @@ public sealed class GameConstants
         for (var i = 0; i < line.Length; i++)
         {
             if (line[i] == '"')
+            {
                 quoted = !quoted;
+            }
             else if (!quoted && line[i] == '/' && i + 1 < line.Length && line[i + 1] == '/')
                 return line[..i];
         }
@@ -99,7 +105,9 @@ public sealed class GameConstants
         if (Declaration.Match(line) is { Success: true } decl && decl.Groups[3].Value.Length > 0)
         {
             if (decl.Groups[4].Value.Length == 0)
+            {
                 _notes.Add($"{at}: {decl.Groups[2].Value} lacks the closing ';'");
+            }
             Add(decl.Groups[2].Value, decl.Groups[1].Value, decl.Groups[3].Value, number);
             return;
         }
@@ -111,9 +119,13 @@ public sealed class GameConstants
         var at = $"{Name}:{line}";
         GameConstant c;
         if (Quoted.Match(value) is { Success: true } q)
+        {
             c = new(name, type, null, q.Groups[1].Value, true, line);
+        }
         else if (Literal.IsMatch(value) && (type != "int" || IntLiteral.IsMatch(value)))
+        {
             c = new(name, type, double.Parse(value.TrimEnd('f', 'F'), CultureInfo.InvariantCulture), null, false, line);
+        }
         else
         {
             c = new(name, type, null, value, false, line);

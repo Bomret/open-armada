@@ -26,6 +26,8 @@ public partial class AnimatedSpriteView : TextureRect
     {
         _time += delta;
         if (_frameSeconds > 0)
+        {
             _atlas.Region = _frames[(int)(_time / _frameSeconds) % _frames.Length];
+        }
     }
 }

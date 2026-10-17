@@ -69,7 +69,9 @@ public sealed class CameraRig
         }
         _bounds = bounds;
         if (constants == null)
+        {
             problems.Add("the game constants are unavailable: the camera uses stand-ins for every value");
+        }
 
         double Get(string name, double standIn, Func<double, bool> legal, string rule)
         {
@@ -105,9 +107,11 @@ public sealed class CameraRig
         var init = Get("OVERVIEW_INIT_HEIGHT", 450, v => v > 0, "not above 0");
         _initHeight = Math.Clamp(init, min, max);
         if (_initHeight != init)
+        {
             problems.Add(
                 $"constant OVERVIEW_INIT_HEIGHT {init} lies outside {min} to {max}: the camera starts at {_initHeight}"
             );
+        }
         Rotation = Wrap(Get("OVERVIEW_INIT_ROTATION", 0, _ => true, ""));
         _scrollCoefficient = Get("SCROLL_COEFFICIENT", 90000, v => v > 0, "not above 0");
         ZoomStep = Get("ZOOM_SCROLL_COEFFICIENT", 0.1, v => v > 0, "not above 0");
@@ -165,7 +169,9 @@ public sealed class CameraRig
     public void Pinch(double factor)
     {
         if (factor > 0)
+        {
             ChangeHeight(1 / factor - 1);
+        }
     }
 
     // `input` is (right, forward) on the screen; it turns with the rotation and shrinks with the distance of
@@ -222,7 +228,9 @@ public sealed class CameraRig
     {
         var r = radians % (2 * Math.PI);
         if (r < 0)
+        {
             r += 2 * Math.PI;
+        }
         return r >= 2 * Math.PI ? 0 : r;
     }
 }

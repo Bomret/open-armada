@@ -91,18 +91,26 @@ public sealed class SpriteTable
         var text = open(name) ?? throw new InvalidDataException($"{name}: sprite table not found");
         table.Parse(name, text, open, new List<string>(), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         foreach (var a in ambient ?? Array.Empty<SpriteTable>())
-        foreach (var (key, anim) in a._animations)
-            table._animations.TryAdd(key, anim);
+        {
+            foreach (var (key, anim) in a._animations)
+            {
+                table._animations.TryAdd(key, anim);
+            }
+        }
         foreach (var s in table._sprites)
         {
             if (s.Anim == null)
                 continue;
             if (!table._animations.TryGetValue(s.Anim, out var a))
+            {
                 table._notes.Add(
                     $"{s.Table}:{s.Line}: sprite '{s.Name}' uses animation '{s.Anim}', which no table read defines"
                 );
+            }
             else if (a.Auto != null && a.Count > 0)
+            {
                 CheckFlipbook(s, a);
+            }
         }
         return table;
     }
@@ -151,10 +159,14 @@ public sealed class SpriteTable
     {
         var cut = line.IndexOf('#');
         if (cut >= 0)
+        {
             line = line[..cut];
+        }
         cut = line.IndexOf("//", StringComparison.Ordinal);
         if (cut >= 0)
+        {
             line = line[..cut];
+        }
         return line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
     }
 
@@ -234,7 +246,9 @@ public sealed class SpriteTable
                     emitterBody.Clear();
                 }
                 else
+                {
                     emitterBody.Add(string.Join(" ", t));
+                }
                 continue;
             }
             if (t[0][0] == '@')

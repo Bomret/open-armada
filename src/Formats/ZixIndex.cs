@@ -44,6 +44,7 @@ public sealed class ZixIndex
         var dirs = new List<string?>();
         var faults = new List<string>();
         for (var section = 1; section <= 2; section++)
+        {
             while (true)
             {
                 if (!lines.MoveNext())
@@ -54,27 +55,36 @@ public sealed class ZixIndex
                     continue; // the volume table only serves CD installs
                 var parts = lines.Current.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length == 2 && parts[0].Equals("dir:", StringComparison.OrdinalIgnoreCase))
+                {
                     dirs.Add(parts[1].Trim());
+                }
                 else
                 {
                     dirs.Add(null);
                     faults.Add($"path line '{lines.Current}' is not a DIR: line (unsupported)");
                 }
             }
+        }
         var entries = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var byKey = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         while (lines.MoveNext())
         {
             var parts = lines.Current.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length != 2 || !int.TryParse(parts[0], out var dir))
+            {
                 faults.Add($"index line '{lines.Current}' is not '<dir index> <file name>'");
+            }
             else
             {
                 var name = parts[1].Trim();
                 if (dir < 1 || dir > dirs.Count)
+                {
                     faults.Add($"{name}: dir index {dir} is outside the {dirs.Count} listed dirs");
+                }
                 else if (entries.TryAdd(name, dir))
+                {
                     byKey.TryAdd(MemberKey(name), dir);
+                }
             }
         }
         return new ZixIndex(dirs, entries, byKey, faults);

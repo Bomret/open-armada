@@ -53,6 +53,7 @@ public sealed class CombatWorld
         _protection = shieldDamageProtection;
         _random = random;
         foreach (var u in units)
+        {
             _units[u.Unit] = new UnitCombatState(
                 u.Unit,
                 u.Profile,
@@ -61,6 +62,7 @@ public sealed class CombatWorld
                 u.Mobile,
                 systemHitpointsBonus
             );
+        }
     }
 
     // The shots in flight.
@@ -106,7 +108,9 @@ public sealed class CombatWorld
     {
         ClearOrder(unit);
         if (State(unit) is { } state)
+        {
             state.PlayerMove = (x, z);
+        }
     }
 
     // Advances the fight by `seconds` and returns the events of the ticks that ran.
@@ -126,7 +130,9 @@ public sealed class CombatWorld
                 && Math.Abs(at.X - to.X) < ArrivedWithin
                 && Math.Abs(at.Z - to.Z) < ArrivedWithin
             )
+            {
                 u.PlayerMove = null;
+            }
         }
         _pending += Math.Max(0, seconds);
         while (_pending + Epsilon >= Tick)
@@ -184,7 +190,9 @@ public sealed class CombatWorld
         if (u.Alert != AlertStance.Red && (u.AutoOrder || u.AutoMove))
         {
             if (u.AutoOrder)
+            {
                 u.Order = null;
+            }
             u.AutoOrder = u.AutoMove = false;
             u.Intent = u.Mobile ? new MoveIntent(MoveKind.Stop) : default;
         }
@@ -218,7 +226,9 @@ public sealed class CombatWorld
             {
                 u.Attacker = null;
                 if (u.AutoMove)
+                {
                     u.Intent = new MoveIntent(MoveKind.Stop);
+                }
                 u.AutoMove = false;
                 return;
             }
@@ -280,7 +290,9 @@ public sealed class CombatWorld
             while (weapon.Cooldown <= Epsilon)
             {
                 foreach (var hardpoint in weapon.Profile.Hardpoints)
+                {
                     events.Add(new ShotFired(Launch(u, weapon.Profile, target, hardpoint)));
+                }
                 weapon.Cooldown += delay;
                 if (delay <= Epsilon)
                 {
@@ -326,7 +338,9 @@ public sealed class CombatWorld
             hardpoint
         );
         if (hits)
+        {
             _shots.Add(shot);
+        }
         return shot;
     }
 
@@ -345,7 +359,9 @@ public sealed class CombatWorld
             {
                 // The beam ends without damage as soon as its shooter is gone or its target is beyond twice the range.
                 if (shot.Shooter.Destroyed || Surface(shot.Shooter, shot.Target) > 2 * shot.Weapon.Range)
+                {
                     _shots.Remove(shot);
+                }
                 else if (shot.Age + Epsilon >= ordnance.LifeSpan)
                 {
                     _shots.Remove(shot);
@@ -354,7 +370,9 @@ public sealed class CombatWorld
                 continue;
             }
             if (shot.Kind == ShotKind.Torpedo && shot.Age <= ordnance.SeekTime)
+            {
                 shot.Direction = Steer(shot, Tick);
+            }
             var step = shot.Direction * ordnance.ShotSpeed * (float)Tick;
             var reach =
                 shot.Target.Radius == 0 ? ZeroRadiusContactReach
@@ -366,9 +384,13 @@ public sealed class CombatWorld
                 Land(shot, events);
             }
             else if (shot.Age + Epsilon >= ordnance.LifeSpan)
+            {
                 _shots.Remove(shot); // expires without damage
+            }
             else
+            {
                 shot.Position += step;
+            }
         }
     }
 

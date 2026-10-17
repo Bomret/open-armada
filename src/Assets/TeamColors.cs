@@ -76,7 +76,9 @@ public sealed class TeamColors
             var color = Vector3.Zero;
             var valid = match != null && TryColor(match.Tokens, out color);
             if (match != null && !valid)
+            {
                 team._notes.Add($"teamcolor.odf: color '{name}' (key '{match.Key}') is not three numbers: black");
+            }
             team._colors[name] = valid ? color : Vector3.Zero;
         }
         return team;
@@ -89,11 +91,13 @@ public sealed class TeamColors
             return false;
         var v = new float[3];
         for (var i = 0; i < 3; i++)
+        {
             if (
                 !float.TryParse(t[i].TrimEnd('f'), NumberStyles.Float, CultureInfo.InvariantCulture, out v[i])
                 || !float.IsFinite(v[i])
             )
                 return false;
+        }
         color = new Vector3(v[0], v[1], v[2]);
         return true;
     }

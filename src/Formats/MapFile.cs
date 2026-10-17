@@ -47,24 +47,36 @@ public sealed class MapFile
                     openedAt = i + 1;
                 }
                 else if (Flat.Match(line) is { Success: true } f)
+                {
                     m._entries.Add(new MapEntry("", "", f.Groups[1].Value, f.Groups[2].Value, i + 1));
+                }
                 else
+                {
                     m._notes.Add($"{at}: unrecognized line '{line}'");
+                }
             }
             else if (line == "}")
+            {
                 section = null;
+            }
             else if (Item.Match(line) is { Success: true } it)
             {
                 var value = it.Groups[3].Value.Trim();
                 if (Label.Match(value) is { Success: true } l)
+                {
                     value = l.Groups[1].Value;
+                }
                 m._entries.Add(new MapEntry(section, it.Groups[1].Value, it.Groups[2].Value, value, i + 1));
             }
             else
+            {
                 m._notes.Add($"{at}: unrecognized line '{line}' in block '{section}'");
+            }
         }
         if (section != null)
+        {
             m._notes.Add($"{name}:{openedAt}: block '{section}' is not closed");
+        }
         return m;
     }
 }

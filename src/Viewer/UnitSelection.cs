@@ -49,19 +49,27 @@ public partial class UnitSelection : Node3D
         if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left } button)
         {
             if (button.Pressed)
+            {
                 _from = button.Position;
+            }
             else if (_from is { } from)
             {
                 _from = null;
                 _box.Box = null;
                 if (BoxSelect.IsClick(ToNumerics(from), ToNumerics(button.Position)))
+                {
                     Pick(button.Position);
+                }
                 else
+                {
                     Box(from, button.Position);
+                }
             }
         }
         else if (e is InputEventMouseMotion motion && _from is { } start)
+        {
             _box.Box = new Rect2(start, Vector2.Zero).Expand(motion.Position);
+        }
     }
 
     // The nearest object under the cursor; a unit is selected, anything else clears the selection.
@@ -82,7 +90,9 @@ public partial class UnitSelection : Node3D
             mark.Name.QueueFree();
         }
         if (_nodes.Remove(unit, out var node))
+        {
             node.QueueFree();
+        }
     }
 
     // The unit that is the nearest object under the cursor; null when the nearest object is no unit or there is

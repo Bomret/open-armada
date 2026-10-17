@@ -50,7 +50,9 @@ public sealed class MapKind : AssetKind
     {
         var cache = Loaded.GetOrCreateValue(files);
         if (!cache.TryGetValue(name, out var asset))
+        {
             cache[name] = asset = Read(files, name);
+        }
         return asset;
     }
 
@@ -63,7 +65,9 @@ public sealed class MapKind : AssetKind
         {
             var cells = Mdf.Read(Windows1252.Encoding.GetString(files.ReadAllBytes(stem + ".mdf")));
             for (var i = 0; i < cells.Count; i++)
+            {
                 starts.Add(new MapStart(i + 1, cells[i]));
+            }
         }
         var overview = files.Find(stem + ".bmp") != null ? stem + ".bmp" : null;
         var paths = files

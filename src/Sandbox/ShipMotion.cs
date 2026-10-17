@@ -72,9 +72,13 @@ public sealed class ShipMotion
         if (seconds > 0)
         {
             if (_target is { } target)
+            {
                 Advance(target, (float)seconds);
+            }
             else if (_facing is { } facing)
+            {
                 TurnToFace(facing, (float)seconds);
+            }
         }
         return Pose;
     }
@@ -89,7 +93,9 @@ public sealed class ShipMotion
         }
         var (_, error) = Turn(offset, seconds);
         if (error == 0)
+        {
             Stop();
+        }
     }
 
     // Turns toward the offset's bearing, the shorter way, never more than yawRotationRate allows in `seconds`, and

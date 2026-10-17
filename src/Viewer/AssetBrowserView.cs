@@ -97,7 +97,9 @@ public partial class AssetBrowserView : Control
             return;
         }
         foreach (var kind in _browser.Kinds)
+        {
             _kinds.AddItem(kind.Name);
+        }
         _kinds.ItemSelected += i =>
         {
             _browser.SelectKind((int)i);
@@ -117,7 +119,9 @@ public partial class AssetBrowserView : Control
     {
         _assets.Clear();
         foreach (var name in _browser.Assets)
+        {
             _assets.AddItem(name);
+        }
         if (_browser.Assets.Count == 0)
         {
             ShowMessage(_browser.Notice ?? $"no {_browser.Kind!.Name} in this install");

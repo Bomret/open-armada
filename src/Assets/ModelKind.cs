@@ -38,8 +38,12 @@ public sealed class ModelKind : AssetKind
         // One occurrence per missing animation, so an unrelated line with the same text stays.
         var lines = analysis.Problems.ToList();
         foreach (var m in analysis.MissingAnimations)
+        {
             if (m.Problem != null)
+            {
                 lines.Remove(m.Problem);
+            }
+        }
         return lines;
     }
 }

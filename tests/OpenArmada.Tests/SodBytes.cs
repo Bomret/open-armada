@@ -50,7 +50,9 @@ internal sealed class SodBytes
         {
             Id(m.Name);
             for (var i = 0; i < 9; i++)
+            {
                 _w.Write(0.5f); // ambient, diffuse, specular
+            }
             _w.Write(m.Power);
             _w.Write(m.Model);
         }
@@ -67,9 +69,13 @@ internal sealed class SodBytes
             Id(n.Name);
             Id(n.Parent);
             for (var i = 0; i < 12; i++)
+            {
                 _w.Write(i % 4 == 0 ? 1f : 0f);
+            }
             if (n.Mesh is { } m)
+            {
                 Mesh(m);
+            }
         }
         return this;
     }
@@ -77,15 +83,21 @@ internal sealed class SodBytes
     void Mesh(MeshSpec m)
     {
         if (_version >= 1.65f)
+        {
             Id(m.TextureMaterial);
+        }
         Id(m.Texture);
         _w.Write((ushort)m.Vertices);
         _w.Write((ushort)m.TexCoords);
         _w.Write((ushort)1);
         for (var i = 0; i < m.Vertices * 3; i++)
+        {
             _w.Write((float)i);
+        }
         for (var i = 0; i < m.TexCoords * 2; i++)
+        {
             _w.Write(0.5f);
+        }
         _w.Write((ushort)(m.Corners.Length / 3));
         Id(m.Lighting);
         foreach (var (v, t) in m.Corners)
@@ -110,7 +122,9 @@ internal sealed class SodBytes
             Id(r.Node);
             Id(r.Animation);
             if (_version >= 1.75f)
+            {
                 _w.Write(r.Offset);
+            }
         }
         return _ms.ToArray();
     }

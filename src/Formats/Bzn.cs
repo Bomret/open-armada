@@ -170,7 +170,9 @@ public static class Bzn
 
         var b = new float[6];
         for (var i = 0; i < 6; i++)
+        {
             b[i] = c.Float("map bounds");
+        }
         if (c.Bool("bounds rescale"))
             throw new UnsupportedFormatException("BZN with a bounds remap (rescale true) is not read");
         var bounds = new MapBounds(b[0], b[1], b[2], b[3], b[4], b[5]);
@@ -209,7 +211,9 @@ public static class Bzn
         var aoiCount = c.Count("AOI count", AoiSig.Length);
         var aois = new List<IReadOnlyList<MapToken>>();
         for (var i = 0; i < aoiCount; i++)
+        {
             aois.Add(c.Sig(AoiSig, $"AOI {i}"));
+        }
 
         var pathCount = c.Count("path count", 6);
         var paths = new List<MapPath>();
@@ -262,7 +266,9 @@ public static class Bzn
             var skip = 0;
             // The prefix ends at the tail; the next object's header inside the prefix means this record has no tail.
             while (skip <= MaxPrefix && !c.Matches(TailSig, skip) && !c.Matches(HeaderSig, skip))
+            {
                 skip++;
+            }
             if (skip > MaxPrefix || !c.Matches(TailSig, skip))
                 throw new InvalidDataException(
                     $"object {k} ({Cursor.Text(h[0].Data)}) at offset {offset}: no object tail before the next object or within {MaxPrefix} tokens, an unrecognized class record"

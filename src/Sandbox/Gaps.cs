@@ -19,9 +19,13 @@ internal sealed class Gaps
             gap = (new List<string>(), new HashSet<object>(ReferenceEqualityComparer.Instance), 0);
         }
         if (!gap.Names.Contains(name))
+        {
             gap.Names.Add(name);
+        }
         if (subject == null || gap.Subjects.Add(subject))
+        {
             gap.Count++;
+        }
         _byCause[cause] = gap;
     }
 

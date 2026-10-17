@@ -60,7 +60,9 @@ public sealed class CombatPlan
             }
             profiles[u.Object] = read.Profile;
             foreach (var (cause, name) in read.Gaps)
+            {
                 gaps.Add(cause, name, u.Object);
+            }
         }
         return new CombatPlan(profiles, gaps.Entries, protection, bonus);
     }
@@ -133,6 +135,7 @@ public sealed class CombatPlan
                 // a system without hit points does not exist on the unit
                 var hitPoints = r.Num(key + "HitPoints", 0);
                 if (hitPoints > 0)
+                {
                     systems.Add(
                         new SystemProfile(
                             name,
@@ -142,6 +145,7 @@ public sealed class CombatPlan
                             r.Num(key + "RepairTime", 0)
                         )
                     );
+                }
             }
             return new CombatProfile(
                 ReadWeapons(d, r, gaps),
@@ -190,7 +194,9 @@ public sealed class CombatPlan
                 var w = new Values(weapon, gaps);
                 var label = w.Str("classLabel");
                 if (label.Length == 0)
+                {
                     w.Gap("classLabel missing, weapon left out");
+                }
                 if (label != BeamClass && label != TorpedoClass)
                     continue;
                 var ordName = w.Str("ordName");
@@ -249,6 +255,7 @@ public sealed class CombatPlan
         {
             var file = name + ".odf";
             if (!_resolved.TryGetValue(file, out var found))
+            {
                 try
                 {
                     _resolved[file] = found = (ResolvedDefinition.Resolve(files, file), "");
@@ -262,8 +269,11 @@ public sealed class CombatPlan
                             : $"{what} definition cannot be read, weapon left out"
                     );
                 }
+            }
             if (found.Definition == null)
+            {
                 gaps.Add((found.Cause, name));
+            }
             return found.Definition;
         }
 
@@ -271,7 +281,9 @@ public sealed class CombatPlan
         {
             var race = unit.Str("race");
             if (race.Length == 0)
+            {
                 unit.Gap("race missing, stand-in race values used");
+            }
             else if (FindRace(race) is { } def)
             {
                 var r = new Values(def, gaps);
@@ -288,14 +300,18 @@ public sealed class CombatPlan
                 );
             }
             else if (_racesProblem != null)
+            {
                 unit.Gap(_racesProblem, "races.odf");
+            }
             else
+            {
                 unit.Gap(
                     _raceFileUnreadable
                         ? "race definition cannot be read, stand-in race values used"
                         : "race definition missing, stand-in race values used",
                     race
                 );
+            }
             return StandInRace;
         }
 
@@ -320,16 +336,20 @@ public sealed class CombatPlan
                     return null;
                 }
                 foreach (var slot in list.Indexed("race"))
+                {
                     try
                     {
                         var def = ResolvedDefinition.Resolve(files, list.GetString(slot.Key));
                         if (def.Has("name"))
+                        {
                             _races.TryAdd(def.GetString("name"), def);
+                        }
                     }
                     catch (Exception e) // a race file that cannot be read is no race: its race is reported as unreadable
                     {
                         _raceFileUnreadable |= e is not FileNotFoundException;
                     }
+                }
             }
             return _races.GetValueOrDefault(race);
         }
@@ -349,7 +369,9 @@ public sealed class CombatPlan
             if (!d.Has(key))
             {
                 if (report)
+                {
                     Gap($"{key} missing, stand-in {Text(shown)} used");
+                }
                 return standIn;
             }
             try
@@ -370,7 +392,9 @@ public sealed class CombatPlan
         {
             var v = Read(key, TargetValue.Of(standIn), standIn, report, () => d.GetTargetValue(key));
             if (v.Malformed)
+            {
                 Gap("per-target override malformed, default used", $"{Who}.{key}");
+            }
             return v;
         }
 

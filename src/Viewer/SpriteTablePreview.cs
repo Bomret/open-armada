@@ -19,6 +19,7 @@ public sealed class SpriteTablePreview : KindPreview
             System.StringComparer.OrdinalIgnoreCase
         );
         foreach (var sprite in table.Sprites)
+        {
             if (!loaded.ContainsKey(sprite.Texture))
             {
                 try
@@ -35,6 +36,7 @@ public sealed class SpriteTablePreview : KindPreview
                     loaded[sprite.Texture] = null;
                 }
             }
+        }
 
         var box = new VBoxContainer();
         var animated = table
@@ -74,7 +76,9 @@ public sealed class SpriteTablePreview : KindPreview
                 }
             );
             if (loaded[group.Key] is { } t)
+            {
                 box.AddChild(new SpriteSheetView(t.Image, group));
+            }
         }
         var scroll = new ScrollContainer
         {

@@ -127,7 +127,9 @@ public sealed class ResolvedDefinition
                 _missingIncludes.Add((name, path[^1]));
             }
             else
+            {
                 AddProblem($"include '{name}' cannot be read (included by {path[^1]}): {e.Message}");
+            }
             return false;
         }
         var odf = Odf.Parse(Windows1252.Encoding.GetString(bytes));
@@ -144,10 +146,16 @@ public sealed class ResolvedDefinition
         // The engine's rule, not confirmed against the game's reader: a repeated key in one file keeps
         // its last value, at the first one's place.
         foreach (var e in odf.Entries)
+        {
             own[e.Key] = e;
+        }
         foreach (var e in own.Values)
+        {
             if (_index.TryAdd(e.Key, _values.Count))
+            {
                 _values.Add(new DefinitionValue(e.Key, e.Tokens, origin, name));
+            }
+        }
 
         // The engine's rule, not confirmed against the game's reader: includes are visited depth first,
         // the last include first, so a later include (with everything it includes) beats an earlier one.
@@ -158,7 +166,9 @@ public sealed class ResolvedDefinition
     void AddProblem(string problem)
     {
         if (!_problems.Contains(problem))
+        {
             _problems.Add(problem);
+        }
     }
 
     bool WalkIncludes(
@@ -172,12 +182,18 @@ public sealed class ResolvedDefinition
         var cut = false;
         path.Add(name);
         for (var i = includes.Count - 1; i >= 0; i--)
+        {
             cut |= Visit(files, includes[i], path, visited);
+        }
         path.RemoveAt(path.Count - 1);
         if (cut)
+        {
             _cut[name] = (path.Count, includes);
+        }
         else
+        {
             _cut.Remove(name);
+        }
         return cut;
     }
 
@@ -191,11 +207,13 @@ public sealed class ResolvedDefinition
     {
         var found = new List<(int N, DefinitionValue Value)>();
         foreach (var v in _values)
+        {
             if (
                 v.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
                 && v.Key.Length > prefix.Length
                 && v.Key.AsSpan(prefix.Length).IndexOfAnyExceptInRange('0', '9') < 0
             )
+            {
                 // A suffix too large for an int sorts last.
                 found.Add(
                     (
@@ -210,6 +228,8 @@ public sealed class ResolvedDefinition
                         v
                     )
                 );
+            }
+        }
         return found.OrderBy(f => f.N).Select(f => f.Value).ToList();
     }
 
@@ -253,10 +273,14 @@ public sealed class ResolvedDefinition
             throw Wrong(key, "a number", t);
         var overrides = new Dictionary<string, float>();
         for (var i = 1; i < t.Count; i += 2)
+        {
             if (i + 1 >= t.Count || !TryNumber(t[i + 1], out var v))
                 return new TargetValue(def, new Dictionary<string, float>(), Malformed: true);
             else
+            {
                 overrides[t[i]] = v;
+            }
+        }
         return new TargetValue(def, overrides);
     }
 

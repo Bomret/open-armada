@@ -60,10 +60,12 @@ public static class InstallClassifier
             try
             {
                 foreach (var name in kind.Enumerate(files))
-                foreach (var entry in kind.Reads(files, name))
                 {
-                    reads.Entries.TryAdd(entry.ToLowerInvariant(), kind.Name);
-                    reads.Names.Add(Bare(entry.ToLowerInvariant()));
+                    foreach (var entry in kind.Reads(files, name))
+                    {
+                        reads.Entries.TryAdd(entry.ToLowerInvariant(), kind.Name);
+                        reads.Names.Add(Bare(entry.ToLowerInvariant()));
+                    }
                 }
             }
             catch (Exception) { }

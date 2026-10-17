@@ -86,11 +86,17 @@ public sealed class GameFileSystem
     void LoadSources()
     {
         if (ResolveDir(new[] { "addon" }) is { } addon)
+        {
             foreach (
                 var f in Entries(addon).Values.Where(File.Exists).OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
             )
+            {
                 if (Path.GetFileName(f).Contains(".zfs", StringComparison.OrdinalIgnoreCase) && OpenArchive(f) is { } a)
+                {
                     _addonArchives.Add(a);
+                }
+            }
+        }
 
         if (Resolve(new[] { "startrek.zix" }) is not { } zixPath)
             return;
@@ -114,21 +120,31 @@ public sealed class GameFileSystem
                 if (dir.Contains(".zfs", StringComparison.OrdinalIgnoreCase))
                 {
                     if (Resolve(parts) is { } path)
+                    {
                         archive = OpenArchive(path);
+                    }
                     else
+                    {
                         _faults.Add($"index/{dir}: archive is missing");
+                    }
                 }
                 else if ((folder = ResolveDir(parts)) == null)
+                {
                     _faults.Add($"index/{dir}: folder is missing");
+                }
             }
             _sources.Add(new Source(folder, archive));
         }
         foreach (var (name, dir) in _index.Entries)
+        {
             if (
                 (_sources[dir - 1].Folder != null || _sources[dir - 1].Archive != null)
                 && (FromAddon(name) ?? FromIndex(name)) == null
             )
+            {
                 _missing.Add($"index/{name}: not found in {_index.Dirs[dir - 1]}");
+            }
+        }
     }
 
     // Opens the archive file once; a later call returns the same result and reports no fault again.
@@ -210,8 +226,10 @@ public sealed class GameFileSystem
             _ => Array.Empty<string[]>(),
         };
         foreach (var folder in folders)
+        {
             if (Resolve(folder.Append(parts[0]).ToArray()) is { } found)
                 return new Hit(found);
+        }
         return null;
     }
 
@@ -227,8 +245,10 @@ public sealed class GameFileSystem
         )
             return new Hit(loose);
         foreach (var a in _addonArchives)
+        {
             if (a.Zfs.Contains(ZixIndex.MemberKey(name)))
                 return new Hit(null, a, ZixIndex.MemberKey(name));
+        }
         return null;
     }
 
@@ -259,10 +279,18 @@ public sealed class GameFileSystem
     {
         var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var folder in folders)
+        {
             if (ResolveDir(Parts(folder)) is { } dir)
+            {
                 foreach (var f in Directory.EnumerateFiles(dir).Select(Path.GetFileName).OfType<string>())
+                {
                     if (f.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+                    {
                         names.TryAdd(f, f);
+                    }
+                }
+            }
+        }
         return names.Values.ToList();
     }
 
@@ -303,7 +331,9 @@ public sealed class GameFileSystem
             return map;
         map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var e in Directory.EnumerateFileSystemEntries(dir))
+        {
             map.TryAdd(Path.GetFileName(e), e);
+        }
         return _entries[dir] = map;
     }
 }

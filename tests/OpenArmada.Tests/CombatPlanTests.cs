@@ -46,13 +46,17 @@ public class CombatPlanTests
     {
         // the install lists its races in races.odf; tests that do not bring their own list name fed.odf
         if (!loose.Any(l => l.Path is "addon/races.odf" or "addon/races.zfs" or NoRaces))
+        {
             loose = loose.Append(("addon/races.odf", "numberOfRaces = 1\r\nrace0 = \"fed.odf\"\r\n")).ToArray();
+        }
         var install = new GameFileSystem(
             temp.MakeInstall(definitions.Select(d => ($"addon/{d.Class}.odf", d.Odf)).Concat(loose).ToArray())
         );
         var map = new BznBuilder { Background = "" };
         foreach (var c in classes)
+        {
             map.Objects.Add(new BznBuilder.Obj(c, 1, new Vector3(1, 2, 3), c));
+        }
         var asset = new MapAsset(
             "bzn/t.bzn",
             Bzn.Read(map.Build()),

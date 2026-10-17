@@ -14,7 +14,9 @@ public sealed class AssetBrowser
         Files = files;
         Kinds = kinds;
         if (files != null && kinds.Count > 0)
+        {
             SelectKind(0);
+        }
     }
 
     // Set when there is no install to browse: names what is missing.
@@ -73,17 +75,23 @@ public sealed class AssetBrowser
     {
         int kind = -1;
         for (int i = 0; i < Kinds.Count; i++)
+        {
             if (Kinds[i].Name == ModelKind.KindName)
+            {
                 kind = i;
+            }
+        }
         if (kind < 0)
             return -1;
         SelectKind(kind);
         for (int i = 0; i < Assets.Count; i++)
+        {
             if (
                 Assets[i].Equals(name, StringComparison.OrdinalIgnoreCase)
                 || Assets[i].Equals(name + ".sod", StringComparison.OrdinalIgnoreCase)
             )
                 return i;
+        }
         return -1;
     }
 

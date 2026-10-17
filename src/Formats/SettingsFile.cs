@@ -39,7 +39,9 @@ public sealed class SettingsFile
                 !text.Equals("none", System.StringComparison.OrdinalIgnoreCase)
                 && !text.EndsWith(".bzn", System.StringComparison.OrdinalIgnoreCase)
             )
+            {
                 notes.Add($"{name}:{i + 1}: unrecognized line '{text}' (expected a .bzn name or none)");
+            }
         }
         return new SettingsFile(name, entries, notes);
     }

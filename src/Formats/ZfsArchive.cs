@@ -85,11 +85,17 @@ public sealed class ZfsArchive
                 continue; // deleted
             var compressed = (flags & 6) != 0;
             if ((flags & 0xF8) != 0 || (!compressed && flags >> 8 != 0))
+            {
                 _faults.Add($"{name}: unknown flag bits 0x{flags:x}");
+            }
             else if ((long)offset + size > _data.Length)
+            {
                 _faults.Add($"{name}: data at {offset} + {size} bytes lies past the end of the archive");
+            }
             else if (!_entries.TryAdd(name, ((int)offset, (int)size, flags)))
+            {
                 _faults.Add($"{name}: listed twice, the first entry is kept");
+            }
         }
     }
 
@@ -103,8 +109,12 @@ public sealed class ZfsArchive
             throw new UnsupportedFormatException($"{name}: compressed archive entry");
         var bytes = _data.AsSpan(e.Offset, e.Size).ToArray();
         if (_key != 0)
+        {
             foreach (ref var word in MemoryMarshal.Cast<byte, uint>(bytes)) // whole words only; the trailing remainder is plain
+            {
                 word ^= _key; // little-endian host, as the archive's words are
+            }
+        }
         return bytes;
     }
 }

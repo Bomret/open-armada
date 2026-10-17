@@ -21,7 +21,9 @@ public partial class TextureAnimator : Node
         {
             var o = animation.UvOffset(_time);
             foreach (var m in materials)
+            {
                 m.SetShaderParameter("uv_offset", new Vector2(o.X, o.Y));
+            }
         }
     }
 }

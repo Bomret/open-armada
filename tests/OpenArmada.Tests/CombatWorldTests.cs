@@ -454,7 +454,9 @@ public class CombatWorldTests
         var shortWorld = Build(out var t2);
         var shortEvents = new List<CombatEvent>();
         for (var i = 0; i < 500; i++)
+        {
             shortEvents.AddRange(shortWorld.Step(0.01));
+        }
         Assert.AreEqual(shortEvents.OfType<ShotFired>().Count(), longEvents.OfType<ShotFired>().Count());
         Assert.AreEqual(shortEvents.OfType<ShotLanded>().Count(), longEvents.OfType<ShotLanded>().Count());
         Assert.AreEqual(shortWorld.State(t2)!.Shields, longWorld.State(t1)!.Shields, 1e-6);
@@ -774,7 +776,9 @@ public class CombatWorldTests
         var (many, manyState) = Ailing();
         once.Step(6);
         for (var i = 0; i < 300; i++)
+        {
             many.Step(0.02);
+        }
         Assert.AreEqual(onceState.Crew, manyState.Crew, 1e-6);
         Assert.AreEqual(onceState.Systems["Sensors"].HitPoints, manyState.Systems["Sensors"].HitPoints, 1e-6);
         Assert.AreEqual(onceState.Systems["LifeSupport"].HitPoints, manyState.Systems["LifeSupport"].HitPoints, 1e-6);

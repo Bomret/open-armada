@@ -55,7 +55,9 @@ public class MoveGeometryTests
         ship.SetTarget(0, 100);
         var pose = ship.Step(0);
         for (var i = 0; i < 400; i++)
+        {
             pose = ship.Step(0.1);
+        }
         // heading 0 faces +Z; the ship arcs onto the line while it drives, so it has turned all but a small angle
         Assert.AreEqual(0, MathF.IEEERemainder(pose.Heading, 2 * MathF.PI), 0.2);
         Assert.AreEqual(100, pose.Position.Z, 1e-3);

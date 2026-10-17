@@ -41,9 +41,13 @@ public sealed class Odf
             if (trimmed.StartsWith("#include", StringComparison.Ordinal))
             {
                 if (Tokenize(trimmed[8..], out var inc, out var why) && inc.Count == 1)
+                {
                     odf._includes.Add(inc[0]);
+                }
                 else
+                {
                     odf._problems.Add($"line {n}: bad include ({why ?? "expected one name"})");
+                }
                 current = null;
             }
             else if (trimmed[0] == '[' && trimmed[^1] == ']')
@@ -65,12 +69,18 @@ public sealed class Odf
             else if (current != null && (char.IsWhiteSpace(line[0]) || trimmed[0] == '"')) // the game also writes quoted names flush left
             {
                 if (Tokenize(trimmed, out var more, out var why))
+                {
                     current.AddRange(more);
+                }
                 else
+                {
                     odf._problems.Add($"line {n}: {why}");
+                }
             }
             else
+            {
                 odf._problems.Add($"line {n}: not a key = value line: {Clip(trimmed)}");
+            }
         }
         return odf;
     }
@@ -84,7 +94,9 @@ public sealed class Odf
         for (var i = 0; i < line.Length; i++)
         {
             if (line[i] == '"')
+            {
                 quoted = !quoted;
+            }
             else if (!quoted && line[i] == '/' && i + 1 < line.Length && line[i + 1] == '/')
                 return line[..i];
         }
@@ -118,7 +130,9 @@ public sealed class Odf
             }
             var start = i;
             while (i < s.Length && !char.IsWhiteSpace(s[i]))
+            {
                 i++;
+            }
             tokens.Add(s[start..i]);
         }
         return true;

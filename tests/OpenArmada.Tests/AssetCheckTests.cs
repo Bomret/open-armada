@@ -17,7 +17,9 @@ public class AssetCheckTests
         var b = new List<byte>(Encoding.ASCII.GetBytes("Storm3D_SW"));
         b.AddRange(BitConverter.GetBytes(version));
         if (version >= 1.7f)
+        {
             b.AddRange(new byte[8]);
+        }
         return Encoding.Latin1.GetString(b.ToArray());
     }
 
@@ -148,7 +150,9 @@ public class AssetCheckTests
     public void UnreadableFolderFailsTheClassificationWithItsName()
     {
         if (OperatingSystem.IsWindows())
+        {
             Assert.Inconclusive("needs POSIX file modes");
+        }
         var game = Install(("SOD/a.sod", Sod(1.8f)), ("locked/x.txt", ""));
         var locked = Path.Combine(game, "locked");
         File.SetUnixFileMode(locked, UnixFileMode.None);

@@ -35,9 +35,13 @@ public static class PreviewMatch
                 continue;
             }
             if (!known.Contains(kindName))
+            {
                 list.Add($"preview {typeName} names kind \"{kindName}\", which no asset kind has");
+            }
             else if (!found.TryAdd(kindName, preview))
+            {
                 list.Add($"preview {typeName} is a second preview for kind \"{kindName}\"");
+            }
         }
         problems = list;
         return found;

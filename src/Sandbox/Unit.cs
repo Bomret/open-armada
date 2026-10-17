@@ -24,7 +24,8 @@ public static class UnitRules
 {
     /// <summary>
     /// The unit the definition describes, or null when it names no physicsFile. A station sets is_starbase to
-    /// anything but 0; a ship does not. Throws DefinitionException for an is_starbase that is no whole number.
+    /// anything but 0; a ship does not. Throws DefinitionException for a unitName of more than one token or
+    /// an is_starbase that is no whole number.
     /// </summary>
     public static Unit? Classify(ResolvedDefinition definition)
     {

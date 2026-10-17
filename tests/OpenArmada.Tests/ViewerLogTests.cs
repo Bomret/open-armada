@@ -167,7 +167,10 @@ public class ViewerLogTests
         using var log = new CapturedLog();
         ViewerLog.TextureFailed(Area.Browser, "missing02", new FileNotFoundException("not in the install"), "x.spr");
         var line = Assert.ContainsSingle(log.Lines);
-        StringAssert.Matches(line, new Regex(" WARN browser: x.spr: texture \"missing02\" missing: not in the install$"));
+        StringAssert.Matches(
+            line,
+            new Regex(" WARN browser: x.spr: texture \"missing02\" missing: not in the install$")
+        );
     }
 
     [TestMethod]

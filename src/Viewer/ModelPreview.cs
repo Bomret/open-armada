@@ -22,7 +22,7 @@ public sealed class ModelPreview : KindPreview
     {
         var builder = new SodBuilder(files);
         var team = TeamColors.Load(files);
-        var model = builder.Build((Sod)kind.Load(files, name));
+        var model = builder.Build((Sod)kind.Load(files, name), asset: name);
 
         var pick = new OptionButton();
         foreach (var slot in TeamColors.SlotNames)

@@ -27,8 +27,12 @@ public sealed class SodBuilder
     // Why a texture did not load.
     readonly Dictionary<string, System.Exception> _why = new(System.StringComparer.OrdinalIgnoreCase);
 
-    // Each texture is loaded once per builder; a texture that fails is logged once per run (ViewerLog.TextureFailed).
+    // Each texture is loaded once per builder; a texture that fails is logged once per run (ViewerLog.TextureFailed),
+    // and a later builder's load of it names the asset being built (_asset) as INFO.
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
+
+    // The asset the current Build draws, named in the log entry of a texture that fails; null when not given.
+    string? _asset;
     readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
     readonly Dictionary<Sod.Node, List<ShaderMaterial>> _byNode = new();
     System.Numerics.Vector3 _teamColor = new(0.5f, 0.5f, 0.5f);
@@ -59,9 +63,13 @@ public sealed class SodBuilder
         }
     }
 
-    /// <summary>Builds the model with its team materials in <c>teamColor</c> (the last color set when null).</summary>
-    public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null)
+    /// <summary>
+    /// Builds the model with its team materials in <c>teamColor</c> (the last color set when null); <c>asset</c>,
+    /// the model's name, is named in the log entry of a texture that fails (ViewerLog.TextureFailed).
+    /// </summary>
+    public Node3D Build(Sod sod, System.Numerics.Vector3? teamColor = null, string? asset = null)
     {
+        _asset = asset;
         if (teamColor != null)
         {
             _teamColor = teamColor.Value;
@@ -291,7 +299,7 @@ public sealed class SodBuilder
         if (why != null)
         {
             _why[name] = why;
-            ViewerLog.TextureFailed(Area.Render, name, why);
+            ViewerLog.TextureFailed(Area.Render, name, why, _asset);
         }
 
         return _textures[name] = tex;

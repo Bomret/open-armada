@@ -189,7 +189,7 @@ public sealed class CombatArt
 
     // Every sprite of the install's tables by name. Each table is read with the animations of all the others, as
     // the sprite table kind does; the tables go in name order (ignoring case), and the first row of a name wins.
-    // A table that cannot be read adds none.
+    // A table that cannot be read (an I/O failure, a bad table, or a compressed archive entry) adds none.
     Dictionary<string, (SpriteTable, Sprite)> LoadRows()
     {
         var rows = new Dictionary<string, (SpriteTable, Sprite)>(StringComparer.OrdinalIgnoreCase);
@@ -201,7 +201,13 @@ public sealed class CombatArt
             {
                 table = (SpriteTable)kind.Load(_files, name);
             }
-            catch (InvalidDataException)
+            catch (Exception e)
+                when (e
+                        is IOException
+                            or InvalidDataException
+                            or UnauthorizedAccessException
+                            or UnsupportedFormatException
+                )
             {
                 continue;
             }

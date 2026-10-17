@@ -54,7 +54,13 @@ public sealed class SpriteTableKind : AssetKind
                 {
                     t = Read(files, Path.GetFileName(other), System.Array.Empty<SpriteTable>());
                 }
-                catch (InvalidDataException) { }
+                catch (System.Exception e)
+                    when (e
+                            is IOException
+                                or InvalidDataException
+                                or System.UnauthorizedAccessException
+                                or UnsupportedFormatException
+                    ) { }
 
                 cache[other] = t;
             }

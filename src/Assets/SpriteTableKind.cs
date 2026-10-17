@@ -16,6 +16,12 @@ public sealed class SpriteTableKind : AssetKind
     public const string KindName = "sprites";
     const string Folder = "Sprites/";
 
+    // Per install: the table texts, the tables read for their animations, and the tables as Load reads them
+    // (null: it failed to load). Not thread-safe: the engine loads on one thread.
+    static readonly ConditionalWeakTable<GameFileSystem, Dictionary<string, string?>> Texts = new();
+    static readonly ConditionalWeakTable<GameFileSystem, Dictionary<string, SpriteTable?>> Parsed = new();
+    static readonly ConditionalWeakTable<GameFileSystem, List<SpriteTable>> All = new();
+
     /// <inheritdoc/>
     public override string Name => KindName;
 
@@ -28,15 +34,53 @@ public sealed class SpriteTableKind : AssetKind
         Read(files, Path.GetFileName(name), Tables(files, name));
 
     static SpriteTable Read(GameFileSystem files, string bare, IEnumerable<SpriteTable> ambient) =>
-        SpriteTable.Read(
-            bare,
-            n => files.Find(Folder + n) is null ? null : Windows1252.Encoding.GetString(files.ReadAllBytes(Folder + n)),
-            ambient
-        );
+        SpriteTable.Read(bare, n => Text(files, Folder + n), ambient);
 
-    // Tables read for their animations, per install (null: it failed to load). Not thread-safe: the
-    // engine loads on one thread.
-    static readonly ConditionalWeakTable<GameFileSystem, Dictionary<string, SpriteTable?>> Parsed = new();
+    // The text of each table, read from the install once (null: the install has none).
+    static string? Text(GameFileSystem files, string name)
+    {
+        var cache = Texts.GetOrCreateValue(files);
+        if (!cache.TryGetValue(name, out var text))
+        {
+            cache[name] = text = files.Find(name) is null
+                ? null
+                : Windows1252.Encoding.GetString(files.ReadAllBytes(name));
+        }
+
+        return text;
+    }
+
+    /// <summary>
+    /// Every table of the install as <see cref="Load"/> reads it, in name order (ignoring case), read once per
+    /// install; later calls return the same list, so a table changed on disk afterwards is not read again. A table
+    /// that fails to load is left out. Not thread-safe.
+    /// </summary>
+    public IReadOnlyList<SpriteTable> Loaded(GameFileSystem files) =>
+        All.GetValue(
+            files,
+            f =>
+                Enumerate(f)
+                    .OrderBy(n => n, System.StringComparer.OrdinalIgnoreCase)
+                    .Select(n =>
+                    {
+                        try
+                        {
+                            return (SpriteTable)Load(f, n);
+                        }
+                        catch (System.Exception e)
+                            when (e
+                                    is IOException
+                                        or InvalidDataException
+                                        or System.UnauthorizedAccessException
+                                        or UnsupportedFormatException
+                            )
+                        {
+                            return null;
+                        }
+                    })
+                    .OfType<SpriteTable>()
+                    .ToList()
+        );
 
     // The tables of the install except `except`, for the animations they define; a table that fails to
     // load adds none.

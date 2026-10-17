@@ -11,8 +11,9 @@ namespace OpenArmada.Viewer;
 
 /// <summary>
 /// The rocks of every asteroid field of the plan, spinning and circling by elapsed time. Each of the eight asteroid
-/// models is built once; each of its visible meshes is one MultiMeshInstance3D drawing all rocks of that model in
-/// the map, so the draw count follows the models and not the rocks (4mama holds up to 4,800 rocks).
+/// models is built once; each of its visible meshes and each of its sprite nodes is one MultiMeshInstance3D drawing
+/// all rocks of that model in the map, so the draw count follows the models and not the rocks (4mama holds up to
+/// 4,800 rocks).
 /// </summary>
 public partial class AsteroidFieldsView : Node3D
 {
@@ -32,8 +33,41 @@ public partial class AsteroidFieldsView : Node3D
         public required Transform3D[] Pose { get; init; }
     }
 
+    /// <summary>A sprite node of a model, taken from its built quad.</summary>
+    sealed record SpritePart
+    {
+        /// <summary>The quad mesh at the node's size.</summary>
+        public required Mesh Mesh { get; init; }
+
+        /// <summary>The quad's place in the model.</summary>
+        public required Transform3D Part { get; init; }
+
+        /// <summary>The material that shows the sprite's frame and colour.</summary>
+        public required StandardMaterial3D Material { get; init; }
+
+        /// <summary>The resolved sprite node.</summary>
+        public required SpriteNode Node { get; init; }
+
+        /// <summary>The sprite's texture.</summary>
+        public required Texture2D Texture { get; init; }
+    }
+
+    /// <summary>The draw of one sprite node over all rocks of its model.</summary>
+    sealed record SpriteDraw
+    {
+        /// <summary>The instance that draws the sprite node over the rocks.</summary>
+        public required MultiMeshInstance3D Instance { get; init; }
+
+        /// <summary>The sprite node of the model.</summary>
+        public required SpritePart Sprite { get; init; }
+
+        /// <summary>The material's opacity from the sprite's blend.</summary>
+        public required float Opacity { get; init; }
+    }
+
     readonly List<Draw> _draws = new();
     readonly List<Group> _groups = new();
+    readonly List<SpriteDraw> _sprites = new();
     ulong _start;
 
     /// <summary>
@@ -48,7 +82,11 @@ public partial class AsteroidFieldsView : Node3D
             return;
         var builder = new SodBuilder(files);
         var parts = new Dictionary<string, List<(Mesh Mesh, Transform3D Transform)>>(StringComparer.OrdinalIgnoreCase);
+        var sprites = new Dictionary<string, List<SpritePart>>(StringComparer.OrdinalIgnoreCase);
+        // `extent` reaches the farthest mesh corner and places the rocks; `drawExtent` also reaches the farthest
+        // sprite-node quad corner and sizes the draw box, so a sprite past its rock's mesh is not culled.
         var extent = 0f;
+        var drawExtent = 0f;
         foreach (var model in plan.Fields.SelectMany(f => f.Models).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             try
@@ -60,6 +98,18 @@ public partial class AsteroidFieldsView : Node3D
                 }
 
                 var found = VisibleMeshes.Of(node);
+                // The quads never enter the scene, so each still holds the material SpriteNodeQuad.Create made.
+                sprites[model] = VisibleMeshes
+                    .SpriteNodesOf(node)
+                    .Select(q => new SpritePart
+                    {
+                        Mesh = q.Quad.Mesh,
+                        Part = q.Transform,
+                        Material = (StandardMaterial3D)q.Quad.MaterialOverride,
+                        Node = q.Quad.Sprite.Node,
+                        Texture = q.Quad.Sprite.Texture,
+                    })
+                    .ToList();
                 node.Free();
                 parts[model] = found;
                 foreach (var (mesh, t) in found)
@@ -68,6 +118,16 @@ public partial class AsteroidFieldsView : Node3D
                     foreach (var i in Enumerable.Range(0, 8))
                     {
                         extent = MathF.Max(extent, box.GetEndpoint(i).Length());
+                    }
+                }
+
+                drawExtent = MathF.Max(drawExtent, extent);
+                foreach (var sprite in sprites[model])
+                {
+                    var box = sprite.Part * sprite.Mesh.GetAabb();
+                    foreach (var i in Enumerable.Range(0, 8))
+                    {
+                        drawExtent = MathF.Max(drawExtent, box.GetEndpoint(i).Length());
                     }
                 }
             }
@@ -94,11 +154,12 @@ public partial class AsteroidFieldsView : Node3D
             }
         }
 
-        // Rocks move within their field's sphere and reach past it by their extent, so the box of every draw is the union of the fields' draw boxes.
+        // Rocks move within their field's sphere and reach past it by their extent, their meshes and sprite nodes
+        // included, so the box of every draw is the union of the fields' draw boxes.
         Aabb? bounds = null;
         foreach (var f in plan.Fields)
         {
-            var (min, max) = f.DrawBox(extent);
+            var (min, max) = f.DrawBox(drawExtent);
             var box = new Aabb(
                 new Vector3(min.X, min.Y, min.Z),
                 new Vector3(max.X - min.X, max.Y - min.Y, max.Z - min.Z)
@@ -130,6 +191,41 @@ public partial class AsteroidFieldsView : Node3D
                     }
                 );
             }
+
+            // Each sprite node is one more draw over the model's rocks, placed by the rock's pose times its node's
+            // place, so it moves and turns with the rock. Its material faces each rock's quad to the camera when the
+            // sprite node is a billboard: Godot folds the instance transform into the model matrix first.
+            // stand-in: every rock of a model shares one material, so all show one frame, colour, and draw state on
+            // one clock started with the field, looping, as a model's sprite nodes loop.
+            foreach (var sprite in sprites[model])
+            {
+                var multi = new MultiMesh
+                {
+                    TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+                    Mesh = sprite.Mesh,
+                    InstanceCount = rocks.Count,
+                    CustomAabb = bounds!.Value,
+                };
+                var instance = new MultiMeshInstance3D { Multimesh = multi, MaterialOverride = sprite.Material };
+                AddChild(instance);
+                _draws.Add(
+                    new Draw
+                    {
+                        Multi = multi,
+                        Part = sprite.Part,
+                        Pose = group.Pose,
+                        Buffer = new float[rocks.Count * 12],
+                    }
+                );
+                _sprites.Add(
+                    new SpriteDraw
+                    {
+                        Instance = instance,
+                        Sprite = sprite,
+                        Opacity = sprite.Material.AlbedoColor.A,
+                    }
+                );
+            }
         }
 
         _start = Time.GetTicksMsec();
@@ -141,6 +237,18 @@ public partial class AsteroidFieldsView : Node3D
         if (_draws.Count == 0)
             return;
         var t = (Time.GetTicksMsec() - _start) / 1000.0;
+        foreach (var draw in _sprites)
+        {
+            draw.Instance.Visible = SpriteNodeQuad.Show(
+                draw.Sprite.Material,
+                draw.Sprite.Node,
+                draw.Sprite.Texture,
+                draw.Opacity,
+                t,
+                loop: true
+            );
+        }
+
         foreach (var group in _groups)
         {
             for (var i = 0; i < group.Pose.Length; i++)

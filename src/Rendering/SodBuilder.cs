@@ -12,10 +12,13 @@ namespace OpenArmada.Rendering;
 /// Turns a parsed SOD into a Godot node tree. Storm3D is left-handed (Direct3D);
 /// Godot is right-handed, so Z is mirrored and triangle winding reversed. Surfaces follow ModelRules:
 /// the texture material's blend, the lighting material's model and colors, the animation references.
-/// Whatever the data holds that cannot be drawn as it says is listed in Problems, never hidden.
+/// Whatever the data holds that cannot be drawn as it says is listed in Problems, never hidden. Each sprite node the
+/// install's sprite tables attach to a node is drawn under it (SpriteNodeQuad).
 /// </summary>
 public sealed class SodBuilder
 {
+    const string NoSpriteTexture = "sprite texture cannot be read, its sprite node is not drawn";
+
     readonly GameFileSystem _files;
     readonly Dictionary<string, Texture2D?> _textures = new(System.StringComparer.OrdinalIgnoreCase);
     readonly List<(ShaderMaterial Material, Surface Surface)> _team = new();
@@ -115,7 +118,24 @@ public sealed class SodBuilder
         }
 
         root.AddChild(animator);
-        Problems = analysis.Problems;
+
+        // A sprite node's gaps, and a sprite texture that cannot be read, are problems; the model still builds.
+        var sprites = SpriteNodes.For(_files, sod);
+        var gaps = new Gaps();
+        var built = nodes.ToDictionary(n => n.Data, n => n.Node);
+        foreach (var sprite in sprites.Nodes)
+        {
+            if (Texture(sprite.Sprite.Sprite.Texture) is { } texture)
+            {
+                built[sprite.Node].AddChild(SpriteNodeQuad.Create(sprite, texture));
+            }
+            else
+            {
+                gaps.Add(NoSpriteTexture, sprite.Sprite.Sprite.Texture, sprite.Node);
+            }
+        }
+
+        Problems = analysis.Problems.Concat(sprites.Reports.Concat(gaps.Entries).Select(r => r.Text)).ToList();
 
         return root;
     }

@@ -75,6 +75,18 @@ public class CombatArtTests
         Assert.AreEqual(0, art.Reports.Count);
     }
 
+    // The shot draws the frame for its age, as it did before sprite nodes shared SpriteArt.
+    [TestMethod]
+    public void ShotFlipbookShowsTheFrameForTheShotsAgeAndLoops()
+    {
+        var art = CombatArt.Build(Install(), new[] { Unit(Armed("torp", "ph.wav", "hp01")) });
+        var torp = art.Sprite("torp")!; // four frames of 0.125 s
+        CollectionAssert.AreEqual(
+            new[] { torp.Frames[0], torp.Frames[1], torp.Frames[3], torp.Frames[0], torp.Frames[2] },
+            new[] { 0, 0.13, 0.4, 0.5, 0.8 }.Select(torp.FrameAt).ToArray()
+        );
+    }
+
     [TestMethod]
     public void SpriteMissingFromTheTablesIsOneGapWithItsNameAndCount()
     {

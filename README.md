@@ -96,6 +96,22 @@ The combat random source is seeded with a fixed number and the asteroids animate
 
 Each problem is one `ERROR` log entry that names the script and the line, and, for a failed `expect`, the expected and the actual value. A problem is a script that is missing, a line that cannot be read, a unit that cannot be found, a failed expectation, an input step that fails as above, throws, or names a key Godot does not know, or a dump or screenshot that cannot be written. The run then quits with exit code 1. A run that finishes quits with exit code 0.
 
+`play/destroy.play` is a checked-in play script. On `kling1`, a Vor'cha-class warship destroys a sensor station; the script takes screenshots before the fight and across the explosion, dumps the state before and after, and expects the station destroyed. Run it with `--map kling1`.
+
+## Measure the sound of a play run
+
+The WAV level tool prints the peak and RMS level of a Movie Maker WAV, in dB relative to full scale, over a window of it. It needs only the .NET SDK.
+
+```sh
+dotnet run --project tools/WavLevel -- play-out/destroy/frame.wav --from 5.5 --to 6.5
+```
+
+```text
+peak -23.4 dB, RMS -34.3 dB
+```
+
+`--from` and `--to` are seconds from the start of the WAV; `--from` defaults to 0 and `--to` to the end. A silent window reads `peak -inf dB, RMS -inf dB`. A problem prints `error: <message>` to standard error and exits with code 1: the file is unreadable, unfinished, or not 32-bit PCM (an extensible format is not accepted), or the window lies outside the audio. Movie Maker's WAV is 32-bit PCM.
+
 ## Read the log
 
 Every run writes log entries to Godot's own log, `godot.log`, beside Godot's own lines. The same entries go to standard output. The log of the latest run is:

@@ -214,21 +214,21 @@ public sealed class PlayInput(
     /// loss that is a press in every frame until the key's release. The press is an echo: it sets the action state
     /// that polled actions read, and a handler that acts only on a fresh, non-echo press ignores it, so such a handler
     /// acts once for a hold. The alert keys are such a handler: a hold across a <c>select</c> step changes no stance
-    /// at a run-dependent frame.
+    /// at a run-dependent frame. A held chord is polled by its bare key, and only that key is pressed again: a chord
+    /// presses no modifier key.
     /// </summary>
     public void KeepHeld()
     {
-        foreach (var key in _held.Where(k => !Input.IsKeyPressed(Code(k))))
+        foreach (var key in KeyMask.ToRepress(_held.Select(k => (long)k), code => Input.IsKeyPressed((Key)code)))
         {
-            Press(key, true, echo: true);
+            Press((Key)key, true, echo: true);
             Input.FlushBufferedEvents();
         }
     }
 
-    static Key Code(Key key) => (Key)KeyMask.Split((long)key).Code;
-
     // A chord's key name ("Shift+G") gives the key with modifier bits; the event carries the bare key and the
-    // modifier flags, as a player's key press does.
+    // modifier flags, as a player's key press does. A chord carries its modifiers on the key's own event; it does not
+    // press the modifier key itself, so Input.IsKeyPressed(Key.Shift) stays false while Shift+G is held.
     static void Press(Key key, bool pressed, bool echo = false)
     {
         var (code, shift, control, alt, meta) = KeyMask.Split((long)key);

@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Sandbox;
 
@@ -98,4 +99,21 @@ public class KeyMaskTests
     [DataRow("Shift+")]
     public void AKeyNameWithAnEmptyPartSaysSo(string name) =>
         Assert.AreEqual($"'{name}' is no key name: it has an empty part", KeyMask.Problem(name, Find));
+
+    // Godot 4.7.2: KEY_RIGHT is 4194321, KEY_DOWN is 4194322.
+    const long Right = 4194321;
+    const long Down = 4194322;
+
+    [TestMethod]
+    public void AHeldChordThatReadsReleasedIsPressedAgain() =>
+        CollectionAssert.AreEqual(new[] { G | 1L << 25 }, KeyMask.ToRepress([G | 1L << 25], _ => false).ToArray());
+
+    [TestMethod]
+    public void AHeldKeyStillPressedIsNotPressedAgain() =>
+        CollectionAssert.AreEqual(new[] { Down }, KeyMask.ToRepress([Right, Down], code => code == Right).ToArray());
+
+    // Godot's Input.IsKeyPressed reads the bare key: a held Shift+G is pressed while G is.
+    [TestMethod]
+    public void AHeldChordIsPolledByItsBareKey() =>
+        Assert.AreEqual(0, KeyMask.ToRepress([G | 1L << 25], code => code == G).Count());
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace OpenArmada.Sandbox;
@@ -39,6 +40,14 @@ public static class KeyMask
 
         return (keycode & CodeMask) != 0 && modifiers == name.Split('+').Length - 1;
     }
+
+    /// <summary>
+    /// The held keycodes, in held order, whose bare key <paramref name="isPressed"/> reads released.
+    /// <paramref name="isPressed"/> is <c>Input.IsKeyPressed</c>, which reads the bare key, so a chord is polled by
+    /// its bare key and given back with its modifier bits.
+    /// </summary>
+    public static IEnumerable<long> ToRepress(IEnumerable<long> held, Func<long, bool> isPressed) =>
+        held.Where(key => !isPressed(key & CodeMask));
 
     /// <summary>
     /// What is wrong with the key name <paramref name="name"/>, or null when it reads. <paramref name="find"/> is

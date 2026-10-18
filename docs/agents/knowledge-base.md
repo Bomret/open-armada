@@ -13,9 +13,10 @@ The KB is **human-consumption first**.
   `docs/agents/documentation.md`.
 - **Outline** (living skeleton; `/superdev:plan` and `/superdev:document` fill and extend it):
 
-  - `Players` → `Getting started`, `Known limitations`
+  - `Players` → `Getting started`, `Map sandbox`, `Known limitations`
   - `Modders` → `File formats` (one page per format: `SOD models`, `ODF definitions`, `BZN maps`,
-    `SPR sprites`, `Textures`), `Asset loading`, `Built-in maps`, `Combat rules`
+    `SPR sprites`, `Textures`), `Asset loading`, `Known but not loaded files`, `Built-in maps`,
+    `Combat rules`
   - `Developers` → `Architecture`, `Build and setup`, `Roadmap`, `Selection display`, `Play runs`, `ADR summaries` (aggregate,
     sections `## ADR NNNN: <title>`), `Changelog` (aggregate, sections `## <feature>`)
 
@@ -25,9 +26,16 @@ into the live page by its heading. The heading level is pinned in the outline ab
 `ADR summaries` and `Changelog` is a `##` heading, never deeper and never `#`. An unmarked page is
 replaced wholesale on publish.
 
-**The wiki is flat.** Forgejo wikis have no page nesting, so the outline's hierarchy exists only as a
-`Home` page that links each audience's pages. A staged page's `parent:` names its outline parent; the
-`create` command records it in the wiki commit message and nests nothing.
+**The wiki is flat.** Forgejo wikis have no page nesting, so the outline's hierarchy exists only as links:
+`Home` links each audience page, and each parent page links its children. A page no other page links
+cannot be reached from `Home`. A staged page's `parent:` names its outline parent. When `create` makes a
+new page, it records the parent in the wiki commit message and adds a link to the new page at the end of
+the parent page. An update adds no link: to link an existing page, stage an `upsert` of its parent.
+
+**Page names.** A link in a page body names the target page by its wiki name, which Forgejo derives from
+the title. Spaces become `-`: `Play runs` is `Play-runs`. A title that holds a `-` keeps its spaces, gets
+a `.-` suffix, and is query-escaped, so a space becomes `+`: `Built-in maps` is `Built-in+maps.-`. The
+`sub_url` of each entry in the wiki's page list gives the name of an existing page.
 
 ## Configuration
 
@@ -55,14 +63,20 @@ The **backend command contract** (ADR 0069) `scripts/publish-kb.js` runs. Every 
 in the path from `--repo`. It exits 0 on a 4xx or 5xx answer, so each command passes `-i` and reads the
 HTTP status line from stderr.
 
-- A page's identity is its wiki name: the title with spaces replaced by `-`, URL-encoded. `find` returns
-  it as `id`, which reaches `read`, `update`, and `delete` as `SUPERDEV_KB_ID` and resolves a staged
-  page's `parent:` as `SUPERDEV_KB_PARENT_ID`.
-- `find` exits 3 on a 404, the only outcome `scripts/publish-kb.js` reads as positive absence, and 2 on
-  any other failure. A wiki that is switched off also answers 404; the following `create` then fails,
-  and the page stays staged.
+- A page's identity is its wiki name. `find` pages through the wiki's page list (`/wiki/pages`, 50
+  entries a page), takes the entry whose title equals the staged title exactly, and returns that entry's
+  `sub_url` as `id`. The `id` reaches `read`, `update`, and `delete` as `SUPERDEV_KB_ID` and resolves a
+  staged page's `parent:` as `SUPERDEV_KB_PARENT_ID`.
+- `find` exits 3 when no listed page carries the title, the only outcome `scripts/publish-kb.js` reads as
+  positive absence. It exits 2 when any listing page answers other than a 200 with a list. A wiki that is
+  switched off answers 404, so `find` exits 2 and the page stays staged.
 - `read` prints the live page's markdown body on stdout, nothing else.
 - `create` and `update` read the staged body from `SUPERDEV_KB_BODY_FILE` and send it base64-encoded.
+- `create` with `SUPERDEV_KB_PARENT_ID` set takes the new page's name from the `sub_url` of the 201
+  answer. It reads the parent page and, when the parent does not yet hold a `](<name>)` link, appends
+  `- [<title>](<name>)` on a line of its own and writes the parent back with its own title. When that
+  step fails after the page exists, `create` exits 1 with a message that names the parent page to link
+  by hand.
 - `delete` treats a 404 as success: an absent page is the intended end state.
 
 Every command below runs under a **30-second bound** (ADR 0130), or whatever
@@ -72,14 +86,17 @@ the run.
 ### find
 
 ```sh
-name=$(jq -rn --arg t "$SUPERDEV_KB_TITLE" '$t | gsub(" "; "-") | @uri') || exit 2
 out=$(mktemp) && err=$(mktemp) || exit 2
-tea api -i --login codeberg.org --repo bomret/open-armada "/repos/{owner}/{repo}/wiki/page/$name" >"$out" 2>"$err" || exit 2
-case "$(head -n1 "$err" | awk '{print $2}')" in
-  200) jq -ce '{id: .sub_url}' "$out" || exit 2 ;;
-  404) exit 3 ;;
-  *) exit 2 ;;
-esac
+p=1
+while :; do
+  tea api -i --login codeberg.org --repo bomret/open-armada "/repos/{owner}/{repo}/wiki/pages?page=$p&limit=50" >"$out" 2>"$err" || exit 2
+  [ "$(head -n1 "$err" | awk '{print $2}')" = 200 ] || exit 2
+  n=$(jq -e 'if type == "array" then length else error end' "$out") || exit 2
+  id=$(jq -c --arg t "$SUPERDEV_KB_TITLE" 'first(.[] | select(.title == $t) | {id: .sub_url})' "$out") || exit 2
+  [ -n "$id" ] && { printf '%s\n' "$id"; exit 0; }
+  [ "$n" -lt 50 ] && exit 3
+  p=$((p + 1))
+done
 ```
 
 ### read
@@ -94,11 +111,24 @@ jq -je '.content_base64 | @base64d' "$out"
 ### create
 
 ```sh
-req=$(mktemp) && err=$(mktemp) || exit 2
+req=$(mktemp) && out=$(mktemp) && err=$(mktemp) || exit 2
 jq -n --arg t "$SUPERDEV_KB_TITLE" --arg p "${SUPERDEV_KB_PARENT_ID:-}" --rawfile c "$SUPERDEV_KB_BODY_FILE" \
   '{title: $t, content_base64: ($c | @base64), message: ("Add " + $t + (if $p == "" then "" else " (under " + $p + ")" end))}' >"$req" || exit 2
-tea api -i --login codeberg.org --repo bomret/open-armada -X POST "/repos/{owner}/{repo}/wiki/new" -d @"$req" >/dev/null 2>"$err" || exit 2
-[ "$(head -n1 "$err" | awk '{print $2}')" = 201 ]
+tea api -i --login codeberg.org --repo bomret/open-armada -X POST "/repos/{owner}/{repo}/wiki/new" -d @"$req" >"$out" 2>"$err" || exit 2
+[ "$(head -n1 "$err" | awk '{print $2}')" = 201 ] || exit 2
+[ -n "${SUPERDEV_KB_PARENT_ID:-}" ] || exit 0
+unlinked() { echo "created \"$SUPERDEV_KB_TITLE\", but $1: link it from the page \"$SUPERDEV_KB_PARENT_ID\" by hand" >&2; exit 1; }
+name=$(jq -re '.sub_url' "$out") || unlinked "the create answer names no page"
+tea api -i --login codeberg.org --repo bomret/open-armada "/repos/{owner}/{repo}/wiki/page/$SUPERDEV_KB_PARENT_ID" >"$out" 2>"$err" || unlinked "the parent read failed"
+[ "$(head -n1 "$err" | awk '{print $2}')" = 200 ] || unlinked "the parent read failed"
+linked=$(jq -r --arg n "$name" '.content_base64 | @base64d | contains("](" + $n + ")")' "$out") || unlinked "the parent read failed"
+[ "$linked" = true ] && exit 0
+jq --arg t "$SUPERDEV_KB_TITLE" --arg n "$name" '(.content_base64 | @base64d) as $c
+  | {title: .title, message: ("Link " + $t + " from " + .title),
+     content_base64: ($c + (if $c == "" or ($c | endswith("\n")) then "" else "\n" end) + "- [" + $t + "](" + $n + ")\n" | @base64)}' \
+  "$out" >"$req" || unlinked "the parent write failed"
+tea api -i --login codeberg.org --repo bomret/open-armada -X PATCH "/repos/{owner}/{repo}/wiki/page/$SUPERDEV_KB_PARENT_ID" -d @"$req" >/dev/null 2>"$err" || unlinked "the parent write failed"
+[ "$(head -n1 "$err" | awk '{print $2}')" = 200 ] || unlinked "the parent write failed"
 ```
 
 ### update

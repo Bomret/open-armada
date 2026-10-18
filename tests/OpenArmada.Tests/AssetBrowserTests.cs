@@ -19,6 +19,21 @@ public class AssetBrowserTests
         public override object Load(GameFileSystem f, string n) => n;
     }
 
+    sealed class CountingKind(string name, params string[] assets) : AssetKind
+    {
+        public int Listings { get; private set; }
+
+        public override string Name => name;
+
+        public override IEnumerable<string> Enumerate(GameFileSystem f)
+        {
+            Listings++;
+            return assets;
+        }
+
+        public override object Load(GameFileSystem f, string n) => n;
+    }
+
     sealed class ThrowingKind : AssetKind
     {
         public override string Name => "broken";
@@ -215,6 +230,28 @@ public class AssetBrowserTests
             Entries(log)
         );
         Assert.AreEqual("x.wav", pane.Preview);
+    }
+
+    [TestMethod]
+    public void Open_and_start_list_the_first_kind_once()
+    {
+        var audio = new CountingKind("audio", "x.wav");
+        var b = Open(audio, new FakeKind("models", "Fente.sod"));
+
+        b.Start(null);
+
+        Assert.AreEqual(1, audio.Listings);
+    }
+
+    [TestMethod]
+    public void Open_and_start_with_model_list_the_models_kind_once()
+    {
+        var models = new CountingKind("models", "Fente.sod");
+        var b = Open(new FakeKind("audio", "x.wav"), models);
+
+        b.Start("Fente");
+
+        Assert.AreEqual(1, models.Listings);
     }
 
     [TestMethod]

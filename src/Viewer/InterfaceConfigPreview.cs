@@ -89,7 +89,7 @@ public sealed class InterfaceConfigPreview : KindPreview
                 new Label
                 {
                     Text =
-                        $"{lookup.FailedTables.Count} sprite tables did not load, their elements show no sprite: {string.Join(", ", lookup.FailedTables)}",
+                        $"sprite tables that did not load ({lookup.FailedTables.Count}), their elements show no sprite: {string.Join(", ", lookup.FailedTables)}",
                 }
             );
         }

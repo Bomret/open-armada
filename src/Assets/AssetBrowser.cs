@@ -93,7 +93,8 @@ public sealed class AssetBrowser
     /// Shows what the browser opens on: with <see cref="Problem"/> set, one ERROR entry and the problem as the pane
     /// text, and nothing else. Otherwise the selected kind and its first asset, or, with <c>model</c> (the --model
     /// entrance, see <see cref="SelectModel"/>), the models kind and that model; only the kind and asset shown are
-    /// logged. An install with no kinds shows nothing.
+    /// logged. The kind shown is the one already selected and listed, and is not listed again. An install with no
+    /// kinds shows nothing.
     /// </summary>
     public Pane Start(string? model)
     {
@@ -108,7 +109,7 @@ public sealed class AssetBrowser
             return new Pane { Text = "" };
         var wanted = model == null ? -1 : SelectModel(model);
 
-        return Show(Kinds.ToList().IndexOf(Kind), wanted);
+        return ShowSelected(wanted);
     }
 
     /// <summary>
@@ -118,7 +119,12 @@ public sealed class AssetBrowser
     /// the pane shows <c>no &lt;kind&gt; in this install</c>.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">when <c>index</c> is outside <see cref="Kinds"/>.</exception>
-    public Pane ShowKind(int index) => Show(index, -1);
+    public Pane ShowKind(int index)
+    {
+        SelectKind(index);
+
+        return ShowSelected(-1);
+    }
 
     /// <summary>
     /// Shows <c>Assets[index]</c> of the selected kind: one INFO entry naming the asset and its kind, then its
@@ -166,11 +172,9 @@ public sealed class AssetBrowser
         };
     }
 
-    // Shows Kinds[index] and its asset at `wanted`, or else its first.
-    Pane Show(int index, int wanted)
+    // Shows the selected kind, already listed, and its asset at `wanted`, or else its first.
+    Pane ShowSelected(int wanted)
     {
-        SelectKind(index);
-
         ViewerLog.CategorySelected(Kind!.Name);
         ViewerLog.Failed(Notice);
 

@@ -71,3 +71,12 @@ Concepts: Layout, Map, Map sandbox
 Statement: The map sandbox plans a layout and a map through the same plan; no plan or view code branches on whether the objects came from a layout or a map.
 Breaks: silently
 Check: none — no cheap test tells a source-specific branch from a general one; reviewers check that the layout reader ends at the parsed map and that the plan and view take no layout type.
+
+### INV-0011
+
+Class: architecture
+Concepts: Map sandbox, Combat rules, Dying unit, Coasting, Damage node
+Statement: The map sandbox's combat state and rules live in code without a Godot dependency; which effects a unit shows, its dying phase, and its coasting are decided there, and the Godot view only draws what that state and its events say.
+Breaks: loudly
+Check: the test project compiles `src/Sandbox` without Godot, so a Godot reference there fails the build of the tests.
+Paths: src/Sandbox/**

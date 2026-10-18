@@ -12,7 +12,8 @@ namespace OpenArmada.Viewer;
 /// (ADR 0006). A step aimed at a unit or a point sends its events at the projected screen point, in viewport
 /// coordinates, so the input handlers see what a player's click gives at any display scale. Every check runs
 /// before the first event: a step that fails sends none. Mouse events enter the viewport directly in viewport
-/// coordinates; key events go through the Input singleton, so polled keys see them until the release.
+/// coordinates; key events go through the Input singleton, so polled keys see them until the release, and are flushed
+/// at once, so key and mouse steps of one frame reach the handlers in file order.
 /// </summary>
 public sealed class PlayInput(
     Node host,
@@ -200,34 +201,50 @@ public sealed class PlayInput(
         else
             _held.Remove(key);
         Press(key, pressed);
+        // Flushed at once, as a mouse step's PushInput delivers at once, so a key step and a mouse step on one frame
+        // reach the handlers in file order.
+        Input.FlushBufferedEvents();
 
         return null;
     }
 
     /// <summary>
-    /// Presses again each held key that the window released, so a hold lasts as long as its step says. The press
-    /// is an echo: it sets the action state that polled actions read, and the handlers that act on a fresh press
-    /// (the alert keys) ignore it, so a hold across a <c>select</c> step changes no stance at a run-dependent frame.
+    /// Presses again each held key that the window released, so a hold lasts as long as its step says. After a focus
+    /// loss that is a press in every frame until the key's release. The press is an echo: it sets the action state
+    /// that polled actions read, and a handler that acts only on a fresh, non-echo press ignores it, so such a handler
+    /// acts once for a hold. The alert keys are such a handler: a hold across a <c>select</c> step changes no stance
+    /// at a run-dependent frame.
     /// </summary>
     public void KeepHeld()
     {
-        foreach (var key in _held.Where(k => !Input.IsKeyPressed(k)))
+        foreach (var key in _held.Where(k => !Input.IsKeyPressed(Code(k))))
         {
             Press(key, true, echo: true);
             Input.FlushBufferedEvents();
         }
     }
 
-    static void Press(Key key, bool pressed, bool echo = false) =>
+    static Key Code(Key key) => (Key)KeyMask.Split((long)key).Code;
+
+    // A chord's key name ("Shift+G") gives the key with modifier bits; the event carries the bare key and the
+    // modifier flags, as a player's key press does.
+    static void Press(Key key, bool pressed, bool echo = false)
+    {
+        var (code, shift, control, alt, meta) = KeyMask.Split((long)key);
         Input.ParseInputEvent(
             new InputEventKey
             {
-                Keycode = key,
-                PhysicalKeycode = key,
+                Keycode = (Key)code,
+                PhysicalKeycode = (Key)code,
+                ShiftPressed = shift,
+                CtrlPressed = control,
+                AltPressed = alt,
+                MetaPressed = meta,
                 Pressed = pressed,
                 Echo = echo,
             }
         );
+    }
 
     string? Scroll(ScrollStep scroll)
     {

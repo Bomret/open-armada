@@ -97,7 +97,10 @@ public sealed record BoxUnitsStep : PlayStep
 /// <summary><c>press &lt;key&gt;</c>: a key press and release in one frame.</summary>
 public sealed record PressStep : PlayStep
 {
-    /// <summary>The key as Godot names it (<c>Escape</c>, <c>Left</c>, <c>A</c>); the executor resolves it.</summary>
+    /// <summary>
+    /// The key as Godot names it (<c>Escape</c>, <c>Left</c>, <c>A</c>), or a chord with its modifiers first
+    /// (<c>Shift+G</c>); the executor resolves it.
+    /// </summary>
     public required string Key { get; init; }
 }
 

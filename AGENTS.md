@@ -11,7 +11,7 @@ format notes.
 - The built-in maps, their teams, and which ones start with warships on two teams: `docs/maps.md`.
 - How the game draws a unit's status in the world: `docs/selection-display.md`.
 - Decisions: `docs/adr/`. Invariants: `docs/invariants.md`.
-- Source layout, controls, and the asset check: `README.md`.
+- Source layout, controls, the asset check, and how to run a play script: `README.md`.
 - The log of a run: `godot.log` in Godot's user-data folder; its path per system, entry format, levels, and areas are in `README.md`, "Read the log". The asset check's report appears there and on standard output. After a run, read its `WARN` and `ERROR` entries first.
 - Logging rules: `docs/invariants.md` (INV-0004, INV-0005) and `docs/adr/0005-runs-log-into-godots-own-log.md`. All output goes through `Log` in `src/Diagnostics/`; parsers and asset kinds never log.
 

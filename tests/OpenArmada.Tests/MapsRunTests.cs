@@ -8,7 +8,7 @@ using OpenArmada.Sandbox;
 
 namespace OpenArmada.Tests;
 
-// The --maps run's report, from installs built in code (INV-0001).
+// The --maps run, from installs built in code (INV-0001).
 [TestClass]
 public class MapsRunTests
 {

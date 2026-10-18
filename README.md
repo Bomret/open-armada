@@ -55,6 +55,31 @@ The sandbox behaves as follows:
 
 These rules apply to every map the sandbox opens.
 
+### Open a layout
+
+```sh
+godot-mono --path . -- --game "/path/to/Star Trek - Armada" --layout layouts/two-ships.jsonc
+```
+
+`--layout <file>` opens the map sandbox from a layout instead of a map. A layout is a JSONC file, authored outside the install, that places objects the way a map does (ADR 0007). A relative path resolves against the directory the command is started in. `ARMADA_DIR` can replace `--game`, and `--screenshot out.png` works as it does with `--map`. `--layout` together with `--map`, or `--layout` without a file, is a problem, and no scene opens. `--check` wins over `--layout`. The sandbox opens with exactly the layout's objects and behaves as it does on a map.
+
+A layout is one JSON object. `//` and `/* */` comments and trailing commas are allowed. Any key not listed below is a problem, and so is a key given twice in one object. A vector is `[x, y, z]`, three numbers, in the map's own frame.
+
+- `bounds` (required): the playable area on the ground, `{ "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 }`. Each minimum is below its maximum. An object outside the bounds opens as it does on a map.
+- `objects` (required): an array of objects, which may be empty. Each object has these keys:
+  - `class` (required): the object's class name, such as `fdestroy`, as a map names it. It is not empty. A class the install has no definition or model for is reported as a gap, as on a map, and the rest of the layout opens.
+  - `team` (required): a whole number from 0 to 8. Team 0 is neutral.
+  - `position` (required): a vector.
+  - `label`: a string. Default: the class name.
+  - `right`, `up`, `front`: the object's axes, three vectors, as a map stores them. Give all three or none. Default: the identity facing (`[1, 0, 0]`, `[0, 1, 0]`, `[0, 0, 1]`). Zero or collapsed axes are reported as a gap, as on a map.
+- `background`: the name of the background model, with or without `.sod`. Default: no background.
+- `teamColors`: the team-color slot of each team, keyed by team number, such as `{ "1": 3, "2": 5 }`. Default: each team's own slot. A slot outside the install's table is reported as a gap.
+- `ambient`: the ambient light color, a vector of red, green, and blue. Default: a stand-in of `[0.35, 0.35, 0.4]`.
+
+Every number is finite. A layout that cannot be read gives one problem that names the full path of the file and either the 1-based line or the JSON path of the faulty value, such as `layout '/home/me/a.jsonc': objects[2].team: team 9 is outside 0..8`. The sandbox opens no scene and shows the problem. A layout problem is reported with or without an install.
+
+`layouts/two-ships.jsonc` is a checked-in example: two hostile destroyers 1000 units apart.
+
 ## Run a play script
 
 A play run opens the map sandbox, runs the steps of a play script in file order on simulated time, and quits after the last step. It runs under Godot's Movie Maker, which writes a PNG per frame and one WAV of the mixed audio and forces a fixed time step. Clear the output folder before a run, and create it: Movie Maker writes its files into it from the first frame, and the run itself deletes nothing there. A run whose movie output folder is missing is a problem.
@@ -150,7 +175,8 @@ A fault that repeats, such as a combat step that fails each frame, is logged at 
 - `src/Rendering/` — converts parsed data into Godot nodes.
 - `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene. The scene handles selection, the selection display, orders, alert keys, and the drawing and sound of the fight.
 - `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The play part holds the play script parser, the unit names, the state dump, and the play run. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
-- `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
+- `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, the asset check, and the layout reader; plain C# without Godot dependencies.
+- `layouts/` — the checked-in layouts ("Open a layout"). Its `.gdignore` keeps Godot from importing the folder.
 - `play/` — the checked-in play scripts. The "Run a play script" section explains how to run one.
 - `tools/WavLevel/` — the WAV level tool ("Measure the sound of a play run"), plain C# with no Godot dependency.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.

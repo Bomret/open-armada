@@ -227,6 +227,11 @@ The engine's mode that opens one map as a live 3D scene. The player can select u
 move, and order units to attack. The fight plays out in the scene.
 _Avoid_: map viewer, 3D preview, game mode
 
+**Layout**
+A text file, authored outside the install, that places objects for the map sandbox the way a map does.
+It is not a map: the game cannot load it, and it has no start positions or overview image.
+_Avoid_: scenario, test map, custom map
+
 **Preview**
 The asset browser's rendering of one asset, showing that its meaning was understood: a model as the game
 draws it, a map from above, a sound as playback, a definition as its resolved values.

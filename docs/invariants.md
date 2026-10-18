@@ -3,16 +3,16 @@
 ### INV-0001
 
 Class: legal
-Concepts: Install, Asset, Combat rules
-Statement: The repository contains no bytes taken from an install and no code transcribed from the game's program; tests build their fixtures in code, and rules recovered from the program are described in our own words.
+Concepts: Install, Asset, Combat rules, Layout
+Statement: The repository contains no bytes taken from an install and no code transcribed from the game's program; tests build their fixtures in code, layouts hold only authored values, and rules recovered from the program are described in our own words.
 Breaks: silently
 Check: none — no cheap test can tell a copied byte sequence or a transcribed routine from an original one; reviewers check that fixtures are built in code and that recovered rules are restated, not transcribed.
 
 ### INV-0002
 
 Class: behavior
-Concepts: Asset, Game file system, Install, Log entry
-Statement: An asset that is missing or fails to parse is reported with its name and reason and skipped; it never stops the engine. Each problem the engine reports reaches the log exactly once, as one log entry written by the component that turns findings into a report; parsers return their findings as data and never log.
+Concepts: Asset, Game file system, Install, Log entry, Layout
+Statement: An asset or a layout that is missing or fails to parse is reported with its name and reason and skipped; it never stops the engine. Each problem the engine reports reaches the log exactly once, as one log entry written by the component that turns findings into a report; parsers return their findings as data and never log.
 Breaks: loudly
 
 ### INV-0003
@@ -63,3 +63,11 @@ Concepts: Play run, Play script, State dump
 Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map and one play script write identical state dumps.
 Breaks: silently
 Check: a unit test that runs one play script twice against the same sandbox plan and compares the state dumps.
+
+### INV-0009
+
+Class: architecture
+Concepts: Layout, Map, Map sandbox
+Statement: The map sandbox plans a layout and a map through the same plan; no plan or view code branches on whether the objects came from a layout or a map.
+Breaks: silently
+Check: none — no cheap test tells a source-specific branch from a general one; reviewers check that the layout reader ends at the parsed map and that the plan and view take no layout type.

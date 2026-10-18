@@ -44,20 +44,7 @@ public sealed record MapSandbox
             return Failed(choice.Problem!);
         try
         {
-            var asset = (MapAsset)kind.Load(files, choice.Name);
-            var plan = SandboxPlan.Build(
-                asset,
-                SandboxPlan.Definitions(files, asset),
-                model => files.Find(model + ".sod") != null
-            );
-
-            return new MapSandbox
-            {
-                Files = files,
-                Plan = plan,
-                Problem = null,
-                Name = choice.Name,
-            };
+            return Planned(files, (MapAsset)kind.Load(files, choice.Name));
         }
         catch (Exception e) // a map that cannot be read is a message, whatever the reason (INV-0002)
         {
@@ -65,7 +52,52 @@ public sealed record MapSandbox
         }
     }
 
-    /// <summary>The name of the opened map; null when there is a <see cref="Problem"/>.</summary>
+    /// <summary>
+    /// <c>layout</c> is the path of --layout (null when it has none); <c>argProblems</c> are the command line's own
+    /// problems. The layout is read before the install opens, so its problem shows with or without an install.
+    /// </summary>
+    public static MapSandbox OpenLayout(string? game, string? layout, IReadOnlyList<string> argProblems)
+    {
+        if (argProblems.Count > 0)
+        {
+            Log.Error(Area.Sandbox, "map sandbox cannot open: the launch arguments have problems");
+
+            return Unopened(string.Join("; ", argProblems));
+        }
+
+        if (layout == null)
+            return Failed("no layout given: pass --layout <file>");
+        var read = Layout.Load(layout);
+        if (read.Problem != null)
+            return Failed(read.Problem);
+        var browser = AssetBrowser.Open(game, Array.Empty<AssetKind>());
+        if (browser.Problem != null)
+            return Failed(browser.Problem);
+        try
+        {
+            return Planned(browser.Files!, read.Asset!);
+        }
+        catch (Exception e) // a plan that cannot be built is a message, whatever the reason (INV-0002)
+        {
+            return Failed($"layout '{layout}' cannot be opened: {e.Message}");
+        }
+    }
+
+    // The sandbox of a map asset, from a map or a layout alike (INV-0009).
+    static MapSandbox Planned(GameFileSystem files, MapAsset asset) =>
+        new()
+        {
+            Files = files,
+            Plan = SandboxPlan.Build(
+                asset,
+                SandboxPlan.Definitions(files, asset),
+                model => files.Find(model + ".sod") != null
+            ),
+            Problem = null,
+            Name = asset.Name,
+        };
+
+    /// <summary>The name of the opened map, or the path of the opened layout; null when there is a <see cref="Problem"/>.</summary>
     public string? Name { get; init; }
 
     /// <summary>Logs the opened map as one INFO entry with its name and its object and unit counts.</summary>

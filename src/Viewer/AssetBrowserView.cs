@@ -13,9 +13,11 @@ namespace OpenArmada.Viewer;
 /// asset.
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; [--model Fente] [--screenshot out.png]
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]   (the map sandbox)
+///   godot-mono --path . -- --game &lt;Armada dir&gt; --layout &lt;file&gt; [--screenshot out.png]   (the map sandbox, from a layout)
 ///   mkdir -p play-out/&lt;stem&gt;; godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; --map &lt;name&gt; --play &lt;file&gt;   (a play run)
 ///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
-/// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--map</c>.
+/// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--map</c> and
+/// <c>--layout</c>; <c>--map</c> and <c>--layout</c> together are a problem.
 /// </summary>
 public partial class AssetBrowserView : Control
 {
@@ -48,6 +50,12 @@ public partial class AssetBrowserView : Control
             args.Value("--map"); // looked up now so its problem is known at run start
         }
 
+        if (!check && args.Has("--layout"))
+        {
+            args.Value("--layout"); // likewise
+            args.Exclusive("--layout", "--map");
+        }
+
         if (!check && args.Has("--play"))
         {
             args.Value("--play"); // likewise: a bare --play is logged here, once
@@ -57,6 +65,7 @@ public partial class AssetBrowserView : Control
             check ? "check"
             : args.Has("--play") ? "play"
             : args.Has("--map") ? "map"
+            : args.Has("--layout") ? "layout"
             : "browser";
         var source =
             gameArg != null ? "--game"
@@ -102,14 +111,21 @@ public partial class AssetBrowserView : Control
             return;
         }
 
-        if (args.Has("--map"))
+        if (args.Has("--map") || args.Has("--layout"))
         {
-            var map = args.Value("--map");
+            var layout = args.Value("--layout");
+            var start = Layout.Start(
+                System.Environment.GetEnvironmentVariable("PWD"),
+                System.Environment.CurrentDirectory
+            );
+            var sandbox = args.Has("--layout")
+                ? MapSandbox.OpenLayout(game, layout == null ? null : Layout.Resolve(layout, start), args.Problems)
+                : MapSandbox.Open(game, args.Value("--map"), args.Problems);
             // The sandbox saves the screenshot; the browser's own _Process must not.
             // This full-window Control would stop every mouse event in the GUI pass, so the sandbox's
             // _UnhandledInput (selection, move orders) would never see a click.
             MouseFilter = MouseFilterEnum.Ignore;
-            AddChild(new MapSandboxView(MapSandbox.Open(game, map, args.Problems), _screenshot));
+            AddChild(new MapSandboxView(sandbox, _screenshot));
             _screenshot = null;
 
             return;

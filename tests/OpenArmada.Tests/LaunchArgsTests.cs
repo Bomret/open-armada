@@ -50,4 +50,23 @@ public class LaunchArgsTests
         Assert.AreEqual(1, args.Problems.Count);
         StringAssert.Contains(args.Problems[0], "--screenshot needs a value");
     }
+
+    [TestMethod]
+    public void TwoFlagsThatExcludeEachOtherAreOneProblemNamingBoth()
+    {
+        var args = new LaunchArgs(new[] { "--layout", "a.jsonc", "--map", "2duel" });
+        args.Exclusive("--layout", "--map");
+        args.Exclusive("--layout", "--map");
+        Assert.AreEqual("--layout and --map cannot be given together", Assert.ContainsSingle(args.Problems));
+    }
+
+    [TestMethod]
+    [DataRow("--layout", "a.jsonc")]
+    [DataRow("--map", "2duel")]
+    public void OneOfTwoExclusiveFlagsIsNoProblem(string flag, string value)
+    {
+        var args = new LaunchArgs(new[] { flag, value });
+        args.Exclusive("--layout", "--map");
+        Assert.AreEqual(0, args.Problems.Count);
+    }
 }

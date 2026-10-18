@@ -40,7 +40,7 @@ Statement: A log entry's level states what happened, the same for one cause in e
 Breaks: silently
 Check: none — the level of each call site is a judgment; the asset check's marker-to-level mapping has its own test, and reviewers check every other call site against this rule.
 
-### INV-0006
+### INV-0008
 
 Class: behavior
 Concepts: Play run, Play script, State dump

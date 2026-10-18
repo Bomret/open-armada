@@ -70,7 +70,7 @@ public partial class AsteroidFieldsView : Node3D
     readonly List<SpriteDraw> _sprites = new();
 
     // Seconds of frame time since the fields were built: the animation follows the frames' deltas, so a fixed
-    // time step (Movie Maker) replays it exactly (INV-0006).
+    // time step (Movie Maker) replays it exactly (INV-0008).
     double _time;
 
     /// <summary>

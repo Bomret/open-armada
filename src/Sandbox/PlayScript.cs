@@ -152,7 +152,7 @@ public sealed record ShotStep : PlayStep
 /// </summary>
 public sealed class PlayScript
 {
-    /// <summary>The fixed seed of the play run's combat random source (INV-0006).</summary>
+    /// <summary>The fixed seed of the play run's combat random source (INV-0008).</summary>
     // stand-in: any fixed number gives a repeatable run; the game's own rolls are not seeded this way.
     public const int Seed = 1;
 

@@ -63,13 +63,14 @@ The **backend command contract** (ADR 0069) `scripts/publish-kb.js` runs. Every 
 in the path from `--repo`. It exits 0 on a 4xx or 5xx answer, so each command passes `-i` and reads the
 HTTP status line from stderr.
 
-- A page's identity is its wiki name. `find` pages through the wiki's page list (`/wiki/pages`, 50
-  entries a page), takes the entry whose title equals the staged title exactly, and returns that entry's
-  `sub_url` as `id`. The `id` reaches `read`, `update`, and `delete` as `SUPERDEV_KB_ID` and resolves a
+- A page's identity is its wiki name. `find` pages through the wiki's page list (`/wiki/pages`, up to
+  50 entries a page) until a listing page returns no entries, since Forgejo can return a short page
+  before the last one. It takes the entry whose title equals the staged title exactly, and returns
+  that entry's `sub_url` as `id`. The `id` reaches `read`, `update`, and `delete` as `SUPERDEV_KB_ID` and resolves a
   staged page's `parent:` as `SUPERDEV_KB_PARENT_ID`.
-- `find` exits 3 when no listed page carries the title, the only outcome `scripts/publish-kb.js` reads as
-  positive absence. It exits 2 when any listing page answers other than a 200 with a list. A wiki that is
-  switched off answers 404, so `find` exits 2 and the page stays staged.
+- `find` exits 3 when no listed page carries the title, at the first empty listing page: the only
+  outcome `scripts/publish-kb.js` reads as positive absence. It exits 2 when any listing page answers
+  other than a 200 with a list. A wiki that is switched off answers 404, so `find` exits 2 and the page stays staged.
 - `read` prints the live page's markdown body on stdout, nothing else.
 - `create` and `update` read the staged body from `SUPERDEV_KB_BODY_FILE` and send it base64-encoded.
 - `create` with `SUPERDEV_KB_PARENT_ID` set takes the new page's name from the `sub_url` of the 201
@@ -94,7 +95,7 @@ while :; do
   n=$(jq -e 'if type == "array" then length else error end' "$out") || exit 2
   id=$(jq -c --arg t "$SUPERDEV_KB_TITLE" 'first(.[] | select(.title == $t) | {id: .sub_url})' "$out") || exit 2
   [ -n "$id" ] && { printf '%s\n' "$id"; exit 0; }
-  [ "$n" -lt 50 ] && exit 3
+  [ "$n" -eq 0 ] && exit 3
   p=$((p + 1))
 done
 ```

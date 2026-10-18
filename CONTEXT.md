@@ -244,7 +244,7 @@ monster units. The map preview and the `--maps` run show the same text.
 _Avoid_: map report, map info, map scan
 
 **Run**
-One start of the engine in one mode (asset browser, map sandbox, or asset check) until it quits.
+One start of the engine in one mode (asset browser, map sandbox, asset check, or the `--maps` run of map summaries) until it quits.
 _Avoid_: session, launch, execution
 
 **Log**

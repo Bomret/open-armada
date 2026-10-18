@@ -163,9 +163,9 @@ Levels:
 - `WARN`: the engine went on by design, with a stand-in, absent data, a skip, or an unsupported asset.
 - `INFO`: context, such as the run start and each selection.
 
-Areas: `run` (start, end, launch arguments), `check` (the asset check), `browser`, `sandbox`, `combat`, and `render` (models and their textures).
+Areas: `run` (start, end, launch arguments), `check` (the asset check), `maps` (the map summaries of `--maps`), `browser`, `sandbox`, `combat`, and `render` (models and their textures).
 
-Each run starts with an `INFO` entry that names the mode, the install, and the arguments. A run that quits normally ends with an `INFO` entry that counts its `WARN` and `ERROR` entries; the asset check's also gives its exit code. A crash or SIGINT writes no run end; Godot's backtrace stays in `godot.log`. To list the problems of a run, search the log for ` WARN ` and ` ERROR `.
+Each run starts with an `INFO` entry that names the mode, the install, and the arguments. A run that quits normally ends with an `INFO` entry that counts its `WARN` and `ERROR` entries; the asset check's and the `--maps` run's also give the exit code. A crash or SIGINT writes no run end; Godot's backtrace stays in `godot.log`. To list the problems of a run, search the log for ` WARN ` and ` ERROR `.
 
 A fault that repeats, such as a combat step that fails each frame, is logged at its first occurrence, and its further occurrences are counted in one entry before the run ends. A texture that fails is logged once per run: `WARN` when it is missing, `ERROR` when it cannot be read. A later use by a named asset adds an `INFO` entry that points back to the first one.
 
@@ -190,6 +190,14 @@ godot-mono --headless --path . -- --check --game "/path/to/Star Trek - Armada"
 ```
 
 Loads every asset and logs each failure with its name and reason. The report is log entries, on standard output and in the log (see "Read the log"); each line keeps its marker word (`FAIL`, `UNCLASSIFIED`, `NOTE`, `UNRESOLVED`, `UNSUPPORTED`, `MISSING`) at the start of its text. Classifies every file of the install and lists references that do not resolve. Exits non-zero when any asset failed or any file is unclassified. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
+
+## Summarize the maps of an install
+
+```sh
+godot-mono --headless --path . -- --maps --game "/path/to/Star Trek - Armada"
+```
+
+Writes the map summary of every map in the install's `bzn` folder, one log entry per map in name order, on standard output and in the log (see "Read the log"). Every line of an entry starts with the map's name, the name `--map` takes. A summary gives the map's group, its start positions, the teams that hold a warship, whether combat is possible at start (`yes`, `no`, or `unknown` when only unresolved classes could make it `yes`), its neutral and monster units, its unresolved classes when it has any, and its objects per team with their classes. The entry is `WARN` for a map with an unresolved class and `INFO` otherwise. A map that cannot be read gives one `ERROR` entry with its reason, and the run goes on. Exits 0 once the install opens, and 1 when no install is given or it cannot be opened. `--check` wins over `--maps`; `--maps` wins over `--map`, `--layout`, and `--play`. The asset browser's map preview shows the same summary. `docs/maps.md` gives the summaries of the stock 1.2 install.
 
 ## SOD format notes
 

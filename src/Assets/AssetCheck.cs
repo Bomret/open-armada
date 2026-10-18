@@ -9,6 +9,9 @@ namespace OpenArmada.Assets;
 /// <summary>The asset check: loads every asset of every kind and reports each failure with name and reason.</summary>
 public static class AssetCheck
 {
+    /// <summary>The report's text when no install is given; the <c>--maps</c> run reports the same.</summary>
+    public const string NoInstall = "no install given: pass --game <Armada install dir> or set ARMADA_DIR";
+
     /// <summary>
     /// Writes the whole report through <see cref="Log"/> in area <see cref="Area.Check"/> and returns the
     /// process exit code: 1 exactly when it wrote an <c>ERROR</c> entry, 0 otherwise (counted here, never
@@ -26,7 +29,7 @@ public static class AssetCheck
     {
         if (string.IsNullOrEmpty(game))
         {
-            Log.Error(Area.Check, "no install given: pass --game <Armada install dir> or set ARMADA_DIR");
+            Log.Error(Area.Check, NoInstall);
 
             return 1;
         }

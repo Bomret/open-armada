@@ -16,8 +16,10 @@ namespace OpenArmada.Viewer;
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --layout &lt;file&gt; [--screenshot out.png]   (the map sandbox, from a layout)
 ///   mkdir -p play-out/&lt;stem&gt;; godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; --map &lt;name&gt; --play &lt;file&gt;   (a play run)
 ///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
-/// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--map</c> and
-/// <c>--layout</c>; <c>--map</c> and <c>--layout</c> together are a problem.
+///   godot-mono --headless --path . -- --maps --game &lt;Armada dir&gt;   (the map summary of every map)
+/// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--maps</c>,
+/// <c>--map</c> and <c>--layout</c>; <c>--maps</c> wins over <c>--map</c>, <c>--layout</c> and <c>--play</c>;
+/// <c>--map</c> and <c>--layout</c> together are a problem.
 /// </summary>
 public partial class AssetBrowserView : Control
 {
@@ -45,24 +47,26 @@ public partial class AssetBrowserView : Control
         _screenshot = args.Value("--screenshot");
         var model = args.Value("--model");
         var check = args.Has("--check");
-        if (!check && args.Has("--map"))
+        var maps = !check && args.Has("--maps");
+        if (!check && !maps && args.Has("--map"))
         {
             args.Value("--map"); // looked up now so its problem is known at run start
         }
 
-        if (!check && args.Has("--layout"))
+        if (!check && !maps && args.Has("--layout"))
         {
             args.Value("--layout"); // likewise
             args.Exclusive("--layout", "--map");
         }
 
-        if (!check && args.Has("--play"))
+        if (!check && !maps && args.Has("--play"))
         {
             args.Value("--play"); // likewise: a bare --play is logged here, once
         }
 
         var mode =
             check ? "check"
+            : maps ? "maps"
             : args.Has("--play") ? "play"
             : args.Has("--map") ? "map"
             : args.Has("--layout") ? "layout"
@@ -95,6 +99,25 @@ public partial class AssetBrowserView : Control
             catch (Exception e)
             {
                 Log.Error(Area.Check, $"asset check crashed: {e}");
+                code = 1;
+            }
+
+            _checkCode = code;
+            GetTree().Quit(code);
+
+            return;
+        }
+
+        if (maps)
+        {
+            int code;
+            try
+            {
+                code = MapSummaryReport.Run(game);
+            }
+            catch (Exception e)
+            {
+                Log.Error(Area.Maps, $"maps listing crashed: {e}");
                 code = 1;
             }
 

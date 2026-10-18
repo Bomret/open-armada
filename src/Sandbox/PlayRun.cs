@@ -6,12 +6,18 @@ namespace OpenArmada.Sandbox;
 /// <summary>
 /// The run of a play script over a <see cref="PlayState"/>: the steps in file order on simulated time, which the
 /// caller feeds in through <see cref="Advance"/>, after the combat world has taken the same time. A step that
-/// fails ends the run with a problem that names the script and the line. The run never logs and never throws for
-/// a step (INV-0007); the caller logs <see cref="Problems"/> and quits with the exit code.
+/// fails or throws ends the run with a problem that names the script and the line. The run never logs and never
+/// throws for a step (INV-0007); the caller logs <see cref="Problems"/> and quits with the exit code.
 /// </summary>
-public sealed class PlayRun(PlayScript script, PlayState state, string outputFolder)
+public sealed class PlayRun(
+    PlayScript script,
+    PlayState state,
+    string outputFolder,
+    Func<PlayStep, string?>? input = null
+)
 {
     readonly List<string> _problems = [];
+    HoldStep? _held;
     double _clock;
     double _due;
     int _next;
@@ -60,15 +66,34 @@ public sealed class PlayRun(PlayScript script, PlayState state, string outputFol
         const double Tolerance = 1e-9;
         while (_due <= _clock + Tolerance)
         {
-            if (_next == script.Steps.Count)
+            // A hold ends when its time has passed, before the step after it runs.
+            PlayStep step;
+            if (_held is { } held)
+            {
+                step = new ReleaseStep { Line = held.Line, Key = held.Key };
+                _held = null;
+            }
+            else if (_next == script.Steps.Count)
             {
                 Finished = true;
 
                 return;
             }
+            else
+            {
+                step = script.Steps[_next++];
+            }
 
-            var step = script.Steps[_next++];
-            var problem = Run(step);
+            string? problem;
+            try
+            {
+                problem = Run(step);
+            }
+            catch (Exception e) // a step that throws is a problem naming its line, never a crash (INV-0007)
+            {
+                problem = $"step threw {e.GetType().Name}: {e.Message}";
+            }
+
             if (problem != null)
             {
                 _problems.Add($"{script.Path} line {step.Line}: {problem}");
@@ -92,8 +117,16 @@ public sealed class PlayRun(PlayScript script, PlayState state, string outputFol
                 return PlayState.Write(outputFolder, dump.Name, state.Dump());
             case ExpectStep expect:
                 return state.Expect(expect);
+            case HoldStep hold:
+                _held = hold;
+                _due += hold.Seconds;
+
+                return Input(step);
             default:
-                return $"step '{step.GetType().Name}' cannot run here";
+                return Input(step);
         }
     }
+
+    // An input step goes to the executor, which sends it to the sandbox as input events.
+    string? Input(PlayStep step) => input == null ? $"step '{step.GetType().Name}' cannot run here" : input(step);
 }

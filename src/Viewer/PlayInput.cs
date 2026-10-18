@@ -194,7 +194,7 @@ public sealed class PlayInput(
     string? SendKey(string name, bool pressed)
     {
         var key = OS.FindKeycodeFromString(name);
-        if (key == Key.None)
+        if (!KeyMask.Reads(name, (long)key))
             return $"'{name}' is no key name";
         if (pressed)
             _held.Add(key);

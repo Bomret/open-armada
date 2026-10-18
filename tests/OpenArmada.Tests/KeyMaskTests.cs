@@ -20,4 +20,16 @@ public class KeyMaskTests
     [TestMethod]
     public void AKeyWithoutModifiersKeepsItsCode() =>
         Assert.AreEqual((G, false, false, false, false), KeyMask.Split(G));
+
+    // OS.FindKeycodeFromString("Shift+Foo") gives code 0 with the Shift bit.
+    [TestMethod]
+    public void AnUnknownKeyWithAModifierDoesNotRead() => Assert.IsFalse(KeyMask.Reads("Shift+Foo", 1L << 25));
+
+    // OS.FindKeycodeFromString drops a modifier name it does not know: "Control+G" gives the bare G.
+    [TestMethod]
+    public void ADroppedModifierDoesNotRead() => Assert.IsFalse(KeyMask.Reads("Control+G", G));
+
+    [TestMethod]
+    public void AChordWithEveryModifierSetReads() =>
+        Assert.IsTrue(KeyMask.Reads("Ctrl+Shift+G", G | 1L << 25 | 1L << 28));
 }

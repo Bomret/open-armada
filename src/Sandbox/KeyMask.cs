@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace OpenArmada.Sandbox;
 
 /// <summary>
@@ -23,4 +25,17 @@ public static class KeyMask
             (keycode & Alt) != 0,
             (keycode & Meta) != 0
         );
+
+    /// <summary>
+    /// Whether <paramref name="keycode"/>, as <c>OS.FindKeycodeFromString(name)</c> returns it, holds every part of the
+    /// key name: a known key and one modifier bit for each <c>+</c>-joined modifier. Godot gives code 0 for an unknown
+    /// key and sets no bit for a modifier name it does not know (<c>Control</c> where it spells <c>Ctrl</c>, or a key
+    /// name in front: <c>G+Shift</c> is the Shift key), so such a name does not read.
+    /// </summary>
+    public static bool Reads(string name, long keycode)
+    {
+        var modifiers = new[] { Shift, Alt, Meta, Control }.Count(bit => (keycode & bit) != 0);
+
+        return (keycode & CodeMask) != 0 && modifiers == name.Split('+').Length - 1;
+    }
 }

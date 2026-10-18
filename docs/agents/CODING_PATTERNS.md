@@ -65,9 +65,12 @@ public sealed class PaletteKind : AssetKind
   kind (`PalettePreview`). `KindPreview.Discover` matches it to the kind through `KindName`.
 - `KindPreview.Create` returns a `Preview`: the view it builds and the notes the view shows. A preview
   never logs its notes. `AssetBrowser` logs them each time it shows the asset (INV-0010), so the rule
-  holds in one place for every preview. `PreviewNotesTests` fails on a preview that logs notes.
+  holds in one place for every preview. `PreviewNotesTests` fails on a preview that logs notes or calls
+  `Log.Warn`, `Log.Info`, or `Log.Error` directly; `ViewerLog.TextureFailed` stays allowed.
 - `AssetBrowser` runs the selection flow and writes the browser's log entries. `AssetBrowserView` only
   builds the controls and shows the `Pane` the browser hands it, so the unit tests reach every entry.
+  `AssetBrowserView` wraps each preview with `AssetBrowser.Showing<Control>`; a preview whose view is of
+  another type is a failed preview: one `ERROR` entry, and the pane says why.
 
 ## Gaps never stop the engine
 

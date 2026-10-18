@@ -78,5 +78,5 @@ Class: behavior
 Concepts: Asset browser, Preview, Log entry
 Statement: A preview returns the notes of the asset it shows beside the view it builds and never writes them to the log; the asset browser writes each note as one log entry, once per preview shown.
 Breaks: silently
-Check: a unit test that scans the preview sources for log calls on notes, and a unit test that shows one asset through the asset browser and finds each of its notes logged once.
+Check: a unit test that scans the preview sources for log calls on notes and for direct `Log.Warn`, `Log.Info`, and `Log.Error` calls, and a unit test that shows one asset through the asset browser and finds each of its notes logged once.
 Paths: src/Viewer/*Preview.cs, src/Assets/AssetBrowser.cs

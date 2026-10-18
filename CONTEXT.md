@@ -153,8 +153,10 @@ The player sets it with a key chord.
 _Avoid_: alert level, stance, combat mode
 
 **Attack order**
-An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target and
-fires at it, and the order ends when the target is destroyed.
+An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target
+until one of its weapons is within that weapon's range of the target's center, measured from the weapon's
+mount point on the model (see `docs/combat-rules.md`, §Firing). Keep-closing past the closing distance is an
+engine stand-in (see `docs/combat-rules.md`, §Attack order). The order ends when the target is destroyed.
 _Avoid_: attack command, focus fire
 
 **Key chord**
@@ -182,8 +184,19 @@ _Avoid_: crew level, crew health
 
 **Selection display**
 The game's status display drawn in the world around a unit: the shield bar above it and the crew dot at
-its corner. A selected unit shows both, and the unit under the cursor shows its shield bar.
+its corner. Only the hovered unit and the units of its team show it, and of those only a selected unit
+shows the crew dot. A selected unit that is not in that group shows nothing.
 _Avoid_: health bar, unit overlay, HUD
+
+**Hovered unit**
+The unit under the cursor, as the selection display uses it. It stays the hovered unit for a short hold
+after the cursor leaves it.
+_Avoid_: mouse-over unit, highlighted unit
+
+**Display fade**
+The selection display's opacity for the units of the hovered unit's team. It grows while the hovered team
+stays the same and starts over when the hovered team changes.
+_Avoid_: hover alpha, fade-in timer
 
 **Screen box**
 The smallest screen rectangle around a unit's projected bounding box. The selection display is placed

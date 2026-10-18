@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
@@ -159,6 +160,50 @@ public class CombatArtTests
         var art = CombatArt.Build(Install(), new[] { unit });
         Assert.IsNull(art.Hardpoint(unit.Item1, "hp01"));
         CollectionAssert.AreEqual(new[] { "hp01" }, art.Reports.Single().Names.ToArray());
+    }
+
+    static Vector3 WorldOf(CombatArt art, (PlacedObject Unit, CombatProfile Profile) unit, string hardpoint) =>
+        art.HardpointPosition(unit.Unit, hardpoint, MoveGeometry.PlacedPose(unit.Unit.Position, unit.Unit.AxisZ));
+
+    [TestMethod]
+    public void HardpointPositionIsTheNodesOffsetFromTheUnitsCenter()
+    {
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01"));
+        unit = (unit.Unit with { Model = "placed", Position = new Vector3(10, 0, 0) }, unit.Profile);
+        var model = Latin1(
+            new SodBytes(1.8f)
+                .Lighting(("lit", 1f, 1))
+                .Nodes(
+                    new NodeSpec { Name = "root", Parent = "" },
+                    new NodeSpec
+                    {
+                        Name = "hp01",
+                        Parent = "root",
+                        Position = [2, 0, 3],
+                    }
+                )
+                .End()
+        );
+        var art = CombatArt.Build(Install(("SOD/placed.sod", model)), new[] { unit });
+        Assert.IsTrue(Vector3.Distance(new Vector3(12, 0, -3), WorldOf(art, unit, "HP01")) < 1e-4f);
+    }
+
+    [TestMethod]
+    public void HardpointMissingFromTheModelMeasuresFromTheCenterAndStaysAGap()
+    {
+        var unit = Unit(Armed("phaser", "ph.wav", "hp99"));
+        var art = CombatArt.Build(Install(), new[] { unit });
+        Assert.AreEqual(unit.Unit.Position, WorldOf(art, unit, "hp99"));
+        CollectionAssert.AreEqual(new[] { "hp99" }, art.Reports.Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void ModelThatCannotBeReadMeasuresFromTheCenter()
+    {
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01"));
+        unit = (unit.Unit with { Model = "nomodel" }, unit.Profile);
+        var art = CombatArt.Build(Install(), new[] { unit });
+        Assert.AreEqual(unit.Unit.Position, WorldOf(art, unit, "hp01"));
     }
 
     [TestMethod]

@@ -53,6 +53,7 @@ public partial class UnitOrders : Node3D
         MapBounds bounds,
         CombatPlan combat,
         Action<string> gap,
+        Func<PlacedObject, string, ShipPose, System.Numerics.Vector3> hardpointPosition,
         int? seed = null
     )
     {
@@ -83,6 +84,7 @@ public partial class UnitOrders : Node3D
                 }),
             combat.ShieldDamageProtection,
             random.NextDouble,
+            hardpointPosition,
             combat.SystemHitpointsBonus
         );
         _fighting = _world.Units.Select(u => u.Unit).ToHashSet();

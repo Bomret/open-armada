@@ -45,7 +45,8 @@ public class CombatWorldTests
                 Mobile = s.Mobile,
             }),
             1,
-            random ?? (() => 0)
+            random ?? (() => 0),
+            (_, _, pose) => pose.Position
         );
     }
 
@@ -110,6 +111,182 @@ public class CombatWorldTests
             },
             world.State(a.Object)!.Intent
         );
+    }
+
+    [TestMethod]
+    public void AnAttackingShipKeepsClosingOnALargeTargetUntilAHardpointIsInRangeThenFires()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 200));
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 250),
+            Profile = Profile(null, maxHealth: 100, hull: 100),
+            Radius = 100,
+        };
+        var world = World(out var poses, null, a, b);
+        world.Attack(a.Object, b.Object);
+        // surface distance 150 is within 200 - 50, but the hardpoint is 250 from the center, out of range
+        Assert.AreEqual(0, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        poses.Advance(a.Object, MovingTo(a.Object, 60, 0), 1000);
+        Assert.AreEqual(1, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(MoveKind.Face, world.State(a.Object)!.Intent.Kind);
+    }
+
+    [TestMethod]
+    public void ARedAlertIdleShipKeepsClosingOnALargeTargetUntilAHardpointIsInRangeThenFires()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 200));
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 250),
+            Profile = Profile(null, maxHealth: 100, hull: 100),
+            Radius = 100,
+        };
+        var world = World(out var poses, null, a, b);
+        world.State(a.Object)!.Alert = AlertStance.Red;
+        // surface distance 150 is within 200 - 50, but the hardpoint is 250 from the center, out of range
+        Assert.AreEqual(0, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        poses.Advance(a.Object, MovingTo(a.Object, 60, 0), 1000);
+        Assert.AreEqual(1, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(MoveKind.Face, world.State(a.Object)!.Intent.Kind);
+    }
+
+    [TestMethod]
+    public void ARearHardpointShipHoldsWithoutFlippingOnceAHardpointIsInRange()
+    {
+        // The hardpoint trails the center by 80: surface distance allows holding from x = 150, the hardpoint is in
+        // range of the target's center from x = 180.
+        var a = Fighter("a", 1, 0, OnHardpoints(200, "rear"));
+        var b = Fighter("b", 2, 300);
+        var poses = new UnitPoses(new[] { a.Object, b.Object });
+        var world = new CombatWorld(
+            poses,
+            new[] { a, b }.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = s.Radius,
+                Mobile = s.Mobile,
+            }),
+            1,
+            () => 0,
+            // the hardpoint sits 80 behind the center (the bow is node-local -Z); the placed ships have identity axes,
+            // so the pose's orientation is its heading change from there
+            hardpointPosition: (_, _, pose) =>
+                pose.Position
+                + Vector3.Transform(
+                    new Vector3(0, 0, 80),
+                    MoveGeometry.Orientation(
+                        Quaternion.Identity,
+                        pose.Heading - MoveGeometry.BowHeading(Vector3.UnitZ),
+                        pose.Bank
+                    )
+                )
+        );
+        world.Attack(a.Object, b.Object);
+        var kinds = new List<MoveKind>();
+        var fired = new List<int>();
+        foreach (var x in new float[] { 150, 170, 179, 180, 181, 190, 180, 181 })
+        {
+            poses.Advance(a.Object, MovingTo(a.Object, x, 0), 1000);
+            fired.Add(Fired(world.Step(0.02), "a"));
+            kinds.Add(world.State(a.Object)!.Intent.Kind);
+        }
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                MoveKind.MoveTo,
+                MoveKind.MoveTo,
+                MoveKind.MoveTo,
+                MoveKind.Face,
+                MoveKind.Face,
+                MoveKind.Face,
+                MoveKind.Face,
+                MoveKind.Face,
+            },
+            kinds
+        );
+        Assert.AreEqual(0, fired.Take(3).Sum());
+        Assert.AreEqual(1, fired.Skip(3).Sum());
+    }
+
+    [TestMethod]
+    public void ASideHardpointShipThatTurnsItsHardpointOutOfRangeClosesAgainThenHoldsWithoutFlipping()
+    {
+        // The hardpoint sits 80 to the side of the center and starts pointing at the target, 160 from its center and
+        // in range. Facing the target swings it 80 off the line of approach, out of range, until the center is within
+        // 183 of the target's center.
+        var a = Fighter("a", 1, 0, OnHardpoints(200, "side"));
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 240),
+            Profile = Profile(null, maxHealth: 100, hull: 100),
+            Radius = 100,
+        };
+        var poses = new UnitPoses(new[] { a.Object, b.Object });
+        var start = MoveGeometry.BowHeading(Vector3.UnitZ);
+        var world = new CombatWorld(
+            poses,
+            new[] { a, b }.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = s.Radius,
+                Mobile = s.Mobile,
+            }),
+            1,
+            () => 0,
+            // the placed ships have identity axes, so the pose's orientation is its heading change from the start
+            hardpointPosition: (_, _, pose) =>
+                pose.Position
+                + Vector3.Transform(
+                    new Vector3(80, 0, 0),
+                    MoveGeometry.Orientation(Quaternion.Identity, pose.Heading - start, pose.Bank)
+                )
+        );
+        world.Attack(a.Object, b.Object);
+        var motion = new ShipMotion(
+            new PhysicsValues
+            {
+                ImpulseSpeed = 100,
+                YawRotationRate = 2,
+                MaxRoll = null,
+            },
+            a.Object.Position,
+            start
+        );
+        var kinds = new List<MoveKind>();
+        var fired = 0;
+        // the sandbox's frame: the world's intent drives the motion, the motion moves the unit, then combat steps
+        for (var tick = 0; tick < 300; tick++)
+        {
+            var intent = world.State(a.Object)!.Intent;
+            switch (intent.Kind)
+            {
+                case MoveKind.MoveTo:
+                    motion.SetTarget(intent.X, intent.Z);
+
+                    break;
+                case MoveKind.Face:
+                    motion.Face(intent.X, intent.Z);
+
+                    break;
+            }
+
+            poses.Advance(a.Object, motion, 0.02);
+            fired += Fired(world.Step(0.02), "a");
+            kinds.Add(world.State(a.Object)!.Intent.Kind);
+        }
+
+        // holds, closes once the turn takes the hardpoint out of range, then holds for good
+        var runs = kinds.Where((k, i) => i == 0 || k != kinds[i - 1]).ToList();
+        CollectionAssert.AreEqual(new[] { MoveKind.Face, MoveKind.MoveTo, MoveKind.Face }, runs);
+        Assert.IsTrue(fired > 0);
     }
 
     static ShipMotion MovingTo(PlacedObject o, float x, float z)
@@ -198,13 +375,138 @@ public class CombatWorldTests
     }
 
     [TestMethod]
-    public void EachHardpointFiresAShot()
+    public void AWeaponWithThreeHardpointsFiresOneShotPerReload()
     {
         var a = Fighter("a", 1, 0, Weapon(range: 200, hardpoints: 3));
         var b = Fighter("b", 2, 100);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        Assert.AreEqual(3, Fired(world.Step(0.02), "a"));
+        Assert.AreEqual(1, Fired(world.Step(0.02), "a"));
+    }
+
+    // A world whose hardpoints stand at the given x offsets from their unit's center, by name.
+    static CombatWorld WorldWithHardpoints(Dictionary<string, float> offsets, params Spec[] specs)
+    {
+        var poses = new UnitPoses(specs.Select(s => s.Object));
+
+        return new CombatWorld(
+            poses,
+            specs.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = s.Radius,
+                Mobile = s.Mobile,
+            }),
+            1,
+            () => 0,
+            hardpointPosition: (_, name, pose) => pose.Position + new Vector3(offsets.GetValueOrDefault(name), 0, 0)
+        );
+    }
+
+    static string[] Origins(CombatWorld world, double seconds) =>
+        world.Step(seconds).OfType<ShotFired>().Select(e => e.Shot.Hardpoint).ToArray();
+
+    static WeaponProfile OnHardpoints(float range, params string[] names) =>
+        Weapon(range: range) with
+        {
+            Hardpoints = names,
+        };
+
+    [TestMethod]
+    public void OfTwoHardpointsInRangeTheNearerFires()
+    {
+        var a = Fighter("a", 1, 0, OnHardpoints(50, "far", "near"));
+        var b = Fighter("b", 2, 40);
+        var world = WorldWithHardpoints(new() { ["far"] = -5, ["near"] = 20 }, a, b);
+        world.Attack(a.Object, b.Object);
+        CollectionAssert.AreEqual(new[] { "near" }, Origins(world, 0.02));
+    }
+
+    [TestMethod]
+    public void AShotStartsAtTheChosenHardpointsWorldPosition()
+    {
+        var a = Fighter("a", 1, 0, OnHardpoints(50, "far", "near"));
+        var b = Fighter("b", 2, 40);
+        var world = WorldWithHardpoints(new() { ["far"] = -5, ["near"] = 20 }, a, b);
+        world.Attack(a.Object, b.Object);
+        var shot = world.Step(0.02).OfType<ShotFired>().Single().Shot;
+        Assert.AreEqual(new System.Numerics.Vector3(20, 0, 0), shot.Position);
+    }
+
+    [TestMethod]
+    public void OnEqualDistanceTheFirstListedHardpointFires()
+    {
+        var a = Fighter("a", 1, 0, OnHardpoints(50, "listedFirst", "listedSecond"));
+        var b = Fighter("b", 2, 40);
+        var world = WorldWithHardpoints(new() { ["listedFirst"] = 10, ["listedSecond"] = 70 }, a, b);
+        world.Attack(a.Object, b.Object);
+        CollectionAssert.AreEqual(new[] { "listedFirst" }, Origins(world, 0.02));
+    }
+
+    [TestMethod]
+    public void AHardpointJustOutOfRangeNeverFires()
+    {
+        var a = Fighter("a", 1, 0, OnHardpoints(50, "hp"));
+        var b = Fighter("b", 2, 40);
+        var world = WorldWithHardpoints(new() { ["hp"] = -10.1f }, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.AreEqual(0, Origins(world, 1).Length);
+    }
+
+    [TestMethod]
+    public void AWeaponIsJudgedByItsOwnRangeSoOnlyTheLongOneFires()
+    {
+        var shortGun = Weapon(range: 40);
+        var longGun = Weapon(range: 200) with { Slot = 2, Hardpoints = new[] { "hp1" } };
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { shortGun, longGun }, maxHealth: 100, hull: 100),
+        };
+        var b = Fighter("b", 2, 100);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        var fired = world.Step(0.02).OfType<ShotFired>().Select(e => e.Shot.Weapon.Slot).ToArray();
+        CollectionAssert.AreEqual(new[] { 2 }, fired);
+    }
+
+    [TestMethod]
+    public void ARangeIsMeasuredToTheTargetsCenterNotItsSurface()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 90));
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 100),
+            Profile = Profile(null, maxHealth: 100, hull: 100),
+            Radius = 30,
+        };
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.AreEqual(0, Fired(world.Step(1), "a"));
+    }
+
+    [TestMethod]
+    public void AWeaponOutOfRangeStaysReadyAndFiresOnTheFirstTickAHardpointComesInRange()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 50)) with { Mobile = false };
+        var b = Fighter("b", 2, 100);
+        var world = World(out var poses, null, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.AreEqual(0, Fired(world.Step(1), "a"));
+        poses.Advance(b.Object, MovingTo(b.Object, 40, 0), 1000);
+        Assert.AreEqual(1, Fired(world.Step(0.02), "a"));
+    }
+
+    [TestMethod]
+    public void ARoundOutOfRangeFiresNothingWhenSeveralRoundsFallInOneTick()
+    {
+        var a = Fighter("a", 1, 0, Weapon(delay: 0.001f, range: 50));
+        var b = Fighter("b", 2, 100);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        Assert.AreEqual(0, Fired(world.Step(0.02), "a"));
     }
 
     [TestMethod]
@@ -218,17 +520,14 @@ public class CombatWorldTests
     }
 
     [TestMethod]
-    public void EachShotNamesTheHardpointItLeavesFrom()
+    public void TheShotNamesTheHardpointItLeavesFrom()
     {
         var weapon = Weapon(range: 200) with { Hardpoints = new[] { "hp01", "hp02" } };
         var a = Fighter("a", 1, 0, weapon);
         var b = Fighter("b", 2, 100);
-        var world = World(null, a, b);
+        var world = World(null, a, b); // both hardpoints at the center: a tie, the first listed fires
         world.Attack(a.Object, b.Object);
-        CollectionAssert.AreEqual(
-            new[] { "hp01", "hp02" },
-            world.Step(0.02).OfType<ShotFired>().Select(e => e.Shot.Hardpoint).ToArray()
-        );
+        CollectionAssert.AreEqual(new[] { "hp01" }, Origins(world, 0.02));
     }
 
     [TestMethod]
@@ -749,8 +1048,8 @@ public class CombatWorldTests
         var b = WithSystems("b", 2, 400, Weapon(range: 500, hitChance: 0.1f), Sys("Engines"));
         var world = World(() => 0.9, a, b);
         world.Attack(a.Object, b.Object);
-        world.State(a.Object)!.Systems["Engines"].Destroyed = true;
-        world.State(b.Object)!.Systems["Engines"].Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Engines");
+        world.State(b.Object)!.DestroySystem("Engines");
         var events = world.Step(0.02);
         Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
         Assert.IsTrue(events.OfType<ShotFired>().Where(e => e.Shot.Target.Unit == b.Object).All(e => e.Shot.Hits));
@@ -774,7 +1073,7 @@ public class CombatWorldTests
         var b = WithSystems("b", 2, 100, null);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        world.State(a.Object)!.Systems["Weapons"].Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Weapons");
         Assert.AreEqual(0, Fired(world.Step(3), "a"));
     }
 
@@ -786,7 +1085,7 @@ public class CombatWorldTests
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
         var weapons = world.State(a.Object)!.Systems["Weapons"];
-        weapons.Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Weapons");
         weapons.HitPoints = 0;
         Assert.AreEqual(0, Fired(world.Step(1), "a"));
         Assert.IsTrue(Fired(world.Step(3), "a") > 0); // 1 s per point at crew ratio 1: whole again after 2 s
@@ -831,7 +1130,8 @@ public class CombatWorldTests
                 Mobile = true,
             }),
             0.5,
-            () => 0
+            () => 0,
+            (_, _, pose) => pose.Position
         );
         var state = world.State(b.Object)!;
         state.Crew = 1;
@@ -849,7 +1149,7 @@ public class CombatWorldTests
         var b = WithSystems("b", 2, 400, null);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        world.State(a.Object)!.Systems["Engines"].Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Engines");
         world.Step(1);
         Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
     }
@@ -911,7 +1211,7 @@ public class CombatWorldTests
         var world = World(null, a);
         var state = world.State(a.Object)!;
         state.Shields = 40;
-        state.Systems["ShieldGenerator"].Destroyed = true;
+        state.DestroySystem("ShieldGenerator");
         world.Step(2);
         Assert.AreEqual(40, state.Shields, 1e-6);
     }
@@ -930,7 +1230,7 @@ public class CombatWorldTests
         };
         var world = World(null, a);
         var state = world.State(a.Object)!;
-        state.Systems["LifeSupport"].Destroyed = true;
+        state.DestroySystem("LifeSupport");
         state.Systems["LifeSupport"].HitPoints = 0;
         state.Systems["Sensors"].HitPoints = 1;
 
@@ -985,6 +1285,7 @@ public class CombatWorldTests
             },
             1,
             () => 0,
+            (_, _, pose) => pose.Position,
             2
         );
         Assert.AreEqual(5, world.State(a.Object)!.Systems["Engines"].Max, 1e-6);

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -101,6 +102,53 @@ public sealed class UnitCombatState(
     /// <summary>Whether the unit has the system <c>name</c> and it is destroyed; false for a system the unit lacks.</summary>
     public bool SystemDestroyed(string name) => Systems.TryGetValue(name, out var s) && s.Destroyed;
 
+    /// <summary>
+    /// Destroys the system <c>name</c> and hands its live hit percent, shares included, evenly to the systems still
+    /// working (0x467620); with none working, or on a derelict unit where no system counts as working (0x466ca0),
+    /// the percent goes to the critical share (0x467b70), which is the part of the roll no location takes.
+    /// </summary>
+    public void DestroySystem(string name)
+    {
+        var system = Systems[name];
+        system.Destroyed = true;
+        var heirs = Derelict ? [] : Systems.Values.Where(s => !s.Destroyed).ToList();
+        foreach (var s in heirs)
+        {
+            s.HitPercent += system.HitPercent / heirs.Count;
+        }
+
+        system.HitPercent = 0;
+    }
+
+    /// <summary>
+    /// Restores the system <c>name</c> and gives it its own hit percent back (0x467600), so the total is conserved.
+    /// The other working systems give it up in proportion to their excess over their own percents; what their
+    /// excess does not cover comes out of the critical share. A system that is not destroyed keeps its live percent.
+    /// </summary>
+    public void RestoreSystem(string name)
+    {
+        var system = Systems[name];
+        if (!system.Destroyed)
+        {
+            return;
+        }
+
+        system.Destroyed = false;
+        system.HitPercent = system.Profile.HitPercent;
+        var donors = Systems.Values.Where(s => s != system && !s.Destroyed).ToList();
+        var totalExcess = donors.Sum(s => Math.Max(0, s.HitPercent - s.Profile.HitPercent));
+        if (totalExcess <= 0)
+        {
+            return;
+        }
+
+        var factor = Math.Min(1, system.HitPercent / totalExcess);
+        foreach (var s in donors)
+        {
+            s.HitPercent -= Math.Max(0, s.HitPercent - s.Profile.HitPercent) * factor;
+        }
+    }
+
     /// <summary>Whether the unit cannot move: derelict, or with its engines destroyed.</summary>
     public bool Immobile => Derelict || SystemDestroyed(SystemNames.Engines);
 
@@ -120,10 +168,10 @@ public sealed class UnitCombatState(
     /// <summary>The unit the attack order names; null without an order.</summary>
     public UnitCombatState? Order { get; set; }
 
-    /// <summary>Whether the attack order was given by the alert stance (red) and not by the player; it ends with red.</summary>
-    public bool AutoOrder { get; set; }
-
-    /// <summary>Whether the unit's move intent is the red walk toward an attacker and not a player's move order.</summary>
+    /// <summary>
+    /// Whether the unit's move intent is red's (closing on its pick, or the walk toward an attacker) and not a player's
+    /// move order.
+    /// </summary>
     public bool AutoMove { get; set; }
 
     /// <summary>The point (X, Z) of the player's move order, until the unit arrives; null without one.</summary>

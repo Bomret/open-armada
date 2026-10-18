@@ -40,13 +40,14 @@ Statement: A log entry's level states what happened, the same for one cause in e
 Breaks: silently
 Check: none — the level of each call site is a judgment; the asset check's marker-to-level mapping has its own test, and reviewers check every other call site against this rule.
 
-### INV-0008
+### INV-0006
 
 Class: behavior
-Concepts: Play run, Play script, State dump
-Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map and one play script write identical state dumps.
+Concepts: Selection display, Hovered unit, Display fade
+Statement: The selection display shows only through the hovered unit: no unit shows a shield bar or a crew dot because it is selected unless it is the hovered unit or of the hovered unit's team.
 Breaks: silently
-Check: a unit test that runs one play script twice against the same sandbox plan and compares the state dumps.
+Check: a unit test that selects units with no hovered unit, and with a hovered unit of another team, and finds no shield bar and no crew dot.
+Paths: src/Sandbox/SelectionDisplay.cs, src/Viewer/SelectionDisplayView.cs
 
 ### INV-0007
 
@@ -54,3 +55,11 @@ Class: behavior
 Concepts: Play script, Play run, Log entry
 Statement: A play script that cannot be read, a step that cannot run, or an expectation that does not hold is reported as a log entry naming the script, the line, and, for an expectation, the expected and actual values; the play run then quits with a non-zero exit code and never throws out of the sandbox.
 Breaks: loudly
+
+### INV-0008
+
+Class: behavior
+Concepts: Play run, Play script, State dump
+Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map and one play script write identical state dumps.
+Breaks: silently
+Check: a unit test that runs one play script twice against the same sandbox plan and compares the state dumps.

@@ -60,6 +60,27 @@ public class LaunchArgsTests
         Assert.AreEqual("--layout and --map cannot be given together", Assert.ContainsSingle(args.Problems));
     }
 
+    // --check wins over --maps; --maps wins over --map, --layout, and --play; then play, map, layout, browser.
+    [TestMethod]
+    [DataRow("--check --maps --play p --map m --layout l", "check")]
+    [DataRow("--maps --play p --map m --layout l", "maps")]
+    [DataRow("--play p --map m --layout l", "play")]
+    [DataRow("--map m --layout l", "map")]
+    [DataRow("--layout l", "layout")]
+    [DataRow("--game g --model Fente", "browser")]
+    public void TheModeFollowsTheFlagPrecedence(string args, string mode)
+    {
+        Assert.AreEqual(mode, new LaunchArgs(args.Split(' ')).Mode());
+    }
+
+    [TestMethod]
+    public void TheModeLooksUpNoValue()
+    {
+        var args = new LaunchArgs(new[] { "--maps", "--map" });
+        args.Mode();
+        Assert.AreEqual(0, args.Problems.Count);
+    }
+
     [TestMethod]
     [DataRow("--layout", "a.jsonc")]
     [DataRow("--map", "2duel")]

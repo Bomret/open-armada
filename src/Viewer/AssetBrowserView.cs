@@ -46,8 +46,9 @@ public partial class AssetBrowserView : Control
         var game = gameArg ?? envGame;
         _screenshot = args.Value("--screenshot");
         var model = args.Value("--model");
-        var check = args.Has("--check");
-        var maps = !check && args.Has("--maps");
+        var mode = args.Mode();
+        var check = mode == "check";
+        var maps = mode == "maps";
         if (!check && !maps && args.Has("--map"))
         {
             args.Value("--map"); // looked up now so its problem is known at run start
@@ -64,13 +65,6 @@ public partial class AssetBrowserView : Control
             args.Value("--play"); // likewise: a bare --play is logged here, once
         }
 
-        var mode =
-            check ? "check"
-            : maps ? "maps"
-            : args.Has("--play") ? "play"
-            : args.Has("--map") ? "map"
-            : args.Has("--layout") ? "layout"
-            : "browser";
         var source =
             gameArg != null ? "--game"
             : envGame != null ? "ARMADA_DIR"
@@ -127,14 +121,14 @@ public partial class AssetBrowserView : Control
             return;
         }
 
-        if (args.Has("--play"))
+        if (mode == "play")
         {
             StartPlayRun(args, game);
 
             return;
         }
 
-        if (args.Has("--map") || args.Has("--layout"))
+        if (mode is "map" or "layout")
         {
             var layout = args.Value("--layout");
             var start = Layout.Start(

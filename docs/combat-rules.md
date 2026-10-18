@@ -83,6 +83,14 @@ A target is valid when it is a hostile unit, not being destroyed, and not dereli
 also requires that the target is visible to the unit's team; every unit is visible until fog of war
 exists (**stand-in**).
 
+Selection makes no test of whether any weapon can reach the target: the validity check and the search
+(0x42faa0, 0x4300a0) test no hardpoint, arc, or line of fire, and the distances are surface to surface
+(0x430017, 0x4301d4; the 25 at 0x42ffd1). A weapon, however, fires only from a hardpoint within its range of
+the target's center (see Firing), and nothing drops a pick the unit cannot hit (searched, not found). So a
+unit that does not close on its pick, such as a yellow ship or a station, can hold a target with a large
+radius whose center no hardpoint reaches, and fire nothing at it for as long as the target stays within the
+radius. The game behaves the same way (**inferred** from the program's code; not observed in a running game).
+
 ## Attack order
 
 An attack order (0x4294e0) names one target unit.

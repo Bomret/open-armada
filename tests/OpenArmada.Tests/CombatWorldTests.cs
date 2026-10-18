@@ -154,6 +154,33 @@ public class CombatWorldTests
     }
 
     [TestMethod]
+    public void AUnitThatDoesNotCloseHoldsALargePickNoHardpointReachesAndFiresNothing()
+    {
+        foreach (
+            var (name, mobile, alert) in new[]
+            {
+                ("yellow ship", true, AlertStance.Yellow),
+                ("station", false, AlertStance.Red),
+            }
+        )
+        {
+            var a = Fighter("a", 1, 0, Weapon(range: 200)) with { Mobile = mobile };
+            var b = new Spec
+            {
+                Object = Placed("b", 2, 250),
+                Profile = Profile(null, maxHealth: 100, hull: 100),
+                Radius = 100,
+            };
+            var world = World(null, a, b);
+            world.State(a.Object)!.Alert = alert;
+            // surface distance 150 is within the search radius 200 - 25; the hardpoint is 250 from the center
+            Assert.AreEqual(0, Fired(world.Step(2), "a"), name);
+            Assert.AreEqual("b", world.State(a.Object)!.Target!.Unit.Label, name);
+            Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind, name);
+        }
+    }
+
+    [TestMethod]
     public void ARearHardpointShipHoldsWithoutFlippingOnceAHardpointIsInRange()
     {
         // The hardpoint trails the center by 80: surface distance allows holding from x = 150, the hardpoint is in

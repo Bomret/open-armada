@@ -32,4 +32,15 @@ public class KeyMaskTests
     [TestMethod]
     public void AChordWithEveryModifierSetReads() =>
         Assert.IsTrue(KeyMask.Reads("Ctrl+Shift+G", G | 1L << 25 | 1L << 28));
+
+    // Godot 4.7.2: KEY_ESCAPE is 4194305, KEY_A is 65, KEY_SHIFT is 4194325.
+    [TestMethod]
+    public void APlainKeyReads() => Assert.IsTrue(KeyMask.Reads("Escape", 4194305));
+
+    [TestMethod]
+    public void APlainLetterReads() => Assert.IsTrue(KeyMask.Reads("A", 65));
+
+    // OS.FindKeycodeFromString("G+Shift") gives the Shift key: the G in front is no modifier.
+    [TestMethod]
+    public void AKeyNameInFrontOfAModifierDoesNotRead() => Assert.IsFalse(KeyMask.Reads("G+Shift", 4194325));
 }

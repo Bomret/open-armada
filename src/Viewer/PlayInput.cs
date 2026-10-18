@@ -204,23 +204,28 @@ public sealed class PlayInput(
         return null;
     }
 
-    /// <summary>Presses again each held key that the window released, so a hold lasts as long as its step says.</summary>
+    /// <summary>
+    /// Presses again each held key that the window released, so a hold lasts as long as its step says. The press
+    /// is an echo: it sets the action state that polled actions read, and the handlers that act on a fresh press
+    /// (the alert keys) ignore it, so a hold across a <c>select</c> step changes no stance at a run-dependent frame.
+    /// </summary>
     public void KeepHeld()
     {
         foreach (var key in _held.Where(k => !Input.IsKeyPressed(k)))
         {
-            Press(key, true);
+            Press(key, true, echo: true);
             Input.FlushBufferedEvents();
         }
     }
 
-    static void Press(Key key, bool pressed) =>
+    static void Press(Key key, bool pressed, bool echo = false) =>
         Input.ParseInputEvent(
             new InputEventKey
             {
                 Keycode = key,
                 PhysicalKeycode = key,
                 Pressed = pressed,
+                Echo = echo,
             }
         );
 

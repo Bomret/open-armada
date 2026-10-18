@@ -1,12 +1,14 @@
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
+using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
 
 /// <summary>
 /// Map preview: the overview image alone beside the same image with every object (by team) and the
-/// start positions drawn over it, so the two can be compared; a legend lists the teams and counts.
+/// start positions drawn over it, so the two can be compared; a legend lists the teams and counts, then the map
+/// summary.
 /// </summary>
 public sealed class MapPreview : KindPreview
 {
@@ -37,6 +39,8 @@ public sealed class MapPreview : KindPreview
             row.AddChild(new Label { Text = $"team {g.Key}: {g.Count()} objects" });
             legend.AddChild(row);
         }
+
+        legend.AddChild(new Label { Text = string.Join("\n", MapSummary.Of(files, map).Lines) });
 
         var pictures = new HBoxContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         pictures.AddChild(new MapView(map, image, false));

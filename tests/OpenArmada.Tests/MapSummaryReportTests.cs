@@ -71,6 +71,21 @@ public class MapSummaryReportTests
         Assert.AreEqual("ERROR", c[0].Level);
     }
 
+    // The same level per cause as the asset check (INV-0005): a format the reader does not read is one WARN.
+    [TestMethod]
+    public void AnUnsupportedMapIsOneWarnNamingTheMapAndTheReason()
+    {
+        var save = Encoding.Latin1.GetString(new BznBuilder { MissionSave = false }.Build());
+        var root = temp.MakeInstall(("bzn/save.bzn", save));
+
+        using var log = new CapturedLog();
+        var code = MapSummaryReport.Run(root);
+
+        Assert.AreEqual(0, code);
+        var entry = Entry(log.Lines.Single());
+        Assert.AreEqual(("WARN", "maps", "save: BZN save game (missionSave false) is not read"), entry);
+    }
+
     [TestMethod]
     public void AMapEntryCarriesTheLinesThePreviewShows()
     {

@@ -209,7 +209,7 @@ The run writes one log entry per map in the install's `bzn` folder, in name orde
 - the unresolved classes, only when the map has any;
 - the objects per team, with their classes.
 
-The entry is `WARN` for a map with an unresolved class, and `INFO` for every other map. A map that cannot be read gives one `ERROR` entry with its reason, and the run continues. The run exits 0 once the install opens. It exits 1 when no install is given or the install cannot be opened. `--check` wins over `--maps`, and `--maps` wins over `--map`, `--layout`, and `--play`. The asset browser's map preview shows the same summary.
+The entry is `WARN` for a map with an unresolved class, and `INFO` for every other map. A map that cannot be read gives one `ERROR` entry with its reason, and the run continues. A map in a format the reader does not read, such as a text-form map or a save game, gives one `WARN` entry with its reason instead, as in the asset check. The run exits 0 once the install opens. It exits 1 when no install is given or the install cannot be opened. `--check` wins over `--maps`, and `--maps` wins over `--map`, `--layout`, and `--play`. The asset browser's map preview shows the same summary.
 
 ## SOD format notes
 

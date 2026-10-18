@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
@@ -11,7 +12,8 @@ public static class MapSummaryReport
     /// <summary>
     /// Writes one entry per map of the install's <c>bzn</c> folder in area <see cref="Area.Maps"/>, in name
     /// order, every line starting with the map's name: <c>INFO</c>, or <c>WARN</c> when a class is unresolved.
-    /// A map that cannot be read is one <c>ERROR</c> with its reason, and the run goes on (INV-0002). Returns
+    /// A map that cannot be read is one <c>ERROR</c> with its reason (a format the reader does not read: one
+    /// <c>WARN</c>, as in the asset check), and the run goes on (INV-0002). Returns
     /// the exit code: 1 when no install is given or it cannot be opened (the asset check's text), else 0.
     /// </summary>
     public static int Run(string? game)
@@ -45,17 +47,17 @@ public static class MapSummaryReport
             {
                 summary = MapSummary.Of(files, (MapAsset)kind.Load(files, name));
             }
+            catch (UnsupportedFormatException e)
+            {
+                // a format the reader does not read: one WARN, as in the asset check (INV-0005)
+                Log.Warn(Area.Maps, $"{map}: {e.Message}");
+
+                continue;
+            }
             catch (Exception e)
             {
-                // an asset failed to load: one entry with its name and reason (INV-0002, INV-0005)
-                if (Log.IsAbsent(e))
-                {
-                    Log.Warn(Area.Maps, $"{map}: {e.Message}");
-                }
-                else
-                {
-                    Log.Error(Area.Maps, $"{map}: {e.Message}");
-                }
+                // an asset failed to load: one ERROR with its name and reason (INV-0002, INV-0005)
+                Log.Error(Area.Maps, $"{map}: {e.Message}");
 
                 continue;
             }

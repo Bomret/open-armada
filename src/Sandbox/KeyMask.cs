@@ -42,14 +42,17 @@ public static class KeyMask
 
     /// <summary>
     /// What is wrong with the key name <paramref name="name"/>, or null when it reads. <paramref name="find"/> is
-    /// <c>OS.FindKeycodeFromString</c>. A known key with a part in front that sets no modifier bit names that part;
-    /// an unknown key, or a modifier given twice, is no key name.
+    /// <c>OS.FindKeycodeFromString</c>. A name with an empty part (<c>+R</c>, <c>Shift++R</c>, <c>Shift+</c>) says
+    /// so. A known key with a part in front that sets no modifier bit names that part; an unknown key, or a modifier
+    /// given twice, is no key name.
     /// </summary>
     public static string? Problem(string name, Func<string, long> find)
     {
         var keycode = find(name);
         if (Reads(name, keycode))
             return null;
+        if (name.Split('+').Contains(""))
+            return $"'{name}' is no key name: it has an empty part";
         var unread = name.Split('+')[..^1]
             .FirstOrDefault(part => (find(part + "+A") & (Shift | Alt | Meta | Control)) == 0);
 

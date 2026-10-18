@@ -91,4 +91,11 @@ public class KeyMaskTests
     [TestMethod]
     public void AModifierGivenTwiceIsNoKeyName() =>
         Assert.AreEqual("'Shift+Shift+R' is no key name", KeyMask.Problem("Shift+Shift+R", Find));
+
+    [TestMethod]
+    [DataRow("+R")]
+    [DataRow("Shift++R")]
+    [DataRow("Shift+")]
+    public void AKeyNameWithAnEmptyPartSaysSo(string name) =>
+        Assert.AreEqual($"'{name}' is no key name: it has an empty part", KeyMask.Problem(name, Find));
 }

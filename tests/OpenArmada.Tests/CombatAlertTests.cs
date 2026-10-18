@@ -214,6 +214,54 @@ public class CombatAlertTests
     }
 
     [TestMethod]
+    public void AnIdleRedShipClosingOnItsPickSwitchesEveryTimeItCrossesTheTetherEdge()
+    {
+        var a = Ship("a", 1, 0); // range 100: the pick within 75, closing beyond 50
+        var t = Target("t", 2, 360);
+        var (world, poses) = WorldWithPoses(a, t);
+        var pick = new MoveIntent
+        {
+            Kind = MoveKind.MoveTo,
+            X = 360,
+            Z = 0,
+        };
+        var tether = new MoveIntent
+        {
+            Kind = MoveKind.MoveTo,
+            X = 0,
+            Z = 0,
+        };
+        // the edge has no margin: one unit either side decides the move
+        foreach (var (x, expected) in new[] { (299f, pick), (301f, tether), (299f, pick) })
+        {
+            Place(poses, a.Object, x);
+            world.Step(CombatWorld.Tick);
+            Assert.AreEqual(expected, world.State(a.Object)!.Intent, $"{x}");
+        }
+    }
+
+    [TestMethod]
+    public void TheSameHitAndReturnRunsTheSameTwice()
+    {
+        static (MoveIntent, System.Numerics.Vector3, string?, long?, double) Run()
+        {
+            var a = Ship("a", 1, 0, range: 1000);
+            var (world, poses) = WorldWithPoses(a, OneShotShooter("s", 2, 900));
+            Place(poses, a.Object, 400);
+            world.Step(CombatWorld.Tick); // beyond its tether: going back
+            StepUntilHit(world, a.Object); // the hit moves the tether point to 400
+            world.Step(1.0);
+            Place(poses, a.Object, 800); // beyond 300 units of the new tether point: going back to it
+            world.Step(CombatWorld.Tick);
+            var state = world.State(a.Object)!;
+
+            return (state.Intent, state.Tether, state.Target?.Unit.Label, state.LastHit, state.Shields);
+        }
+
+        Assert.AreEqual(Run(), Run());
+    }
+
+    [TestMethod]
     public void AnIdleRedShipWithNoPickReturnsToItsTetherAndStopsThere()
     {
         var a = Ship("a", 1, 0);

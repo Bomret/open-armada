@@ -40,7 +40,9 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   point (in 3D, the square of the distance at most 90000, 0x42a3a9, the constant at 0x5ca7ac), it closes on its
   pick (the game's attack maneuver, 0x42c400, is not traced, so how it closes is a **stand-in**). Farther away,
   or with no pick, it moves back to the point and stops there (0x42a3e4, 0x42a3f4), keeping its pick, so its
-  weapons fire at it whenever one reaches. A move order sets the tether point to the destination (0x42704e), so
+  weapons fire at it whenever one reaches. The edge has no margin: a unit closing on a pick near 300 units turns
+  back to the point as soon as it crosses the edge and closes again once back inside (**stand-in**; whether the
+  attack maneuver smooths this is not traced). A move order sets the tether point to the destination (0x42704e), so
   a ship stays where it was sent; an order without a position, such as a stop, sets it to where the unit stands
   (0x46eac0). The point starts at the unit's placed position (**stand-in**; the game's point at creation was
   not found). When a player's attack order ends with its target destroyed, the point becomes where the unit

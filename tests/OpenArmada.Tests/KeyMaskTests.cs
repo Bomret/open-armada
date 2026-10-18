@@ -45,7 +45,7 @@ public class KeyMaskTests
     public void AKeyNameInFrontOfAModifierDoesNotRead() => Assert.IsFalse(KeyMask.Reads("G+Shift", 4194325));
 
     // OS.FindKeycodeFromString as Godot reads a name: the last part a key (code 0 when unknown), each part in front a
-    // modifier bit (none when unknown). The keys R and A and the modifiers Shift and Ctrl.
+    // modifier bit (none when unknown). The keys R, A, and Shift and the modifiers Shift and Ctrl.
     static long Find(string name)
     {
         var parts = name.Split('+');
@@ -53,6 +53,7 @@ public class KeyMaskTests
         {
             "R" => 82,
             "A" => 65,
+            "Shift" => 4194325,
             _ => 0,
         };
         foreach (var part in parts[..^1])
@@ -79,4 +80,15 @@ public class KeyMaskTests
 
     [TestMethod]
     public void AChordThatReadsHasNoProblem() => Assert.IsNull(KeyMask.Problem("Ctrl+Shift+R", Find));
+
+    [TestMethod]
+    public void AKeyNameInFrontOfAModifierIsNamedInTheProblem() =>
+        Assert.AreEqual(
+            "'G+Shift' is no key name: 'G' is not a modifier Godot knows",
+            KeyMask.Problem("G+Shift", Find)
+        );
+
+    [TestMethod]
+    public void AModifierGivenTwiceIsNoKeyName() =>
+        Assert.AreEqual("'Shift+Shift+R' is no key name", KeyMask.Problem("Shift+Shift+R", Find));
 }

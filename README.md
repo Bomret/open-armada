@@ -151,6 +151,8 @@ A fault that repeats, such as a combat step that fails each frame, is logged at 
 - `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene. The scene handles selection, the selection display, orders, alert keys, and the drawing and sound of the fight.
 - `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The play part holds the play script parser, the unit names, the state dump, and the play run. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
 - `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
+- `play/` — checked-in play scripts, run as "Run a play script" states.
+- `tools/WavLevel/` — the WAV level tool ("Measure the sound of a play run"), plain C# with no Godot dependency.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.
 
 C# is formatted with CSharpier: run `dotnet tool restore` once, then `dotnet csharpier format .` to format and `dotnet csharpier check .` to check.

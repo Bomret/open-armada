@@ -207,7 +207,8 @@ public sealed class AssetBrowser
     /// <summary>
     /// The --model entrance: selects the kind named "models", whatever its position, and returns the
     /// index in Assets of the model <c>name</c> (with or without ".sod", any case); -1 when the install
-    /// has no models kind (the selection is left alone) or the model is absent.
+    /// has no models kind (the selection is left alone) or the model is absent. A models kind that is
+    /// already selected is not listed again.
     /// </summary>
     public int SelectModel(string name)
     {
@@ -222,7 +223,8 @@ public sealed class AssetBrowser
 
         if (kind < 0)
             return -1;
-        SelectKind(kind);
+        if (Kind != Kinds[kind])
+            SelectKind(kind);
         for (int i = 0; i < Assets.Count; i++)
         {
             if (

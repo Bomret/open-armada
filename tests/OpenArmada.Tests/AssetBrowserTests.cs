@@ -255,6 +255,17 @@ public class AssetBrowserTests
     }
 
     [TestMethod]
+    public void Open_and_start_with_model_list_the_models_kind_once_when_it_is_the_first_kind()
+    {
+        var models = new CountingKind("models", "Fente.sod");
+        var b = Open(models, new FakeKind("sounds", "x.wav"));
+
+        b.Start("Fente");
+
+        Assert.AreEqual(1, models.Listings);
+    }
+
+    [TestMethod]
     public void Start_with_model_logs_only_the_models_category_and_that_model()
     {
         var b = OpenWith(

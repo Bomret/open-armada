@@ -53,6 +53,13 @@ public sealed class CombatWorld
     // 3D (0x42a3a9, the constant at 0x5ca7ac).
     const float TetherSquared = 90000f;
 
+    // A hit counts as recent for less than this many seconds (0x46e640, the 1.0 at 0x42a14a).
+    const double HitWindow = 1.0;
+
+    // A hit on a unit of the same team within this many units on X and on Z counts too (0x42a000); stand-in: the
+    // edge counts.
+    const float TeammateBox = 400f;
+
     readonly UnitPoses _poses;
     readonly double _protection;
     readonly Func<double> _random;
@@ -60,6 +67,7 @@ public sealed class CombatWorld
     readonly Dictionary<PlacedObject, UnitCombatState> _units = new(ReferenceEqualityComparer.Instance);
     readonly List<Shot> _shots = new();
     double _pending;
+    long _ticks;
 
     /// <summary>
     /// A world of the units, without orders. <c>shieldDamageProtection</c> and
@@ -185,6 +193,7 @@ public sealed class CombatWorld
 
     void RunTick(List<CombatEvent> events)
     {
+        _ticks++;
         AdvanceShots(events);
         foreach (var u in _units.Values.ToList())
         {
@@ -247,6 +256,13 @@ public sealed class CombatWorld
             var idle = u.PlayerMove == null;
             if (u.Alert != AlertStance.Red || !u.Profile.CanAttack || u.Derelict || !idle)
                 return; // yellow never moves on its own
+            // a recent hit on the unit or a teammate nearby moves the tether point to where the unit stands (0x42a370
+            // posts an order without a position; inferred that it takes that order's path, 0x46eac0)
+            if (HitNearby(u))
+            {
+                u.Tether = Position(u);
+            }
+
             // idle at red: close on the pick, which is chosen again every tick, while within the tether; else go
             // back to the tether point (0x42a3e4, 0x42a3f4), keeping the pick. No team of the sandbox is an AI team,
             // so the walk toward a recent attacker (0x42a298) never runs.
@@ -290,6 +306,20 @@ public sealed class CombatWorld
 
         // An ordered target out of range: the weapons fire at the unit's own pick (none at green).
         u.Target = u.Alert == AlertStance.Green ? null : Select(u, held, radius);
+    }
+
+    // Whether a shot landed less than HitWindow ago on the unit or on a unit of its team within TeammateBox.
+    bool HitNearby(UnitCombatState u)
+    {
+        var at = Position(u);
+
+        return _units.Values.Any(v =>
+            v.Team == u.Team
+            && v.LastHit is { } hit
+            && (_ticks - hit) * Tick + Epsilon < HitWindow
+            && Math.Abs(Position(v).X - at.X) <= TeammateBox
+            && Math.Abs(Position(v).Z - at.Z) <= TeammateBox
+        );
     }
 
     // Moves the unit back to its tether point, and stops it once it is there.
@@ -523,6 +553,7 @@ public sealed class CombatWorld
         var damage = CombatRules.Damage(shot.Weapon.Ordnance, target.DefinitionName, _random());
         var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
+        target.LastHit = _ticks;
         events.Add(new ShotLanded { Shot = shot, Hit = hit });
         if (!hit.Destroyed)
             return;

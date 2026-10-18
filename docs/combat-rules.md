@@ -48,6 +48,14 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   engine stops the closing and the return when the stance leaves red (**stand-in**). A player's attack order
   keeps a derelict target.
 
+  A recent hit moves the tether point. When a shot landed less than one second ago (0x46e640 compares the
+  time since the hit, recorded by 0x46e340, against 1.0; strictly less) on the idle unit itself or on a unit
+  of its own team within 400 units of it on X and on Z (0x42a000; whether the edge counts is a **stand-in**),
+  the idle path posts an order without a position (0x42a370), which sets the tether point to where the unit
+  stands (0x46eac0; that this order takes that path is **inferred**). So a ship under fire beyond its tether
+  keeps closing. Only a landed shot counts as a hit (**stand-in**). What else this order (command type 5)
+  does, and the check at 0x42a370 that can skip it, are not traced.
+
   The game's idle path branches on whether the unit's team is an **AI team**: a per-team flag (`FUN_00472100`
   reads it from the team's record; the getter is `IsAITeam`, 0x436840) that something outside the program
   sets. Only an AI team's idle unit walks toward the position of a unit that hit it less than a second ago

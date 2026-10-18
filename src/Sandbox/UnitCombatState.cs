@@ -164,6 +164,12 @@ public sealed class UnitCombatState(
     /// </summary>
     public Vector3 Tether { get; set; } = unit.Position;
 
+    /// <summary>
+    /// The world tick a shot last landed on the unit (0x46e340 records the game time of a hit); none before the
+    /// first hit. stand-in: only a landed shot counts.
+    /// </summary>
+    public long? LastHit { get; set; }
+
     /// <summary>The unit the attack order names; null without an order.</summary>
     public UnitCombatState? Order { get; set; }
 

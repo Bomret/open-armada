@@ -57,11 +57,40 @@ public static class ViewerLog
     static readonly HashSet<string> LoggedTextures = new(StringComparer.OrdinalIgnoreCase);
     static readonly HashSet<string> UsedTextures = new(StringComparer.OrdinalIgnoreCase); // "asset\ntexture"
 
-    /// <summary>Forgets the textures logged so far, so a test starts a fresh run.</summary>
-    internal static void ResetTextures()
+    // The sprite tables logged this run, and the configurations that used one, by the same rule as the textures.
+    static readonly HashSet<string> LoggedTables = new(StringComparer.OrdinalIgnoreCase);
+    static readonly HashSet<string> UsedTables = new(StringComparer.OrdinalIgnoreCase); // "configuration\ntable"
+
+    /// <summary>Forgets the textures and sprite tables logged so far, so a test starts a fresh run.</summary>
+    internal static void ResetRun()
     {
         LoggedTextures.Clear();
         UsedTextures.Clear();
+        LoggedTables.Clear();
+        UsedTables.Clear();
+    }
+
+    /// <summary>
+    /// The sprite table <c>table</c> that interface configuration <c>configuration</c> needs did not load: one
+    /// ERROR per run naming the configuration, the table, and the reason, an asset that failed to load (INV-0005).
+    /// A later, different configuration that needs it is one INFO that points back to the first entry; the same
+    /// configuration again writes nothing.
+    /// </summary>
+    public static void SpriteTableFailed(string table, Exception e, string configuration)
+    {
+        if (!UsedTables.Add($"{configuration}\n{table}"))
+            return;
+        if (!LoggedTables.Add(table))
+        {
+            Log.Info(
+                Area.Browser,
+                $"{configuration}: sprite table {Log.Quote(table)} did not load (see its first entry above)"
+            );
+
+            return;
+        }
+
+        Log.Error(Area.Browser, $"{configuration}: sprite table {Log.Quote(table)} cannot be read: {e.Message}");
     }
 
     /// <summary>

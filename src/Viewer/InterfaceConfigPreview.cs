@@ -20,7 +20,8 @@ public sealed class InterfaceConfigPreview : KindPreview
     public override Control Create(GameFileSystem files, AssetKind kind, string name)
     {
         var cfg = (InterfaceConfig)kind.Load(files, name);
-        var sprites = SpritesOf(files, cfg.Name);
+        var lookup = InterfaceSprites.Of(files, cfg.Name);
+        var sprites = lookup.Sprites;
         var textures = new Dictionary<string, (Image Image, ImageTexture Texture)?>(
             System.StringComparer.OrdinalIgnoreCase
         );
@@ -82,6 +83,17 @@ public sealed class InterfaceConfigPreview : KindPreview
                     $"{cfg.Entries.Count} entries, {cfg.Elements.Count} positioned elements, {items.Count(i => i.Item2 != null)} with sprites, {cfg.Notes.Count} notes",
             }
         );
+        if (lookup.FailedTables.Count > 0)
+        {
+            box.AddChild(
+                new Label
+                {
+                    Text =
+                        $"{lookup.FailedTables.Count} sprite tables did not load, their elements show no sprite: {string.Join(", ", lookup.FailedTables)}",
+                }
+            );
+        }
+
         var failed = textures.Where(t => t.Value == null).Select(t => t.Key).ToList();
         if (failed.Count > 0)
         {
@@ -116,34 +128,5 @@ public sealed class InterfaceConfigPreview : KindPreview
 
             return null;
         }
-    }
-
-    // Sprites by name from the tables of the cfg's race (Sprites/gui_<first letters of the cfg>*.spr, so
-    // gui_fed.cfg reads gui_federation.spr) and the shared gui_global.spr; a table that fails to load adds none.
-    static Dictionary<string, Sprite> SpritesOf(GameFileSystem files, string cfgName)
-    {
-        var stem = System.IO.Path.GetFileNameWithoutExtension(cfgName);
-        var kind = new SpriteTableKind();
-        var result = new Dictionary<string, Sprite>(System.StringComparer.OrdinalIgnoreCase);
-        foreach (var table in kind.Enumerate(files))
-        {
-            var file = System.IO.Path.GetFileName(table);
-            if (
-                !file.StartsWith(stem, System.StringComparison.OrdinalIgnoreCase)
-                && !file.Equals("gui_global.spr", System.StringComparison.OrdinalIgnoreCase)
-            )
-                continue;
-            try
-            {
-                foreach (var s in ((SpriteTable)kind.Load(files, table)).Sprites)
-                {
-                    result.TryAdd(s.Name, s);
-                }
-            }
-            catch (System.Exception ex)
-                when (ex is System.IO.IOException or System.IO.InvalidDataException or UnsupportedFormatException) { }
-        }
-
-        return result;
     }
 }

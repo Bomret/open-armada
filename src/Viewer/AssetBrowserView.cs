@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
@@ -24,7 +23,6 @@ namespace OpenArmada.Viewer;
 public partial class AssetBrowserView : Control
 {
     AssetBrowser _browser = null!;
-    IReadOnlyDictionary<string, KindPreview> _previews = null!;
     ItemList _kinds = null!,
         _assets = null!;
     Control _pane = null!;
@@ -149,8 +147,12 @@ public partial class AssetBrowserView : Control
         }
 
         var registered = AssetKind.Discover();
-        _browser = AssetBrowser.Open(game, registered);
-        _previews = KindPreview.Discover(registered.Select(k => k.Name), out var previewProblems);
+        var previews = KindPreview.Discover(registered.Select(k => k.Name), out var previewProblems);
+        _browser = AssetBrowser.Open(
+            game,
+            registered,
+            previews.ToDictionary(p => p.Key, p => (AssetBrowser.CreatePreview)p.Value.Create)
+        );
 
         var split = new HSplitContainer();
         split.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -183,11 +185,11 @@ public partial class AssetBrowserView : Control
         _message.SetAnchorsPreset(LayoutPreset.FullRect);
         _pane.AddChild(_message);
 
+        // The browser writes every entry of what it shows; the view only shows it.
+        var opened = _browser.Start(model);
         if (_browser.Problem != null)
         {
-            _message.Text = _browser.Problem;
-
-            ViewerLog.Failed(_browser.Problem);
+            ShowPane(opened);
 
             return;
         }
@@ -197,81 +199,44 @@ public partial class AssetBrowserView : Control
             _kinds.AddItem(kind.Name);
         }
 
-        _kinds.ItemSelected += i =>
+        _kinds.ItemSelected += i => FillAssets(_browser.ShowKind((int)i));
+        _assets.ItemSelected += i => ShowPane(_browser.ShowAsset((int)i));
+        if (_browser.Kind != null)
         {
-            _browser.SelectKind((int)i);
-            FillAssets(-1);
-        };
-        _assets.ItemSelected += i => ShowAsset((int)i);
-        if (_browser.Kind != null) // the browser selects the first kind when there is one
-        {
-            int wanted = model == null ? -1 : _browser.SelectModel(model);
             _kinds.Select(Array.IndexOf(_browser.Kinds.ToArray(), _browser.Kind));
-            FillAssets(wanted);
+            FillAssets(opened);
         }
     }
 
-    // Lists the selected kind's assets and selects the one at `wanted`, or else the first.
-    void FillAssets(int wanted)
+    // Lists the selected kind's assets, selects the one the pane shows, and shows the pane.
+    void FillAssets(Pane pane)
     {
-        ViewerLog.CategorySelected(_browser.Kind!.Name);
         _assets.Clear();
         foreach (var name in _browser.Assets)
         {
             _assets.AddItem(name);
         }
 
-        ViewerLog.Failed(_browser.Notice);
-
-        if (_browser.Assets.Count == 0)
+        if (pane.Asset >= 0)
         {
-            ShowMessage(_browser.Notice ?? $"no {_browser.Kind!.Name} in this install");
-
-            return;
+            _assets.Select(pane.Asset);
+            _assets.EnsureCurrentIsVisible();
         }
 
-        int index = Math.Max(0, wanted);
-        _assets.Select(index);
-        _assets.EnsureCurrentIsVisible();
-        ShowAsset(index);
+        ShowPane(pane);
     }
 
-    void ShowMessage(string text)
+    void ShowPane(Pane pane)
     {
         _preview?.QueueFree();
         _preview = null;
-        _message.Text = text;
-    }
-
-    void ShowAsset(int index)
-    {
-        var kind = _browser.Kind!;
-        var name = _browser.Assets[index];
-
-        ViewerLog.AssetSelected(kind.Name, name);
-
-        if (!_previews.TryGetValue(kind.Name, out var preview))
+        _message.Text = pane.Text;
+        if (pane.Preview is Control control)
         {
-            ViewerLog.NoPreview(kind.Name);
-            ShowMessage($"no preview for {kind.Name}");
-
-            return;
-        }
-
-        try
-        {
-            var control = preview.Create(_browser.Files!, kind, name);
-            ShowMessage("");
             _pane.AddChild(control);
             // Offsets too: a control added after layout keeps its 0x0 size under SetAnchorsPreset.
             control.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
             _preview = control;
-        }
-        catch (Exception e) // a failed asset never stops the browser (INV-0002)
-        {
-            var message = AssetBrowser.FailureMessage(name, e);
-            ViewerLog.Failed(message);
-            ShowMessage(message);
         }
     }
 

@@ -1,25 +1,40 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OpenArmada.Diagnostics;
 
 namespace OpenArmada.Assets;
 
 /// <summary>
-/// The asset browser's state: the categories (one per asset kind), the assets of the selected kind,
-/// and the messages the browser shows. Godot-free; the Viewer draws it.
+/// The asset browser's state and selection flow: the categories (one per asset kind), the assets of the selected
+/// kind, the messages the browser shows, and the log entries of what it shows. Godot-free; the Viewer draws it.
 /// </summary>
 public sealed class AssetBrowser
 {
-    AssetBrowser(string? problem, GameFileSystem? files, IReadOnlyList<AssetKind> kinds)
+    readonly IReadOnlyDictionary<string, CreatePreview> _previews;
+
+    AssetBrowser(
+        string? problem,
+        GameFileSystem? files,
+        IReadOnlyList<AssetKind> kinds,
+        IReadOnlyDictionary<string, CreatePreview> previews
+    )
     {
         Problem = problem;
         Files = files;
         Kinds = kinds;
+        _previews = previews;
         if (files != null && kinds.Count > 0)
         {
             SelectKind(0);
         }
     }
+
+    /// <summary>
+    /// Builds the preview of asset <c>name</c> of <c>kind</c> from <c>files</c>; the view it returns is opaque to the
+    /// browser. Throws when the asset fails to load.
+    /// </summary>
+    public delegate object CreatePreview(GameFileSystem files, AssetKind kind, string name);
 
     /// <summary>Set when there is no install to browse: names what is missing.</summary>
     public string? Problem { get; }
@@ -40,30 +55,123 @@ public sealed class AssetBrowser
     public string? Notice { get; private set; }
 
     /// <summary>
-    /// Opens the install at <c>game</c> with the kinds sorted by name, and selects the first kind. Does not throw:
-    /// when <c>game</c> is null or empty, or the install cannot be opened, the browser has no files and no kinds,
-    /// and <see cref="Problem"/> holds the reason.
+    /// Opens the install at <c>game</c> with the kinds sorted by name, and selects the first kind without logging
+    /// it. <c>previews</c> builds the preview of each kind by name; a kind it lacks has no preview, and so does every
+    /// kind when it is null. Does not throw: when <c>game</c> is null or empty, or the install cannot be opened, the
+    /// browser has no files and no kinds, and <see cref="Problem"/> holds the reason.
     /// </summary>
-    public static AssetBrowser Open(string? game, IEnumerable<AssetKind> kinds)
+    public static AssetBrowser Open(
+        string? game,
+        IEnumerable<AssetKind> kinds,
+        IReadOnlyDictionary<string, CreatePreview>? previews = null
+    )
     {
+        previews ??= new Dictionary<string, CreatePreview>();
         if (string.IsNullOrEmpty(game))
             return new AssetBrowser(
                 "no install given: pass --game <Armada install dir> or set ARMADA_DIR",
                 null,
-                Array.Empty<AssetKind>()
+                Array.Empty<AssetKind>(),
+                previews
             );
         try
         {
             return new AssetBrowser(
                 null,
                 new GameFileSystem(game),
-                kinds.OrderBy(k => k.Name, StringComparer.Ordinal).ToList()
+                kinds.OrderBy(k => k.Name, StringComparer.Ordinal).ToList(),
+                previews
             );
         }
         catch (Exception e) // no install, or the root cannot be listed (permissions, I/O)
         {
-            return new AssetBrowser(e.Message, null, Array.Empty<AssetKind>());
+            return new AssetBrowser(e.Message, null, Array.Empty<AssetKind>(), previews);
         }
+    }
+
+    /// <summary>
+    /// Shows what the browser opens on: with <see cref="Problem"/> set, one ERROR entry and the problem as the pane
+    /// text, and nothing else. Otherwise the selected kind and its first asset, or, with <c>model</c> (the --model
+    /// entrance, see <see cref="SelectModel"/>), the models kind and that model; only the kind and asset shown are
+    /// logged. An install with no kinds shows nothing.
+    /// </summary>
+    public Pane Start(string? model)
+    {
+        if (Problem != null)
+        {
+            ViewerLog.Failed(Problem);
+
+            return new Pane { Text = Problem };
+        }
+
+        if (Kind == null)
+            return new Pane { Text = "" };
+        var wanted = model == null ? -1 : SelectModel(model);
+
+        return Show(Kinds.ToList().IndexOf(Kind), wanted);
+    }
+
+    /// <summary>
+    /// Shows <c>Kinds[index]</c>: selects it (see <see cref="SelectKind"/>) and writes one INFO entry naming it, then
+    /// shows its first asset (see <see cref="ShowAsset"/>). A kind whose listing failed writes its
+    /// <see cref="Notice"/> as one ERROR entry and the pane shows it; a kind with no assets writes nothing more and
+    /// the pane shows <c>no &lt;kind&gt; in this install</c>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">when <c>index</c> is outside <see cref="Kinds"/>.</exception>
+    public Pane ShowKind(int index) => Show(index, -1);
+
+    /// <summary>
+    /// Shows <c>Assets[index]</c> of the selected kind: one INFO entry naming the asset and its kind, then its
+    /// preview. A kind with no preview writes <c>no preview for &lt;kind&gt;</c> as one WARN entry and the pane shows
+    /// it. A preview that throws writes one ERROR entry with <see cref="FailureMessage"/>, and the pane shows the same
+    /// text (INV-0002).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">when <c>index</c> is outside <see cref="Assets"/>.</exception>
+    public Pane ShowAsset(int index)
+    {
+        var kind = Kind!;
+        var name = Assets[index];
+
+        ViewerLog.AssetSelected(kind.Name, name);
+
+        if (!_previews.TryGetValue(kind.Name, out var create))
+        {
+            ViewerLog.NoPreview(kind.Name);
+
+            return new Pane { Text = $"no preview for {kind.Name}", Asset = index };
+        }
+
+        try
+        {
+            return new Pane
+            {
+                Text = "",
+                Preview = create(Files!, kind, name),
+                Asset = index,
+            };
+        }
+        catch (Exception e) // a failed asset never stops the browser (INV-0002)
+        {
+            var message = FailureMessage(name, e);
+
+            ViewerLog.Failed(message);
+
+            return new Pane { Text = message, Asset = index };
+        }
+    }
+
+    // Shows Kinds[index] and its asset at `wanted`, or else its first.
+    Pane Show(int index, int wanted)
+    {
+        SelectKind(index);
+
+        ViewerLog.CategorySelected(Kind!.Name);
+        ViewerLog.Failed(Notice);
+
+        if (Assets.Count == 0)
+            return new Pane { Text = Notice ?? $"no {Kind.Name} in this install" };
+
+        return ShowAsset(Math.Max(0, wanted));
     }
 
     /// <summary>
@@ -119,4 +227,17 @@ public sealed class AssetBrowser
 
     /// <summary>What the preview pane shows in place of a preview that failed to load.</summary>
     public static string FailureMessage(string name, Exception e) => $"{name}: {e.Message}";
+}
+
+/// <summary>What the asset browser's preview pane shows after a selection.</summary>
+public sealed record Pane
+{
+    /// <summary>The message the pane shows; empty when it shows <see cref="Preview"/>.</summary>
+    public required string Text { get; init; }
+
+    /// <summary>The view the preview built, opaque to the browser; null when the pane shows <see cref="Text"/>.</summary>
+    public object? Preview { get; init; }
+
+    /// <summary>The index in <see cref="AssetBrowser.Assets"/> of the asset shown; -1 when none is.</summary>
+    public int Asset { get; init; } = -1;
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 namespace OpenArmada.Sandbox;
@@ -37,5 +38,23 @@ public static class KeyMask
         var modifiers = new[] { Shift, Alt, Meta, Control }.Count(bit => (keycode & bit) != 0);
 
         return (keycode & CodeMask) != 0 && modifiers == name.Split('+').Length - 1;
+    }
+
+    /// <summary>
+    /// What is wrong with the key name <paramref name="name"/>, or null when it reads. <paramref name="find"/> is
+    /// <c>OS.FindKeycodeFromString</c>. A known key with a part in front that sets no modifier bit names that part;
+    /// an unknown key, or a modifier given twice, is no key name.
+    /// </summary>
+    public static string? Problem(string name, Func<string, long> find)
+    {
+        var keycode = find(name);
+        if (Reads(name, keycode))
+            return null;
+        var unread = name.Split('+')[..^1]
+            .FirstOrDefault(part => (find(part + "+A") & (Shift | Alt | Meta | Control)) == 0);
+
+        return (keycode & CodeMask) == 0 || unread is null
+            ? $"'{name}' is no key name"
+            : $"'{name}' is no key name: '{unread}' is not a modifier Godot knows";
     }
 }

@@ -31,9 +31,10 @@ replaced wholesale on publish.
 cannot be reached from `Home`. A staged page's `parent:` names its outline parent. When `create` makes a
 new page, it records the parent in the wiki commit message and adds a link to the new page at the end of
 the parent page. An update adds no link: to link an existing page, stage an `upsert` of its parent.
-Do not stage an `upsert` of a parent in the same publish as a new child of it: the child's `create`
-changes the parent first, so the parent's upsert is refused and stays staged. `create` adds the child's
-link itself; stage a parent upsert made for other reasons in a later publish.
+Do not stage an `upsert` of a parent in the same publish as a new child of it. `/superdev:publish-kb`
+sends staged files in file-name order. When the child's file sorts before the parent's, the child's
+`create` changes the parent first, so the parent's upsert is refused and stays staged. `create` adds
+the child's link itself; stage a parent upsert made for other reasons in a later publish.
 
 **Page names.** A link in a page body names the target page by its wiki name, which Forgejo derives from
 the title. Spaces become `-`: `Play runs` is `Play-runs`. A title that holds a `-` keeps its spaces, gets

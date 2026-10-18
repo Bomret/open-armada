@@ -169,6 +169,8 @@ Each run starts with an `INFO` entry that names the mode, the install, and the a
 
 A fault that repeats, such as a combat step that fails each frame, is logged at its first occurrence, and its further occurrences are counted in one entry before the run ends. A texture that fails is logged once per run: `WARN` when it is missing, `ERROR` when it cannot be read. A later use by a named asset adds an `INFO` entry that points back to the first one.
 
+The asset browser logs what it shows. Each category and each asset shown is one `INFO` entry. Each note of a shown asset is one `WARN` entry `<asset>: <note>`, written each time the asset is shown. A preview that fails is one `ERROR` entry with the asset and the reason. A sprite table that an interface configuration needs and that fails to load is one `ERROR` entry per run. A later, different configuration that needs it adds an `INFO` entry that points back to the first one.
+
 ## Layout
 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.

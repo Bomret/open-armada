@@ -13,7 +13,7 @@ public sealed class FontPreview : KindPreview
     public override string KindName => FontKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var font = (BitmapFont)kind.Load(files, name);
         var cellW = System.Linq.Enumerable.Max(font.Glyphs, g => g.Width);
@@ -39,9 +39,12 @@ public sealed class FontPreview : KindPreview
         image.Resize(image.GetWidth() * Scale, image.GetHeight() * Scale, Image.Interpolation.Nearest);
         var drawn = System.Linq.Enumerable.Count(font.Glyphs, g => g.Width > 0);
 
-        return new ImagePane(
-            $"{font.Glyphs.Count} characters ({drawn} drawn), {font.Height} rows high, widest {cellW} columns",
-            new[] { (name, image) }
-        );
+        return new Preview
+        {
+            View = new ImagePane(
+                $"{font.Glyphs.Count} characters ({drawn} drawn), {font.Height} rows high, widest {cellW} columns",
+                new[] { (name, image) }
+            ),
+        };
     }
 }

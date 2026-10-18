@@ -126,7 +126,7 @@ public class AssetBrowserTests
                 OpenArmada.Diagnostics.Log.Info(OpenArmada.Diagnostics.Area.Browser, entry);
             }
 
-            return name;
+            return new Preview { View = name };
         };
 
     AssetBrowser OpenWith(IReadOnlyDictionary<string, AssetBrowser.CreatePreview> previews, params AssetKind[] kinds) =>
@@ -167,6 +167,35 @@ public class AssetBrowserTests
         Assert.AreEqual(0, kind.Asset);
         Assert.AreEqual("b", asset.Preview);
         Assert.AreEqual("", asset.Text);
+    }
+
+    [TestMethod]
+    public void Each_note_of_a_shown_asset_is_one_warn_after_its_info_on_every_showing()
+    {
+        var b = OpenWith(
+            new Dictionary<string, AssetBrowser.CreatePreview>
+            {
+                ["models"] = (files, kind, name) =>
+                    new Preview { View = name, Notes = name == "a" ? ["line 3 skipped", "line 9 skipped"] : [] },
+            },
+            new FakeKind("models", "a", "b")
+        );
+        using var log = new CapturedLog();
+
+        b.ShowAsset(0);
+        b.ShowAsset(0);
+        b.ShowAsset(1);
+
+        var showing = new[]
+        {
+            "INFO browser: asset selected: a (category models)",
+            "WARN browser: a: line 3 skipped",
+            "WARN browser: a: line 9 skipped",
+        };
+        CollectionAssert.AreEqual(
+            showing.Concat(showing).Append("INFO browser: asset selected: b (category models)").ToArray(),
+            Entries(log)
+        );
     }
 
     [TestMethod]
@@ -220,7 +249,9 @@ public class AssetBrowserTests
             new Dictionary<string, AssetBrowser.CreatePreview>
             {
                 ["models"] = (files, kind, name) =>
-                    name == "bad.sod" ? throw new NotSupportedException("bad magic") : name,
+                    name == "bad.sod"
+                        ? throw new NotSupportedException("bad magic")
+                        : new Preview { View = name, Notes = ["a note"] },
             },
             new FakeKind("models", "bad.sod", "good.sod")
         );
@@ -236,6 +267,7 @@ public class AssetBrowserTests
                 "INFO browser: asset selected: bad.sod (category models)",
                 "ERROR browser: bad.sod: bad magic",
                 "INFO browser: asset selected: good.sod (category models)",
+                "WARN browser: good.sod: a note",
             },
             Entries(log)
         );

@@ -11,6 +11,6 @@ public sealed class TechTreePreview : KindPreview
     public override string KindName => TechTreeKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name) =>
-        ReadOnlyText(DefinitionText.Format(files, (TechTree)kind.Load(files, name)));
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name) =>
+        new Preview { View = ReadOnlyText(DefinitionText.Format(files, (TechTree)kind.Load(files, name))) };
 }

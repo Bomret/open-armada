@@ -6,7 +6,7 @@ namespace OpenArmada.Diagnostics;
 
 /// <summary>
 /// The entries the asset browser writes, with their level, area, and text. Godot-free so the decisions are
-/// tested; the Viewer calls these where it shows the same thing on screen.
+/// tested; AssetBrowser and the Viewer call these where the same thing is shown on screen.
 /// </summary>
 public static class ViewerLog
 {
@@ -41,7 +41,7 @@ public static class ViewerLog
     /// <summary>WARN: no preview exists for <c>kind</c>.</summary>
     public static void NoPreview(string kind) => Log.Warn(Area.Browser, $"no preview for {kind}");
 
-    /// <summary>WARN, one entry per note: the notes a preview of <c>asset</c> shows.</summary>
+    /// <summary>WARN, one entry per note: the notes the preview of <c>asset</c> returned, once per preview shown (INV-0010).</summary>
     public static void Notes(string asset, IEnumerable<string> notes)
     {
         foreach (var note in notes)

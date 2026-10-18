@@ -31,10 +31,10 @@ public sealed class AssetBrowser
     }
 
     /// <summary>
-    /// Builds the preview of asset <c>name</c> of <c>kind</c> from <c>files</c>; the view it returns is opaque to the
-    /// browser. Throws when the asset fails to load.
+    /// Builds the preview of asset <c>name</c> of <c>kind</c> from <c>files</c>, and returns it with the asset's notes
+    /// without logging them. Throws when the asset fails to load.
     /// </summary>
-    public delegate object CreatePreview(GameFileSystem files, AssetKind kind, string name);
+    public delegate Preview CreatePreview(GameFileSystem files, AssetKind kind, string name);
 
     /// <summary>Set when there is no install to browse: names what is missing.</summary>
     public string? Problem { get; }
@@ -122,7 +122,8 @@ public sealed class AssetBrowser
 
     /// <summary>
     /// Shows <c>Assets[index]</c> of the selected kind: one INFO entry naming the asset and its kind, then its
-    /// preview. A kind with no preview writes <c>no preview for &lt;kind&gt;</c> as one WARN entry and the pane shows
+    /// preview and each note it returns as one WARN entry <c>&lt;asset&gt;: &lt;note&gt;</c>, on every showing (INV-0010).
+    /// A kind with no preview writes <c>no preview for &lt;kind&gt;</c> as one WARN entry and the pane shows
     /// it. A preview that throws writes one ERROR entry with <see cref="FailureMessage"/>, and the pane shows the same
     /// text (INV-0002).
     /// </summary>
@@ -141,14 +142,10 @@ public sealed class AssetBrowser
             return new Pane { Text = $"no preview for {kind.Name}", Asset = index };
         }
 
+        Preview preview;
         try
         {
-            return new Pane
-            {
-                Text = "",
-                Preview = create(Files!, kind, name),
-                Asset = index,
-            };
+            preview = create(Files!, kind, name);
         }
         catch (Exception e) // a failed asset never stops the browser (INV-0002)
         {
@@ -158,6 +155,15 @@ public sealed class AssetBrowser
 
             return new Pane { Text = message, Asset = index };
         }
+
+        ViewerLog.Notes(name, preview.Notes);
+
+        return new Pane
+        {
+            Text = "",
+            Preview = preview.View,
+            Asset = index,
+        };
     }
 
     // Shows Kinds[index] and its asset at `wanted`, or else its first.
@@ -240,4 +246,14 @@ public sealed record Pane
 
     /// <summary>The index in <see cref="AssetBrowser.Assets"/> of the asset shown; -1 when none is.</summary>
     public int Asset { get; init; } = -1;
+}
+
+/// <summary>The preview of one asset: the view a preview built and the asset's notes, which it shows and never logs.</summary>
+public sealed record Preview
+{
+    /// <summary>The view the preview built, opaque to the browser.</summary>
+    public required object View { get; init; }
+
+    /// <summary>The notes of the asset, the same list the view shows; empty when there are none.</summary>
+    public IReadOnlyList<string> Notes { get; init; } = Array.Empty<string>();
 }

@@ -17,7 +17,7 @@ public sealed class InterfaceConfigPreview : KindPreview
     public override string KindName => InterfaceConfigKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var cfg = (InterfaceConfig)kind.Load(files, name);
         var lookup = InterfaceSprites.Of(files, cfg.Name);
@@ -65,7 +65,7 @@ public sealed class InterfaceConfigPreview : KindPreview
                 $"{e.File}:{e.Line}  {e.Key} = {(e.IsText ? "\"" + e.Values[0] + "\"" : string.Join(" ", e.Values))}"
             )
         );
-        var text = NotesBlock(name, cfg.Notes) + entries;
+        var text = NotesBlock(cfg.Notes) + entries;
         var row = new HBoxContainer
         {
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
@@ -108,7 +108,7 @@ public sealed class InterfaceConfigPreview : KindPreview
 
         box.AddChild(row);
 
-        return box;
+        return new Preview { View = box, Notes = cfg.Notes };
     }
 
     // The texture's image and Godot texture, or null when its file is missing, unreadable or in a format not

@@ -1,6 +1,5 @@
 using Godot;
 using OpenArmada.Assets;
-using OpenArmada.Diagnostics;
 
 namespace OpenArmada.Viewer;
 
@@ -11,11 +10,9 @@ public sealed class DefinitionPreview : KindPreview
     public override string KindName => DefinitionKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var def = (ResolvedDefinition)kind.Load(files, name);
-        ViewerLog.Notes(name, DefinitionText.Remarks(def));
-
-        return ReadOnlyText(DefinitionText.Format(def));
+        return new Preview { View = ReadOnlyText(DefinitionText.Format(def)), Notes = DefinitionText.Remarks(def) };
     }
 }

@@ -11,12 +11,12 @@ public sealed class BitmapPreview : KindPreview
     public override string KindName => BitmapKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var info = (BmpInfo)kind.Load(files, name);
         var image = GodotDecoders.Bmp(files.ReadAllBytes(name), name);
         var summary = $"{info.Width}x{info.Height}, BMP {info.BitsPerPixel}-bit";
 
-        return new ImagePane(summary, new[] { (name, image) });
+        return new Preview { View = new ImagePane(summary, new[] { (name, image) }) };
     }
 }

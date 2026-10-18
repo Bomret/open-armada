@@ -1,7 +1,6 @@
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
-using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Rendering;
 
@@ -18,7 +17,7 @@ public sealed class ModelPreview : KindPreview
     public override string KindName => ModelKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var builder = new SodBuilder(files);
         var team = TeamColors.Load(files);
@@ -46,9 +45,8 @@ public sealed class ModelPreview : KindPreview
         var bar = new HBoxContainer();
         bar.AddChild(new Label { Text = "Team color" });
         bar.AddChild(pick);
-        // The builder logged each texture that failed (ViewerLog.TextureFailed); its lines are only shown.
+        // The builder logged each texture that failed (ViewerLog.TextureFailed); its lines are shown, never returned as notes.
         var notes = builder.Problems.Concat(team.Notes).ToList();
-        ViewerLog.Notes(name, notes);
         var problems = notes.Concat(builder.TextureFailures).ToList();
         if (problems.Count > 0)
         {
@@ -59,6 +57,6 @@ public sealed class ModelPreview : KindPreview
         box.AddChild(bar);
         box.AddChild(new ModelPreviewPane(model));
 
-        return box;
+        return new Preview { View = box, Notes = notes };
     }
 }

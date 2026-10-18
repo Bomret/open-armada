@@ -31,6 +31,9 @@ replaced wholesale on publish.
 cannot be reached from `Home`. A staged page's `parent:` names its outline parent. When `create` makes a
 new page, it records the parent in the wiki commit message and adds a link to the new page at the end of
 the parent page. An update adds no link: to link an existing page, stage an `upsert` of its parent.
+Do not stage an `upsert` of a parent in the same publish as a new child of it: the child's `create`
+changes the parent first, so the parent's upsert is refused and stays staged. `create` adds the child's
+link itself; stage a parent upsert made for other reasons in a later publish.
 
 **Page names.** A link in a page body names the target page by its wiki name, which Forgejo derives from
 the title. Spaces become `-`: `Play runs` is `Play-runs`. A title that holds a `-` keeps its spaces, gets
@@ -75,9 +78,9 @@ HTTP status line from stderr.
 - `create` and `update` read the staged body from `SUPERDEV_KB_BODY_FILE` and send it base64-encoded.
 - `create` with `SUPERDEV_KB_PARENT_ID` set takes the new page's name from the `sub_url` of the 201
   answer. It reads the parent page and, when the parent does not yet hold a `](<name>)` link, appends
-  `- [<title>](<name>)` on a line of its own and writes the parent back with its own title. When that
-  step fails after the page exists, `create` exits 1 with a message that names the parent page to link
-  by hand.
+  `- [<title>](<name>)` on a line of its own, with `[` and `]` in the title escaped as `\[` and `\]`,
+  and writes the parent back with its own title. When that step fails after the page exists, `create`
+  exits 1 with a message that names the parent page to link by hand.
 - `delete` treats a 404 as success: an absent page is the intended end state.
 
 Every command below runs under a **30-second bound** (ADR 0130), or whatever
@@ -126,7 +129,7 @@ linked=$(jq -r --arg n "$name" '.content_base64 | @base64d | contains("](" + $n 
 [ "$linked" = true ] && exit 0
 jq --arg t "$SUPERDEV_KB_TITLE" --arg n "$name" '(.content_base64 | @base64d) as $c
   | {title: .title, message: ("Link " + $t + " from " + .title),
-     content_base64: ($c + (if $c == "" or ($c | endswith("\n")) then "" else "\n" end) + "- [" + $t + "](" + $n + ")\n" | @base64)}' \
+     content_base64: ($c + (if $c == "" or ($c | endswith("\n")) then "" else "\n" end) + "- [" + ($t | gsub("\\["; "\\[") | gsub("\\]"; "\\]")) + "](" + $n + ")\n" | @base64)}' \
   "$out" >"$req" || unlinked "the parent write failed"
 tea api -i --login codeberg.org --repo bomret/open-armada -X PATCH "/repos/{owner}/{repo}/wiki/page/$SUPERDEV_KB_PARENT_ID" -d @"$req" >/dev/null 2>"$err" || unlinked "the parent write failed"
 [ "$(head -n1 "$err" | awk '{print $2}')" = 200 ] || unlinked "the parent write failed"

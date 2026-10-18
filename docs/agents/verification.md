@@ -39,6 +39,9 @@ rm -rf play-out/<stem> && mkdir -p play-out/<stem> && godot-mono --path . --writ
 - Run the script twice and `cmp` the state dumps when the line needs a stable outcome.
 - `play/destroy.play` is the worked example: a unit destroyed, its explosion drawn, its sound heard.
 
+A play run cannot show the selection display: the display draws only through the hovered unit, and a
+play run has no hover point. A `hover` step is planned in triage #106.
+
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
 
 No timing command: the test runner's per-test durations are not wired in.

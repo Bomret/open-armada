@@ -159,6 +159,18 @@ mount point on the model (see `docs/combat-rules.md`, §Firing). Keep-closing pa
 engine stand-in (see `docs/combat-rules.md`, §Attack order). The order ends when the target is destroyed.
 _Avoid_: attack command, focus fire
 
+**Tether point**
+The point an idle unit at red alert stays near. The unit closes on its pick only while its center is within
+300 units of the point, and moves back to it otherwise (see `docs/combat-rules.md`, §Alert stance). A move
+order sets it to the destination, and a recent hit on the unit or a teammate nearby sets it to where the unit
+stands.
+_Avoid_: home, anchor, leash
+
+**AI team**
+A team the game's own computer player controls, marked by a per-team flag the game sets outside its
+executable. In the map sandbox no team is an AI team, because the player orders the units of every team.
+_Avoid_: computer player, CPU team, enemy team
+
 **Key chord**
 A key plus the modifiers held with it: Shift, Control, or Alt. The install's `Input.map` names the chord as a binding.
 _Avoid_: hotkey, shortcut, key combo

@@ -36,13 +36,35 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   every tick and hands the pick to its weapons (0x42a170 calls 0x42ff80). The pick is no order: the unit keeps
   it while it stays valid and within the search radius, and takes the nearest valid hostile otherwise. A
   derelict is no valid target (0x42faa0), so a pick that turns derelict is dropped on the next tick. A unit
-  that can attack (`canAttack`) closes on its current pick (**stand-in**; the game's 300-unit tether is not
-  built). With no pick, it walks toward the position of a unit that recently hit it (0x42a24c is the branch
-  point in the idle path where this walk and the computer-player branch below are reached; 0x42a298). The
-  engine stops that closing, and the walk toward an attacker, when the stance leaves red (**stand-in**). How
-  long "recently" lasts is not known; the engine counts the last attacker until it is invalid (**stand-in**).
-  A player's attack order keeps a derelict target. The game's computer-player branch of the idle path
-  (reached at 0x42a24c, `FUN_00472100`, **inferred**) is not built.
+  that can attack (`canAttack`) stays near its **tether point**. While its center is within 300 units of that
+  point (in 3D, the square of the distance at most 90000, 0x42a3a9, the constant at 0x5ca7ac), it closes on its
+  pick (the game's attack maneuver, 0x42c400, is not traced, so how it closes is a **stand-in**). Farther away,
+  or with no pick, it moves back to the point and stops there (0x42a3e4, 0x42a3f4), keeping its pick, so its
+  weapons fire at it whenever one reaches. The edge has no margin: a unit closing on a pick near 300 units turns
+  back to the point as soon as it crosses the edge and closes again once back inside (**stand-in**; whether the
+  attack maneuver smooths this is not traced). A move order sets the tether point to the destination (0x42704e), so
+  a ship stays where it was sent; an order without a position, such as a stop, sets it to where the unit stands
+  (0x46eac0). The point starts at the unit's placed position (**stand-in**; the game's point at creation was
+  not found). When a player's attack order ends with its target destroyed, the point becomes where the unit
+  stands then (**stand-in**). A move gives no height, so the point keeps the unit's own (**stand-in**). The
+  engine stops the closing and the return when the stance leaves red (**stand-in**). A player's attack order
+  keeps a derelict target.
+
+  A recent hit moves the tether point. When a shot landed less than one second ago (0x46e640 compares the
+  time since the hit, recorded by 0x46e340, against 1.0; strictly less) on the idle unit itself or on a unit
+  of its own team within 400 units of it on X and on Z (0x42a000; whether the edge counts is a **stand-in**),
+  the idle path posts an order without a position (0x42a370), which sets the tether point to where the unit
+  stands (0x46eac0; that this order takes that path is **inferred**). So a ship under fire beyond its tether
+  keeps closing. Only a landed shot counts as a hit (**stand-in**). A hit that destroys the teammate it lands
+  on counts for no one, since the destroyed unit leaves the world at once (**stand-in**; whether the game
+  counts it is not known). What else this order (command type 5)
+  does, and the check at 0x42a370 that can skip it, are not traced.
+
+  The game's idle path branches on whether the unit's team is an **AI team**: a per-team flag (`FUN_00472100`
+  reads it from the team's record; the getter is `IsAITeam`, 0x436840) that something outside the program
+  sets. Only an AI team's idle unit walks toward the position of a unit that hit it less than a second ago
+  (0x42a298) or takes the attack path behind the unit definition's flag at +0x237 (0x42a24c). No team in the
+  map sandbox is an AI team, because the player orders the units of every team, so neither is built.
 - **Yellow:** the unit picks targets by itself and fires at them, and never moves on its own. The game
   makes one more validity check on yellow candidates whose meaning is unknown; the engine skips it
   (**stand-in**).
@@ -64,6 +86,14 @@ A unit with no weapons picks no target. Otherwise, at red or yellow (0x42ff80):
 A target is valid when it is a hostile unit, not being destroyed, and not derelict (0x42faa0). The game
 also requires that the target is visible to the unit's team; every unit is visible until fog of war
 exists (**stand-in**).
+
+Selection makes no test of whether any weapon can reach the target: the validity check and the search
+(0x42faa0, 0x4300a0) test no hardpoint, arc, or line of fire, and the distances are surface to surface
+(0x430017, 0x4301d4; the 25 at 0x42ffd1). A weapon, however, fires only from a hardpoint within its range of
+the target's center (see Firing), and nothing drops a pick the unit cannot hit (searched, not found). So a
+unit that does not close on its pick, such as a yellow ship or a station, can hold a target with a large
+radius whose center no hardpoint reaches, and fire nothing at it for as long as the target stays within the
+radius. The game behaves the same way (**inferred** from the program's code; not observed in a running game).
 
 ## Attack order
 

@@ -49,6 +49,17 @@ public sealed class CombatWorld
     const double Epsilon = 1e-9;
     const float ArrivedWithin = 1e-3f;
 
+    // An idle unit at red closes on its pick only while its center is within 300 units of its tether point, in
+    // 3D (0x42a3a9, the constant at 0x5ca7ac).
+    const float TetherSquared = 90000f;
+
+    // A hit counts as recent for less than this many seconds (0x46e640, the 1.0 at 0x42a14a).
+    const double HitWindow = 1.0;
+
+    // A hit on a unit of the same team within this many units on X and on Z counts too (0x42a000); stand-in: the
+    // edge counts.
+    const float TeammateBox = 400f;
+
     readonly UnitPoses _poses;
     readonly double _protection;
     readonly Func<double> _random;
@@ -56,6 +67,7 @@ public sealed class CombatWorld
     readonly Dictionary<PlacedObject, UnitCombatState> _units = new(ReferenceEqualityComparer.Instance);
     readonly List<Shot> _shots = new();
     double _pending;
+    long _ticks;
 
     /// <summary>
     /// A world of the units, without orders. <c>shieldDamageProtection</c> and
@@ -116,7 +128,10 @@ public sealed class CombatWorld
         return true;
     }
 
-    /// <summary>Ends the unit's attack order and its move order.</summary>
+    /// <summary>
+    /// Ends the unit's attack order and its move order. The tether point becomes where the unit stands (an order
+    /// without a position, 0x46eac0).
+    /// </summary>
     public void ClearOrder(PlacedObject unit)
     {
         if (State(unit) is not { } state)
@@ -125,11 +140,13 @@ public sealed class CombatWorld
         state.AutoMove = false;
         state.PlayerMove = null;
         state.Intent = default;
+        state.Tether = Position(state);
     }
 
     /// <summary>
     /// Gives the unit a move order to the point (X, Z), replacing its attack order. The unit is not idle until it
-    /// arrives, however the motion gets there (a ship turns in place first without changing its position).
+    /// arrives, however the motion gets there (a ship turns in place first without changing its position). The
+    /// destination becomes the tether point (0x42704e).
     /// </summary>
     public void Move(PlacedObject unit, float x, float z)
     {
@@ -137,6 +154,8 @@ public sealed class CombatWorld
         if (State(unit) is { } state)
         {
             state.PlayerMove = (x, z);
+            // stand-in: a move names no height, so the tether point keeps the unit's own
+            state.Tether = new Vector3(x, Position(state).Y, z);
         }
     }
 
@@ -174,6 +193,7 @@ public sealed class CombatWorld
 
     void RunTick(List<CombatEvent> events)
     {
+        _ticks++;
         AdvanceShots(events);
         foreach (var u in _units.Values.ToList())
         {
@@ -213,9 +233,10 @@ public sealed class CombatWorld
         {
             u.Order = null;
             u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
+            u.Tether = Position(u); // stand-in: where an attack order leaves the tether point was not traced
         }
 
-        // stand-in: what red started ends with red, the closing on a pick and the walk toward an attacker (a
+        // stand-in: what red started ends with red, the closing on a pick and the return to the tether point (a
         // player's order stays); the game's behavior is not known.
         if (u.Alert != AlertStance.Red && u.AutoMove)
         {
@@ -235,33 +256,23 @@ public sealed class CombatWorld
             var idle = u.PlayerMove == null;
             if (u.Alert != AlertStance.Red || !u.Profile.CanAttack || u.Derelict || !idle)
                 return; // yellow never moves on its own
-            if (u.Target != null)
+            // a recent hit on the unit or a teammate nearby moves the tether point to where the unit stands (0x42a370
+            // posts an order without a position; inferred that it takes that order's path, 0x46eac0)
+            if (HitNearby(u))
             {
-                u.AutoMove = true; // idle at red: close on the pick, which is chosen again every tick (0x42a170)
-                u.Attacker = null;
+                u.Tether = Position(u);
             }
-            else if (u.Mobile && u.Attacker is { } attacker && Valid(u, attacker))
-            {
-                var at = Position(attacker); // else go to where the unit that hit it is
-                u.Intent = new MoveIntent
-                {
-                    Kind = MoveKind.MoveTo,
-                    X = at.X,
-                    Z = at.Z,
-                };
-                u.AutoMove = true;
 
-                return;
+            // idle at red: close on the pick, which is chosen again every tick, while within the tether; else go
+            // back to the tether point (0x42a3e4, 0x42a3f4), keeping the pick. No team of the sandbox is an AI team,
+            // so the walk toward a recent attacker (0x42a298) never runs.
+            if (u.Target != null && Vector3.DistanceSquared(Position(u), u.Tether) <= TetherSquared)
+            {
+                u.AutoMove = true;
             }
             else
             {
-                u.Attacker = null;
-                if (u.AutoMove)
-                {
-                    u.Intent = new MoveIntent { Kind = MoveKind.Stop };
-                }
-
-                u.AutoMove = false;
+                ReturnToTether(u);
 
                 return;
             }
@@ -295,6 +306,49 @@ public sealed class CombatWorld
 
         // An ordered target out of range: the weapons fire at the unit's own pick (none at green).
         u.Target = u.Alert == AlertStance.Green ? null : Select(u, held, radius);
+    }
+
+    // Whether a shot landed less than HitWindow ago on the unit or on a unit of its team within TeammateBox.
+    // stand-in: a teammate the hit destroyed has left _units (Land), so that hit counts for no one; whether the game
+    // counts it is not known.
+    // ponytail: every idle red unit scans every unit each tick (O(n²)); skip the scan while no hit is newer than
+    // HitWindow, or a spatial index, when maps grow large.
+    bool HitNearby(UnitCombatState u)
+    {
+        var at = Position(u);
+
+        return _units.Values.Any(v =>
+            v.Team == u.Team
+            && v.LastHit is { } hit
+            && (_ticks - hit) * Tick + Epsilon < HitWindow
+            && Math.Abs(Position(v).X - at.X) <= TeammateBox
+            && Math.Abs(Position(v).Z - at.Z) <= TeammateBox
+        );
+    }
+
+    // Moves the unit back to its tether point, and stops it once it is there.
+    void ReturnToTether(UnitCombatState u)
+    {
+        var at = Position(u);
+        if (!u.Mobile || (Math.Abs(at.X - u.Tether.X) < ArrivedWithin && Math.Abs(at.Z - u.Tether.Z) < ArrivedWithin))
+        {
+            if (u.AutoMove)
+            {
+                u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
+            }
+
+            u.AutoMove = false;
+
+            return;
+        }
+
+        u.Intent = new MoveIntent
+        {
+            Kind = MoveKind.MoveTo,
+            X = u.Tether.X,
+            Z = u.Tether.Z,
+        };
+        u.AutoMove = true;
     }
 
     // A valid target is hostile, not being destroyed, and not derelict (0x42faa0).
@@ -503,7 +557,7 @@ public sealed class CombatWorld
         var damage = CombatRules.Damage(shot.Weapon.Ordnance, target.DefinitionName, _random());
         var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
-        target.Attacker = shot.Shooter;
+        target.LastHit = _ticks;
         events.Add(new ShotLanded { Shot = shot, Hit = hit });
         if (!hit.Destroyed)
             return;

@@ -304,6 +304,19 @@ public class AssetBrowserTests
     }
 
     [TestMethod]
+    public void Browser_whose_install_cannot_be_opened_is_one_error_and_nothing_else()
+    {
+        var b = AssetBrowser.Open(temp.MakeDir(), new[] { new FakeKind("models", "m") });
+        using var log = new CapturedLog();
+
+        var pane = b.Start("m");
+
+        var entry = Assert.ContainsSingle(Entries(log));
+        Assert.AreEqual($"ERROR browser: {b.Problem}", entry);
+        Assert.AreEqual(b.Problem, pane.Text);
+    }
+
+    [TestMethod]
     public void Kind_whose_listing_fails_is_one_error_when_shown()
     {
         var b = OpenWith(new Dictionary<string, AssetBrowser.CreatePreview>(), new ThrowingKind());

@@ -13,7 +13,11 @@ namespace OpenArmada.Tests;
 /// </summary>
 static class PreviewNotesScan
 {
-    static readonly Regex NotesLog = new(@"\bViewerLog\s*\.\s*Notes\b|using\s+static\s+[\w.]*\bViewerLog\b");
+    // ViewerLog.Notes, a direct Log.Warn/Info/Error, or a using static of either class. ViewerLog.TextureFailed
+    // stays allowed: a texture failure is no note.
+    static readonly Regex NotesLog = new(
+        @"\bViewerLog\s*\.\s*Notes\b|\bLog\s*\.\s*(?:Warn|Info|Error)\b|using\s+static\s+[\w.]*\b(?:Viewer)?Log\b"
+    );
 
     /// <summary>One message per offending line, naming the file (relative to <c>src/</c>) and line.</summary>
     public static List<string> Violations(string path, string text)
@@ -65,6 +69,10 @@ public class PreviewNotesTests
     [DataRow("        ViewerLog.Notes(name, cursor.Notes);")]
     [DataRow("ViewerLog . Notes(name, notes);")]
     [DataRow("using static OpenArmada.Diagnostics.ViewerLog;")]
+    [DataRow("        Log.Warn(Area.Browser, $\"{name}: {note}\");")]
+    [DataRow("Log.Info(Area.Browser, note);")]
+    [DataRow("Log . Error(Area.Browser, note);")]
+    [DataRow("using static OpenArmada.Diagnostics.Log;")]
     public void A_preview_that_logs_its_notes_is_named(string line)
     {
         var found = PreviewNotesScan.Violations("Viewer/CursorPreview.cs", line);

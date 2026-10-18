@@ -7,7 +7,7 @@ using OpenArmada.Formats;
 namespace OpenArmada.Sandbox;
 
 /// <summary>The <c>--maps</c> run: writes the map summary of every map of an install through <see cref="Log"/>.</summary>
-public static class MapSummaryReport
+public static class MapsRun
 {
     /// <summary>
     /// Writes one entry per map of the install's <c>bzn</c> folder in area <see cref="Area.Maps"/>, in name

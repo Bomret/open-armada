@@ -113,7 +113,7 @@ public partial class AssetBrowserView : Control
             int code;
             try
             {
-                code = MapSummaryReport.Run(game);
+                code = MapsRun.Run(game);
             }
             catch (Exception e)
             {

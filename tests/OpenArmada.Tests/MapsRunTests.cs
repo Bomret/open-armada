@@ -10,7 +10,7 @@ namespace OpenArmada.Tests;
 
 // The --maps run's report, from installs built in code (INV-0001).
 [TestClass]
-public class MapSummaryReportTests
+public class MapsRunTests
 {
     readonly TempInstall temp = new();
 
@@ -54,7 +54,7 @@ public class MapSummaryReportTests
     public void EveryMapGetsOneEntryInNameOrderAndAnUnreadableMapIsOneErrorThatStopsNothing()
     {
         using var log = new CapturedLog();
-        var code = MapSummaryReport.Run(Install());
+        var code = MapsRun.Run(Install());
         var entries = log.Lines.Select(Entry).ToList();
 
         Assert.AreEqual(0, code);
@@ -79,7 +79,7 @@ public class MapSummaryReportTests
         var root = temp.MakeInstall(("bzn/save.bzn", save));
 
         using var log = new CapturedLog();
-        var code = MapSummaryReport.Run(root);
+        var code = MapsRun.Run(root);
 
         Assert.AreEqual(0, code);
         var entry = Entry(log.Lines.Single());
@@ -94,7 +94,7 @@ public class MapSummaryReportTests
         var summary = MapSummary.Of(fs, (MapAsset)new MapKind().Load(fs, "bzn/a.bzn"));
 
         using var log = new CapturedLog();
-        MapSummaryReport.Run(root);
+        MapsRun.Run(root);
 
         CollectionAssert.AreEqual(
             summary.Lines.ToArray(),
@@ -115,7 +115,7 @@ public class MapSummaryReportTests
         }
 
         using var log = new CapturedLog();
-        var code = MapSummaryReport.Run(game);
+        var code = MapsRun.Run(game);
 
         Assert.AreEqual(1, code);
         var entry = Entry(log.Lines.Single());

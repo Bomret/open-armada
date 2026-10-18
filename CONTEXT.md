@@ -247,3 +247,18 @@ is `ERROR` when something broke (an asset failed to load, the engine caught a fa
 open), `WARN` when the engine went on by design with a stand-in, absent data, a skip, or an unsupported
 asset, and `INFO` for context. The area names the part of the engine that wrote it.
 _Avoid_: log message, log line, event
+
+**Play run**
+A run of the map sandbox that a play script drives on fixed simulated time, quitting after the script's
+last step.
+_Avoid_: replay, scripted session, demo
+
+**Play script**
+A checked-in text file of steps, one per line, run in order: waits, selections, orders, keys, camera
+moves, named screenshots, state dumps, and expectations on unit state.
+_Avoid_: scenario, macro, test script
+
+**State dump**
+The text lines a play run writes at one step, one line per unit, naming each unit as a play script
+addresses it and giving its combat state.
+_Avoid_: snapshot, state export

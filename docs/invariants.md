@@ -48,3 +48,18 @@ Statement: The selection display shows only through the hovered unit: no unit sh
 Breaks: silently
 Check: a unit test that selects units with no hovered unit, and with a hovered unit of another team, and finds no shield bar and no crew dot.
 Paths: src/Sandbox/SelectionDisplay.cs, src/Viewer/SelectionDisplayView.cs
+
+### INV-0007
+
+Class: behavior
+Concepts: Play script, Play run, Log entry
+Statement: A play script that cannot be read, a step that cannot run, or an expectation that does not hold is reported as a log entry naming the script, the line, and, for an expectation, the expected and actual values; the play run then quits with a non-zero exit code and never throws out of the sandbox.
+Breaks: loudly
+
+### INV-0008
+
+Class: behavior
+Concepts: Play run, Play script, State dump
+Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map and one play script write identical state dumps.
+Breaks: silently
+Check: a unit test that runs one play script twice against the same sandbox plan and compares the state dumps.

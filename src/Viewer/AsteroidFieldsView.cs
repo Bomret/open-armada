@@ -68,7 +68,10 @@ public partial class AsteroidFieldsView : Node3D
     readonly List<Draw> _draws = new();
     readonly List<Group> _groups = new();
     readonly List<SpriteDraw> _sprites = new();
-    ulong _start;
+
+    // Seconds of frame time since the fields were built: the animation follows the frames' deltas, so a fixed
+    // time step (Movie Maker) replays it exactly (INV-0008).
+    double _time;
 
     /// <summary>
     /// Builds each asteroid model of the plan's fields from <c>files</c> and adds one MultiMeshInstance3D child per
@@ -239,8 +242,6 @@ public partial class AsteroidFieldsView : Node3D
                 );
             }
         }
-
-        _start = Time.GetTicksMsec();
     }
 
     /// <inheritdoc/>
@@ -248,7 +249,8 @@ public partial class AsteroidFieldsView : Node3D
     {
         if (_draws.Count == 0)
             return;
-        var t = (Time.GetTicksMsec() - _start) / 1000.0;
+        _time += delta;
+        var t = _time;
         foreach (var draw in _sprites)
         {
             draw.Instance.Visible = SpriteNodeQuad.Show(

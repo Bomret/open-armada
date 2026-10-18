@@ -11,7 +11,7 @@ format notes.
 - The built-in maps, their teams, and which ones start with warships on two teams: `docs/maps.md`.
 - How the game draws a unit's status in the world: `docs/selection-display.md`.
 - Decisions: `docs/adr/`. Invariants: `docs/invariants.md`.
-- Source layout, controls, and the asset check: `README.md`.
+- Source layout, controls, the asset check, and how to run a play script: `README.md`.
 - The log of a run: `godot.log` in Godot's user-data folder; its path per system, entry format, levels, and areas are in `README.md`, "Read the log". The asset check's report appears there and on standard output. After a run, read its `WARN` and `ERROR` entries first.
 - Logging rules: `docs/invariants.md` (INV-0004, INV-0005) and `docs/adr/0005-runs-log-into-godots-own-log.md`. All output goes through `Log` in `src/Diagnostics/`; parsers and asset kinds never log.
 
@@ -47,7 +47,7 @@ C# style rules in `docs/agents/CODING.md`; the patterns this repo uses in `docs/
 .NET SDK 10 (net8.0) and Godot 4.7.2 .NET; build with `dotnet build OpenArmada.csproj`. Format with CSharpier 1.3.0, a local tool, through `dotnet csharpier format .`. See `docs/agents/toolchain.md`.
 
 ### Verification
-Full: format check, unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: unit tests. Arms the merge green-gate. The first `dotnet tool restore` needs NuGet access. See `docs/agents/verification.md`.
+Full: format check, unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: unit tests. Arms the merge green-gate. The first `dotnet tool restore` needs NuGet access. Sandbox Definition-of-Done lines about what a player sees or hears are verified with a play run, whose frames and WAV the agent judges itself. See `docs/agents/verification.md`, which also names the exception.
 
 ### Deployment
 Posture `manual`, no targets yet. See `docs/agents/deployment.md`.

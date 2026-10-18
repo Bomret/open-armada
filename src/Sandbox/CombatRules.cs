@@ -76,14 +76,7 @@ public static class CombatRules
         Math.Max(0, ordnance.DamageBase.For(target) + ordnance.DamageVariance.For(target) * (2 * random - 1));
 
     // In the order of HitLocation, so the index of a system is its location.
-    static readonly string[] SystemOrder =
-    {
-        SystemNames.Engines,
-        SystemNames.LifeSupport,
-        SystemNames.Weapons,
-        SystemNames.ShieldGenerator,
-        SystemNames.Sensors,
-    };
+    static readonly string[] SystemOrder = SystemNames.All;
 
     /// <summary>
     /// The location a roll of 0 to 99 hits: the roll is reduced by the hit percent of engines, life support,

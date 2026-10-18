@@ -90,6 +90,23 @@ public sealed class AssetBrowser
     }
 
     /// <summary>
+    /// <c>create</c>, refusing a view the browser's view cannot show: a <see cref="Preview.View"/> that is not a
+    /// <c>TView</c> throws <see cref="InvalidOperationException"/>, so <see cref="ShowAsset"/> reports it as a failed
+    /// preview (one ERROR entry, the pane shows why) instead of showing an empty pane.
+    /// </summary>
+    public static CreatePreview Showing<TView>(CreatePreview create) =>
+        (files, kind, name) =>
+        {
+            var preview = create(files, kind, name);
+
+            return preview.View is TView
+                ? preview
+                : throw new InvalidOperationException(
+                    $"the preview built a {preview.View.GetType().Name} view, which the browser cannot show"
+                );
+        };
+
+    /// <summary>
     /// Shows what the browser opens on: with <see cref="Problem"/> set, one ERROR entry and the problem as the pane
     /// text, and nothing else. Otherwise the selected kind and its first asset, or, with <c>model</c> (the --model
     /// entrance, see <see cref="SelectModel"/>), the models kind and that model; only the kind and asset shown are

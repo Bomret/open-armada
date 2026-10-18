@@ -325,6 +325,44 @@ public class AssetBrowserTests
     }
 
     [TestMethod]
+    public void Preview_whose_view_the_browser_cannot_show_is_one_error_and_the_pane_says_why()
+    {
+        var b = OpenWith(
+            new Dictionary<string, AssetBrowser.CreatePreview>
+            {
+                ["models"] = AssetBrowser.Showing<string>(
+                    (files, kind, name) => new Preview { View = 42, Notes = ["a note"] }
+                ),
+            },
+            new FakeKind("models", "m")
+        );
+        using var log = new CapturedLog();
+
+        var pane = b.ShowAsset(0);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "INFO browser: asset selected: m (category models)",
+                "ERROR browser: m: the preview built a Int32 view, which the browser cannot show",
+            },
+            Entries(log)
+        );
+        Assert.AreEqual("m: the preview built a Int32 view, which the browser cannot show", pane.Text);
+        Assert.IsNull(pane.Preview);
+    }
+
+    [TestMethod]
+    public void Preview_whose_view_the_browser_can_show_passes_through()
+    {
+        var created = new Preview { View = "view", Notes = ["a note"] };
+
+        var shown = AssetBrowser.Showing<string>((files, kind, name) => created)(null!, new FakeKind("models"), "m");
+
+        Assert.AreSame(created, shown);
+    }
+
+    [TestMethod]
     public void Kind_without_preview_is_one_warn_on_each_showing()
     {
         var b = OpenWith(new Dictionary<string, AssetBrowser.CreatePreview>(), new FakeKind("sounds", "a", "b"));

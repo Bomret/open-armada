@@ -151,7 +151,7 @@ public partial class AssetBrowserView : Control
         _browser = AssetBrowser.Open(
             game,
             registered,
-            previews.ToDictionary(p => p.Key, p => (AssetBrowser.CreatePreview)p.Value.Create)
+            previews.ToDictionary(p => p.Key, p => AssetBrowser.Showing<Control>(p.Value.Create))
         );
 
         var split = new HSplitContainer();

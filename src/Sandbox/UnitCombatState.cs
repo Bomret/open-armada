@@ -159,18 +159,17 @@ public sealed class UnitCombatState(
     public AlertStance Alert { get; set; } = profile.DefaultGreenAlert ? AlertStance.Green : AlertStance.Red;
 
     /// <summary>
-    /// The unit that last hit this one; a red idle unit moves toward it until it picks a target.
-    /// stand-in: the last attacker counts until it is invalid or the unit picks a target; the game's time window for
-    /// "recently" is not known.
+    /// The tether point: an idle unit at red closes on its pick only within 300 units of it, and returns to it
+    /// otherwise (0x42a170). stand-in: it starts at the placed position; the game's point at creation was not found.
     /// </summary>
-    public UnitCombatState? Attacker { get; set; }
+    public Vector3 Tether { get; set; } = unit.Position;
 
     /// <summary>The unit the attack order names; null without an order.</summary>
     public UnitCombatState? Order { get; set; }
 
     /// <summary>
-    /// Whether the unit's move intent is red's (closing on its pick, or the walk toward an attacker) and not a player's
-    /// move order.
+    /// Whether the unit's move intent is red's (closing on its pick, or the return to its tether point) and not a
+    /// player's move order.
     /// </summary>
     public bool AutoMove { get; set; }
 

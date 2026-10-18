@@ -142,6 +142,167 @@ public class CombatAlertTests
     }
 
     [TestMethod]
+    public void AnIdleRedShipBeyondItsTetherReturnsToItAndKeepsFiringAtItsPick()
+    {
+        var a = Ship("a", 1, 0, range: 1000);
+        var t = Target("t", 2, 900);
+        var (world, poses) = WorldWithPoses(a, t);
+        Place(poses, a.Object, 400); // 400 units from its placed position, the pick in range
+        var events = world.Step(0.02);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 0,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
+        Assert.AreEqual("t", world.State(a.Object)!.Target!.Unit.Label);
+        Assert.AreEqual(1, Fired(events, "a"));
+    }
+
+    [TestMethod]
+    public void AnIdleRedShipExactlyAtItsTetherDistanceStillHoldsOnItsPickAndOneUnitBeyondReturns()
+    {
+        var a = Ship("a", 1, 0, range: 1000);
+        var t = Target("t", 2, 900);
+        var (world, poses) = WorldWithPoses(a, t);
+        Place(poses, a.Object, 300);
+        world.Step(0.02);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.Face,
+                X = 900,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
+        Place(poses, a.Object, 301);
+        world.Step(0.02);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 0,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
+    }
+
+    [TestMethod]
+    public void AnIdleRedShipWithNoPickReturnsToItsTetherAndStopsThere()
+    {
+        var a = Ship("a", 1, 0);
+        var (world, poses) = WorldWithPoses(a);
+        Place(poses, a.Object, 50);
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        Place(poses, a.Object, 0);
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
+        world.State(a.Object)!.Intent = default;
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind); // no move issued once it is there
+    }
+
+    [TestMethod]
+    public void AMoveOrderSetsTheTetherToItsDestinationSoTheShipStaysThereAfterArrival()
+    {
+        var a = Ship("a", 1, 0);
+        var (world, poses) = WorldWithPoses(a);
+        world.Move(a.Object, 500, 0);
+        Place(poses, a.Object, 500);
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind);
+    }
+
+    [TestMethod]
+    public void AnAttackOrderReplacedByAMoveTakesTheMovesDestinationAsTheTether()
+    {
+        var a = Ship("a", 1, 0);
+        var t = Target("t", 2, 900);
+        var (world, poses) = WorldWithPoses(a, t);
+        world.Attack(a.Object, t.Object);
+        world.Move(a.Object, 600, 0);
+        Place(poses, a.Object, 600);
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind);
+    }
+
+    [TestMethod]
+    public void AStopOrderSetsTheTetherToWhereTheShipStands()
+    {
+        var a = Ship("a", 1, 0);
+        var (world, poses) = WorldWithPoses(a);
+        Place(poses, a.Object, 500);
+        world.Step(0.02); // the world sees the ship at 500
+        world.ClearOrder(a.Object);
+        world.State(a.Object)!.Intent = default;
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind);
+    }
+
+    [TestMethod]
+    public void AnAttackOrderThatEndsWithTheTargetDestroyedSetsTheTetherToWhereTheShipStands()
+    {
+        var a = Ship("a", 1, 0);
+        var t = Target("t", 2, 900);
+        var (world, poses) = WorldWithPoses(a, t);
+        world.Attack(a.Object, t.Object);
+        Place(poses, a.Object, 500);
+        world.State(t.Object)!.Destroyed = true;
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind); // it stays, no return to its placed position
+    }
+
+    [TestMethod]
+    public void OnlyAnIdleRedShipThatCanAttackReturnsToItsTether()
+    {
+        foreach (
+            var (name, spec, set) in new (string, Spec, Action<UnitCombatState>)[]
+            {
+                ("yellow", Ship("a", 1, 0), u => u.Alert = AlertStance.Yellow),
+                ("green", Ship("a", 1, 0), u => u.Alert = AlertStance.Green),
+                ("cannot attack", Ship("a", 1, 0, canAttack: false), _ => { }),
+                ("derelict", Ship("a", 1, 0), u => u.Derelict = true),
+                ("station", Ship("a", 1, 0) with { Mobile = false }, _ => { }),
+            }
+        )
+        {
+            var (world, poses) = WorldWithPoses(spec);
+            set(world.State(spec.Object)!);
+            Place(poses, spec.Object, 400);
+            world.Step(0.02);
+            Assert.AreNotEqual(MoveKind.MoveTo, world.State(spec.Object)!.Intent.Kind, name);
+        }
+    }
+
+    [TestMethod]
+    public void AShipWithDestroyedEnginesDoesNotReturnToItsTetherUntilTheyAreRepaired()
+    {
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(range: 100) }, systems: new[] { Sys("Engines") }),
+        };
+        var (world, poses) = WorldWithPoses(a);
+        var state = world.State(a.Object)!;
+        Place(poses, a.Object, 400);
+        state.DestroySystem("Engines");
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.Stop, state.Intent.Kind);
+        state.Systems["Engines"].HitPoints = state.Systems["Engines"].Max;
+        state.RestoreSystem("Engines");
+        world.Step(0.02);
+        Assert.AreEqual(MoveKind.MoveTo, state.Intent.Kind);
+    }
+
+    [TestMethod]
     public void ARedUnitThatCannotAttackFiresButGetsNoOrderAndNeverMoves()
     {
         var a = Ship("a", 1, 0, canAttack: false);
@@ -152,7 +313,7 @@ public class CombatAlertTests
     }
 
     [TestMethod]
-    public void ARedUnitHitFromBeyondItsRangeMovesTowardTheAttacker()
+    public void ARedUnitHitFromBeyondItsRadiusDoesNotMoveTowardTheAttacker()
     {
         var a = Ship("a", 1, 0, range: 100);
         var shooter = new Spec
@@ -162,16 +323,9 @@ public class CombatAlertTests
             Mobile = false,
         };
         var world = World(a, shooter);
-        world.Step(1.2); // the beam lands after its life of one second
-        Assert.AreEqual(
-            new MoveIntent
-            {
-                Kind = MoveKind.MoveTo,
-                X = 150,
-                Z = 0,
-            },
-            world.State(a.Object)!.Intent
-        );
+        var events = world.Step(1.2); // the beam lands after its life of one second
+        Assert.AreEqual(1, events.OfType<ShotLanded>().Count(e => e.Shot.Target.Unit == a.Object));
+        Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind); // no team of the sandbox is an AI team
     }
 
     [TestMethod]
@@ -248,11 +402,13 @@ public class CombatAlertTests
         engines.HitPoints = engines.Max;
         world.State(a.Object)!.RestoreSystem("Engines");
         world.Step(0.02);
+        Assert.IsNull(world.State(a.Object)!.PlayerMove);
+        // idle again, it returns to its tether point, the lost move's destination, beyond 300 units of it
         Assert.AreEqual(
             new MoveIntent
             {
                 Kind = MoveKind.MoveTo,
-                X = 70,
+                X = -500,
                 Z = 0,
             },
             world.State(a.Object)!.Intent
@@ -280,16 +436,17 @@ public class CombatAlertTests
     }
 
     [TestMethod]
-    public void ARedUnitSwitchedToYellowStopsChasingAnAttackerAndFiresOnlyWithinTheRadius()
+    public void ARedUnitSwitchedToYellowStopsItsReturnToTheTetherAndFiresOnlyWithinTheRadius()
     {
         var a = Ship("a", 1, 0, range: 100);
         var shooter = new Spec
         {
-            Object = Placed("s", 2, 150),
+            Object = Placed("s", 2, 550),
             Profile = Profile(new[] { Weapon(range: 200) }),
             Mobile = false,
         };
-        var world = World(a, shooter);
+        var (world, poses) = WorldWithPoses(a, shooter);
+        Place(poses, a.Object, 400); // beyond its tether, the shooter beyond its radius
         world.Step(1.2);
         Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
         world.State(a.Object)!.Alert = AlertStance.Yellow;

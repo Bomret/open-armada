@@ -21,6 +21,19 @@ public sealed class LaunchArgs
     /// <summary>Whether any argument equals <c>flag</c> exactly (case-sensitive), whether or not it has a value.</summary>
     public bool Has(string flag) => Array.IndexOf(_args, flag) >= 0;
 
+    /// <summary>
+    /// The run's mode: <c>check</c>, <c>maps</c>, <c>play</c>, <c>map</c>, <c>layout</c>, or <c>browser</c>, the
+    /// first whose flag is given. <c>--check</c> wins over <c>--maps</c>; <c>--maps</c> wins over <c>--map</c>,
+    /// <c>--layout</c>, and <c>--play</c>. Looks up no value, so it adds no problem.
+    /// </summary>
+    public string Mode() =>
+        Has("--check") ? "check"
+        : Has("--maps") ? "maps"
+        : Has("--play") ? "play"
+        : Has("--map") ? "map"
+        : Has("--layout") ? "layout"
+        : "browser";
+
     /// <summary>Adds a problem naming both flags when both are given (once per pair).</summary>
     public void Exclusive(string flag, string other)
     {

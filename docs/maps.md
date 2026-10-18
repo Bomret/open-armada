@@ -4,7 +4,8 @@ This page describes every map in the `bzn` folder of a Star Trek: Armada 1.2 ins
 maps and 21 campaign and other maps. Use it to pick a map for a sandbox test, for example a map where two
 teams start with warships for a combat test. The facts come from the map files and object definitions of
 an unmodified 1.2 install, read with the engine's own readers. An install with override files can give
-other classes.
+other classes. The `--maps` run (`README.md`, "Summarize the maps of an install") prints the same facts for
+any install, so a run against the stock install can be compared with this page.
 
 ## How to read an entry
 

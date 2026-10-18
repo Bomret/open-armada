@@ -23,6 +23,9 @@ public enum Area
 
     /// <summary>The model builder: models and their textures.</summary>
     Render,
+
+    /// <summary>The <c>--maps</c> run: the map summary of every map of an install.</summary>
+    Maps,
 }
 
 /// <summary>The level of a log entry.</summary>

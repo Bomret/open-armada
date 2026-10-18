@@ -163,9 +163,9 @@ Levels:
 - `WARN`: the engine went on by design, with a stand-in, absent data, a skip, or an unsupported asset.
 - `INFO`: context, such as the run start and each selection.
 
-Areas: `run` (start, end, launch arguments), `check` (the asset check), `browser`, `sandbox`, `combat`, and `render` (models and their textures).
+Areas: `run` (start, end, launch arguments), `check` (the asset check), `maps` (the map summaries of `--maps`), `browser`, `sandbox`, `combat`, and `render` (models and their textures).
 
-Each run starts with an `INFO` entry that names the mode, the install, and the arguments. A run that quits normally ends with an `INFO` entry that counts its `WARN` and `ERROR` entries; the asset check's also gives its exit code. A crash or SIGINT writes no run end; Godot's backtrace stays in `godot.log`. To list the problems of a run, search the log for ` WARN ` and ` ERROR `.
+Each run starts with an `INFO` entry that names the mode, the install, and the arguments. A run that quits normally ends with an `INFO` entry that counts its `WARN` and `ERROR` entries; the asset check's and the `--maps` run's also give the exit code. A crash or SIGINT writes no run end; Godot's backtrace stays in `godot.log`. To list the problems of a run, search the log for ` WARN ` and ` ERROR `.
 
 A fault that repeats, such as a combat step that fails each frame, is logged at its first occurrence, and its further occurrences are counted in one entry before the run ends. A texture that fails is logged once per run: `WARN` when it is missing, `ERROR` when it cannot be read. A later use by a named asset adds an `INFO` entry that points back to the first one.
 
@@ -174,7 +174,7 @@ A fault that repeats, such as a combat step that fails each frame, is logged at 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
 - `src/Rendering/` — converts parsed data into Godot nodes.
 - `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene. The scene handles selection, the selection display, orders, alert keys, and the drawing and sound of the fight.
-- `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The play part holds the play script parser, the unit names, the state dump, and the play run. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
+- `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The play part holds the play script parser, the unit names, the state dump, and the play run. The map summary part holds the map summary and the `--maps` run. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
 - `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, the asset check, and the layout reader; plain C# without Godot dependencies.
 - `layouts/` — the checked-in layouts ("Open a layout"). Its `.gdignore` keeps Godot from importing the folder.
 - `play/` — the checked-in play scripts. The "Run a play script" section explains how to run one.
@@ -190,6 +190,26 @@ godot-mono --headless --path . -- --check --game "/path/to/Star Trek - Armada"
 ```
 
 Loads every asset and logs each failure with its name and reason. The report is log entries, on standard output and in the log (see "Read the log"); each line keeps its marker word (`FAIL`, `UNCLASSIFIED`, `NOTE`, `UNRESOLVED`, `UNSUPPORTED`, `MISSING`) at the start of its text. Classifies every file of the install and lists references that do not resolve. Exits non-zero when any asset failed or any file is unclassified. Assets that are known but unsupported (`Wviracod.SOD`) are listed apart and do not fail the check. A SOD with any other unrecognised version is corrupt and fails it.
+
+## Summarize the maps of an install
+
+```sh
+godot-mono --headless --path . -- --maps --game "/path/to/Star Trek - Armada"
+```
+
+Use it to find a map with the right setup for a sandbox test on any install, for example warships on two teams for a combat test. `docs/maps.md` gives the same facts for the stock 1.2 install.
+
+The run writes one log entry per map in the install's `bzn` folder, in name order, on standard output and in the log (see "Read the log"). Every line of an entry starts with the map's name, which is the name that `--map` takes. The entry holds the map summary:
+
+- the group: multiplayer for a map with a `.mdf`, else campaign and other;
+- the number of start positions;
+- the teams 1 to 8 that hold a warship;
+- combat at start: `yes`, `no`, or `unknown` when only unresolved classes could make it `yes`;
+- the neutral and monster units;
+- the unresolved classes, only when the map has any;
+- the objects per team, with their classes.
+
+The entry is `WARN` for a map with an unresolved class, and `INFO` for every other map. A map that cannot be read gives one `ERROR` entry with its reason, and the run continues. A map in a format the reader does not read, such as a text-form map or a save game, gives one `WARN` entry with its reason instead, as in the asset check. The run exits 0 once the install opens. It exits 1 when no install is given or the install cannot be opened. `--check` wins over `--maps`, and `--maps` wins over `--map`, `--layout`, and `--play`. The asset browser's map preview shows the same summary.
 
 ## SOD format notes
 

@@ -249,8 +249,14 @@ The asset browser's rendering of one asset, showing that its meaning was underst
 draws it, a map from above, a sound as playback, a definition as its resolved values.
 _Avoid_: thumbnail, view
 
+**Map summary**
+The engine's text account of what one map holds: its group, its start positions, the objects of each team
+with their classes, the teams that hold a warship, whether combat is possible at start, and its neutral and
+monster units. The map preview and the `--maps` run show the same text.
+_Avoid_: map report, map info, map scan
+
 **Run**
-One start of the engine in one mode (asset browser, map sandbox, or asset check) until it quits.
+One start of the engine in one mode (asset browser, map sandbox, asset check, or the `--maps` run of map summaries) until it quits.
 _Avoid_: session, launch, execution
 
 **Log**

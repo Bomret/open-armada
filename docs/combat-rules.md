@@ -53,7 +53,9 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   of its own team within 400 units of it on X and on Z (0x42a000; whether the edge counts is a **stand-in**),
   the idle path posts an order without a position (0x42a370), which sets the tether point to where the unit
   stands (0x46eac0; that this order takes that path is **inferred**). So a ship under fire beyond its tether
-  keeps closing. Only a landed shot counts as a hit (**stand-in**). What else this order (command type 5)
+  keeps closing. Only a landed shot counts as a hit (**stand-in**). A hit that destroys the teammate it lands
+  on counts for no one, since the destroyed unit leaves the world at once (**stand-in**; whether the game
+  counts it is not known). What else this order (command type 5)
   does, and the check at 0x42a370 that can skip it, are not traced.
 
   The game's idle path branches on whether the unit's team is an **AI team**: a per-team flag (`FUN_00472100`

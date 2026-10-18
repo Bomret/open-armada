@@ -309,6 +309,10 @@ public sealed class CombatWorld
     }
 
     // Whether a shot landed less than HitWindow ago on the unit or on a unit of its team within TeammateBox.
+    // stand-in: a teammate the hit destroyed has left _units (Land), so that hit counts for no one; whether the game
+    // counts it is not known.
+    // ponytail: every idle red unit scans every unit each tick (O(n²)); skip the scan while no hit is newer than
+    // HitWindow, or a spatial index, when maps grow large.
     bool HitNearby(UnitCombatState u)
     {
         var at = Position(u);

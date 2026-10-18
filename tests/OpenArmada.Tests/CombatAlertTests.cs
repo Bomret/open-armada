@@ -391,6 +391,27 @@ public class CombatAlertTests
     }
 
     [TestMethod]
+    public void AHitThatDestroysATeammateNearbyKeepsTheTetherPoint()
+    {
+        var a = Ship("a", 1, 0, range: 1000);
+        // no shields and no hull percent: the shot's roll of 0 lands a critical hit
+        var other = new Spec { Object = Placed("o", 1, 800), Profile = Profile(maxHealth: 0, hull: 0) };
+        var (world, poses) = WorldWithPoses(a, other, OneShotShooter("s", 2, 1300));
+        Place(poses, a.Object, 400); // the shooter picks the other unit, the nearer one
+        StepUntilHit(world, other.Object);
+        Assert.IsNull(world.State(other.Object)); // destroyed by the hit
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 0,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        ); // stand-in: a destroyed teammate's hit does not move the tether point
+    }
+
+    [TestMethod]
     public void AYellowShipThatWasHitKeepsItsTetherPoint()
     {
         var a = Ship("a", 1, 0, range: 1000);

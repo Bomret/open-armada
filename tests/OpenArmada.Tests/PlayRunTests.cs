@@ -45,7 +45,7 @@ public class PlayRunTests
                 .ToList();
             var poses = new UnitPoses([a, b]);
             var random = new Random(PlayScript.Seed);
-            _world = new CombatWorld(poses, units, 1, random.NextDouble);
+            _world = new CombatWorld(poses, units, 1, random.NextDouble, (_, _, pose) => pose.Position);
             _world.Attack(a, b);
             _world.Attack(b, a);
             State = new PlayState(new UnitNames([a, b]), poses.Pose, _world.Units);

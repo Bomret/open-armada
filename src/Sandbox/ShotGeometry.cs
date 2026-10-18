@@ -26,7 +26,7 @@ public readonly record struct BeamPose
 public static class ShotGeometry
 {
     // stand-in: a missed shot passes this many target radii beside the target's center; the game's miss aim
-    // (0x50a7c0) is not traced.
+    // (0x50aab0) is not traced.
     const float MissRadii = 2f;
 
     /// <summary>The pose of a beam from <c>start</c> to <c>end</c>; null when they are the same point.</summary>

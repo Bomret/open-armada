@@ -74,7 +74,7 @@ public sealed record WeaponProfile
     public required string Name { get; init; }
 
     /// <summary>
-    /// The hardpoint names of the unit's <c>weaponHardpointsN</c> key; never empty. A round fires one shot from each.
+    /// The hardpoint names of the unit's <c>weaponHardpointsN</c> key; never empty. A round fires one shot from the nearest one within the weapon's range of the target's center (the first listed on a tie); the weapon fires nothing while none is in range.
     /// </summary>
     public required IReadOnlyList<string> Hardpoints { get; init; }
 
@@ -234,8 +234,8 @@ public sealed record CombatProfile
     public required bool DefaultGreenAlert { get; init; }
 
     /// <summary>
-    /// The <c>canAttack</c> flag, true when the key is missing. Only such a unit at red alert gives itself an attack
-    /// order.
+    /// The <c>canAttack</c> flag, true when the key is missing. Only such a unit at red alert closes on its pick or
+    /// walks toward an attacker.
     /// </summary>
     public required bool CanAttack { get; init; }
 

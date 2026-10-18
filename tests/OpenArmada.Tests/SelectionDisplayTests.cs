@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Sandbox;
@@ -79,7 +80,7 @@ public class SelectionDisplayTests
     [TestMethod]
     public void TheCrewDotIsSevenPixelsSquareAtTheRightEdgeEightPixelsAboveTheBottom()
     {
-        var dot = SelectionDisplay.CrewDotOf(Box, WithCrew(100), 1);
+        var dot = SelectionDisplay.CrewDotOf(Box, WithCrew(100), 1)!.Value;
         Assert.AreEqual(Rect(149, 231, 7, 7), dot.Rect);
         Assert.AreEqual(CrewStatus.Green, dot.Status);
     }
@@ -87,9 +88,9 @@ public class SelectionDisplayTests
     [TestMethod]
     public void TheCrewDotTakesTheCrewStatus()
     {
-        Assert.AreEqual(CrewStatus.Yellow, SelectionDisplay.CrewDotOf(Box, WithCrew(50), 1).Status);
-        Assert.AreEqual(CrewStatus.Red, SelectionDisplay.CrewDotOf(Box, WithCrew(25), 1).Status);
-        Assert.AreEqual(CrewStatus.Green, SelectionDisplay.CrewDotOf(Box, WithCrew(150), 1).Status);
+        Assert.AreEqual(CrewStatus.Yellow, SelectionDisplay.CrewDotOf(Box, WithCrew(50), 1)!.Value.Status);
+        Assert.AreEqual(CrewStatus.Red, SelectionDisplay.CrewDotOf(Box, WithCrew(25), 1)!.Value.Status);
+        Assert.AreEqual(CrewStatus.Green, SelectionDisplay.CrewDotOf(Box, WithCrew(150), 1)!.Value.Status);
     }
 
     [TestMethod]
@@ -98,13 +99,13 @@ public class SelectionDisplayTests
         var state = State(Profile(crew: 0));
         Assert.IsTrue(state.Derelict);
         Assert.AreEqual(0, SelectionDisplay.ShieldBarOf(Box, state, 1)!.Value.Fill.Size.X);
-        Assert.AreEqual(CrewStatus.Red, SelectionDisplay.CrewDotOf(Box, state, 1).Status);
+        Assert.AreEqual(CrewStatus.Red, SelectionDisplay.CrewDotOf(Box, state, 1)!.Value.Status);
     }
 
     [TestMethod]
     public void AtDisplayScaleTwoTheDotIsTwiceAsBigAndTwiceAsHigh()
     {
-        Assert.AreEqual(Rect(149, 223, 14, 14), SelectionDisplay.CrewDotOf(Box, WithCrew(100), 2).Rect);
+        Assert.AreEqual(Rect(149, 223, 14, 14), SelectionDisplay.CrewDotOf(Box, WithCrew(100), 2)!.Value.Rect);
     }
 
     static readonly System.Numerics.Vector2 Screen = new(800, 600);
@@ -134,28 +135,153 @@ public class SelectionDisplayTests
         Assert.IsNotNull(SelectionDisplay.BoxOf(partly, Screen));
     }
 
+    // Two units of team 1, one of team 2, one of team 0.
+    static readonly PlacedObject A1 = Placed("a1", 1, 0);
+    static readonly PlacedObject B1 = Placed("b1", 1, 10);
+    static readonly PlacedObject C2 = Placed("c2", 2, 20);
+    static readonly PlacedObject D0 = Placed("d0", 0, 30);
+    static readonly PlacedObject[] Units = { A1, B1, C2, D0 };
+
+    static HoverState Hover(PlacedObject? pick, double delta = 0.1, HoverState? from = null) =>
+        (from ?? new HoverState()).Step(pick, Units, delta);
+
+    static ShownUnit[] Shown(HoverState hover, params PlacedObject[] selected) =>
+        SelectionDisplay.Shown(hover, Units, selected).ToArray();
+
     [TestMethod]
-    public void TheHoveredUnitShowsTheShieldBarWithoutTheCrewDot()
+    public void WithNoHoveredUnitNoUnitIsShownSelectedOrNot()
     {
+        var hover = new HoverState();
+        Assert.IsNull(hover.Hovered);
+        Assert.AreEqual(0, Shown(hover, A1, B1, C2, D0).Length);
+        Assert.AreEqual(0, Shown(Hover(null), A1, B1, C2, D0).Length);
+    }
+
+    [TestMethod]
+    public void TheHoveredUnitShowsItsBarAtFullOpacityFromTheFirstFrame()
+    {
+        var shown = Shown(Hover(C2));
+        CollectionAssert.AreEqual(new[] { new ShownUnit(C2, 1, false) }, shown);
+    }
+
+    [TestMethod]
+    public void TheOtherUnitsOfTheHoveredTeamShowTheirBarsAtTheDisplayFadeEachOnce()
+    {
+        var hover = Hover(A1, 0.3, Hover(A1));
+        Assert.AreEqual(0.3, hover.Fade, 1e-9);
+        CollectionAssert.AreEqual(new[] { new ShownUnit(A1, 1, false), new ShownUnit(B1, 0.3, false) }, Shown(hover));
+    }
+
+    [TestMethod]
+    public void AHoveredUnitOfTeamZeroShowsOnlyItsOwnBar()
+    {
+        var zero = Placed("e0", 0, 40);
+        var hover = new HoverState().Step(D0, new[] { A1, D0, zero }, 0.1);
         CollectionAssert.AreEqual(
-            new[] { ("a", true), ("b", true), ("c", false) },
-            SelectionDisplay.Shown(new[] { "a", "b" }, "c").ToArray()
+            new[] { new ShownUnit(D0, 1, false) },
+            SelectionDisplay.Shown(hover, new[] { A1, D0, zero }, Array.Empty<PlacedObject>()).ToArray()
         );
     }
 
     [TestMethod]
-    public void ASelectedAndHoveredUnitIsShownOnceWithItsDot()
+    public void TheFadeStartsAtZeroAndGrowsByEachFramesTimeUpToOne()
     {
+        Assert.AreEqual(0, new HoverState().Fade);
+        var hover = Hover(A1, 0.5);
+        Assert.AreEqual(0, hover.Fade, "the first hover changes the team and starts the fade over");
+        hover = Hover(A1, 0.25, hover);
+        Assert.AreEqual(0.25, hover.Fade, 1e-9);
+        hover = Hover(A1, 0.5, hover);
+        Assert.AreEqual(0.75, hover.Fade, 1e-9);
+        hover = Hover(A1, 0.5, hover);
+        Assert.AreEqual(1, hover.Fade);
+    }
+
+    [TestMethod]
+    public void TheFadeStartsOverWhenTheHoveredTeamChangesAndKeepsGrowingWithinOneTeam()
+    {
+        var hover = Hover(A1, 0.4, Hover(A1));
+        hover = Hover(B1, 0.2, hover);
+        Assert.AreEqual(0.6, hover.Fade, 1e-9);
+        hover = Hover(C2, 0.2, hover);
+        Assert.AreEqual(0, hover.Fade);
+        Assert.AreEqual(2, hover.Team);
+    }
+
+    [TestMethod]
+    public void APartAtTheFadeAppearsOnlyAboveHalfAtTwiceTheExcess()
+    {
+        Assert.AreEqual(0, SelectionDisplay.AlphaOf(0));
+        Assert.AreEqual(0, SelectionDisplay.AlphaOf(0.5));
+        Assert.AreEqual(0.5f, SelectionDisplay.AlphaOf(0.75), 1e-6);
+        Assert.AreEqual(1, SelectionDisplay.AlphaOf(1));
+        Assert.AreEqual(1, SelectionDisplay.AlphaOf(2));
+        Assert.IsTrue(SelectionDisplay.AlphaOf(0.5001) > 0);
+    }
+
+    [TestMethod]
+    public void ASelectedUnitAmongTheShownShowsItsDotAndOneOutsideShowsNothing()
+    {
+        var hover = Hover(A1, 0.3, Hover(A1));
         CollectionAssert.AreEqual(
-            new[] { ("a", true), ("b", true) },
-            SelectionDisplay.Shown(new[] { "a", "b" }, "b").ToArray()
+            new[] { new ShownUnit(A1, 1, true), new ShownUnit(B1, 0.3, true) },
+            Shown(hover, A1, B1, C2)
         );
     }
 
     [TestMethod]
-    public void WithoutAHoveredUnitOnlyTheSelectedAreShown()
+    public void SelectedUnitsShowNothingWhileAUnitOfAnotherTeamIsHovered()
     {
-        CollectionAssert.AreEqual(new[] { ("a", true) }, SelectionDisplay.Shown(new[] { "a" }, null).ToArray());
+        CollectionAssert.AreEqual(new[] { new ShownUnit(C2, 1, false) }, Shown(Hover(C2), A1, B1));
+    }
+
+    [TestMethod]
+    public void AUnitWithoutAShieldMaximumHasNoCrewDot()
+    {
+        Assert.IsNull(SelectionDisplay.CrewDotOf(Box, WithShields(0, maxHealth: 0), 1));
+    }
+
+    [TestMethod]
+    public void TheLastHoveredUnitStaysHoveredForTheHoldAfterThePickFindsNone()
+    {
+        var hover = Hover(A1);
+        hover = Hover(null, 0.2, hover);
+        Assert.AreEqual(A1, hover.Hovered);
+        hover = Hover(null, 0.1, hover);
+        Assert.AreEqual(A1, hover.Hovered);
+        hover = Hover(null, 0.1, hover);
+        Assert.IsNull(hover.Hovered, "0.4 s have passed");
+        Assert.AreEqual(0, hover.Team);
+    }
+
+    [TestMethod]
+    public void APickOfAnotherUnitHoversItAtOnceAndRestartsTheHold()
+    {
+        var hover = Hover(null, 0.3, Hover(A1));
+        hover = Hover(C2, 0.01, hover);
+        Assert.AreEqual(C2, hover.Hovered);
+        hover = Hover(null, 0.3, hover);
+        Assert.AreEqual(C2, hover.Hovered);
+    }
+
+    [TestMethod]
+    public void APickOfTheHeldUnitRestartsTheHold()
+    {
+        var hover = Hover(null, 0.3, Hover(A1));
+        hover = Hover(A1, 0.01, hover);
+        hover = Hover(null, 0.3, hover);
+        Assert.AreEqual(A1, hover.Hovered);
+    }
+
+    [TestMethod]
+    public void ARemovedUnitEndsTheHoverOnThatFrameAndItsTeamIsNoLongerTheKey()
+    {
+        var hover = Hover(A1, 0.5, Hover(A1));
+        hover = hover.Step(null, new[] { B1, C2, D0 }, 0.01);
+        Assert.IsNull(hover.Hovered);
+        Assert.AreEqual(0, hover.Team);
+        Assert.AreEqual(0, hover.Fade);
+        Assert.AreEqual(0, SelectionDisplay.Shown(hover, new[] { B1, C2, D0 }, new[] { B1 }).Count());
     }
 
     [TestMethod]

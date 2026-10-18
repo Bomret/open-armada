@@ -13,8 +13,11 @@ namespace OpenArmada.Viewer;
 /// asset.
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; [--model Fente] [--screenshot out.png]
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]   (the map sandbox)
+///   godot-mono --path . -- --game &lt;Armada dir&gt; --layout &lt;file&gt; [--screenshot out.png]   (the map sandbox, from a layout)
+///   mkdir -p play-out/&lt;stem&gt;; godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; --map &lt;name&gt; --play &lt;file&gt;   (a play run)
 ///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
-/// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--map</c>.
+/// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--map</c> and
+/// <c>--layout</c>; <c>--map</c> and <c>--layout</c> together are a problem.
 /// </summary>
 public partial class AssetBrowserView : Control
 {
@@ -47,9 +50,22 @@ public partial class AssetBrowserView : Control
             args.Value("--map"); // looked up now so its problem is known at run start
         }
 
+        if (!check && args.Has("--layout"))
+        {
+            args.Value("--layout"); // likewise
+            args.Exclusive("--layout", "--map");
+        }
+
+        if (!check && args.Has("--play"))
+        {
+            args.Value("--play"); // likewise: a bare --play is logged here, once
+        }
+
         var mode =
             check ? "check"
+            : args.Has("--play") ? "play"
             : args.Has("--map") ? "map"
+            : args.Has("--layout") ? "layout"
             : "browser";
         var source =
             gameArg != null ? "--game"
@@ -88,14 +104,28 @@ public partial class AssetBrowserView : Control
             return;
         }
 
-        if (args.Has("--map"))
+        if (args.Has("--play"))
         {
-            var map = args.Value("--map");
+            StartPlayRun(args, game);
+
+            return;
+        }
+
+        if (args.Has("--map") || args.Has("--layout"))
+        {
+            var layout = args.Value("--layout");
+            var start = Layout.Start(
+                System.Environment.GetEnvironmentVariable("PWD"),
+                System.Environment.CurrentDirectory
+            );
+            var sandbox = args.Has("--layout")
+                ? MapSandbox.OpenLayout(game, layout == null ? null : Layout.Resolve(layout, start), args.Problems)
+                : MapSandbox.Open(game, args.Value("--map"), args.Problems);
             // The sandbox saves the screenshot; the browser's own _Process must not.
             // This full-window Control would stop every mouse event in the GUI pass, so the sandbox's
             // _UnhandledInput (selection, move orders) would never see a click.
             MouseFilter = MouseFilterEnum.Ignore;
-            AddChild(new MapSandboxView(MapSandbox.Open(game, map, args.Problems), _screenshot));
+            AddChild(new MapSandboxView(sandbox, _screenshot));
             _screenshot = null;
 
             return;
@@ -225,6 +255,58 @@ public partial class AssetBrowserView : Control
             var message = AssetBrowser.FailureMessage(name, e);
             ViewerLog.Failed(message);
             ShowMessage(message);
+        }
+    }
+
+    // Starts a play run of the map sandbox, or logs why it cannot and quits with exit code 1 (INV-0007); the window
+    // never stays open. A run that cannot start is one log entry: a bare --play is the entry the run start wrote,
+    // and a launch problem that comes with it stays unlogged.
+    void StartPlayRun(LaunchArgs args, string? game)
+    {
+        var problem = PlayRun.LaunchProblem(OS.HasFeature("movie"), args.Has("--map"), args.Has("--screenshot"));
+        if (problem == null)
+        {
+            problem = PlayRun.MovieProblem(Engine.GetWriteMoviePath());
+        }
+
+        var file = args.Value("--play");
+        if (problem != null && file != null)
+        {
+            Log.Error(Area.Run, problem);
+        }
+
+        if (problem != null || file == null)
+        {
+            GetTree().Quit(1);
+
+            return;
+        }
+
+        var script = PlayScript.Read(file);
+        foreach (var scriptProblem in script.Problems)
+        {
+            Log.Error(Area.Sandbox, scriptProblem);
+        }
+
+        // MapSandbox.Open logs a map that fails to open.
+        var sandbox = MapSandbox.Open(game, args.Value("--map"), args.Problems);
+        if (script.Problems.Count > 0 || sandbox.Problem != null)
+        {
+            GetTree().Quit(1);
+
+            return;
+        }
+
+        // See the map branch of _Ready: a full-window Control would stop the sandbox's mouse events.
+        MouseFilter = MouseFilterEnum.Ignore;
+        var view = new MapSandboxView(sandbox, null, script);
+        AddChild(view);
+
+        // The view adds the driver last; a scene that failed to build has none, and would stay open forever.
+        if (!view.GetChildren().Any(c => c is PlayDriver))
+        {
+            Log.Error(Area.Sandbox, $"{script.Path}: play run cannot start, the map sandbox failed to build its scene");
+            GetTree().Quit(1);
         }
     }
 

@@ -76,36 +76,23 @@ public static class CombatRules
         Math.Max(0, ordnance.DamageBase.For(target) + ordnance.DamageVariance.For(target) * (2 * random - 1));
 
     // In the order of HitLocation, so the index of a system is its location.
-    static readonly string[] SystemOrder =
-    {
-        SystemNames.Engines,
-        SystemNames.LifeSupport,
-        SystemNames.Weapons,
-        SystemNames.ShieldGenerator,
-        SystemNames.Sensors,
-    };
+    static readonly string[] SystemOrder = SystemNames.All;
 
     /// <summary>
     /// The location a roll of 0 to 99 hits: the roll is reduced by the hit percent of engines, life support,
     /// weapons, shield generator, sensors, and hull in turn; the location that takes it below zero is hit, and a
-    /// roll that no location takes is a critical hit. A system the unit lacks has no percent; a destroyed system's
-    /// percent is shared evenly among the systems still working, and goes to the critical share (the part no
-    /// location takes) when none works.
+    /// roll that no location takes is a critical hit. A system the unit lacks has no percent. The roll reads each
+    /// system's live percent (<see cref="ShipSystemState.HitPercent"/>), never its working flag; see
+    /// <see cref="UnitCombatState.DestroySystem"/> for where a destroyed system's percent goes.
     /// </summary>
     public static HitLocation Location(UnitCombatState target, int roll)
     {
-        var present = SystemOrder.Where(target.Systems.ContainsKey).ToList();
-        var working = present.Count(n => !target.Systems[n].Destroyed);
-        var share =
-            working == 0
-                ? 0
-                : present.Where(target.SystemDestroyed).Sum(n => target.Systems[n].Profile.HitPercent) / working;
         var left = (double)roll;
         for (var i = 0; i < SystemOrder.Length; i++)
         {
-            if (target.Systems.TryGetValue(SystemOrder[i], out var s) && !s.Destroyed)
+            if (target.Systems.TryGetValue(SystemOrder[i], out var s))
             {
-                left -= s.Profile.HitPercent + share;
+                left -= s.HitPercent;
             }
 
             if (left < 0)
@@ -134,9 +121,9 @@ public static class CombatRules
             if (perPoint <= 0)
                 continue;
             s.HitPoints = Math.Min(s.Max, s.HitPoints + seconds / perPoint);
-            if (s.HitPoints >= s.Max)
+            if (s.HitPoints >= s.Max && s.Destroyed)
             {
-                s.Destroyed = false;
+                unit.RestoreSystem(s.Profile.Name);
             }
         }
     }
@@ -225,7 +212,7 @@ public static class CombatRules
                         system.HitPoints = Math.Max(0, system.HitPoints - points);
                         if (system.HitPoints <= 0)
                         {
-                            system.Destroyed = true;
+                            target.DestroySystem(SystemOrder[(int)location]);
                             if (!target.Derelict)
                             {
                                 crewLoss += 1 + target.Crew * system.Profile.CrewLoss / 100;

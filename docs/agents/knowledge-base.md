@@ -16,7 +16,7 @@ The KB is **human-consumption first**.
   - `Players` → `Getting started`, `Known limitations`
   - `Modders` → `File formats` (one page per format: `SOD models`, `ODF definitions`, `BZN maps`,
     `SPR sprites`, `Textures`), `Asset loading`, `Built-in maps`, `Combat rules`
-  - `Developers` → `Architecture`, `Build and setup`, `Roadmap`, `Selection display`, `ADR summaries` (aggregate,
+  - `Developers` → `Architecture`, `Build and setup`, `Roadmap`, `Selection display`, `Play runs`, `ADR summaries` (aggregate,
     sections `## ADR NNNN: <title>`), `Changelog` (aggregate, sections `## <feature>`)
 
 **`(aggregate)` marks a page many scopes contribute to.** `/superdev:document` stages one **section** for

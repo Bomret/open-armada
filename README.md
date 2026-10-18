@@ -47,13 +47,95 @@ The sandbox behaves as follows:
 - Camera: the arrow keys and the window edges scroll the camera. The mouse wheel changes its height. A middle-button drag rotates it. On a trackpad, a two-finger pan changes the height and rotates, and a pinch changes the height. The camera limits and rates come from the install's `RTS_CFG.h`.
 - The sandbox confines the cursor to its window while the window has focus. Esc releases it until the window gains focus again.
 - Left-click selects a unit, and a left-button drag selects the units in the box. Right-click on a hostile unit orders the selected units that have weapons to attack it; a unit without weapons ignores the click. Right-click elsewhere sends the selected ships to that point; a point outside the map sends them to the nearest point of the map's edge. Stations do not move.
-- A selected unit shows the game's shield bar above it and a crew dot at its lower right corner. The bar shades from green to red as the shields fall, and the dot turns yellow and then red as the crew falls to the race's crew levels. The unit under the cursor shows its shield bar too. `docs/selection-display.md` states the rules.
+- The unit under the cursor shows the game's shield bar above it, and the other units of its team show their bars at the display fade. A selected unit among them also shows a crew dot at its lower right corner. A selected unit outside them shows neither. The bar shades from green to red as the shields fall, and the dot turns yellow and then red as the crew falls to the race's crew levels. The display stays for 0.4 seconds after the cursor leaves the unit. `docs/selection-display.md` states the rules.
 - The green, yellow, and red alert keys set the alert stance of the selected units. The keys come from the install's `Input.map` (Shift+G, Shift+Y, and Shift+R in the reference install).
 - Units and other models draw their sprite nodes, as the model preview does. The rocks of an asteroid field draw theirs too. A destroyed unit shows its explosion at its last position, and the explosion plays its sprite nodes once.
 - Fire and explosion sounds fade with their distance from the camera. Nothing is cut off, and a sound at the camera's opening distance stays audible. The install defines no falloff, so the engine uses a stand-in.
 - A map object or definition that cannot be read is reported as a gap, printed and counted on screen, and the map still opens.
 
 These rules apply to every map the sandbox opens.
+
+### Open a layout
+
+```sh
+godot-mono --path . -- --game "/path/to/Star Trek - Armada" --layout layouts/two-ships.jsonc
+```
+
+`--layout <file>` opens the map sandbox from a layout instead of a map. A layout is a JSONC file, authored outside the install, that places objects the way a map does (ADR 0007). A relative path resolves against the directory the command is started in. `ARMADA_DIR` can replace `--game`, and `--screenshot out.png` works as it does with `--map`. `--layout` together with `--map`, or `--layout` without a file, is a problem, and no scene opens. `--check` wins over `--layout`. The sandbox opens with exactly the layout's objects and behaves as it does on a map.
+
+A layout is one JSON object. `//` and `/* */` comments and trailing commas are allowed. Any key not listed below is a problem, and so is a key given twice in one object. A vector is `[x, y, z]`, three numbers, in the map's own frame.
+
+- `bounds` (required): the playable area on the ground, `{ "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 }`. Each minimum is below its maximum. An object outside the bounds opens as it does on a map.
+- `objects` (required): an array of objects, which may be empty. Each object has these keys:
+  - `class` (required): the object's class name, such as `fdestroy`, as a map names it. It is not empty. A class the install has no definition or model for is reported as a gap, as on a map, and the rest of the layout opens.
+  - `team` (required): a whole number from 0 to 8. Team 0 is neutral.
+  - `position` (required): a vector.
+  - `label`: a string. Default: the class name.
+  - `right`, `up`, `front`: the object's axes, three vectors, as a map stores them. Give all three or none. Default: the identity facing (`[1, 0, 0]`, `[0, 1, 0]`, `[0, 0, 1]`). Zero or collapsed axes are reported as a gap, as on a map.
+- `background`: the name of the background model, with or without `.sod`. Default: no background.
+- `teamColors`: the team-color slot of each team, keyed by team number, such as `{ "1": 3, "2": 5 }`. Default: each team's own slot. A slot outside the install's table is reported as a gap.
+- `ambient`: the ambient light color, a vector of red, green, and blue. Default: a stand-in of `[0.35, 0.35, 0.4]`.
+
+Every number is finite. A layout that cannot be read gives one problem that names the full path of the file and either the 1-based line or the JSON path of the faulty value, such as `layout '/home/me/a.jsonc': objects[2].team: team 9 is outside 0..8`. The sandbox opens no scene and shows the problem. A layout problem is reported with or without an install.
+
+`layouts/two-ships.jsonc` is a checked-in example: two hostile destroyers 1000 units apart.
+
+## Run a play script
+
+A play run opens the map sandbox, runs the steps of a play script in file order on simulated time, and quits after the last step. It runs under Godot's Movie Maker, which writes a PNG per frame and one WAV of the mixed audio and forces a fixed time step. Clear the output folder before a run, and create it: Movie Maker writes its files into it from the first frame, and the run itself deletes nothing there. A run whose movie output folder is missing is a problem.
+
+```sh
+rm -rf play-out/duel && mkdir -p play-out/duel
+godot-mono --path . --write-movie play-out/duel/frame.png --fixed-fps 30 -- --game "/path/to/Star Trek - Armada" --map 2blue --play duel.play
+```
+
+`play-out/<script name>/` holds the frames, the WAV, and the state dumps of the run; the script name is the script's file name without its extension. Git ignores `play-out/`. The run creates the folder for a dump or a screenshot when it is missing.
+
+`--play <file>` is only accepted under Movie Maker (`--write-movie` with `--fixed-fps`), with `--map`, and without `--screenshot`. Anything else, a `--play` without a file, and a missing movie output folder are problems: one log entry, exit code 1, and no window.
+
+A play script is a text file with one step per line. Blank lines and lines that start with `#` are skipped. Steps:
+
+- `wait <seconds>` lets that much simulated time pass. The combat runs meanwhile.
+- `dump <name>` writes a state dump to `play-out/<script name>/<name>.txt`.
+- `expect <unit> <field> <op> <value>` checks one value of a unit's state. The fields are `shields`, `crew`, a system's hit points (`Engines`, `LifeSupport`, `Weapons`, `ShieldGenerator`, or `Sensors`), `destroyed` (`true` or `false`), and `target` (a unit name or `none`). The operators are `<`, `<=`, `=`, `>=`, and `>`; `destroyed` and `target` take only `=`. A number compares to the unit's value exactly, so use `>=` or `<=` for a value that changes.
+
+The input steps reach the sandbox as Godot input events through its own handlers, so they take effect only where a player's click or key would:
+
+- `select <unit>` left-clicks the unit.
+- `attack <unit>` right-clicks the unit; the selected units get an attack order. The step fails, sending no click, when no unit is selected or the unit is not hostile to every selected unit (the click would be a move order for such a unit).
+- `move <x> <z>` right-clicks the point of the combat plane at that position (the coordinates of the `pos=` field of a state dump); the selected ships move there.
+- `box <left> <top> <right> <bottom>` (four numbers; any other count of numbers is a problem at parse time) drags the selection box between two points in viewport pixels (press, motion, release).
+- `box <unit> [<unit> ...]` drags a box around the named units. It selects exactly them; when the box would take another unit too, the step fails.
+- `press <key>` presses and releases a key in one frame. `hold <key> <seconds>` presses it, lets that much simulated time pass as a `wait` does, and releases it; a polled key, such as an arrow key that scrolls the camera, stays down across the frames, also when the window loses focus meanwhile: the run presses it again, as an echo, before each frame's steps until the release. A handler that acts only on a fresh, non-echo press, such as the alert keys, ignores the echo and acts once for a hold. A key is named as Godot names it (`Left`, `Right`, `Up`, `Down`, `Escape`, `A`); a chord names its modifiers first, joined with `+` (`press Shift+G` sets green alert in the reference install). A chord carries its modifiers on the key's own event; it does not press the modifier key itself. The modifiers are spelled as Godot spells them on the platform: `Shift` and `Ctrl` everywhere, `Option` and `Command` on macOS, `Alt` and `Windows` on Windows, `Alt` and `Meta` elsewhere. A misspelled modifier, such as `Control` or `Alt` on macOS, is a problem. Key steps and mouse steps of one frame reach the handlers in file order.
+- `scroll <up|down> [count]` turns the mouse wheel by that many notches (default 1), which changes the camera height.
+- `turn <pixels>` drags the middle button that many pixels to the right (negative: left) from the middle of the viewport, which turns the camera.
+- `shot <name>` writes the last drawn frame to `play-out/<script name>/<name>.png`. A step that changes the view takes effect in the frame after it, so put a `wait` before the shot.
+
+A step aimed at a unit or a point sends its events at its projected screen point, in viewport coordinates, at any display scale. The step fails, sending no event, when the unit is off screen or behind the camera, when a click would pick another object than the named unit (an occluded `attack` never becomes a move order), or when a `move` point lies on a unit. In a play run the real mouse neither confines to the window, nor scrolls the camera at the screen edge, nor moves the selection display's hover, and the arrow keys scroll the camera whichever window has focus.
+
+A unit is named by its map label, or by its class when the label is empty. When several units share a name, `name#k` is the k-th of them in map order, and the bare name is a problem. So is a label that reads like such a name (`ship#2` beside two units named `ship`); the state dump lists that unit with its label in quotes. A unit that is destroyed leaves the fight: only `expect <unit> destroyed = true` can still ask about it, and every other step that names it is a problem.
+
+A state dump has one line per unit, destroyed units included, in map order. The fields are separated by spaces: the unit's name, `team=`, `pos=` (x,y,z), `shields=`, `crew=`, one `<System>=<hit points>/<maximum>/<intact or destroyed>` for each system the unit has (in the order Engines, LifeSupport, Weapons, ShieldGenerator, Sensors), `derelict=`, `immobile=`, `destroyed=`, `alert=`, `order=`, and `target=` (a unit name or `none`). A unit without combat state shows `state=none` after its position. Numbers have two decimals and no thousands separator, whatever the system's culture, and a dump holds no time of day.
+
+The combat random source is seeded with a fixed number and the asteroids animate on frame time, so two runs of one map and one script at one frame rate write byte-identical dumps.
+
+Each problem is one `ERROR` log entry that names the script and the line, and, for a failed `expect`, the expected and the actual value. A problem is a script that is missing, a line that cannot be read, a unit that cannot be found, a failed expectation, an input step that fails as above, throws, or names a key or a modifier Godot does not know, or a dump or screenshot that cannot be written. The run then quits with exit code 1. A run that finishes quits with exit code 0.
+
+`play/destroy.play` is a checked-in play script. On `kling1`, a Vor'cha-class warship destroys a sensor station; the script takes screenshots before the fight and across the explosion, dumps the state before and after, and expects the station destroyed. Run it with `--map kling1`.
+
+## Measure the sound of a play run
+
+The WAV level tool prints the peak and RMS level of a Movie Maker WAV, in dB relative to full scale, over a window of it. It needs only the .NET SDK.
+
+```sh
+dotnet run --project tools/WavLevel -- play-out/destroy/frame.wav --from 5.5 --to 6.5
+```
+
+```text
+peak -23.4 dB, RMS -34.3 dB
+```
+
+`--from` and `--to` are seconds from the start of the WAV; `--from` defaults to 0 and `--to` to the end. A silent window reads `peak -inf dB, RMS -inf dB`. A problem prints `error: <message>` to standard error and exits with code 1: the file is unreadable, unfinished, or not 32-bit PCM (an extensible format is not accepted), or the window lies outside the audio. Movie Maker's WAV is 32-bit PCM.
 
 ## Read the log
 
@@ -92,8 +174,11 @@ A fault that repeats, such as a combat step that fails each frame, is logged at 
 - `src/Formats/` — parsers for the original file formats, plain C# without Godot dependencies.
 - `src/Rendering/` — converts parsed data into Godot nodes.
 - `src/Viewer/` — the asset browser scene script, one preview per asset kind, and the map sandbox scene. The scene handles selection, the selection display, orders, alert keys, and the drawing and sound of the fight.
-- `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
-- `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, and the asset check; plain C# without Godot dependencies.
+- `src/Sandbox/` — the map sandbox's plans, camera rig, and ship motion, plus its combat. The combat part holds the combat plan read from the install, the combat world and its rules, and the art of the fight. The play part holds the play script parser, the unit names, the state dump, and the play run. The folder is plain C# without Godot dependencies. `docs/combat-rules.md` states the rules.
+- `src/Assets/` — the game file system (case-insensitive lookup in an install), the asset kinds, the asset check, and the layout reader; plain C# without Godot dependencies.
+- `layouts/` — the checked-in layouts ("Open a layout"). Its `.gdignore` keeps Godot from importing the folder.
+- `play/` — the checked-in play scripts. The "Run a play script" section explains how to run one.
+- `tools/WavLevel/` — the WAV level tool ("Measure the sound of a play run"), plain C# with no Godot dependency.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.
 
 C# is formatted with CSharpier: run `dotnet tool restore` once, then `dotnet csharpier format .` to format and `dotnet csharpier check .` to check.

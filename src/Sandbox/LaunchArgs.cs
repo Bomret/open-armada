@@ -15,11 +15,21 @@ public sealed class LaunchArgs
     /// <summary><c>args</c> are the user arguments after <c>--</c>; the array is kept, not copied.</summary>
     public LaunchArgs(string[] args) => _args = args;
 
-    /// <summary>One line per flag that a <see cref="Value"/> lookup found without a value.</summary>
+    /// <summary>One line per flag that a <see cref="Value"/> lookup found without a value, and per pair <see cref="Exclusive"/> found together.</summary>
     public IReadOnlyList<string> Problems => _problems;
 
     /// <summary>Whether any argument equals <c>flag</c> exactly (case-sensitive), whether or not it has a value.</summary>
     public bool Has(string flag) => Array.IndexOf(_args, flag) >= 0;
+
+    /// <summary>Adds a problem naming both flags when both are given (once per pair).</summary>
+    public void Exclusive(string flag, string other)
+    {
+        var problem = $"{flag} and {other} cannot be given together";
+        if (Has(flag) && Has(other) && !_problems.Contains(problem))
+        {
+            _problems.Add(problem);
+        }
+    }
 
     /// <summary>The value of the flag; null when the flag is absent or has no value (the latter is a problem).</summary>
     public string? Value(string flag)

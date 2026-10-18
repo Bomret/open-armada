@@ -32,11 +32,17 @@ Every unit has one of three alert stances: red, yellow, or green (0x426e0b). A u
 definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd).
 
 - **Red:** the unit picks targets by itself. An idle unit (one without an order from the player; the engine
-  counts a unit with a move order as not idle until it arrives, **stand-in**) that can attack (`canAttack`) is given an attack
-  order on the target it picks, or toward the position of a unit that recently hit it (0x42a24c,
-  0x42a298). The engine ends such an order, and the walk toward an attacker, when the stance leaves red
-  (**stand-in**). How long "recently" lasts is not known; the engine counts the last attacker until it is invalid
-  (**stand-in**).
+  counts a unit with a move order as not idle until it arrives, **stand-in**) runs target selection again
+  every tick and hands the pick to its weapons (0x42a170 calls 0x42ff80). The pick is no order: the unit keeps
+  it while it stays valid and within the search radius, and takes the nearest valid hostile otherwise. A
+  derelict is no valid target (0x42faa0), so a pick that turns derelict is dropped on the next tick. A unit
+  that can attack (`canAttack`) closes on its current pick (**stand-in**; the game's 300-unit tether is not
+  built). With no pick, it walks toward the position of a unit that recently hit it (0x42a24c is the branch
+  point in the idle path where this walk and the computer-player branch below are reached; 0x42a298). The
+  engine stops that closing, and the walk toward an attacker, when the stance leaves red (**stand-in**). How
+  long "recently" lasts is not known; the engine counts the last attacker until it is invalid (**stand-in**).
+  A player's attack order keeps a derelict target. The game's computer-player branch of the idle path
+  (reached at 0x42a24c, `FUN_00472100`, **inferred**) is not built.
 - **Yellow:** the unit picks targets by itself and fires at them, and never moves on its own. The game
   makes one more validity check on yellow candidates whose meaning is unknown; the engine skips it
   (**stand-in**).
@@ -65,8 +71,10 @@ An attack order (0x4294e0) names one target unit.
 
 - The closing range is the longest range of the unit's weapons (0x429616). While the surface distance is
   more than the closing range less 50, the unit moves toward the target.
-- Within that distance, the unit holds position and turns toward the target (**stand-in**; the game runs
-  an attack maneuver that was not traced).
+- Within that distance, the unit holds position and turns toward the target once at least one of its
+  weapons has a hardpoint within the weapon's range of the target's center (see Firing). Until then it keeps
+  moving toward the target, so a target with a large radius is not out of reach (**stand-in**; the game
+  runs an attack maneuver that was not traced).
 - The weapons fire at the ordered target only while it is within the longest weapon range. Until then
   they fire at the nearest valid target in range, as target selection picks it (0x42fd6f).
 - The order ends, and the unit becomes idle, when the target is destroyed (0x429903). A derelict target
@@ -75,10 +83,22 @@ An attack order (0x4294e0) names one target unit.
 
 ## Firing
 
-A weapon fires when its reload delay has passed and its unit holds a target (0x509bd0). It fires from
-each hardpoint its `weaponHardpointsN` key names. No order is needed beyond the target the unit holds. A
-weapon whose `weaponHardpointsN` key names no hardpoint is reported and left out, so it does not count as a
-weapon of its unit.
+A weapon fires when its reload delay has passed and its unit holds a target (0x509bd0). No order is needed
+beyond the target the unit holds. Each reload gives one shot, from one hardpoint of the weapon's
+`weaponHardpointsN` key, never one shot from each.
+
+The weapon fires only when one of its hardpoints is within the weapon's own `range` of the target's center
+(0x50a520, 0x50a290). The distance runs from the hardpoint to the target's center, not surface to surface,
+so a target that unit selection picked can still be out of every weapon's reach. The shot leaves from the
+nearest hardpoint in range, and a torpedo or pulse starts its flight at that hardpoint's world position. The
+first listed hardpoint wins a tie (**inferred**: the tie order follows the
+key's list order). Each weapon of a unit is judged by its own `range`, so a short-range weapon stays silent
+while a longer one fires. A weapon with no hardpoint in range fires nothing, makes no sound, and stays ready,
+so it fires on the first tick a hardpoint comes in range. A weapon whose `weaponHardpointsN` key names no
+hardpoint is reported and left out, so it does not count as a weapon of its unit.
+
+The game can also restrict a weapon's fire to an arc (`restrictFireArc`, 0x50a170). The arc is not built:
+every weapon fires in any direction (**stand-in**).
 
 After each shot the reload delay is `shotDelay`, multiplied by a crew factor when the weapon sets
 `crewAffectsWeaponDelay` (0x506452, 0x50b690). With the crew ratio as current crew over `maximumCrew`,
@@ -95,7 +115,9 @@ The to-hit roll happens when the weapon fires (0x50a3b0):
   stopped, plus `toHitStopModifier` when the target is stopped. The slow modifiers are not used.
 - The shot hits when a uniform random number from 0 to 1 is at most the chance.
 
-A missed shot is aimed beside the target (0x50a7c0) and hits nothing (**stand-in**).
+A missed shot is aimed by the miss path (0x50aab0), which leads the target and offsets the aim by the target's
+radius; 0x50a7c0 is the aim of a shot that hits. The missed shot hits nothing. The sandbox aims a miss beside
+the target without the lead (**stand-in**).
 
 ## Shots
 
@@ -127,8 +149,16 @@ location whose percent takes the number below zero is hit. When none does, the h
 The percents are the definition's `enginesHitPercent` and its siblings and `hullHitPercent`;
 `criticalHitPercent` is not used.
 
-When a system is destroyed, its percent is shared evenly among the systems still working, or added to
-the critical share when none works. A repaired system takes its own percent back (0x467600).
+The roll reads a live percent per system and never a working flag. When a system is destroyed, its whole
+live percent, its own and the shares it took before, is shared evenly among the systems still working
+(0x467620), or goes to the critical share when none works (0x467b70). On a derelict unit no system counts
+as working (0x466ca0), so a system destroyed there sends its live percent to the critical share, and the
+systems that are still intact keep theirs. A system destroyed before the unit went derelict keeps its
+shares with the systems that took them until those are destroyed. A repaired system takes its own percent
+back (0x467600). The other working systems give it up in proportion to their excess over their own
+percents, and what their excess does not cover comes out of the critical share, so repairing every
+destroyed system of a unit that is not derelict returns every system to its own percent (**stand-in**:
+the addresses do not show which systems give it up).
 
 ### Applying a hit
 
@@ -201,6 +231,8 @@ A unit is destroyed only by a critical hit. Losing every system or the shields d
 ## Not known
 
 - The attack maneuver within range, and yellow alert's extra validity check.
+- Whether a player's attack order drops a target that turns derelict. The game's side check (0x42fb90,
+  `task+0x110`) suggests it may, but the writer of that field was not found; the rule above stays.
 - What the `targetEnemyCraft` and `targetEnemyBuildings` keys do.
 - The flight of pulse phaser shots and the class behind poleron torpedoes.
 - The officer factor in repair, and the full-repair path at 0x468760.

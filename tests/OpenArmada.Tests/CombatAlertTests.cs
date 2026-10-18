@@ -44,7 +44,8 @@ public class CombatAlertTests
                 Mobile = s.Mobile,
             }),
             1,
-            () => 0
+            () => 0,
+            (_, _, pose) => pose.Position
         );
 
         return (world, poses);
@@ -122,13 +123,13 @@ public class CombatAlertTests
     }
 
     [TestMethod]
-    public void ARedUnitIsGivenAnAttackOrderOnItsPickAndMovesToAttackIt()
+    public void ARedUnitClosesOnItsPickWithoutTakingAnOrder()
     {
         var a = Ship("a", 1, 0);
         var t = Target("t", 2, 70);
         var world = World(a, t);
         world.Step(0.02);
-        Assert.AreSame(world.State(t.Object), world.State(a.Object)!.Order);
+        Assert.IsNull(world.State(a.Object)!.Order);
         Assert.AreEqual(
             new MoveIntent
             {
@@ -212,7 +213,8 @@ public class CombatAlertTests
         var world = World(a, Target("t", 2, 70));
         world.Move(a.Object, -500, 0); // the position stays while the ship turns, so the unit looks stopped
         world.Step(0.02);
-        Assert.IsNull(world.State(a.Object)!.Order);
+        Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind); // no closing on the hostile; the player's move is the sandbox's
+        Assert.IsFalse(world.State(a.Object)!.AutoMove);
     }
 
     [TestMethod]
@@ -226,7 +228,7 @@ public class CombatAlertTests
         world.Attack(a.Object, far.Object);
         world.State(far.Object)!.Destroyed = true;
         world.Step(0.02);
-        Assert.AreSame(world.State(near.Object), world.State(a.Object)!.Order);
+        Assert.AreEqual("near", world.State(a.Object)!.Target!.Unit.Label);
     }
 
     [TestMethod]
@@ -241,12 +243,20 @@ public class CombatAlertTests
         var world = World(a, t);
         var engines = world.State(a.Object)!.Systems["Engines"];
         world.Move(a.Object, -500, 0);
-        engines.Destroyed = true;
+        world.State(a.Object)!.DestroySystem("Engines");
         world.Step(0.02);
         engines.HitPoints = engines.Max;
-        engines.Destroyed = false;
+        world.State(a.Object)!.RestoreSystem("Engines");
         world.Step(0.02);
-        Assert.AreSame(world.State(t.Object), world.State(a.Object)!.Order);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 70,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
     }
 
     [TestMethod]
@@ -258,7 +268,15 @@ public class CombatAlertTests
         world.Move(a.Object, 10, 0);
         Place(poses, a.Object, 10);
         world.Step(0.02);
-        Assert.AreSame(world.State(t.Object), world.State(a.Object)!.Order);
+        Assert.AreEqual(
+            new MoveIntent
+            {
+                Kind = MoveKind.MoveTo,
+                X = 70,
+                Z = 0,
+            },
+            world.State(a.Object)!.Intent
+        );
     }
 
     [TestMethod]
@@ -281,14 +299,14 @@ public class CombatAlertTests
     }
 
     [TestMethod]
-    public void ARedUnitSwitchedToYellowDropsItsAutoOrderAndStopsChasingIt()
+    public void ARedUnitSwitchedToYellowStopsClosingOnItsPick()
     {
         var a = Ship("a", 1, 0);
         var world = World(a, Target("t", 2, 70));
         world.Step(0.02);
+        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
         world.State(a.Object)!.Alert = AlertStance.Yellow;
         world.Step(0.02);
-        Assert.IsNull(world.State(a.Object)!.Order);
         Assert.AreNotEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
     }
 
@@ -336,6 +354,47 @@ public class CombatAlertTests
         world.Step(0.02);
         Place(poses, incomer.Object, 10);
         CollectionAssert.AreEqual(new[] { "held" }, Targets(world.Step(2), "a"));
+    }
+
+    [TestMethod]
+    public void ARedUnitWhosePickTurnsDerelictFiresAtAndClosesOnAnotherHostileNextTick()
+    {
+        var a = Ship("a", 1, 0);
+        var world = World(a, Target("first", 2, 20), Target("second", 3, 60));
+        Assert.AreEqual("first", Aimed(world.Step(0.02), "a"));
+        world.Units.First(u => u.Unit.Label == "first").Derelict = true;
+        world.Step(0.02);
+        Assert.AreEqual("second", world.State(a.Object)!.Target!.Unit.Label);
+        Assert.AreEqual(60, world.State(a.Object)!.Intent.X);
+        Assert.AreEqual("second", Aimed(world.Step(2), "a"));
+    }
+
+    [TestMethod]
+    public void ARedUnitKeepsAPickThatStaysValidAndDropsOneThatLeavesTheRadius()
+    {
+        var a = Ship("a", 1, 0);
+        var incomer = Target("near", 3, 300);
+        var (world, poses) = WorldWithPoses(a, Target("held", 2, 60), incomer);
+        world.Step(0.02);
+        Place(poses, incomer.Object, 10);
+        CollectionAssert.AreEqual(new[] { "held" }, Targets(world.Step(2), "a"));
+        Place(poses, incomer.Object, 70);
+        var held = world.Units.First(u => u.Unit.Label == "held");
+        Place(poses, held.Unit, 500);
+        CollectionAssert.AreEqual(new[] { "near" }, Targets(world.Step(2), "a"));
+        Assert.AreEqual(70, world.State(a.Object)!.Intent.X);
+    }
+
+    [TestMethod]
+    public void APlayersAttackOrderKeepsATargetThatTurnsDerelictAndTheUnitKeepsFiring()
+    {
+        var a = Ship("a", 1, 0);
+        var t = Target("t", 2, 20);
+        var world = World(a, t, Target("other", 3, 40));
+        world.Attack(a.Object, t.Object);
+        world.State(t.Object)!.Derelict = true;
+        Assert.AreEqual("t", Aimed(world.Step(0.02), "a"));
+        Assert.AreSame(world.State(t.Object), world.State(a.Object)!.Order);
     }
 
     [TestMethod]

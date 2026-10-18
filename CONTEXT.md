@@ -153,8 +153,10 @@ The player sets it with a key chord.
 _Avoid_: alert level, stance, combat mode
 
 **Attack order**
-An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target and
-fires at it, and the order ends when the target is destroyed.
+An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target
+until one of its weapons is within that weapon's range of the target's center, measured from the weapon's
+mount point on the model (see `docs/combat-rules.md`, §Firing). Keep-closing past the closing distance is an
+engine stand-in (see `docs/combat-rules.md`, §Attack order). The order ends when the target is destroyed.
 _Avoid_: attack command, focus fire
 
 **Key chord**
@@ -182,8 +184,19 @@ _Avoid_: crew level, crew health
 
 **Selection display**
 The game's status display drawn in the world around a unit: the shield bar above it and the crew dot at
-its corner. A selected unit shows both, and the unit under the cursor shows its shield bar.
+its corner. Only the hovered unit and the units of its team show it, and of those only a selected unit
+shows the crew dot. A selected unit that is not in that group shows nothing.
 _Avoid_: health bar, unit overlay, HUD
+
+**Hovered unit**
+The unit under the cursor, as the selection display uses it. It stays the hovered unit for a short hold
+after the cursor leaves it.
+_Avoid_: mouse-over unit, highlighted unit
+
+**Display fade**
+The selection display's opacity for the units of the hovered unit's team. It grows while the hovered team
+stays the same and starts over when the hovered team changes.
+_Avoid_: hover alpha, fade-in timer
 
 **Screen box**
 The smallest screen rectangle around a unit's projected bounding box. The selection display is placed
@@ -214,6 +227,11 @@ The engine's mode that opens one map as a live 3D scene. The player can select u
 move, and order units to attack. The fight plays out in the scene.
 _Avoid_: map viewer, 3D preview, game mode
 
+**Layout**
+A text file, authored outside the install, that places objects for the map sandbox the way a map does.
+It is not a map: the game cannot load it, and it has no start positions or overview image.
+_Avoid_: scenario, test map, custom map
+
 **Preview**
 The asset browser's rendering of one asset, showing that its meaning was understood: a model as the game
 draws it, a map from above, a sound as playback, a definition as its resolved values.
@@ -234,3 +252,18 @@ is `ERROR` when something broke (an asset failed to load, the engine caught a fa
 open), `WARN` when the engine went on by design with a stand-in, absent data, a skip, or an unsupported
 asset, and `INFO` for context. The area names the part of the engine that wrote it.
 _Avoid_: log message, log line, event
+
+**Play run**
+A run of the map sandbox that a play script drives on fixed simulated time, quitting after the script's
+last step.
+_Avoid_: replay, scripted session, demo
+
+**Play script**
+A checked-in text file of steps, one per line, run in order: waits, selections, orders, keys, camera
+moves, named screenshots, state dumps, and expectations on unit state.
+_Avoid_: scenario, macro, test script
+
+**State dump**
+The text lines a play run writes at one step, one line per unit, naming each unit as a play script
+addresses it and giving its combat state.
+_Avoid_: snapshot, state export

@@ -21,6 +21,29 @@ command fails with `set ARMADA_DIR to an Armada install`.
 The focused command runs the unit tests alone. They build their fixtures in code and need neither an
 install nor Godot.
 
+## Sandbox Definition-of-Done lines
+
+Verify a Definition-of-Done line about what a player sees or hears in the map sandbox with a play
+run, and judge the result yourself. Do not ask the operator to play. Write a play script in `play/`
+that sets up the situation and takes named screenshots, then run it under Movie Maker; the folder
+must exist before the run:
+
+```sh
+rm -rf play-out/<stem> && mkdir -p play-out/<stem> && godot-mono --path . --write-movie play-out/<stem>/frame.png --fixed-fps 30 -- --game "${ARMADA_DIR:?set ARMADA_DIR to an Armada install}" --map <map> --play play/<stem>.play
+```
+
+- Read the named screenshots and the frames around them, and report which files show the thing.
+- Measure a sound with the WAV level tool over its window and over a quiet window:
+  `dotnet run --project tools/WavLevel -- play-out/<stem>/frame.wav --from <s> --to <s>`. A level clearly above the
+  quiet window is the sound.
+- Run the script twice and `cmp` the state dumps when the line needs a stable outcome.
+- `play/destroy.play` is the worked example: a unit destroyed, its explosion drawn, its sound heard.
+
+A play run cannot show the selection display: the display draws only through the hovered unit, and a
+play run has no hover point. A `hover` step is planned in triage #106.
+
+`README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
+
 No timing command: the test runner's per-test durations are not wired in.
 
 ## Test paths

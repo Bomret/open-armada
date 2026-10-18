@@ -73,7 +73,11 @@ internal sealed class SodBytes
             Id(n.Parent);
             for (var i = 0; i < 12; i++)
             {
-                _w.Write(i % 4 == 0 ? 1f : 0f);
+                _w.Write(
+                    i >= 9 ? n.Position[i - 9]
+                    : i % 4 == 0 ? 1f
+                    : 0f
+                );
             }
 
             if (n.Mesh is { } m)
@@ -154,6 +158,9 @@ internal sealed class SodBytes
         public required string Name { get; init; }
         public required string Parent { get; init; }
         public MeshSpec? Mesh { get; init; } = null;
+
+        // The node's position as stored: X, Y, Z.
+        public float[] Position { get; init; } = [0, 0, 0];
     }
 
     internal static MeshSpec Triangle(

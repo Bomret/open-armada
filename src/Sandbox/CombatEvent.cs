@@ -49,6 +49,9 @@ public static class SystemNames
 
     /// <summary>The name of the sensors, whose definition keys start with <c>sensors</c>.</summary>
     public const string Sensors = nameof(HitLocation.Sensors);
+
+    /// <summary>The five names in the order of <see cref="HitLocation"/>, so the index of a system is its location.</summary>
+    public static readonly string[] All = [Engines, LifeSupport, Weapons, ShieldGenerator, Sensors];
 }
 
 /// <summary>
@@ -103,8 +106,8 @@ public enum ShotKind
 }
 
 /// <summary>
-/// One shot in flight. A beam keeps the shooter's center at fire time as its Position; a torpedo and a pulse fly from
-/// Position along Direction. Hits is the to-hit roll made at fire time: a shot that missed is reported and then
+/// One shot in flight. A beam keeps the chosen hardpoint's position at fire time as its Position; a torpedo and a
+/// pulse fly from Position along Direction. Hits is the to-hit roll made at fire time: a shot that missed is reported and then
 /// dropped.
 /// </summary>
 public sealed class Shot(
@@ -118,7 +121,7 @@ public sealed class Shot(
     string hardpoint
 )
 {
-    /// <summary>The name of the hardpoint node the weapon fires this shot from.</summary>
+    /// <summary>The name of the hardpoint node the world chose to fire this shot from.</summary>
     public string Hardpoint { get; } = hardpoint;
 
     /// <summary>How the shot travels.</summary>
@@ -140,8 +143,8 @@ public sealed class Shot(
     public bool Hits { get; } = hits;
 
     /// <summary>
-    /// Where a torpedo or a pulse is, in world units. It starts at the shooter's center, not at the hardpoint; a beam
-    /// keeps its start position.
+    /// Where a torpedo or a pulse is, in world units. It starts at the world position of the chosen
+    /// <see cref="Hardpoint"/>; a beam keeps its start position.
     /// </summary>
     public Vector3 Position { get; set; } = position;
 
@@ -162,7 +165,7 @@ public sealed class Shot(
 /// <summary>What happened in one world step.</summary>
 public abstract record CombatEvent;
 
-/// <summary>A weapon fired a shot, hit or miss: one event per hardpoint and round.</summary>
+/// <summary>A weapon fired a shot, hit or miss: one event per round, from one hardpoint.</summary>
 public sealed record ShotFired : CombatEvent
 {
     /// <summary>The shot fired. <see cref="Shot.Hits"/> tells whether it can land.</summary>

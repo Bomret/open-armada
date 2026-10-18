@@ -13,11 +13,13 @@ namespace OpenArmada.Viewer;
 /// <summary>
 /// The map sandbox: one map of the install as a live 3D scene, built from the scene plan.
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]
+/// With a play script (<c>--play</c>, under Movie Maker) the sandbox adds a PlayDriver that runs the script's steps
+/// and quits, and seeds the combat random source with PlayScript.Seed.
 /// Each later feature of the sandbox is one more node added in _Ready (the camera, the asteroid fields, the
 /// selection, the orders). A gap of the map or of the sandbox is printed and counted on screen; the map
 /// still opens (INV-0002).
 /// </summary>
-public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : Node3D
+public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, PlayScript? play = null) : Node3D
 {
     readonly Dictionary<string, Sod> _sods = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<(string Model, int Slot), Node3D> _templates = new();
@@ -44,11 +46,16 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
 
         var window = GetWindow();
         // The window reports only a later enter or exit, so the start state comes from the cursor's place on screen.
-        _mouseInWindow = new Rect2I(DisplayServer.WindowGetPosition(), DisplayServer.WindowGetSize()).HasPoint(
-            DisplayServer.MouseGetPosition()
-        );
-        window.MouseEntered += () => _mouseInWindow = true;
-        window.MouseExited += () => _mouseInWindow = false;
+        // A play run never has the cursor inside: no edge scroll.
+        if (play == null)
+        {
+            _mouseInWindow = new Rect2I(DisplayServer.WindowGetPosition(), DisplayServer.WindowGetSize()).HasPoint(
+                DisplayServer.MouseGetPosition()
+            );
+            window.MouseEntered += () => _mouseInWindow = true;
+            window.MouseExited += () => _mouseInWindow = false;
+        }
+
         // stand-in: the game ran full screen, where the screen edge holds the cursor in the scroll border; the
         // sandbox confines the cursor to its window while the window has focus. Losing focus releases it; Esc
         // releases it until the window gains focus again. A headless or screenshot run never confines.
@@ -132,6 +139,9 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             Note(problem);
         }
 
+        // The art is built from the world's units, after the world; the world reads hardpoints through it from its
+        // first step on.
+        CombatArt? art = null;
         var orders = new UnitOrders(
             files,
             plan,
@@ -140,7 +150,9 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             (float)_rig.CombatPlaneHeight,
             bounds,
             combat,
-            gap => AddGap(gap)
+            gap => AddGap(gap),
+            (unit, name, pose) => art!.HardpointPosition(unit, name, pose),
+            play == null ? null : PlayScript.Seed
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
@@ -149,7 +161,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.
-        var art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
+        art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
         var (eye, target) = _rig.Pose; // the camera's opening pose: no input has moved it yet
         var falloff = SoundFalloff.For(System.Numerics.Vector3.Distance(eye, target));
         AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, gap => AddGap(gap)));
@@ -174,6 +186,18 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         if (plan.Background != null)
         {
             AddBackground(files, builder, team, plan.Background, camera, reach);
+        }
+
+        if (play != null)
+        {
+            // The units a script can address are those at the start; a destroyed unit leaves the selection. The
+            // driver comes after the orders node, so each frame's combat step runs before the script's steps.
+            var names = new UnitNames(selection.Units.Select(u => u.Object));
+            var state = new PlayState(names, orders.Pose, orders.Combat.Units.ToList());
+            var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
+            var input = new PlayInput(this, names, selection, nodes, (float)_rig.CombatPlaneHeight, folder);
+            AddChild(new PlayKeys(input));
+            AddChild(new PlayDriver(new PlayRun(play, state, folder, input.Run)));
         }
 
         sandbox.LogOpened(selection.Units.Count);
@@ -234,8 +258,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
         return true;
     }
 
-    // A headless or screenshot run has no mouse.
-    bool HasMouse => DisplayServer.GetName() != "headless" && screenshot == null;
+    // A headless, screenshot, or play run has no mouse: the real mouse neither confines nor scrolls nor hovers.
+    bool HasMouse => DisplayServer.GetName() != "headless" && screenshot == null && play == null;
 
     // The point the cursor hovers for the selection display; null outside the window or without a mouse.
     Vector2? HoverPoint()
@@ -405,7 +429,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot) : No
             _rig.Scroll(
                 cursor,
                 new System.Numerics.Vector2(size.X, size.Y),
-                GetWindow().HasFocus(),
+                play != null || GetWindow().HasFocus(), // a play run's keys count whichever window has focus
                 new System.Numerics.Vector2(keys.X, keys.Y),
                 delta
             );

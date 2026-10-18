@@ -293,7 +293,8 @@ public class CombatPlanTests
                 },
             },
             1,
-            () => 0
+            () => 0,
+            (_, _, pose) => pose.Position
         );
 
         return (world, ship, foe);
@@ -307,11 +308,11 @@ public class CombatPlanTests
     }
 
     [TestMethod]
-    public void AUnitWhoseOnlyWeaponHasNoHardpointsTakesNoAutoOrderAtRed()
+    public void AUnitWhoseOnlyWeaponHasNoHardpointsPicksNoTargetAtRed()
     {
         var (world, ship, _) = WithFoe(OneShip("weapon1 = \"beam\"\r\n"));
         world.Step(0.1);
-        Assert.IsNull(world.State(ship)!.Order);
+        Assert.IsNull(world.State(ship)!.Target);
     }
 
     [TestMethod]

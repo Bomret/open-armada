@@ -27,6 +27,7 @@ public sealed class UnitPlan
     const string BadStarbase = "is_starbase is no whole number, units taken as ships";
     const string BadName = "unitName is no single value, class name used";
     const string BadPhysics = "physicsFile is no single value, units cannot move";
+    const string StartWithoutCombat = "starting state on an object without combat state, left unused";
 
     /// <summary>The units among the selectable objects, in the plan's order.</summary>
     public IReadOnlyList<SelectableUnit> Units { get; }
@@ -88,7 +89,14 @@ public sealed class UnitPlan
             }
 
             if (unit == null)
+            {
+                if (o.Start != null)
+                {
+                    gaps.Add(StartWithoutCombat, $"{o.Label} ({o.Class})", o);
+                }
+
                 continue;
+            }
             bool movable;
             try
             {

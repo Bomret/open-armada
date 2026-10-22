@@ -46,6 +46,9 @@ public sealed record PlacedObject
     /// <summary>The basis's Z axis, from the map object's Front axis in Godot's frame; <see cref="Vector3.UnitZ"/> for a degenerate orientation.</summary>
     public required Vector3 AxisZ { get; init; }
 
+    /// <summary>The map object's starting state; null for full strength (every object of a map).</summary>
+    public StartingState? Start { get; init; }
+
     /// <summary>Whether <c>other</c> is this same object; two objects of equal values are not equal.</summary>
     public bool Equals(PlacedObject? other) => ReferenceEquals(this, other);
 
@@ -203,6 +206,7 @@ public sealed class SandboxPlan
                     AxisX = x,
                     AxisY = y,
                     AxisZ = z,
+                    Start = o.Start,
                 }
             );
         }

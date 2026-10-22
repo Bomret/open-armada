@@ -90,7 +90,7 @@ public sealed class CombatWorld
         _random = random;
         foreach (var u in units)
         {
-            _units[u.Unit] = new UnitCombatState(
+            var state = new UnitCombatState(
                 u.Unit,
                 u.Profile,
                 u.DefinitionName,
@@ -98,6 +98,12 @@ public sealed class CombatWorld
                 u.Mobile,
                 systemHitpointsBonus
             );
+            if (u.Unit.Start is { } start)
+            {
+                state.Begin(start);
+            }
+
+            _units[u.Unit] = state;
         }
     }
 

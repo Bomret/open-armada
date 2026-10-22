@@ -17,6 +17,9 @@ public enum MoveKind
     /// <summary>Stop where the unit is.</summary>
     Stop,
 
+    /// <summary>The unit has no thrust: it coasts, and no order moves it (ADR 0008).</summary>
+    Coast,
+
     /// <summary>Move to the point.</summary>
     MoveTo,
 
@@ -149,8 +152,14 @@ public sealed class UnitCombatState(
         }
     }
 
-    /// <summary>Whether the unit cannot move: derelict, or with its engines destroyed.</summary>
+    /// <summary>
+    /// Whether the unit has no thrust and no order moves it: derelict, or with its engines destroyed. The one place
+    /// that decides it, so a further reason (a dying unit) joins here.
+    /// </summary>
     public bool Immobile => Derelict || SystemDestroyed(SystemNames.Engines);
+
+    /// <summary>Whether the unit coasts (ADR 0008): a unit that moves at all and has no thrust.</summary>
+    public bool Coasting => Mobile && Immobile;
 
     /// <summary>The state of each weapon of the profile, in profile order.</summary>
     public List<WeaponState> Weapons { get; } = profile.Weapons.Select(w => new WeaponState(w)).ToList();

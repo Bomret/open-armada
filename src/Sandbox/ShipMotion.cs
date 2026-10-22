@@ -51,10 +51,19 @@ public sealed class ShipMotion
     // defines no such rule.
     const float PivotAngle = MathF.PI / 2;
 
+    // The no-thrust branch of the game's physics step (0x459440, checks 0x45969b-0x4596bf): speed drops by 2.0
+    // per second per second against the heading until speed squared is below 0.01 (0x5cc140), then stays.
+    const float CoastDeceleration = 2f;
+    const float CoastRest = 0.01f;
+
     readonly PhysicsValues _physics;
     Vector3 _position;
     float _heading;
     float _bank;
+    float _speed; // units per second along the heading, as of the last step
+    float _turnRate; // radians per second, as of the last step
+    bool _coasting;
+    double _pending; // coast time not yet run as a whole world tick
     Vector2? _target; // X, Z
     Vector2? _facing; // X, Z of the point a ship turns to face in place; never set together with _target
 
@@ -66,9 +75,41 @@ public sealed class ShipMotion
         _heading = heading;
     }
 
-    /// <summary>Replaces the previous order; the ship keeps its own height.</summary>
+    /// <summary>Whether the ship coasts: it has no thrust, and no order moves it (ADR 0008).</summary>
+    public bool Coasting => _coasting;
+
+    /// <summary>
+    /// Takes the thrust away: the ship keeps its current speed along its heading and its current turn rate and
+    /// slows at 2.0 units/s² until its speed is below 0.1, then keeps that residual speed (0x459440). Its orders
+    /// end, and no order gives it thrust back until <see cref="Thrust"/>. A ship already coasting keeps its coast.
+    /// stand-in: the position moves by the mean speed of each world tick (the half-step detail is medium
+    /// confidence); a coast runs on the combat world's ticks, a part of a tick waits for the next step.
+    /// </summary>
+    public void Coast()
+    {
+        if (_coasting)
+            return;
+        _coasting = true;
+        _target = null;
+        _facing = null;
+        _pending = 0;
+    }
+
+    /// <summary>Gives the thrust back: the ship stands at rest and takes orders again. No effect on a ship that does not coast.</summary>
+    public void Thrust()
+    {
+        if (!_coasting)
+            return;
+        _coasting = false;
+        _speed = 0;
+        _turnRate = 0;
+    }
+
+    /// <summary>Replaces the previous order; the ship keeps its own height. A coasting ship ignores it.</summary>
     public void SetTarget(float x, float z)
     {
+        if (_coasting)
+            return;
         _facing = null;
         _target = new Vector2(x, z);
     }
@@ -76,18 +117,25 @@ public sealed class ShipMotion
     /// <summary>Replaces the previous order; the ship stays where it is, at its own height, and keeps its heading.</summary>
     public void Stop()
     {
+        if (_coasting)
+            return;
         _target = null;
         _facing = null;
         _bank = 0;
+        _speed = 0;
+        _turnRate = 0;
     }
 
     /// <summary>
     /// Replaces the previous order; the ship turns in place to face the point, the shorter way at yawRotationRate,
     /// and never travels. A point at the ship's own position gives no heading to turn to. The bank follows the
-    /// turns made, so Pose keeps the last step's bank until the next positive Step turns the ship.
+    /// turns made, so Pose keeps the last step's bank until the next positive Step turns the ship. A coasting
+    /// ship ignores it.
     /// </summary>
     public void Face(float x, float z)
     {
+        if (_coasting)
+            return;
         _target = null;
         _facing = new Vector2(x, z);
     }
@@ -107,8 +155,14 @@ public sealed class ShipMotion
     /// </summary>
     public ShipPose Step(double seconds)
     {
-        if (seconds > 0)
+        if (seconds > 0 && _coasting)
         {
+            RunCoast(seconds);
+        }
+        else if (seconds > 0)
+        {
+            _speed = 0;
+            _turnRate = 0;
             if (_target is { } target)
             {
                 Advance(target, (float)seconds);
@@ -120,6 +174,23 @@ public sealed class ShipMotion
         }
 
         return Pose;
+    }
+
+    // Runs the whole world ticks the time makes, carrying the rest, so frame rate does not change the path.
+    void RunCoast(double seconds)
+    {
+        _pending += seconds;
+        const double Epsilon = 1e-9; // as the combat world's tick loop
+        var dt = (float)CombatWorld.Tick;
+        while (_pending + Epsilon >= CombatWorld.Tick)
+        {
+            _pending -= CombatWorld.Tick;
+            var before = _speed;
+            if (_speed * _speed >= CoastRest)
+                _speed = MathF.Max(0, _speed - CoastDeceleration * dt);
+            _position += new Vector3(MathF.Sin(_heading), 0, MathF.Cos(_heading)) * ((before + _speed) / 2 * dt);
+            _heading = Wrap(_heading + _turnRate * dt);
+        }
     }
 
     void TurnToFace(Vector2 facing, float seconds)
@@ -147,6 +218,7 @@ public sealed class ShipMotion
         var most = (float)_physics.YawRotationRate * seconds;
         var turn = MathF.Abs(error) <= most ? error : MathF.CopySign(most, error);
         _heading = Wrap(_heading + turn);
+        _turnRate = turn / seconds;
         _bank = _physics.MaxRoll is { } roll ? -(float)(roll * Math.PI / 180) * Math.Clamp(turn / most, -1, 1) : 0; // stand-in: no bank without maxRoll (the Borg physics definitions have none)
 
         return (turn, error - turn);
@@ -195,6 +267,7 @@ public sealed class ShipMotion
         }
 
         _position += new Vector3(MathF.Sin(_heading), 0, MathF.Cos(_heading)) * travel;
+        _speed = travel / seconds;
     }
 
     // The angle in (-pi, pi].

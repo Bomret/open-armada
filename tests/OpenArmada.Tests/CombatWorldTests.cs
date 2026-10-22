@@ -1069,6 +1069,35 @@ public class CombatWorldTests
         };
 
     [TestMethod]
+    public void AShipThatHasEnginesBackIsNoLongerToldToCoast()
+    {
+        var a = WithSystems("a", 1, 0, null, Sys("Engines"));
+        var world = World(null, a);
+        world.State(a.Object)!.DestroySystem("Engines");
+        world.Step(0.02);
+        Assert.IsTrue(world.State(a.Object)!.Coasting);
+        world.State(a.Object)!.RestoreSystem("Engines");
+        world.Step(0.02);
+        Assert.IsFalse(world.State(a.Object)!.Coasting);
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
+    }
+
+    [TestMethod]
+    public void AStationDoesNotCoastWhenDerelict()
+    {
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(),
+            Mobile = false,
+        };
+        var world = World(null, a);
+        MakeDerelict(world, a);
+        world.Step(0.02);
+        Assert.IsFalse(world.State(a.Object)!.Coasting);
+    }
+
+    [TestMethod]
     public void AShipWithDestroyedEnginesStopsUnderItsAttackOrderAndEveryShotAtItHits()
     {
         var a = WithSystems("a", 1, 0, Weapon(range: 500, hitChance: 0.1f), Sys("Engines"));
@@ -1078,7 +1107,7 @@ public class CombatWorldTests
         world.State(a.Object)!.DestroySystem("Engines");
         world.State(b.Object)!.DestroySystem("Engines");
         var events = world.Step(0.02);
-        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
+        Assert.AreEqual(MoveKind.Coast, world.State(a.Object)!.Intent.Kind);
         Assert.IsTrue(events.OfType<ShotFired>().Where(e => e.Shot.Target.Unit == b.Object).All(e => e.Shot.Hits));
         Assert.IsTrue(events.OfType<ShotFired>().Any(e => e.Shot.Target.Unit == b.Object));
     }
@@ -1135,7 +1164,7 @@ public class CombatWorldTests
         MakeDerelict(world, a);
         var events = world.Step(3);
         Assert.AreEqual(0, Fired(events, "a"));
-        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
+        Assert.AreEqual(MoveKind.Coast, world.State(a.Object)!.Intent.Kind);
         Assert.IsNotNull(world.State(a.Object));
     }
 
@@ -1178,7 +1207,7 @@ public class CombatWorldTests
         world.Attack(a.Object, b.Object);
         world.State(a.Object)!.DestroySystem("Engines");
         world.Step(1);
-        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
+        Assert.AreEqual(MoveKind.Coast, world.State(a.Object)!.Intent.Kind);
     }
 
     [TestMethod]

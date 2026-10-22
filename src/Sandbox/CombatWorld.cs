@@ -200,10 +200,14 @@ public sealed class CombatWorld
             if (u.Destroyed)
                 continue;
             Think(u);
-            if (u.Mobile && u.Immobile)
+            if (u.Coasting)
             {
-                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a derelict ship or one with dead engines
+                u.Intent = new MoveIntent { Kind = MoveKind.Coast }; // no order moves a ship without thrust
                 u.PlayerMove = null;
+            }
+            else if (u.Intent.Kind == MoveKind.Coast)
+            {
+                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // thrust is back: the ship stands and takes orders
             }
 
             Fire(u, events);

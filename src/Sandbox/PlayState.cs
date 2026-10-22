@@ -69,7 +69,7 @@ public sealed class PlayState
 
                 text.Append(
                     CultureInfo.InvariantCulture,
-                    $" derelict={Flag(s.Derelict)} immobile={Flag(s.Immobile)} destroyed={Flag(s.Destroyed)}"
+                    $" derelict={Flag(s.Derelict)} immobile={Flag(s.Immobile)} coasting={Flag(s.Coasting)} destroyed={Flag(s.Destroyed)}"
                         + $" alert={s.Alert} order={Of(s.Order)} target={Of(s.Target)}"
                 );
             }

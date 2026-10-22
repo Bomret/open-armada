@@ -256,6 +256,20 @@ target selection. It stays on the map.
 The game can instead destroy a unit whose crew falls below one, by a flag whose source is unknown; the
 engine always makes it derelict (**stand-in**).
 
+## Coasting
+
+A ship with no thrust, a derelict or one whose engines are destroyed, takes the no-thrust branch of the game's
+physics step (0x459440, checks 0x45969b-0x4596bf; ADR 0008). It keeps its velocity and slows at 2.0 units/s²
+against its heading (0x5cc140) until its speed is below 0.1 (speed² < 0.01), then keeps that residual speed.
+Its current turn rate continues undamped (angular acceleration is zeroed at 0x459c0a). A turning derelict
+writes no velocity (0x466ca0), so the ship keeps what it had. A ship that stands still when it loses thrust
+stays still.
+
+No order, stop, face, or player move gives a coasting ship thrust. A ship whose engines are repaired and that
+is not derelict takes orders again. The sandbox runs the coast on the combat world's fixed tick, so positions
+do not depend on frame rate. **Stand-in**: the position moves by the mean speed of each tick (the half-step
+integration detail is medium confidence); a dying unit joins the same branch with the dying phase.
+
 A unit is destroyed only by a critical hit. Losing every system or the shields does not destroy it.
 
 ## Not known

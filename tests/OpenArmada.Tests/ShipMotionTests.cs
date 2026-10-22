@@ -334,4 +334,82 @@ public class ShipMotionTests
         ship.SetTarget(0, 20);
         AssertAt(new Vector3(0, 5, 20), Run(ship, 60, 0.125).Pose.Position);
     }
+
+    // A ship driving ahead at impulse speed, then losing thrust.
+    static ShipMotion Cruising()
+    {
+        var ship = Ship();
+        ship.SetTarget(0, 1000);
+        ship.Step(1);
+        ship.Coast();
+
+        return ship;
+    }
+
+    [TestMethod]
+    public void ACoastingShipKeepsItsHeadingSlowsByTwoPerSecondSquaredAndNearlyStops()
+    {
+        var ship = Cruising(); // 10 units/s from z=10
+        var first = ship.Step(1);
+        Assert.AreEqual(10 + 9, first.Position.Z, 0.05); // 10 -> 8 over one second: mean 9
+        Assert.AreEqual(0, first.Heading, 1e-6);
+        var z = ship.Step(10).Position.Z; // well past v/2 = 5 s
+        var rest = ship.Step(1).Position.Z - z;
+        Assert.IsTrue(rest > 0 && rest < 0.1, $"residual speed {rest}");
+    }
+
+    [TestMethod]
+    public void ACoastingShipKeepsItsTurnRate()
+    {
+        var ship = Ship();
+        ship.SetTarget(1000, 0); // 90 degrees off: turns in place at 1 rad/s
+        ship.Step(0.5);
+        var turned = ship.Pose.Heading;
+        ship.Coast();
+        Assert.AreEqual(turned + 1, ship.Step(1).Heading, 1e-3);
+    }
+
+    [TestMethod]
+    public void AShipStandingStillStaysStillWhenItLosesThrust()
+    {
+        var ship = Ship();
+        var start = ship.Pose.Position;
+        ship.Coast();
+        AssertAt(start, ship.Step(5).Position);
+    }
+
+    [TestMethod]
+    public void NoOrderGivesACoastingShipThrust()
+    {
+        var ship = Cruising();
+        ship.SetTarget(500, 0);
+        ship.Face(500, 0);
+        ship.Stop();
+        Assert.IsTrue(ship.Coasting);
+        var pose = ship.Step(1);
+        Assert.AreEqual(0, pose.Heading, 1e-6);
+        Assert.IsTrue(pose.Position.Z > 10 && MathF.Abs(pose.Position.X) < 1e-6);
+    }
+
+    [TestMethod]
+    public void AShipThatGetsThrustBackFollowsOrdersAgain()
+    {
+        var ship = Cruising();
+        ship.Thrust();
+        ship.SetTarget(0, 100);
+        var (pose, _, _) = Run(ship, 30, 0.125);
+        AssertAt(new Vector3(0, 5, 100), pose.Position);
+    }
+
+    [TestMethod]
+    public void ACoastGivesTheSamePositionsAtThirtyAndSixtyFramesPerSecond()
+    {
+        var slow = Cruising();
+        var fast = Cruising();
+        for (var i = 0; i < 90; i++)
+            slow.Step(1.0 / 30);
+        for (var i = 0; i < 180; i++)
+            fast.Step(1.0 / 60);
+        AssertAt(slow.Pose.Position, fast.Pose.Position);
+    }
 }

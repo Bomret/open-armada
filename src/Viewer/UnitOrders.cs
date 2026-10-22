@@ -184,8 +184,14 @@ public partial class UnitOrders : Node3D
         {
             if (unit.Intent.Kind != MoveKind.None && Motion(unit.Unit) is { } motion)
             {
+                if (unit.Intent.Kind != MoveKind.Coast)
+                    motion.Thrust();
                 switch (unit.Intent.Kind)
                 {
+                    case MoveKind.Coast:
+                        motion.Coast();
+
+                        break;
                     case MoveKind.MoveTo:
                         motion.SetTarget(unit.Intent.X, unit.Intent.Z);
 

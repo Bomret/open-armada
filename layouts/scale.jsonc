@@ -1,0 +1,11 @@
+// A Sovereign-class battleship (fbattle, scaleSOD 1.4) on team 1 and a Defiant-class destroyer (fdestroy, no
+// scaleSOD) on team 2, 250 units apart at the centre, for play/scale.play. Run it with: godot-mono --path .
+// --write-movie play-out/scale/frame.png --fixed-fps 30 -- --game <install> --layout layouts/scale.jsonc
+// --play play/scale.play
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "fbattle", "team": 1, "position": [1875, 0, 2000], "label": "Sovereign" },
+    { "class": "fdestroy", "team": 2, "position": [2125, 0, 2000], "label": "Defiant" },
+  ],
+}

@@ -150,7 +150,8 @@ public sealed class Sod
         public IReadOnlyList<Group> Groups = Array.Empty<Group>();
 
         /// <summary>
-        /// True when the stored cull byte is not 0; always false for a 1.2 mesh, which stores no cull byte.
+        /// True when the stored cull byte is 1, the only value the game culls back faces for; always false for a
+        /// 1.2 mesh, which stores no cull byte.
         /// </summary>
         public bool BackfaceCull;
     }
@@ -202,6 +203,49 @@ public sealed class Sod
             Up,
             Front,
             Position;
+    }
+
+    /// <summary>
+    /// The model as the game loads it at <c>scale</c>, a unit class's <c>scaleSOD</c>: each node's position is
+    /// multiplied by the scale, and so are the vertices of each mesh when the scale is not 1. The axes of a node, the
+    /// texture coordinates, and the animation channels stay as stored. A scale of 1 returns this model itself.
+    /// </summary>
+    public Sod Scaled(float scale)
+    {
+        if (scale == 1f)
+            return this;
+
+        return new Sod
+        {
+            Version = Version,
+            TextureMaterials = TextureMaterials,
+            LightingMaterials = LightingMaterials,
+            Nodes = Nodes
+                .Select(n => new Node
+                {
+                    Type = n.Type,
+                    Name = n.Name,
+                    Parent = n.Parent,
+                    Transform = n.Transform with { Position = n.Transform.Position * scale },
+                    Mesh =
+                        n.Mesh == null
+                            ? null
+                            : new Mesh
+                            {
+                                TextureMaterial = n.Mesh.TextureMaterial,
+                                Texture = n.Mesh.Texture,
+                                Vertices = n.Mesh.Vertices.Select(v => v * scale).ToArray(),
+                                TexCoords = n.Mesh.TexCoords,
+                                Groups = n.Mesh.Groups,
+                                BackfaceCull = n.Mesh.BackfaceCull,
+                            },
+                    Emitter = n.Emitter,
+                })
+                .ToList(),
+            Channels = Channels,
+            References = References,
+            Problems = Problems,
+        };
     }
 
     static readonly float[] KnownVersions = { 1.2f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f };
@@ -530,7 +574,8 @@ public sealed class Sod
         }
 
         mesh.Groups = groupList;
-        mesh.BackfaceCull = r.ReadByte() != 0;
+        // Armada.exe culls back faces only for the value 1 (README, "SOD format notes").
+        mesh.BackfaceCull = r.ReadByte() == 1;
         // Count + vertex indices, meaning unknown; the spec claims this is always 0 (Zentity.SOD disagrees).
         r.ReadBytes(r.ReadUInt16() * 2);
 

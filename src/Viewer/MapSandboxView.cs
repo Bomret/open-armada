@@ -22,7 +22,11 @@ namespace OpenArmada.Viewer;
 public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, PlayScript? play = null) : Node3D
 {
     readonly Dictionary<string, Sod> _sods = new(StringComparer.OrdinalIgnoreCase);
-    readonly Dictionary<(string Model, int Slot), Node3D> _templates = new();
+
+    // Each model at each scale its classes load it at (Sod.Scaled), made once, so the drawn model and everything read
+    // from it (hardpoints, damage nodes, emitters) share its nodes.
+    readonly Dictionary<(Sod Model, float Scale), Sod> _scaled = new();
+    readonly Dictionary<(string Model, float Scale, int Slot), Node3D> _templates = new();
     readonly List<string> _gaps = new();
     readonly HashSet<string> _unreadable = new(StringComparer.OrdinalIgnoreCase);
     Node3D? _background;
@@ -101,7 +105,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         var nodes = new Dictionary<PlacedObject, Node3D>();
         foreach (var o in plan.Objects)
         {
-            var node = Instance(files, builder, team, o.Model, o.Slot);
+            var node = Instance(files, builder, team, o.Model, o.Scale, o.Slot);
             if (node == null)
                 continue;
             node.Transform = new Transform3D(
@@ -152,7 +156,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             combat,
             gap => AddGap(gap),
             (unit, name, pose) => art!.HardpointPosition(unit, name, pose),
-            o => _sods.GetValueOrDefault(o.Model),
+            ModelOf,
             play == null ? null : PlayScript.Seed
         );
         AddChild(orders);
@@ -173,7 +177,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 files,
                 orders.Combat,
                 nodes,
-                o => _sods.GetValueOrDefault(o.Model),
+                ModelOf,
                 orders.ShowingNodes,
                 gap => AddGap(gap),
                 play == null ? null : PlayScript.Seed
@@ -206,12 +210,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             // The units a script can address are those at the start; a destroyed unit leaves the selection. The
             // driver comes after the orders node, so each frame's combat step runs before the script's steps.
             var names = new UnitNames(selection.Units.Select(u => u.Object));
-            var state = new PlayState(
-                names,
-                orders.Pose,
-                orders.Combat.Units.ToList(),
-                o => _sods.GetValueOrDefault(o.Model)
-            );
+            var state = new PlayState(names, orders.Pose, orders.Combat.Units.ToList(), ModelOf);
             var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
             var input = new PlayInput(this, names, selection, nodes, (float)_rig.CombatPlaneHeight, folder);
             AddChild(new PlayKeys(input));
@@ -224,9 +223,9 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
 
     // The model of the name with its team materials in the slot's color: the first instance is built, later
     // ones copy it (they share its meshes and materials, so animated textures run once).
-    Node3D? Instance(GameFileSystem files, SodBuilder builder, TeamColors team, string model, int slot)
+    Node3D? Instance(GameFileSystem files, SodBuilder builder, TeamColors team, string model, float scale, int slot)
     {
-        if (_templates.TryGetValue((model, slot), out var template))
+        if (_templates.TryGetValue((model, scale, slot), out var template))
             return (Node3D)template.Duplicate();
         if (_unreadable.Contains(model))
             return null;
@@ -237,7 +236,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 _sods[model] = sod = Sod.Read(files.ReadAllBytes(model + ".sod"));
             }
 
-            var node = builder.Build(sod, team.Color(TeamColors.SlotNames[slot]));
+            var node = builder.Build(Scaled(sod, scale), team.Color(TeamColors.SlotNames[slot]));
             foreach (var problem in builder.Problems)
             {
                 Note($"{model}: {problem}");
@@ -249,7 +248,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 AddGap($"{model}: {failure}");
             }
 
-            _templates[(model, slot)] = node;
+            _templates[(model, scale, slot)] = node;
 
             return node;
         }
@@ -259,6 +258,19 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
 
             return null;
         }
+    }
+
+    // The object's model at its class's scale; null when the model was not read.
+    Sod? ModelOf(PlacedObject o) => _sods.TryGetValue(o.Model, out var sod) ? Scaled(sod, o.Scale) : null;
+
+    Sod Scaled(Sod sod, float scale)
+    {
+        if (!_scaled.TryGetValue((sod, scale), out var scaled))
+        {
+            _scaled[(sod, scale)] = scaled = sod.Scaled(scale);
+        }
+
+        return scaled;
     }
 
     // Shows a gap on the label once. The producers that pass this (the orders, the combat view, the model
@@ -328,7 +340,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         float reach
     )
     {
-        var node = Instance(files, builder, team, model, 0);
+        var node = Instance(files, builder, team, model, 1f, 0);
         if (node == null)
             return;
         // The box in the model's own frame; a model without visible meshes gets a unit box.

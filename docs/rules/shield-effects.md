@@ -78,7 +78,8 @@ The effect's transform is built from u (0x55d840) and the target's shield ellips
 ### Shield ellipsoid
 
 Each unit class has an axis-aligned ellipsoid in its model's coordinates, built once at class load by
-0x46b8f0 from the model's box:
+0x46b8f0 from the box of the model as loaded at the class's `scaleSOD` (0x46b046, then 0x46b8f0 at the end of
+0x46a470; `docs/combat-rules.md` states the scaling):
 
 1. **Box.** The per-axis minimum and maximum of the points the model load collects (0x5967f0, run by
    0x580040): every mesh vertex and the corners of every sprite node, through the node transforms below the

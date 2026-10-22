@@ -25,6 +25,12 @@ public sealed record PlacedObject
     /// <summary>The model to show, without ".sod": the definition's baseName, else the model named like the class.</summary>
     public required string Model { get; init; }
 
+    /// <summary>
+    /// The factor the model is loaded at: the definition's <c>scaleSOD</c>, 1 when the definition sets none or a value
+    /// that is no number. <see cref="OpenArmada.Formats.Sod.Scaled"/> applies it.
+    /// </summary>
+    public float Scale { get; init; } = 1f;
+
     /// <summary>The map object's team.</summary>
     public required int Team { get; init; }
 
@@ -85,6 +91,7 @@ public sealed class SandboxPlan
     const string MissingModel = "model missing, objects left out";
     const string DegenerateOrientation = "degenerate orientation, identity used";
     const string BadSlot = "team-color slot not usable, the team's own slot used";
+    const string BadScale = "scaleSOD is no number, model drawn at its stored size";
 
     /// <summary>The objects to place; asteroid fields and objects with a gap that leaves them out are absent.</summary>
     public IReadOnlyList<PlacedObject> Objects { get; }
@@ -200,6 +207,7 @@ public sealed class SandboxPlan
                     Label = o.Label,
                     Class = o.Class,
                     Model = model,
+                    Scale = ScaleOf(o.Class, definition, gaps),
                     Team = o.Team,
                     Slot = Slot(map, o.Team, gaps),
                     Position = new Vector3(o.Position.X, o.Position.Y, -o.Position.Z),
@@ -238,6 +246,20 @@ public sealed class SandboxPlan
         gaps.Add(MissingModel, name);
 
         return null;
+    }
+
+    // The definition's scaleSOD (Armada.exe 0x46b01d, default 1). stand-in: a value that is no number gives 1; the
+    // game keeps whatever its scan leaves in the value.
+    static float ScaleOf(string cls, ResolvedDefinition definition, Gaps gaps)
+    {
+        var value = definition.Find("scaleSOD");
+        if (value == null)
+            return 1f;
+        if (value.Tokens.Count == 1 && ResolvedDefinition.TryNumber(value.Tokens[0], out var scale))
+            return scale;
+        gaps.Add(BadScale, cls);
+
+        return 1f;
     }
 
     static string? BackgroundOf(BznMap map, Func<string, bool> hasModel, Gaps gaps)

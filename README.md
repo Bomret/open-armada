@@ -130,7 +130,7 @@ Each problem is one `ERROR` log entry that names the script and the line, and, f
 
 `play/destroy.play` is a checked-in play script. On `layouts/destroy.jsonc`, a Vor'cha-class warship destroys a sensor station; the script takes screenshots before the fight, while the station is dying, and across the explosion, dumps the state before, during, and after, expects the station dying and then destroyed. Run it with `--layout layouts/destroy.jsonc`; the layout's header comment has the whole command.
 
-`play/shield.play`, `play/shield-red.play`, and `play/shield-hull.play` show the shield hit effect, the shield-down overlay, and the hull hit sprite on a stock map (`kling4` for the first two, `kling1` for the third). `play/shield-hit.play` shows shield hit effects of beams and torpedoes on both sides of a fight on `layouts/shield-hit.jsonc`. `play/damage.play` and `play/emitters.play` show the damage nodes and the damage emitters on their layouts. In `play/drift.play` on `layouts/drift.jsonc`, two Borg spheres destroy a bird of prey that flies an arc around them, and the dying bird coasts on. Each script's first comment lines name its map or layout.
+`play/shield.play`, `play/shield-red.play`, and `play/shield-hull.play` show the shield hit effect, the shield-down overlay, and the hull hit sprite on a stock map (`kling4` for the first two, `kling1` for the third). `play/shield-hit.play` shows shield hit effects of beams and torpedoes on both sides of a fight on `layouts/shield-hit.jsonc`. `play/damage.play` and `play/emitters.play` show the damage nodes and the damage emitters on their layouts. In `play/drift.play` on `layouts/drift.jsonc`, two Borg spheres destroy a bird of prey that flies an arc around them, and the dying bird coasts on. `play/scale.play` on `layouts/scale.jsonc` shows a Sovereign-class battleship at its `scaleSOD` of 1.4 beside an unscaled Defiant-class destroyer. Each script's first comment lines name its map or layout.
 
 ## Measure the sound of a play run
 
@@ -233,6 +233,8 @@ Version 1.8 follows the official Storm3D spec. The older versions were decoded f
 | 1.4, 1.5 | Also: no animation reference section. |
 | 1.2 | Also: no animation sections. A mesh has one lighting material, counts in the order vertices/faces/texcoords, an unknown float, and faces with their own corner count. No cull byte. |
 | 1.0 | Unsupported. Only `Wviracod.SOD` uses it, and the game does not reference it. |
+
+The cull byte decides whether a mesh hides its back faces. `Armada.exe` stores the byte per mesh when it loads the file (0x590d0a–0x590d1b), and the renderer it sets up at 0x59dd90 defers to that byte. Only the value 1 culls back faces, in software (0x5a3de0). Every other value, 0 and any other non-zero value, draws both sides (0x5a3d70). The Direct3D cull mode stays off throughout (0x581de0). The stock files hold only 0 and 1.
 
 The mesh trailer after the cull byte is a count followed by that many 16-bit vertex indices. The spec says the count is always 0; `Zentity.SOD` has 7.
 

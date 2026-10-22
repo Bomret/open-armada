@@ -83,6 +83,59 @@ public class SandboxPlanTests
     }
 
     [TestMethod]
+    public void AClassWithoutScaleSodLoadsItsModelAtItsStoredSize()
+    {
+        Assert.AreEqual(1f, Plan(MapOf(Ship()), Fbattle, "fdreadnought").Objects.Single().Scale);
+    }
+
+    [TestMethod]
+    [DataRow("ScaleSOD = 1.3f", 1.3f)]
+    [DataRow("scalesod = .8", 0.8f)]
+    [DataRow("scaleSOD = 4.0 // a comment", 4f)]
+    public void ScaleSodIsReadInAnyCaseWithASuffixOrNoLeadingDigit(string line, float scale)
+    {
+        var plan = Plan(MapOf(Ship()), new[] { ("fbattle", $"baseName = fdreadnought\n{line}") }, "fdreadnought");
+        Assert.AreEqual(scale, plan.Objects.Single().Scale);
+        Assert.AreEqual(0, plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ADefinitionsOwnScaleSodBeatsAnIncludedOne()
+    {
+        var own = Plan(
+            MapOf(Ship()),
+            new[]
+            {
+                ("fbattle", "#include \"base.odf\"\nbaseName = fdreadnought\nscaleSOD = 1.4"),
+                ("base", "scaleSOD = 2"),
+            },
+            "fdreadnought"
+        );
+        var inherited = Plan(
+            MapOf(Ship()),
+            new[] { ("fbattle", "#include \"base.odf\"\nbaseName = fdreadnought"), ("base", "scaleSOD = 2") },
+            "fdreadnought"
+        );
+        Assert.AreEqual(1.4f, own.Objects.Single().Scale);
+        Assert.AreEqual(2f, inherited.Objects.Single().Scale);
+    }
+
+    [TestMethod]
+    public void AScaleSodThatIsNoNumberIsAGapAndTheStoredSizeIsUsed()
+    {
+        var plan = Plan(
+            MapOf(Ship()),
+            new[] { ("fbattle", "baseName = fdreadnought\nscaleSOD = big") },
+            "fdreadnought"
+        );
+        Assert.AreEqual(1f, plan.Objects.Single().Scale);
+        Assert.AreEqual(
+            "scaleSOD is no number, model drawn at its stored size: fbattle (1 object)",
+            plan.Reports.Single().Text
+        );
+    }
+
+    [TestMethod]
     public void AModelNameMayCarryItsExtension()
     {
         var plan = Plan(MapOf(Ship()), new[] { ("fbattle", "baseName = fdreadnought.sod") }, "fdreadnought");

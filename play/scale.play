@@ -1,0 +1,12 @@
+# A Sovereign-class battleship, which its definition loads at scaleSOD 1.4, beside an unscaled Defiant-class destroyer
+# on layouts/scale.jsonc. The first shot shows both at their sizes, the second the Sovereign selected (its ring is its
+# radius) and firing from its hardpoints.
+# Run it with --layout layouts/scale.jsonc; the layout's header comment has the whole command.
+scroll up 10
+wait 0.5
+shot sizes
+select Sovereign
+attack Defiant
+wait 1.5
+shot firing
+dump firing

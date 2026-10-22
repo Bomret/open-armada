@@ -1573,7 +1573,8 @@ public class CombatWorldTests
     [TestMethod]
     public void ATorpedoOfADyingUnitInFlightStillLandsWithItsBaseDamage()
     {
-        var torpedo = Beam(label: "photontorpedo", speed: 20, life: 20, damage: 10);
+        // 100 units at speed 50 take 2 s, less than the 3 s of the dying phase of a unit at rest.
+        var torpedo = Beam(label: "photontorpedo", speed: 50, life: 20, damage: 10);
         var a = new Spec
         {
             Object = Placed("a", 1, 0),
@@ -1587,13 +1588,21 @@ public class CombatWorldTests
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
         var landed = new List<ShotLanded>();
+        var shooterDyingAtLanding = false;
         for (var i = 0; i < 400; i++)
         {
-            landed.AddRange(world.Step(CombatWorld.Tick).OfType<ShotLanded>());
+            var lands = world.Step(CombatWorld.Tick).OfType<ShotLanded>().ToList();
+            if (lands.Any(l => l.Shot.Shooter.Unit == b.Object))
+            {
+                shooterDyingAtLanding = world.State(b.Object)!.Dying;
+            }
+
+            landed.AddRange(lands);
         }
 
         var fromB = landed.Single(l => l.Shot.Shooter.Unit == b.Object);
         Assert.AreEqual(10, fromB.Hit.Damage, 1e-6);
+        Assert.IsTrue(shooterDyingAtLanding);
     }
 
     [TestMethod]

@@ -180,6 +180,15 @@ public class PlayStateTests
     }
 
     [TestMethod]
+    public void ADyingExpectationHoldsAsFalseForADestroyedAndRemovedUnit()
+    {
+        var scene = new Scene();
+        scene.StateB.Destroyed = true;
+
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("b", "dying", "=", "false")));
+    }
+
+    [TestMethod]
     public void AnyOtherExpectationOnADestroyedAndRemovedUnitIsAProblem()
     {
         var scene = new Scene();

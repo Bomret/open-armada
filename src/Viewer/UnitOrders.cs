@@ -116,6 +116,8 @@ public partial class UnitOrders : Node3D
             return;
         var origin = camera.ProjectRayOrigin(click.Position);
         var direction = camera.ProjectRayNormal(click.Position);
+        // stand-in: a dying unit is unselectable, so UnitAt never returns it and a right-click on it gives the selected
+        // ships a move order to the plane point under it; the game's order code on a dying unit is not recovered.
         var clicked = _selection.UnitAt(click.Position);
         var hit = MoveGeometry.PlaneTarget(
             new System.Numerics.Vector3(origin.X, origin.Y, origin.Z),

@@ -88,7 +88,7 @@ public sealed class PlayState
     /// <summary>
     /// Checks one <c>expect</c> step. Returns null when it holds, else the problem without script or line:
     /// an unresolvable unit, a unit without combat state, a unit that was destroyed and removed (only
-    /// <c>destroyed</c> can be asked of it), a system the unit lacks, or the expected and the actual value.
+    /// <c>destroyed</c> and <c>dying</c> can be asked of it), a system the unit lacks, or the expected and the actual value.
     /// </summary>
     public string? Expect(ExpectStep step)
     {
@@ -97,7 +97,7 @@ public sealed class PlayState
             return problem;
         if (!_states.TryGetValue(unit, out var state))
             return $"unit '{step.Unit}' has no combat state";
-        if (state.Destroyed && step.Field != "destroyed")
+        if (state.Destroyed && step.Field is not ("destroyed" or "dying"))
             return $"unit '{step.Unit}' was destroyed and removed";
         string actual;
         bool holds;

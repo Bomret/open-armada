@@ -283,7 +283,8 @@ state). The unit stays in the world until its timer runs out.
   at 0x465e87).
 - **No selection:** it is deselected and cannot be selected (0x4ab5d0, 0x4ab91e and siblings), so it takes no
   orders. The game's own check on a dying unit in the order code is not recovered; the rule rests on the
-  deselection.
+  deselection. **Stand-in**: a right-click on a dying unit picks no unit, so the selected ships get a move
+  order to the point of the plane under it; the game's order code on a dying unit is not recovered.
 - **Small explosions:** every 0.05 s (0x600784) one of `systemexpl1` to `systemexpl7`, picked at random,
   plays at a random point on the unit (0x466320, 0x466180, table 0x600750). The sprites are rows of the
   install's sprite tables. The cadence keeps its own accumulator on the world's fixed tick, so it holds at

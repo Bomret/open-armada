@@ -134,6 +134,59 @@ public class ShieldEffectTests
         Assert.AreEqual(0, effect.Contact.Z, 1e-3);
     }
 
+    static UnitCombatState WithGenerator() =>
+        State(Profile(systems: [Sys(SystemNames.ShieldGenerator, 5, repairTime: 1)]));
+
+    [TestMethod]
+    public void ADestroyedShieldGeneratorShowsTheOverlay()
+    {
+        var unit = WithGenerator();
+        Assert.IsFalse(unit.ShieldDownOverlay);
+
+        unit.DestroySystem(SystemNames.ShieldGenerator);
+
+        Assert.IsTrue(unit.ShieldDownOverlay);
+    }
+
+    [TestMethod]
+    public void ARepairedShieldGeneratorRemovesTheOverlay()
+    {
+        var unit = WithGenerator();
+        unit.DestroySystem(SystemNames.ShieldGenerator);
+
+        unit.RestoreSystem(SystemNames.ShieldGenerator);
+
+        Assert.IsFalse(unit.ShieldDownOverlay);
+    }
+
+    [TestMethod]
+    public void AUnitTurningDerelictLosesTheOverlayAndRegainsItWhenCrewRecovers()
+    {
+        var unit = WithGenerator();
+        unit.DestroySystem(SystemNames.ShieldGenerator);
+
+        unit.Derelict = true;
+        Assert.IsFalse(unit.ShieldDownOverlay);
+
+        unit.Derelict = false;
+        Assert.IsTrue(unit.ShieldDownOverlay);
+    }
+
+    [TestMethod]
+    public void AShieldGeneratorDestroyedOnADerelictShowsNoOverlay()
+    {
+        var unit = WithGenerator();
+        unit.Derelict = true;
+
+        unit.DestroySystem(SystemNames.ShieldGenerator);
+
+        Assert.IsFalse(unit.ShieldDownOverlay);
+    }
+
+    [TestMethod]
+    public void AUnitWithoutAShieldGeneratorShowsNoOverlay() =>
+        Assert.IsFalse(State(Profile()).ShieldDownOverlay);
+
     [TestMethod]
     public void ABeamRaisesOneEffectOnceATenthOfItsLifeHasPassed()
     {

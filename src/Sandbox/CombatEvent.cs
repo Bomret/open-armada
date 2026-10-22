@@ -160,6 +160,9 @@ public sealed class Shot(
     /// for a shot it keeps; the shot ends at its ordnance's <c>lifeSpan</c>.
     /// </summary>
     public double Age { get; set; }
+
+    /// <summary>Whether a beam has raised its shield hit effect or hull hit sprite; it raises one only.</summary>
+    public bool EffectRaised { get; internal set; }
 }
 
 /// <summary>What happened in one world step.</summary>

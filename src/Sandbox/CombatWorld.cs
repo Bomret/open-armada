@@ -48,6 +48,12 @@ public sealed class CombatWorld
     // its center, so such a unit can be hit; the game's collision radius is not known.
     const float ZeroRadiusContactReach = 5f;
     const double Epsilon = 1e-9;
+
+    // A beam shows its effect once this share of its lifetime has passed: 1 - 0.9 (0x6173e8).
+    const double BeamEffectStart = 0.1;
+
+    // The hull hit sprite of a beam is drawn at this times the ordnance's size (0x6173dc, 0x6173e0).
+    const float HullSpriteScale = 2f;
     const float ArrivedWithin = 1e-3f;
 
     // An idle unit at red closes on its pick only while its center is within 300 units of its tether point, in
@@ -499,10 +505,35 @@ public sealed class CombatWorld
                 {
                     _shots.Remove(shot);
                 }
-                else if (shot.Age + Epsilon >= ordnance.LifeSpan)
+                else
                 {
-                    _shots.Remove(shot);
-                    Land(shot, events);
+                    // a tenth of the lifetime in, with the head in reach: the beam shows its effect (0x4eb170, 0.9 at
+                    // 0x6173e8 read as the share of the lifetime left)
+                    if (
+                        !shot.EffectRaised
+                        && shot.Age + Epsilon >= BeamEffectStart * ordnance.LifeSpan
+                        && Surface(shot.Shooter, shot.Target) <= shot.Weapon.Range
+                    )
+                    {
+                        shot.EffectRaised = true;
+                        var target = shot.Target;
+                        events.Add(
+                            target.Shields > 0 && !ordnance.IgnoreShield
+                                ? ShieldEffect(shot, shot.Position)
+                                : new HullHitSprite
+                                {
+                                    Shot = shot,
+                                    Unit = target.Unit,
+                                    Scale = HullSpriteScale * ordnance.Size,
+                                }
+                        );
+                    }
+
+                    if (shot.Age + Epsilon >= ordnance.LifeSpan)
+                    {
+                        _shots.Remove(shot);
+                        Land(shot, events);
+                    }
                 }
 
                 continue;

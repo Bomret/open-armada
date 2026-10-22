@@ -135,11 +135,68 @@ public class ShieldEffectTests
     }
 
     [TestMethod]
-    public void OrdnanceDefinitionsWithoutShieldKeysUseTheDefaults()
+    public void ABeamRaisesOneEffectOnceATenthOfItsLifeHasPassed()
     {
-        var ordnance = Beam();
+        var (world, _, b) = Fight(Beam(life: 1, shieldGeometry: "xcustom"));
 
-        Assert.AreEqual("xshldx01", ordnance.ShieldGeometryName);
-        Assert.AreEqual(0.8f, ordnance.ShieldDuration);
+        Assert.AreEqual(0, world.Step(0.1).OfType<ShieldHitEffect>().Count());
+        var effects = world.Step(0.04).OfType<ShieldHitEffect>().ToList();
+        var later = world.Step(2).OfType<ShieldHitEffect>().Count();
+
+        Assert.AreEqual(1, effects.Count);
+        Assert.IsTrue(effects[0].FollowsBeam);
+        Assert.AreSame(b, effects[0].Unit);
+        Assert.AreEqual("xcustom", effects[0].Geometry);
+        Assert.AreEqual(0, later);
+    }
+
+    [TestMethod]
+    public void ABeamCutOffBeforeATenthOfItsLifeRaisesNeitherEffectNorSprite()
+    {
+        var (world, a, _) = Fight(Beam(life: 1));
+        world.Step(0.06);
+        world.State(a)!.Destroyed = true;
+
+        var events = world.Step(2);
+
+        Assert.AreEqual(0, events.OfType<ShieldHitEffect>().Count());
+        Assert.AreEqual(0, events.OfType<HullHitSprite>().Count());
+    }
+
+    [TestMethod]
+    public void ABeamOnAUnitWithShieldsAtZeroRaisesTheHullHitSpriteAtTwiceTheSize()
+    {
+        var (world, _, b) = Fight(Beam(life: 1, size: 3));
+        world.State(b)!.Shields = 0;
+
+        var events = world.Step(0.2);
+
+        var sprite = events.OfType<HullHitSprite>().Single();
+        Assert.AreEqual(6f, sprite.Scale);
+        Assert.AreSame(b, sprite.Unit);
+        Assert.AreEqual(0, events.OfType<ShieldHitEffect>().Count());
+    }
+
+    [TestMethod]
+    public void ABeamOfOrdnanceThatIgnoresShieldsRaisesTheHullHitSprite()
+    {
+        var (world, _, _) = Fight(Beam(life: 1, ignoreShield: true));
+
+        var events = world.Step(0.2);
+
+        Assert.AreEqual(1, events.OfType<HullHitSprite>().Count());
+        Assert.AreEqual(0, events.OfType<ShieldHitEffect>().Count());
+    }
+
+    [TestMethod]
+    public void ABeamEffectTimingDoesNotDependOnTheFrameRate()
+    {
+        var (slow, _, _) = Fight(Beam(life: 1));
+        var (fast, _, _) = Fight(Beam(life: 1));
+        var slowCount = slow.Step(0.5).OfType<ShieldHitEffect>().Count();
+        var fastCount = Enumerable.Range(0, 25).Sum(_ => fast.Step(0.02).OfType<ShieldHitEffect>().Count());
+
+        Assert.AreEqual(1, slowCount);
+        Assert.AreEqual(1, fastCount);
     }
 }

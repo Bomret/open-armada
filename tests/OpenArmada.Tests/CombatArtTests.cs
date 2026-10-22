@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
+using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 using static OpenArmada.Tests.CombatFixtures;
 using static OpenArmada.Tests.SodBytes;

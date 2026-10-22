@@ -96,6 +96,7 @@ static class CombatFixtures
             ShieldDelay = shieldDelay,
             CrewCost = crew,
             MaximumCrew = maximumCrew,
+            DefinedMaximumCrew = maximumCrew,
             Systems = systems ?? new List<SystemProfile>(),
             HullHitPercent = hull,
             LifeSupportLoss = lifeSupportLoss,

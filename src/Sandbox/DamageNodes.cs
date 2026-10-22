@@ -52,7 +52,8 @@ public static class DamageNodes
         var yellow = unit.Profile.Race.CrewYellowStatus;
         if (yellow > 0 && Named("crew") is { } crew)
         {
-            var r = unit.Crew / unit.Profile.MaximumCrew / yellow;
+            var defined = unit.Profile.DefinedMaximumCrew;
+            var r = (defined > 0 ? unit.Crew / defined : 1) / yellow;
             var seen = new HashSet<Sod.Node>();
             var step = 0.0;
             for (var node = crew; node != null && seen.Add(node); node = ChildrenOf(node).FirstOrDefault())

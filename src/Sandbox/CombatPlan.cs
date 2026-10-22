@@ -175,6 +175,7 @@ public sealed class CombatPlan
             var r = new Values(d, gaps);
             var crewCost = r.Num("crewCost", 1, report: true); // stand-in: one crew
             var maximumCrew = r.Num("maximumCrew", 0);
+            var definedMaximumCrew = Math.Max(0, maximumCrew);
             if (maximumCrew <= 0)
             {
                 // stand-in: the crew cost, or one, where no maximum crew is given; a ratio over it stays a number
@@ -210,6 +211,7 @@ public sealed class CombatPlan
                 ShieldDelay = r.Num("shieldDelay", 0),
                 CrewCost = crewCost,
                 MaximumCrew = maximumCrew,
+                DefinedMaximumCrew = definedMaximumCrew,
                 Systems = systems,
                 HullHitPercent = r.Num("hullHitPercent", 0),
                 LifeSupportLoss = r.Num("lifeSupportLoss", 0),

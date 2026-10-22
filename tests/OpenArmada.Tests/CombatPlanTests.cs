@@ -455,6 +455,7 @@ public class CombatPlanTests
         );
         var p = ProfileOf(r);
         Assert.AreEqual(100f, p.MaximumCrew);
+        Assert.AreEqual(0f, p.DefinedMaximumCrew);
         Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.Contains("maximumCrew")));
     }
 

@@ -216,6 +216,12 @@ public sealed record CombatProfile
     public required float MaximumCrew { get; init; }
 
     /// <summary>
+    /// The definition's own <c>maximumCrew</c>, 0 where it is missing or 0 (no stand-in). The damage nodes read this
+    /// one: the game treats a unit without a maximum crew as having a crew ratio of 1 (0x467803).
+    /// </summary>
+    public required float DefinedMaximumCrew { get; init; }
+
+    /// <summary>
     /// The ship systems with hit points above zero, in the order engines, life support, weapons, shield generator,
     /// sensors.
     /// </summary>

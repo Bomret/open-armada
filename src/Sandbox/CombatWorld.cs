@@ -26,6 +26,9 @@ public sealed record CombatUnit
 
     /// <summary>Whether the unit can move at all.</summary>
     public required bool Mobile { get; init; }
+
+    /// <summary>The unit class's shield ellipsoid; null for a model that has none (it then shows no shield hit effect).</summary>
+    public ShieldEllipsoid? Shield { get; init; }
 }
 
 /// <summary>
@@ -41,13 +44,6 @@ public sealed class CombatWorld
     /// <summary>The length of one world tick in seconds.</summary>
     public const double Tick = 0.02;
 
-    // stand-in: a shield bubble reaches this many radii from a unit's center; the game's shape is not known.
-    /// <summary>How many radii a shield bubble reaches from a unit's center (stand-in); the shield hit effect sits on it.</summary>
-    public const float BubbleRadii = 1.25f;
-
-    // stand-in: a flying shot touches a unit of radius 0 (a model without meshes) within this many world units of
-    // its center, so such a unit can be hit; the game's collision radius is not known.
-    const float ZeroRadiusContactReach = 5f;
     const double Epsilon = 1e-9;
 
     // A beam shows its effect once this share of its lifetime has passed: 1 - 0.9 (0x6173e8).
@@ -112,7 +108,10 @@ public sealed class CombatWorld
                 u.Radius,
                 u.Mobile,
                 systemHitpointsBonus
-            );
+            )
+            {
+                Shield = u.Shield,
+            };
             if (u.Unit.Start is { } start)
             {
                 state.Begin(start);
@@ -570,32 +569,47 @@ public sealed class CombatWorld
                 }
                 else
                 {
-                    // a tenth of the lifetime in, with the head in reach: the beam shows its effect (0x4eb170, 0.9 at
-                    // 0x6173e8 read as the share of the lifetime left)
-                    if (
-                        !shot.EffectRaised
-                        && shot.Age + Epsilon >= BeamEffectStart * ordnance.LifeSpan
-                        && Surface(shot.Shooter, shot.Target) <= shot.Weapon.Range
-                    )
+                    // a tenth of the lifetime in: the beam shows its effect (0x4eb170, 0.9 at 0x6173e8 read as the share
+                    // of the lifetime left)
+                    var target = shot.Target;
+                    if (shot.Age + Epsilon >= BeamEffectStart * ordnance.LifeSpan)
                     {
-                        shot.EffectRaised = true;
-                        var target = shot.Target;
-                        events.Add(
-                            target.Shields > 0 && !ordnance.IgnoreShield
-                                ? ShieldEffect(shot)
-                                : new HullHitSprite
+                        if (target.Shields > 0 && !ordnance.IgnoreShield)
+                        {
+                            // each tick the line from the hardpoint the beam leaves to the target is tested against
+                            // the shield (0x4eb384); a hit raises the effect once and turns it after (0x4eb3d8, 0x4eb3f0)
+                            if (
+                                ShieldHit(target, HardpointAt(shot.Shooter, shot.Hardpoint), Position(target)) is
+                                { } contact
+                            )
+                            {
+                                shot.ShieldDirection = contact.Direction;
+                                if (!shot.EffectRaised)
+                                {
+                                    shot.EffectRaised = true;
+                                    events.Add(ShieldEffect(shot, contact));
+                                }
+                            }
+                        }
+                        // stand-in: the hull sprite shows once the head is in reach; the game's reach is not recovered
+                        else if (!shot.EffectRaised && Surface(shot.Shooter, target) <= shot.Weapon.Range)
+                        {
+                            shot.EffectRaised = true;
+                            events.Add(
+                                new HullHitSprite
                                 {
                                     Shot = shot,
                                     Unit = target.Unit,
                                     Scale = HullSpriteScale * ordnance.Size,
                                 }
-                        );
+                            );
+                        }
                     }
 
                     if (shot.Age + Epsilon >= ordnance.LifeSpan)
                     {
                         _shots.Remove(shot);
-                        Land(shot, events);
+                        Land(shot, events, null);
                     }
                 }
 
@@ -607,15 +621,23 @@ public sealed class CombatWorld
                 shot.Direction = Steer(shot, Tick);
             }
 
+            // The shot hits where its step enters the target's shield ellipsoid while the shields are up and the
+            // ordnance does not ignore them (0x4ec27a, 0x4ed427); else, or when the step misses the shield, when the
+            // target lies within one step of it (0x4ec2b0, 0x4ed46b), a hit behind the shields with no effect.
+            // stand-in: the target point is the unit's center; the game aims at the target's hardpoint (+0x110).
             var step = shot.Direction * ordnance.ShotSpeed * (float)Tick;
-            var reach =
-                shot.Target.Radius == 0 ? ZeroRadiusContactReach
-                : shot.Target.Shields > 0 ? shot.Target.Radius * BubbleRadii
-                : shot.Target.Radius;
-            if (SegmentDistance(shot.Position, shot.Position + step, Position(shot.Target)) <= reach)
+            var shielded = shot.Target.Shields > 0 && !ordnance.IgnoreShield;
+            if (shielded && ShieldHit(shot.Target, shot.Position, shot.Position + step) is { } hit)
             {
                 _shots.Remove(shot);
-                Land(shot, events);
+                shot.Position = hit.Contact;
+                Land(shot, events, hit);
+            }
+            else if (Vector3.DistanceSquared(Position(shot.Target), shot.Position) < step.LengthSquared())
+            {
+                _shots.Remove(shot);
+                shot.Position = Position(shot.Target);
+                Land(shot, events, null);
             }
             else if (shot.Age + Epsilon >= ordnance.LifeSpan)
             {
@@ -646,20 +668,10 @@ public sealed class CombatWorld
         return Vector3.Transform(shot.Direction, Quaternion.CreateFromAxisAngle(axis, most));
     }
 
-    // The distance from `point` to the segment.
-    static float SegmentDistance(Vector3 from, Vector3 to, Vector3 point)
-    {
-        var along = to - from;
-        var length = along.LengthSquared();
-        var t = length == 0 ? 0 : Math.Clamp(Vector3.Dot(point - from, along) / length, 0, 1);
-
-        return Vector3.Distance(from + along * t, point);
-    }
-
-    // The shield hit effect of the shot on its target, with the shield fraction as it is now (0x5170e0) and the contact
-    // point toward the shot's position. A projectile's effect is raised after its damage, a beam's at a tenth of its
-    // lifetime, before the beam's own damage lands.
-    ShieldHitEffect ShieldEffect(Shot shot)
+    // The shield hit effect of the shot on its target at the shield contact `hit`, with the shield fraction as it is
+    // now (0x5170e0). A projectile's effect is raised after its damage, a beam's from a tenth of its lifetime, before
+    // the beam's own damage lands.
+    ShieldHitEffect ShieldEffect(Shot shot, (Vector3 Direction, Vector3 Contact) hit)
     {
         var target = shot.Target;
         var ordnance = shot.Weapon.Ordnance;
@@ -672,36 +684,43 @@ public sealed class CombatWorld
             Duration = ordnance.ShieldDuration,
             Raised = Time,
             Fraction = target.Profile.MaxHealth > 0 ? Math.Clamp(target.Shields / target.Profile.MaxHealth, 0, 1) : 0,
-            Contact = ShieldContact(shot.Position, Position(target), target.Radius),
+            Contact = hit.Contact,
+            Direction = hit.Direction,
         };
     }
 
-    /// <summary>
-    /// The point on the shield bubble of a unit at <c>center</c> with <c>radius</c> that faces <c>from</c>; the center
-    /// for a unit without radius. stand-in: the bubble is a sphere of <see cref="BubbleRadii"/> radii (the game scales
-    /// the geometry to the shield ellipsoid, whose source is not recovered).
-    /// </summary>
-    public static Vector3 ShieldContact(Vector3 from, Vector3 center, float radius)
+    // The game's shield test (0x4ee860) of the segment from `from` to `to`, world points, against the target's shield
+    // ellipsoid at its current pose: the contact direction (ShieldEllipsoid.Hit) and the contact point in the world.
+    // Null when the segment misses the shield, and for a target without an ellipsoid.
+    (Vector3 Direction, Vector3 Contact)? ShieldHit(UnitCombatState target, Vector3 from, Vector3 to)
     {
-        var toward = from - center;
+        if (target.Shield is not { } shield)
+            return null;
+        var pose = _poses.Pose(target.Unit) with { Position = Position(target) };
+        // the model's SOD coordinates are the Godot offsets with Z mirrored (HardpointGeometry.Offsets)
+        Vector3 Model(Vector3 world) => Mirror(HardpointGeometry.ModelOffset(target.Unit, pose, world));
+        if (shield.Hit(Model(from), Model(to)) is not { } direction)
+            return null;
 
-        return toward == Vector3.Zero ? center : center + Vector3.Normalize(toward) * radius * BubbleRadii;
+        return (direction, HardpointGeometry.WorldPosition(target.Unit, pose, Mirror(shield.Surface(direction))));
     }
 
+    static Vector3 Mirror(Vector3 v) => new(v.X, v.Y, -v.Z);
+
     // The shot lands: its damage and hit location are rolled and applied to the target.
-    void Land(Shot shot, List<CombatEvent> events)
+    // A projectile that entered the shield brings its contact, which raises the shield hit effect after the damage
+    // (0x4ec288, 0x4ed45e); the gate read the shields before the damage.
+    void Land(Shot shot, List<CombatEvent> events, (Vector3 Direction, Vector3 Contact)? shieldHit)
     {
         var target = shot.Target;
         var damage = CombatRules.Damage(shot.Weapon.Ordnance, target.DefinitionName, _random());
         var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
-        // the gate reads the shields before the damage (0x4ec22a, 0x4ec9f0, 0x4ed3da); a beam raised its effect earlier
-        var shielded = target.Shields > 0 && !shot.Weapon.Ordnance.IgnoreShield;
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
         target.LastHit = _ticks;
         events.Add(new ShotLanded { Shot = shot, Hit = hit });
-        if (shielded && shot.Kind != ShotKind.Beam)
+        if (shieldHit is { } contact)
         {
-            events.Add(ShieldEffect(shot));
+            events.Add(ShieldEffect(shot, contact));
         }
 
         if (!hit.Destroyed)

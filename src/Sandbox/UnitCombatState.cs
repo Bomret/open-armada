@@ -76,6 +76,9 @@ public sealed class UnitCombatState(
     /// <summary>Whether the unit moves at all: false for stations and ships without a physics definition.</summary>
     public bool Mobile { get; } = mobile;
 
+    /// <summary>The unit class's shield ellipsoid; null for a model that has none.</summary>
+    public ShieldEllipsoid? Shield { get; init; }
+
     /// <summary>The placed object's team.</summary>
     public int Team => Unit.Team;
 

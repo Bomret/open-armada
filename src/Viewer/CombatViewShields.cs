@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 using OpenArmada.Rendering;
@@ -11,29 +12,45 @@ namespace OpenArmada.Viewer;
 
 // The shield hit effects, the hull hit sprites of beams, and the shield-down overlays of the combat view. The combat
 // world decides each (ShieldHitEffect, HullHitSprite, UnitCombatState.ShieldDownOverlay); this part only draws them
-// (INV-0011). A geometry or sprite the install lacks is reported by the CombatArt and skipped.
+// (INV-0011). A geometry or sprite the install lacks is reported by the CombatArt and skipped. docs/rules/
+// shield-effects.md states the rules.
 public partial class CombatView
 {
     // stand-in: a hull hit sprite of size 1 is this many world units wide; the game's unit is not recovered.
     const float HullSpriteUnit = 8f;
 
-    // A beam's effect: it follows the beam's contact point until the beam ends.
+    // A beam's hull hit sprite: it follows the beam's contact point until the beam ends.
     sealed class Following
     {
         public required Shot Shot;
         public required Node3D Node;
-        public required Node3D? Unit; // the unit node a shield effect is a child of; null for a hull sprite
-        public SpriteArt? Art;
-        public StandardMaterial3D? Material;
-        public ImageTexture? Texture;
+        public required SpriteArt Art;
+        public required StandardMaterial3D Material;
+        public required ImageTexture Texture;
+    }
+
+    // A shield effect: its node, the world time it ends at (the world's clock, not the frame's, so the duration holds
+    // at any frame rate and step size), its scale and centre, and, for a beam's, the beam and the contact direction it
+    // was last turned to.
+    sealed class ShieldShown
+    {
+        public required Node3D Node;
+        public required double End;
+        public required System.Numerics.Vector3 Scale;
+        public required System.Numerics.Vector3 Center;
+        public Shot? Beam;
+        public System.Numerics.Vector3 Direction;
     }
 
     readonly List<Following> _following = new();
+    readonly List<ShieldShown> _shields = new();
     readonly Dictionary<PlacedObject, Node3D> _overlays = new(ReferenceEqualityComparer.Instance);
 
-    // A projectile's effect and the world time it ends at; the world's clock, not the frame's, so the duration holds at
-    // any frame rate and step size.
-    readonly List<(Node3D Node, double End)> _expiring = new();
+    // Per shield geometry: the flipbook of each mesh node, by the node's index in the model (SodBuilder.SodIndexMeta).
+    readonly Dictionary<string, Dictionary<int, TextureAnimation>> _flipbooks = new(StringComparer.OrdinalIgnoreCase);
+
+    // The flipbook materials of each shown shield model; their offsets follow the world's clock.
+    readonly List<(Node3D Node, List<(ShaderMaterial Material, TextureAnimation Flipbook)> Surfaces)> _flipping = new();
 
     // Builds the templates of the shield geometries and the shield-down model the install holds.
     void LoadShieldModels(CombatArt art, SodBuilder builder, Action<string> gap)
@@ -44,7 +61,13 @@ public partial class CombatView
                 continue;
             try
             {
-                _models[name] = builder.Build(Sod.Read(_files.ReadAllBytes(name + ".sod")));
+                var sod = Sod.Read(_files.ReadAllBytes(name + ".sod"));
+                _models[name] = builder.Build(sod);
+                _flipbooks[name] = ModelRules
+                    .Analyze(_files, sod)
+                    .Runs.Where(r => sod.IndexOf(r.Node) >= 0)
+                    .GroupBy(r => sod.IndexOf(r.Node))
+                    .ToDictionary(g => g.Key, g => g.First().Flipbook);
                 foreach (var problem in builder.Problems)
                 {
                     Log.Warn(Area.Combat, $"{name}: {problem}");
@@ -63,86 +86,119 @@ public partial class CombatView
         }
     }
 
-    // The half of the template's longest extent, so a scale of reach over it fits the model to the shield bubble.
-    static float ModelRadius(Node3D template)
+    // Draws the model in one color, unlit (SurfaceMaterial.Colorize). Every surface gets its own copy of its material,
+    // since a duplicated node shares the template's materials; the model's surfaces are shader materials
+    // (SurfaceMaterial). The copies of the surfaces that run a flipbook follow the world's clock from here on.
+    void Colorize(Node3D root, string geometry, Color color)
     {
-        Aabb? box = null;
-        foreach (var mesh in template.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
+        var flipbooks = _flipbooks.GetValueOrDefault(geometry);
+        var surfaces = new List<(ShaderMaterial, TextureAnimation)>();
+        var meshes = root.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>();
+        if (root is MeshInstance3D own)
         {
-            box = box is { } b ? b.Merge(mesh.GetAabb()) : mesh.GetAabb();
+            meshes = meshes.Prepend(own);
         }
 
-        var radius = box is { } a ? Math.Max(a.Size.X, Math.Max(a.Size.Y, a.Size.Z)) / 2 : 0;
-
-        // stand-in: a model without extent is drawn unscaled
-        return radius > 0 ? radius : 1;
-    }
-
-    // Draws the model in one color. Every surface gets its own copy of its material, since a duplicated node shares
-    // the template's materials; the model's surfaces are shader materials (SurfaceMaterial).
-    static void Colorize(Node3D root, Color color)
-    {
-        foreach (var mesh in root.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
+        foreach (var mesh in meshes)
         {
+            var flipbook =
+                flipbooks != null && mesh.HasMeta(SodBuilder.SodIndexMeta)
+                    ? flipbooks.GetValueOrDefault((int)mesh.GetMeta(SodBuilder.SodIndexMeta))
+                    : null;
             for (var i = 0; i < mesh.GetSurfaceOverrideMaterialCount(); i++)
             {
                 if (mesh.GetActiveMaterial(i) is ShaderMaterial material)
                 {
-                    var own = (ShaderMaterial)material.Duplicate();
-                    SurfaceMaterial.Colorize(own, color);
-                    mesh.SetSurfaceOverrideMaterial(i, own);
+                    var copy = (ShaderMaterial)material.Duplicate();
+                    SurfaceMaterial.Colorize(copy, color);
+                    mesh.SetSurfaceOverrideMaterial(i, copy);
+                    if (flipbook != null)
+                    {
+                        surfaces.Add((copy, flipbook));
+                    }
                 }
             }
         }
-    }
 
-    // Turns the effect so the model's own +Z axis points along `direction` (world), scaled; the effect is a child of
-    // the unit node. The import mirrors Z (SodBuilder), so the model's +Z is the node's -Z, which LookingAt aims.
-    // stand-in: which axis of the game's geometry points at the contact is not recovered.
-    static void Aim(Node3D effect, Node3D unit, Vector3 direction, float scale)
-    {
-        var local = unit.GlobalTransform.Basis.Inverse() * direction;
-        if (local.LengthSquared() < 1e-12f)
+        if (surfaces.Count > 0)
         {
-            local = Vector3.Forward;
+            _flipping.Add((root, surfaces));
+            Flip(surfaces);
         }
-
-        local = local.Normalized();
-        var up = Math.Abs(local.Y) > 0.999f ? Vector3.Right : Vector3.Up;
-        effect.Basis = Basis.LookingAt(local, up).Scaled(Vector3.One * scale);
     }
 
-    static float ShieldScale(Node3D template, UnitCombatState target) =>
-        target.Radius > 0 ? target.Radius * CombatWorld.BubbleRadii / ModelRadius(template) : 1;
+    // The flipbook frame of the world's clock (TextureAnimation.UvOffset): the game times a shield effect's flipbook by
+    // its game clock from a start of 0 (0x58cc3e reads node +0x14, which 0x516540 never sets), so a new effect shows
+    // the frame the clock is at, not the first.
+    void Flip(List<(ShaderMaterial Material, TextureAnimation Flipbook)> surfaces)
+    {
+        foreach (var (material, flipbook) in surfaces)
+        {
+            var o = flipbook.UvOffset(_world.Time);
+            material.SetShaderParameter("uv_offset", new Vector2(o.X, o.Y));
+        }
+    }
+
+    // The orientation the game builds from a contact direction u (0x55d840): rows a, b, u, with a the normalized
+    // (u.z, 0, −u.x), or the X axis when u lies near the Y axis (u.x² + u.z² below 0.02, and then a is not made square
+    // to u), and b = u × a. The effect's own +Z axis points along u.
+    static (System.Numerics.Vector3 A, System.Numerics.Vector3 B, System.Numerics.Vector3 U) Rows(
+        System.Numerics.Vector3 u
+    )
+    {
+        u = System.Numerics.Vector3.Normalize(u);
+        var a =
+            u.X * u.X + u.Z * u.Z < 0.02f
+                ? System.Numerics.Vector3.UnitX
+                : System.Numerics.Vector3.Normalize(new System.Numerics.Vector3(u.Z, 0, -u.X));
+
+        return (a, System.Numerics.Vector3.Cross(u, a), u);
+    }
+
+    // Places a shield effect in its unit's model (0x516540, 0x516c40): a point v of the geometry goes to
+    // (v.x·a + v.y·b + v.z·u) ⊙ scale + center in the unit's SOD coordinates, with scale the ellipsoid's radii over the
+    // geometry's bounding radius and center the ellipsoid's. The node's transform is that map in Godot's frame, Z
+    // mirrored as SodBuilder.ToGodot mirrors it: S·M·S with S = diag(1, 1, −1).
+    static void Place(
+        Node3D node,
+        System.Numerics.Vector3 direction,
+        System.Numerics.Vector3 scale,
+        System.Numerics.Vector3 center
+    )
+    {
+        var (a, b, u) = Rows(direction);
+        // the images of Godot's X, Y, and Z axes
+        var x = Mirror(a * scale);
+        var y = Mirror(b * scale);
+        var z = -Mirror(u * scale);
+        node.Transform = new Transform3D(new Basis(x, y, z), Mirror(center));
+    }
+
+    static Vector3 Mirror(System.Numerics.Vector3 v) => new(v.X, v.Y, -v.Z);
 
     void RaiseShieldEffect(ShieldHitEffect effect)
     {
         if (!_models.TryGetValue(effect.Geometry, out var template))
             return;
-        if (_world.State(effect.Unit) is not { } target || !_nodes.TryGetValue(effect.Unit, out var unit))
+        if (_world.State(effect.Unit) is not { Shield: { } shield } || !_nodes.TryGetValue(effect.Unit, out var unit))
             return;
-        if (!IsInstanceValid(unit))
+        var radius = _art.ShieldGeometryRadius(effect.Geometry);
+        if (!IsInstanceValid(unit) || radius <= 0)
             return;
         var node = (Node3D)template.Duplicate();
-        Colorize(node, new Color((float)(1 - effect.Fraction), (float)effect.Fraction, 0));
         unit.AddChild(node);
-        var scale = ShieldScale(template, target);
-        Aim(node, unit, Gd(effect.Contact) - unit.GlobalPosition, scale);
-        if (effect.FollowsBeam)
+        var shown = new ShieldShown
         {
-            _following.Add(
-                new Following
-                {
-                    Shot = effect.Shot,
-                    Node = node,
-                    Unit = unit,
-                }
-            );
-
-            return;
-        }
-
-        _expiring.Add((node, effect.Raised + effect.Duration));
+            Node = node,
+            End = effect.Raised + effect.Duration,
+            Scale = shield.Radii / radius,
+            Center = shield.Center,
+            Beam = effect.FollowsBeam ? effect.Shot : null,
+            Direction = effect.Direction,
+        };
+        Place(node, shown.Direction, shown.Scale, shown.Center);
+        Colorize(node, effect.Geometry, new Color((float)(1 - effect.Fraction), (float)effect.Fraction, 0));
+        _shields.Add(shown);
     }
 
     void RaiseHullSprite(HullHitSprite sprite)
@@ -167,7 +223,6 @@ public partial class CombatView
         {
             Shot = sprite.Shot,
             Node = node,
-            Unit = null,
             Art = art,
             Material = material,
             Texture = tex,
@@ -176,7 +231,7 @@ public partial class CombatView
         PlaceFollowing(following);
     }
 
-    // Moves a beam's effect to the beam's current contact point; false when the beam or its target is gone.
+    // Moves a beam's hull hit sprite to the beam's current contact point; false when the beam or its target is gone.
     bool PlaceFollowing(Following f)
     {
         if (!IsInstanceValid(f.Node) || At(f.Shot.Target.Unit) is not { } center)
@@ -187,40 +242,48 @@ public partial class CombatView
                 ? drawn.Source.GlobalPosition
                 : Gd(f.Shot.Position);
         var toward = origin - center;
-        if (f.Unit is { } unit)
-        {
-            if (!IsInstanceValid(unit))
-                return false;
-            Aim(f.Node, unit, toward, f.Node.Basis.Scale.X);
-
-            return true;
-        }
-
-        // the hull hit sprite sits on the hull, not on the shield bubble
+        // the hull hit sprite sits on the hull, not on the shield
         var radius = f.Shot.Target.Radius;
         f.Node.Position = center + (toward.LengthSquared() < 1e-12f ? Vector3.Zero : toward.Normalized() * radius);
-        SpriteMaterial.ShowFrame(f.Material!, f.Art!.Sprite, f.Art.FrameAt(f.Shot.Age), f.Texture!);
+        SpriteMaterial.ShowFrame(f.Material, f.Art.Sprite, f.Art.FrameAt(f.Shot.Age), f.Texture);
 
         return true;
     }
 
-    // Per frame: moves the beams' effects, drops the ones of beams that ended, and shows or removes the shield-down
-    // overlay of each unit as its state says. A failure of one unit's overlay skips only that unit and is reported
-    // through the view's repeated faults.
+    // Per frame: ends the shield effects whose time is up (0x516fa0), turns a live beam's effect to the beam's latest
+    // contact (0x516c40), steps the flipbooks, moves the beams' hull hit sprites and drops those of beams that ended,
+    // and shows or removes the shield-down overlay of each unit as its state says. A failure of one unit's overlay
+    // skips only that unit and is reported through the view's repeated faults.
     void UpdateShieldEffects()
     {
-        _expiring.RemoveAll(e =>
+        var live = _world.Shots.ToHashSet();
+        _shields.RemoveAll(e =>
         {
-            var gone = !IsInstanceValid(e.Node) || _world.Time >= e.End;
-            if (gone && IsInstanceValid(e.Node))
+            if (!IsInstanceValid(e.Node) || _world.Time >= e.End)
             {
-                e.Node.QueueFree();
+                if (IsInstanceValid(e.Node))
+                {
+                    e.Node.QueueFree();
+                }
+
+                return true;
             }
 
-            return gone;
+            if (e.Beam is { ShieldDirection: { } latest } beam && live.Contains(beam) && latest != e.Direction)
+            {
+                e.Direction = latest;
+                Place(e.Node, e.Direction, e.Scale, e.Center);
+            }
+
+            return false;
         });
 
-        var live = _world.Shots.ToHashSet();
+        _flipping.RemoveAll(f => !IsInstanceValid(f.Node));
+        foreach (var (_, surfaces) in _flipping)
+        {
+            Flip(surfaces);
+        }
+
         _following.RemoveAll(f =>
         {
             var gone = !live.Contains(f.Shot) || !PlaceFollowing(f);
@@ -272,21 +335,29 @@ public partial class CombatView
             return;
         if (!_nodes.TryGetValue(state.Unit, out var unit) || !IsInstanceValid(unit))
             return;
-        // white and centered; the overlay stays until the state says otherwise
+        var radius = _art.ShieldGeometryRadius(name);
+        if (state.Shield is not { } shield || radius <= 0)
+            return;
+        // white, on the shield ellipsoid; the overlay stays until the state says otherwise
+        // inferred: the overlay's spawns pass the identity orientation (0x68de08), so its +Z is the model's +Z
         var node = (Node3D)template.Duplicate();
         try
         {
-            Colorize(node, Colors.White);
-            node.Basis = Basis.Identity.Scaled(Vector3.One * ShieldScale(template, state));
+            Place(node, System.Numerics.Vector3.UnitZ, shield.Radii / radius, shield.Center);
+            unit.AddChild(node);
+            Colorize(node, name, Colors.White);
         }
         catch
         {
-            // the duplicate is in no tree yet: free it here, or each frame's retry would leak one node
-            node.Free();
+            // a node that failed before it joined the tree is freed here, or each frame's retry would leak one node
+            if (node.GetParent() == null)
+            {
+                node.Free();
+            }
+
             throw;
         }
 
-        unit.AddChild(node);
         _overlays[state.Unit] = node;
     }
 }

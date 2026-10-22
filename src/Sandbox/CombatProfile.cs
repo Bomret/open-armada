@@ -62,6 +62,22 @@ public sealed record OrdnanceProfile
     /// <summary>The geometry of the shield hit effect when the definition names none (0x516b80).</summary>
     public const string DefaultShieldGeometry = "xshldx01";
 
+    /// <summary>
+    /// The models a shield effect can show, in the game's table order (names at 0x5d2a80, loaded at 0x516a70). A
+    /// <c>shieldGeometryName</c> picks one by name, ignoring case (0x516b90); the game reads before the table for any
+    /// other name.
+    /// </summary>
+    public static readonly IReadOnlyList<string> ShieldGeometries =
+    [
+        "xshldx01",
+        "xshlddie",
+        "wshldadd",
+        "wshldsub",
+        "wcorbrfr",
+        "wshldrmd",
+        "wmanhiem",
+    ];
+
     /// <summary>The seconds of the shield hit effect when the definition names none (0x4ea15a).</summary>
     public const float DefaultShieldDuration = 0.8f;
 
@@ -71,7 +87,7 @@ public sealed record OrdnanceProfile
     /// <summary>The <c>shieldGeometryName</c>: the model of the shield hit effect (0x4ea4e4).</summary>
     public string ShieldGeometryName { get; init; } = DefaultShieldGeometry;
 
-    /// <summary>The <c>shieldDuration</c> in seconds: how long a projectile's shield hit effect lasts (0x4ea521).</summary>
+    /// <summary>The <c>shieldDuration</c> in seconds: how long a shield hit effect lasts, a beam's too (0x4ea521, 0x4eb3c3).</summary>
     public float ShieldDuration { get; init; } = DefaultShieldDuration;
 
     /// <summary>
@@ -280,6 +296,12 @@ public sealed record CombatProfile
     /// is (0x466090).
     /// </summary>
     public bool IsHero { get; init; }
+
+    /// <summary>
+    /// The <c>shieldPad</c>: the model units the longest radius of the shield ellipsoid grows by (0x46a74f, 0x46b8f0);
+    /// <see cref="ShieldEllipsoid.DefaultShieldPad"/> when the key is missing.
+    /// </summary>
+    public float ShieldPad { get; init; } = ShieldEllipsoid.DefaultShieldPad;
 
     /// <summary>
     /// The values of the race the definition's <c>race</c> names; stand-in values when the race is missing.

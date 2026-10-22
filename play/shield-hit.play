@@ -1,0 +1,26 @@
+# Two Borg spheres attack two birds of prey on layouts/shield-hit.jsonc, and the birds fire back. Each hit on raised
+# shields shows the shield hit effect on the side facing the shot, sized to the target's shield ellipsoid, its ring
+# flipbook stepping; a beam's effect ends after shieldDuration while the beam goes on. The shots are a tenth of a second
+# apart; the dumps show the shields falling.
+# Run it with --layout layouts/shield-hit.jsonc; the layout's header comment has the whole command.
+wait 0.2
+box Bush3 Bush4
+wait 0.1
+attack Open1
+scroll up 8
+wait 4.5
+dump d1
+shot hit-1
+wait 0.1
+shot hit-2
+wait 0.1
+shot hit-3
+wait 0.1
+shot hit-4
+wait 0.1
+shot hit-5
+wait 0.1
+shot hit-6
+wait 0.6
+shot hit-7
+dump d2

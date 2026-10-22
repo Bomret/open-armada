@@ -205,6 +205,11 @@ The shield geometry that flashes around a unit for a moment when a hit lands whi
 turned toward the hit and colored from red to green by the shields left.
 _Avoid_: shield flash, shield bubble, impact effect
 
+**Shield ellipsoid**
+The axis-aligned ellipsoid around a unit class's model that its shields fill: shots hit where they enter it,
+and the shield hit effect is sized to it.
+_Avoid_: shield bubble, shield sphere
+
 **Shield-down overlay**
 The shield geometry that stays on a unit while its shield generator is destroyed.
 _Avoid_: shield collapse, shield-die effect

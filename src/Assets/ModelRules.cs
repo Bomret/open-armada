@@ -117,19 +117,27 @@ public sealed record TextureAnimation
     /// <summary>The number of frames; <see cref="UvOffset"/> needs at least 1, which <see cref="ModelRules.Animation"/> ensures.</summary>
     public required int Count { get; init; }
 
-    /// <summary>The seconds each frame shows; 0 or less holds the first frame.</summary>
+    // The seconds the evaluator adds to the length before it picks the frame (0x5ccf24).
+    const double LengthPad = 0.05;
+
+    /// <summary>The animation's length over its frame count; 0 or less holds the first frame.</summary>
     public required double FrameSeconds { get; init; }
 
     /// <summary>The animation reference's time offset, added to the time before the frame is picked.</summary>
     public required double Offset { get; init; }
 
     /// <summary>
-    /// The texture coordinate offset of the frame at <c>time</c> plus <see cref="Offset"/>, in seconds: frames run
-    /// row by row and loop after <see cref="Count"/>, also for a negative time.
+    /// The texture coordinate offset of the frame at <c>time</c> plus <see cref="Offset"/>, in seconds, as the game's
+    /// evaluator picks it (0x576220): the time loops over the animation's length L, and the frame is the looped time
+    /// over L + 0.05 (0x5ccf24) times <see cref="Count"/>, truncated, so the last frame of a short animation may never
+    /// show. Frames run row by row. stand-in: a negative time loops like a positive one; the game indexes before its
+    /// first key there.
     /// </summary>
     public Vector2 UvOffset(double time)
     {
-        var frame = FrameSeconds > 0 ? (int)Math.Floor((time + Offset) / FrameSeconds) : 0;
+        var length = FrameSeconds * Count;
+        var looped = length > 0 ? (time + Offset) % length : 0;
+        var frame = length > 0 ? (int)(looped / (length + LengthPad) * Count) : 0;
         frame = ((frame % Count) + Count) % Count;
 
         return new Vector2((float)(frame % Columns) / Columns, (float)(frame / Columns) / Rows);

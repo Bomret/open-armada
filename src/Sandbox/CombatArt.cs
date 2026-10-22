@@ -105,6 +105,8 @@ public sealed class CombatArt
     const string MissingHardpoint = "hardpoint missing from the model, its shots leave from the unit's center";
 
     const string MissingShieldGeometry = "shield geometry missing from the install, its shield hit effect is not shown";
+    const string NotAShieldGeometry =
+        "shieldGeometryName names no model of the game's shield table, its shield hit effect is not shown";
     const string MissingShieldDownModel = "shield-down model missing from the install, the overlay is not shown";
     const string MissingHullSprite = "hull hit sprite missing from the sprite tables, a beam on a hull shows none";
 
@@ -125,6 +127,10 @@ public sealed class CombatArt
 
     // Per model: each node name, matched without regard to case, to the node's offset in the model.
     readonly Dictionary<string, Dictionary<string, Vector3>> _offsetsOfModel = new(StringComparer.OrdinalIgnoreCase);
+
+    // Per model: the model as read; null when it cannot be read.
+    readonly Dictionary<string, Sod?> _sods = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, float> _shieldRadii = new(StringComparer.OrdinalIgnoreCase);
 
     CombatArt(GameFileSystem files) => _files = files;
 
@@ -276,6 +282,23 @@ public sealed class CombatArt
         Log.Error(Area.Combat, $"{kind} {name}: {reason}");
     }
 
+    /// <summary>
+    /// The bounding radius of a shield effect geometry (ShieldEllipsoid.BoundingRadius), which the effect divides the
+    /// ellipsoid's radii by (0x516540); 0 for a geometry that cannot be read.
+    /// </summary>
+    public float ShieldGeometryRadius(string name)
+    {
+        if (!_shieldRadii.TryGetValue(name, out var radius))
+        {
+            Load(name);
+            _shieldRadii[name] = radius = _sods.GetValueOrDefault(name) is { } sod
+                ? ShieldEllipsoid.BoundingRadius(sod, ShieldEllipsoid.SpriteNodeLines(_files))
+                : 0;
+        }
+
+        return radius;
+    }
+
     /// <summary>The gaps found by <see cref="Build"/> and <see cref="Report"/>, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports => _gaps.Entries;
 
@@ -305,7 +328,7 @@ public sealed class CombatArt
         _offsetsOfModel[model] = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            var sod = Sod.Read(_files.ReadAllBytes(model + ".sod"));
+            var sod = _sods[model] = Sod.Read(_files.ReadAllBytes(model + ".sod"));
             foreach (var node in sod.Nodes)
                 nodes.TryAdd(node.Name, NodeName.Of(node.Name));
             _offsetsOfModel[model] = HardpointGeometry.Offsets(sod);
@@ -334,10 +357,15 @@ public sealed class CombatArt
         _sprites[name] = SpriteArt.Of(row.Table, row.Sprite);
     }
 
-    // The shield hit effect geometry of an ordnance: listed when the install holds it, else a gap with its name.
+    // The shield hit effect geometry of an ordnance: listed when it is in the game's table and the install holds it,
+    // else a gap with its name. stand-in: a name outside the table shows no effect; the game reads before its table.
     void ResolveShieldGeometry(string name, PlacedObject unit)
     {
-        if (_files.Find(name + ".sod") == null)
+        if (!OrdnanceProfile.ShieldGeometries.Contains(name, StringComparer.OrdinalIgnoreCase))
+        {
+            _gaps.Add(NotAShieldGeometry, name, unit);
+        }
+        else if (_files.Find(name + ".sod") == null)
         {
             _gaps.Add(MissingShieldGeometry, name, unit);
         }

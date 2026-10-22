@@ -28,12 +28,14 @@ public class ShieldEffectTests
             shieldDuration: duration
         );
 
-    // a (team 1, at 0) fires one shot of `ordnance` at b (team 2, 50 away, shields `shields`); returns the world.
+    // a (team 1, at 0) fires one shot of `ordnance` at b (team 2, 50 away, shields `shields`, a shield sphere of
+    // `shieldRadius` around its center, none for 0); returns the world.
     static (CombatWorld World, PlacedObject A, PlacedObject B) Fight(
         OrdnanceProfile ordnance,
         float shields = 100,
         float radius = 0,
-        IReadOnlyList<SystemProfile>? systems = null
+        IReadOnlyList<SystemProfile>? systems = null,
+        float shieldRadius = 8
     )
     {
         var a = Placed("a", 1, 0);
@@ -56,6 +58,10 @@ public class ShieldEffectTests
                     DefinitionName = "b.odf",
                     Radius = radius,
                     Mobile = true,
+                    Shield =
+                        shieldRadius > 0
+                            ? new ShieldEllipsoid(Vector3.Zero, new Vector3(shieldRadius), Vector3.Zero)
+                            : null,
                 },
             ],
             1,
@@ -138,15 +144,41 @@ public class ShieldEffectTests
     }
 
     [TestMethod]
-    public void TheEffectSitsOnTheShieldSurfaceTowardTheHit()
+    public void TheEffectSitsWhereTheShotEntersTheShield()
     {
-        var (world, _, _) = Fight(Torpedo(), radius: 8);
+        var (world, _, _) = Fight(Torpedo());
 
-        var effect = world.Step(1).OfType<ShieldHitEffect>().Single();
+        var events = world.Step(1);
+        var effect = events.OfType<ShieldHitEffect>().Single();
 
-        // the torpedo comes from -X toward the center at x=50; the contact is on the bubble facing it
-        Assert.AreEqual(50 - 8 * CombatWorld.BubbleRadii, effect.Contact.X, 1e-3);
+        // the torpedo comes from -X toward the center at x=50 and enters the shield sphere of radius 8 at x=42
+        Assert.AreEqual(42, effect.Contact.X, 1e-3);
         Assert.AreEqual(0, effect.Contact.Z, 1e-3);
+        Assert.AreEqual(-1, effect.Direction.X, 1e-4);
+        Assert.AreEqual(42, events.OfType<ShotLanded>().Single().Shot.Position.X, 1e-3);
+    }
+
+    [TestMethod]
+    public void AShotOnAUnitWithoutAShieldLandsWithinOneStepOfItsCenterWithNoEffect()
+    {
+        var (world, _, _) = Fight(Torpedo(), shieldRadius: 0);
+
+        var events = world.Step(1);
+
+        Assert.AreEqual(50, events.OfType<ShotLanded>().Single().Shot.Position.X, 1e-3);
+        Assert.AreEqual(0, events.OfType<ShieldHitEffect>().Count());
+    }
+
+    [TestMethod]
+    public void AShotStartingInsideTheShieldLandsBehindItWithNoEffect()
+    {
+        // the shield sphere reaches past the shooter, so the shot never enters it
+        var (world, _, _) = Fight(Torpedo(), shieldRadius: 60);
+
+        var events = world.Step(1);
+
+        Assert.AreEqual(1, events.OfType<ShotLanded>().Count());
+        Assert.AreEqual(0, events.OfType<ShieldHitEffect>().Count());
     }
 
     static UnitCombatState WithGenerator() =>
@@ -215,6 +247,26 @@ public class ShieldEffectTests
         Assert.AreSame(b, effects[0].Unit);
         Assert.AreEqual("xcustom", effects[0].Geometry);
         Assert.AreEqual(0, later);
+    }
+
+    [TestMethod]
+    public void ABeamOnAUnitWithoutAShieldRaisesNoEffect()
+    {
+        var (world, _, _) = Fight(Beam(life: 1), shieldRadius: 0);
+
+        var events = world.Step(2);
+
+        Assert.AreEqual(0, events.OfType<ShieldHitEffect>().Count());
+        Assert.AreEqual(1, events.OfType<ShotLanded>().Count());
+    }
+
+    [TestMethod]
+    public void ABeamKeepsItsLatestShieldContactDirection()
+    {
+        var (world, _, b) = Fight(Beam(life: 1));
+        var effect = world.Step(0.2).OfType<ShieldHitEffect>().Single();
+
+        Assert.AreEqual(-1, effect.Shot.ShieldDirection!.Value.X, 1e-4);
     }
 
     [TestMethod]

@@ -80,6 +80,22 @@ public partial class UnitOrders : Node3D
             gap(report.Text);
         }
 
+        var spriteNodes = ShieldEllipsoid.SpriteNodeLines(files);
+        ShieldEllipsoid? Shield(PlacedObject o, CombatProfile profile)
+        {
+            if (model(o) is not { } sod)
+                return null;
+            var shield = ShieldEllipsoid.Of(sod, spriteNodes, profile.ShieldPad);
+            if (shield == null)
+            {
+                gap(
+                    $"{o.Model}: model has no shield ellipsoid (its box is flat on an axis), it shows no shield hit effect"
+                );
+            }
+
+            return shield;
+        }
+
         var random = seed is { } fixedSeed ? new System.Random(fixedSeed) : new System.Random();
         _world = new CombatWorld(
             _poses,
@@ -93,6 +109,7 @@ public partial class UnitOrders : Node3D
                         u.Object.Class + ".odf",
                     Radius = Radius(nodes[u.Object]),
                     Mobile = u.Movable && u.Unit is Ship && _plan.Physics.ContainsKey(u.Object),
+                    Shield = Shield(u.Object, combat.Profiles[u.Object]),
                 }),
             combat.ShieldDamageProtection,
             random.NextDouble,

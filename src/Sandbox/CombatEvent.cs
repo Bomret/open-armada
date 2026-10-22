@@ -141,6 +141,13 @@ public sealed class Shot(
 
     /// <summary>Whether a beam has raised its shield hit effect or hull hit sprite; it raises one only.</summary>
     public bool EffectRaised { get; internal set; }
+
+    /// <summary>
+    /// A beam's latest shield contact direction (<see cref="ShieldHitEffect.Direction"/>): the world sets it on each
+    /// tick the beam's line enters the target's shield ellipsoid, and its shield hit effect turns to it (0x516c40).
+    /// Null before the first such tick.
+    /// </summary>
+    public Vector3? ShieldDirection { get; internal set; }
 }
 
 /// <summary>What happened in one world step.</summary>
@@ -166,7 +173,8 @@ public sealed record ShotLanded : CombatEvent
 /// <summary>
 /// A shield hit effect: the shield geometry flashes around the target. A projectile raises it as it lands (after the
 /// hit is applied); a beam raises it once a tenth of its lifetime has passed and the effect then follows the beam's
-/// contact point until the beam ends, so <see cref="Duration"/> is only the projectile's.
+/// contact point while the beam lives (0x516c40). Either ends <see cref="Duration"/> seconds after it was raised
+/// (0x516fa0), whether the beam ended before or not.
 /// </summary>
 public sealed record ShieldHitEffect : CombatEvent
 {
@@ -179,10 +187,10 @@ public sealed record ShieldHitEffect : CombatEvent
     /// <summary>The shield geometry's model name, without <c>.sod</c>.</summary>
     public required string Geometry { get; init; }
 
-    /// <summary>Seconds the effect lasts, for a projectile.</summary>
+    /// <summary>Seconds the effect lasts: the ordnance's <c>shieldDuration</c> (0x4eb3c3, 0x4ec299, 0x4ed451).</summary>
     public required double Duration { get; init; }
 
-    /// <summary>The world time of the tick that raised the effect; a projectile's effect ends at this plus <see cref="Duration"/>.</summary>
+    /// <summary>The world time of the tick that raised the effect; the effect ends at this plus <see cref="Duration"/>.</summary>
     public required double Raised { get; init; }
 
     /// <summary>
@@ -192,10 +200,17 @@ public sealed record ShieldHitEffect : CombatEvent
     /// </summary>
     public required double Fraction { get; init; }
 
-    /// <summary>The contact point on the shield, in world units, when the effect was raised.</summary>
+    /// <summary>The contact point on the shield ellipsoid, in world units, when the effect was raised.</summary>
     public required Vector3 Contact { get; init; }
 
-    /// <summary>Whether a beam raised it, so the effect lasts as long as the beam and follows its contact point.</summary>
+    /// <summary>
+    /// The contact direction when the effect was raised: where the shot's segment entered the unit sphere of the
+    /// target's shield test ellipsoid, a unit vector along the model's own SOD axes (0x4ee860). The effect's own +Z
+    /// axis points along it (0x55d840).
+    /// </summary>
+    public required Vector3 Direction { get; init; }
+
+    /// <summary>Whether a beam raised it, so the effect follows the beam's contact point while the beam lives.</summary>
     public bool FollowsBeam => Shot.Kind == ShotKind.Beam;
 }
 

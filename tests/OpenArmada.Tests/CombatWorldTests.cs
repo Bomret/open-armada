@@ -22,6 +22,7 @@ public class CombatWorldTests
         public required CombatProfile Profile { get; init; }
         public bool Mobile { get; init; } = true;
         public float Radius { get; init; } = 0;
+        public ShieldEllipsoid? Shield { get; init; }
     }
 
     static Spec Fighter(string label, int team, float x, WeaponProfile? weapon = null, float shields = 100) =>
@@ -44,6 +45,7 @@ public class CombatWorldTests
                 DefinitionName = s.Object.Label + ".odf",
                 Radius = s.Radius,
                 Mobile = s.Mobile,
+                Shield = s.Shield,
             }),
             1,
             random ?? (() => 0),
@@ -713,16 +715,17 @@ public class CombatWorldTests
     }
 
     [TestMethod]
-    public void ATorpedoHitsAZeroRadiusTargetItPassesClosely()
+    public void ATorpedoHitsATargetWithoutShieldsItPassesWithinOneStep()
     {
+        // 50 per second flies one unit per tick (0x4ec2e2, 0x4ed4c0)
         var torpedo = Beam(label: "photontorpedo", speed: 50, life: 10, omega: 0, threshold: 99);
         var a = Fighter("a", 1, 0, Weapon(torpedo, delay: 100, range: 200));
-        var b = Fighter("b", 2, 100, shields: 0); // radius 0, as a unit whose model has no meshes
+        var b = Fighter("b", 2, 100, shields: 0);
         var world = World(out var poses, null, a, b);
         world.Attack(a.Object, b.Object);
         world.Step(0.02);
-        // the target moves one unit aside; the torpedo flies on straight and passes one unit from its center
-        poses.Advance(b.Object, MovingTo(b.Object, 100, 1), 1000);
+        // the target moves half a unit aside; the torpedo flies on straight and passes half a unit from its center
+        poses.Advance(b.Object, MovingTo(b.Object, 100, 0.5f), 1000);
         Assert.AreEqual(1, world.Step(3).OfType<ShotLanded>().Count());
     }
 
@@ -741,23 +744,26 @@ public class CombatWorldTests
         var world = World(out var poses, null, a, b);
         world.Attack(a.Object, b.Object);
         world.Step(0.02);
-        // the target moves three units aside; the torpedo flies on straight and passes between its radius and 5
+        // the target moves three units aside; the torpedo flies on straight and passes it farther than one step
         poses.Advance(b.Object, MovingTo(b.Object, 100, 3), 1000);
         Assert.AreEqual(0, world.Step(3).OfType<ShotLanded>().Count());
     }
 
     [TestMethod]
-    public void ATorpedoHitsTheShieldBubbleWhileShieldsAreUp()
+    public void ATorpedoHitsTheShieldEllipsoidWhileShieldsAreUp()
     {
-        // life 1.55 s at 50 per second flies 77.5 of the 100 to the center: inside the bubble, short of the hull
+        // life 1.55 s at 50 per second flies 77.5 of the 100 to the center: into a shield of radius 25, short of
+        // the center (0x4ec27a, 0x4ed427)
         var torpedo = Beam(label: "photontorpedo", speed: 50, life: 1.55f, threshold: 99);
         var a = Fighter("a", 1, 0, Weapon(torpedo, delay: 100, range: 200));
+        var shield = new ShieldEllipsoid(Vector3.Zero, new Vector3(25), Vector3.Zero);
         var shielded = new Spec
         {
             Object = Placed("b", 2, 100),
             Profile = Profile(maxHealth: 100),
             Mobile = true,
             Radius = 20,
+            Shield = shield,
         };
         var bare = new Spec
         {
@@ -765,6 +771,7 @@ public class CombatWorldTests
             Profile = Profile(maxHealth: 0),
             Mobile = true,
             Radius = 20,
+            Shield = shield,
         };
         var withShields = World(null, a, shielded);
         withShields.Attack(a.Object, shielded.Object);

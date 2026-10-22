@@ -7,7 +7,7 @@ format notes.
 ## Where to read
 
 - Domain terms: `CONTEXT.md`.
-- Combat rules and their recovered values: `docs/combat-rules.md`.
+- Combat rules and their recovered values: `docs/combat-rules.md`; the rules of single mechanics in `docs/rules/` (the shield effects in `docs/rules/shield-effects.md`).
 - The built-in maps, their teams, and which ones start with warships on two teams: `docs/maps.md` for the stock 1.2 install. On any other install, pick a sandbox test map from the `--maps` run (`README.md`, "Summarize the maps of an install").
 - How the game draws a unit's status in the world: `docs/selection-display.md`.
 - Decisions: `docs/adr/`. Invariants: `docs/invariants.md`.

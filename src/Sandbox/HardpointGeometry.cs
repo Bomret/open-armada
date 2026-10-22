@@ -65,6 +65,22 @@ public static class HardpointGeometry
     /// </summary>
     public static Vector3 WorldPosition(PlacedObject unit, ShipPose pose, Vector3 offset)
     {
+        var (scale, turned) = Placement(unit, pose);
+
+        return pose.Position + Vector3.Transform(offset * scale, turned);
+    }
+
+    /// <summary>The offset in the model, in Godot's frame, of the world point <c>at</c>: the inverse of <see cref="WorldPosition"/>.</summary>
+    public static Vector3 ModelOffset(PlacedObject unit, ShipPose pose, Vector3 at)
+    {
+        var (scale, turned) = Placement(unit, pose);
+
+        return Vector3.Transform(at - pose.Position, Quaternion.Inverse(turned)) / scale;
+    }
+
+    // The scale and the rotation of the unit's node transform at the pose.
+    static (Vector3 Scale, Quaternion Turned) Placement(PlacedObject unit, ShipPose pose)
+    {
         // The basis splits into scale and rotation as Godot's Basis does: a negative determinant negates the scale.
         var sign = Vector3.Dot(unit.AxisX, Vector3.Cross(unit.AxisY, unit.AxisZ)) < 0 ? -1f : 1f;
         var scale = new Vector3(unit.AxisX.Length(), unit.AxisY.Length(), unit.AxisZ.Length()) * sign;
@@ -76,6 +92,6 @@ public static class HardpointGeometry
         );
         var turned = MoveGeometry.Orientation(initial, pose.Heading - MoveGeometry.BowHeading(unit.AxisZ), pose.Bank);
 
-        return pose.Position + Vector3.Transform(offset * scale, turned);
+        return (scale, turned);
     }
 }

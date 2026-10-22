@@ -1,0 +1,15 @@
+# Two Federation destroyers on layouts/emitters.jsonc: Venting starts with its engines and life support destroyed, so its
+# plasma and steam damage emitters spray; Intact is undamaged. The dump names the damage nodes each model shows; the
+# shots, a fraction of a second apart, show the spray build up.
+# Run it with --layout layouts/emitters.jsonc; the layout's header comment has the whole command.
+scroll up 20
+wait 0.3
+shot spray-1
+dump d1
+wait 0.5
+shot spray-2
+wait 0.5
+shot spray-3
+wait 1.5
+shot spray-4
+dump d2

@@ -406,6 +406,44 @@ models; the game's search is not known beyond them. The game also compares the s
 one before it shows anything (0x4677b0, first branch); the sandbox has only the normal model. A derelict has no
 crew, so its crew chain shows.
 
+## Damage emitters
+
+An emitter node (SOD node type 12) under a damage node names an `@emitter` block of a sprite table (0x59b650,
+0x58a960). The sprite table parser reads the block (0x599ab0) with these keys:
+
+- `type`: `spray` (1), `cloud` (2), or `beam` (3). Only spray plays; the others are read and reported as not
+  played (**stand-in**).
+- `sprite`: the name of a `@sprite_node` line, which gives the particle's sprite, size, colour, and node
+  animation. A spray block with no `sprite` key is reported by the parser, and a name no table defines is reported; the
+  emitter sprays nothing in either case.
+- `spread_angle`: degrees. `expansion_rate`: world units per second, added to the sprite node's size. `velocity`:
+  world units per second (0x5757b0). `lifespan`: seconds. `firing_period`: seconds between spawns.
+- `pixel`, `particle_count`, and `cloud_radius` are read and unused (the use of `pixel` is not recovered).
+  Any other key is reported, and the rest of the block still parses.
+
+**Spray** (0x575400): each step the timer (a 32-bit float) counts down by the step's seconds (0x575425). While the
+emitter is active and the timer is below 0, one particle spawns and the timer is set to the period (0x57549f). The
+overshoot is not carried, so a step spawns at most one particle, a period of 0 means one per step, and a period of
+0.1 s gives one particle every 0.12 s (about 8.3 per second) when float arithmetic leaves the timer a hair above 0
+after 5 steps of 0.02 s. The game steps the timer by the frame's seconds. **Stand-in**: the sandbox steps it on the
+fixed 0.02 s tick of simulated time (`CombatWorld.Tick`), so the rate is the same at any frame rate and step size.
+
+**Particle** (0x5746d0): it starts at the emitter node's world transform, rotated by three angles, each uniform in
+plus or minus `spread_angle` (so the tilt from +Z reaches at most acos(cos² `spread_angle`), about `spread_angle` times the square root of two for
+small angles). It moves
+along the node's local +Z at `velocity`. It draws as a billboard of its sprite node at the sprite node's size plus
+`expansion_rate` times its age. **Stand-in**: the sprite node's animation plays once from the particle's birth and
+holds its last keyframe. A size at or below 0 is not drawn (0x584040). It dies at `lifespan`.
+
+An emitter under a hidden damage node neither sprays nor draws (scene traversal skips it, 0x57cee0). An emitter
+whose definition or sprite node is missing is reported once and skipped; the model still loads.
+
+**Stand-in**: the live particles of an emitter whose node turns hidden freeze (age and position) and are not drawn
+until the node shows again, since what the game does to them is not recovered. The timer starts at 0, so the first
+tick after the node shows spawns a particle (the start value is set outside 0x575400, not recovered). The three
+angles turn the direction as roll about Z, then pitch about X, then yaw about Y (the order is not recovered). The
+particles' random source is the play run's seed (INV-0008).
+
 ## Not known
 
 - The attack maneuver within range, and yellow alert's extra validity check.

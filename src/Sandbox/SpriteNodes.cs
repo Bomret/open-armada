@@ -116,40 +116,53 @@ public sealed class SpriteNodes(IReadOnlyList<SpriteNode> nodes, IReadOnlyList<R
                 continue;
             }
 
-            var line = hit.Line;
             rows ??= SpriteArt.Rows(files);
-            if (!rows.TryGetValue(line.Sprite, out var row))
+            if (Resolve(node, hit.Table, hit.Line, rows, gaps) is { } resolved)
             {
-                gaps.Add(MissingSprite, line.Sprite, node);
-
-                continue;
+                nodes.Add(resolved);
             }
-
-            NodeAnimation? animation = null;
-            if (hit.Table.Animations.TryGetValue(line.Animation, out var a))
-            {
-                animation = new NodeAnimation(a);
-            }
-            else if (!line.Animation.Equals(NoAnimation, StringComparison.OrdinalIgnoreCase))
-            {
-                gaps.Add(MissingAnimation, line.Animation, node);
-            }
-
-            nodes.Add(
-                new SpriteNode
-                {
-                    Node = node,
-                    Sprite = SpriteArt.Of(row.Table, row.Sprite),
-                    Width = line.Width,
-                    Height = line.Height,
-                    Colour = line.Colour,
-                    Billboard = line.Billboard,
-                    Animation = animation,
-                }
-            );
         }
 
         return new SpriteNodes(nodes, gaps.Entries);
+    }
+
+    // The sprite node `line` of `table` drawn on `node`; null (a gap) when no table defines its sprite. A missing
+    // animation is a gap too, and the sprite then plays none.
+    internal static SpriteNode? Resolve(
+        Sod.Node node,
+        SpriteTable table,
+        SpriteNodeLine line,
+        Dictionary<string, (SpriteTable Table, Sprite Sprite)> rows,
+        Gaps gaps
+    )
+    {
+        if (!rows.TryGetValue(line.Sprite, out var row))
+        {
+            gaps.Add(MissingSprite, line.Sprite, node);
+
+            return null;
+        }
+
+        NodeAnimation? animation = null;
+        if (table.Animations.TryGetValue(line.Animation, out var a))
+        {
+            animation = new NodeAnimation(a);
+        }
+        else if (!line.Animation.Equals(NoAnimation, StringComparison.OrdinalIgnoreCase))
+        {
+            gaps.Add(MissingAnimation, line.Animation, node);
+        }
+
+        return new SpriteNode
+        {
+            Node = node,
+            Sprite = SpriteArt.Of(row.Table, row.Sprite),
+            Width = line.Width,
+            Height = line.Height,
+            Colour = line.Colour,
+            Billboard = line.Billboard,
+            Animation = animation,
+        };
     }
 
     static string Unnumbered(string name) => Regex.Replace(name, @"_[0-9]+$", "");

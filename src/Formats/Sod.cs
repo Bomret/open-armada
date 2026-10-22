@@ -408,6 +408,24 @@ public sealed class Sod
         return _children[node];
     }
 
+    /// <summary>The nodes below a node at any depth, not the node itself, each once (<see cref="ChildrenOf"/>).</summary>
+    public IEnumerable<Node> Descendants(Node node)
+    {
+        var seen = new HashSet<Node>();
+        var pending = new Stack<Node>(ChildrenOf(node));
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (!seen.Add(current))
+                continue;
+            yield return current;
+            foreach (var child in ChildrenOf(current))
+            {
+                pending.Push(child);
+            }
+        }
+    }
+
     static bool InParentCycle(IReadOnlyList<Node> nodes, Node node)
     {
         var seen = new HashSet<Node>();

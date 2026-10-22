@@ -168,6 +168,16 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         var falloff = SoundFalloff.For(System.Numerics.Vector3.Distance(eye, target));
         AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, gap => AddGap(gap)));
         _gaps.AddRange(art.Reports.Select(r => r.Text));
+        AddChild(
+            new DamageSprayView(
+                files,
+                orders.Combat,
+                nodes,
+                o => _sods.GetValueOrDefault(o.Model),
+                gap => AddGap(gap),
+                play == null ? null : PlayScript.Seed
+            )
+        );
 
         AddChild(new AsteroidFieldsView(files, plan, Note, gap => AddGap(gap), Unreadable));
 

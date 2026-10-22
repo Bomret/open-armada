@@ -212,8 +212,7 @@ public partial class UnitOrders : Node3D
             return;
         var (damage, nodes) = groupAndNodes;
         var model = _model(unit.Unit);
-        var all = model?.Nodes.ToList() ?? [];
-        var showing = DamageNodes.ShowingNodes(model, unit).Select(n => all.IndexOf(n)).ToHashSet();
+        var showing = model == null ? [] : DamageNodes.ShowingNodes(model, unit).Select(model.IndexOf).ToHashSet();
         damage.Visible = showing.Count > 0;
         foreach (var node in nodes)
         {

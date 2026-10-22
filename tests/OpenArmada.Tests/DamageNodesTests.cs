@@ -222,6 +222,26 @@ public class DamageNodesTests
     }
 
     [TestMethod]
+    public void ANodeIsTheChildOfTheFirstNodeOfItsParentNameOnlyAsTheBuilderHangsIt()
+    {
+        // `kid` names "dup", and the first node named dup sits under `target`: the builder hangs kid there, so the
+        // second dup, under the destroyed engines, shows without it.
+        var model = Model(
+            Node("root", ""),
+            Node("damage", "root"),
+            Node("target", "damage"),
+            Node("dup", "target"),
+            Node("engines", "damage"),
+            Node("dup", "engines"),
+            Node("kid", "dup")
+        );
+        var unit = Unit();
+        Destroy(unit, SystemNames.Engines);
+
+        CollectionAssert.AreEqual(new[] { "engines", "dup" }, DamageNodes.Showing(model, unit).ToArray());
+    }
+
+    [TestMethod]
     public void TheBorgNodeNeverShowsEvenWithEverySystemDestroyedAndNoCrew()
     {
         var unit = Unit(0);

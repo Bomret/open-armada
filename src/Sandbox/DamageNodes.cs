@@ -48,11 +48,12 @@ public static class DamageNodes
     {
         var nodes = model?.Nodes ?? [];
         var damage = nodes.FirstOrDefault(n => n.Name.Equals("damage", StringComparison.OrdinalIgnoreCase));
-        if (damage == null)
+        if (model == null || damage == null)
             return [];
 
         var showing = new HashSet<Sod.Node>();
-        IEnumerable<Sod.Node> ChildrenOf(Sod.Node parent) => nodes.Where(n => n.Parent == parent.Name && n != parent);
+        // The children are the ones the builder hangs from a node, so the first node of a name owns its children.
+        IEnumerable<Sod.Node> ChildrenOf(Sod.Node parent) => model.ChildrenOf(parent);
         Sod.Node? Named(string name) =>
             ChildrenOf(damage).FirstOrDefault(n => n.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 

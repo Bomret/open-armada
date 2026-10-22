@@ -30,31 +30,6 @@ public enum HitLocation
 }
 
 /// <summary>
-/// The names of the five ship systems: SystemProfile.Name and the keys of UnitCombatState.Systems. Each is the name
-/// of the system's hit location, so a hit location's name is the system it damages.
-/// </summary>
-public static class SystemNames
-{
-    /// <summary>The name of the engines, whose definition keys start with <c>engines</c>.</summary>
-    public const string Engines = nameof(HitLocation.Engines);
-
-    /// <summary>The name of life support, whose definition keys start with <c>lifeSupport</c>.</summary>
-    public const string LifeSupport = nameof(HitLocation.LifeSupport);
-
-    /// <summary>The name of the weapons system, whose definition keys start with <c>weapons</c>.</summary>
-    public const string Weapons = nameof(HitLocation.Weapons);
-
-    /// <summary>The name of the shield generator, whose definition keys start with <c>shieldGenerator</c>.</summary>
-    public const string ShieldGenerator = nameof(HitLocation.ShieldGenerator);
-
-    /// <summary>The name of the sensors, whose definition keys start with <c>sensors</c>.</summary>
-    public const string Sensors = nameof(HitLocation.Sensors);
-
-    /// <summary>The five names in the order of <see cref="HitLocation"/>, so the index of a system is its location.</summary>
-    public static readonly string[] All = [Engines, LifeSupport, Weapons, ShieldGenerator, Sensors];
-}
-
-/// <summary>
 /// The outcome of one hit on a unit: where it landed, the damage rolled, the shield points lost, the crew lost,
 /// the whole points of the systems part that passed on, and whether it destroyed the unit.
 /// </summary>

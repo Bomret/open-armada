@@ -5,7 +5,6 @@ using System.Linq;
 using System.Numerics;
 using System.Text.Json;
 using OpenArmada.Formats;
-using OpenArmada.Sandbox;
 
 namespace OpenArmada.Assets;
 

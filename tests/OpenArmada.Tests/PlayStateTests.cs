@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 using static OpenArmada.Tests.CombatFixtures;
 

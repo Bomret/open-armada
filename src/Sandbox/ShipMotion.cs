@@ -74,8 +74,8 @@ public sealed class ShipMotion
     Vector3 _position;
     float _heading;
     float _bank;
-    float _speed; // units per second along the heading, as of the last step
-    float _turnRate; // radians per second, as of the last step
+    float _speed; // units per second along the heading, as of the last thrust step
+    float _turnRate; // radians per second, as of the last thrust step
     Vector3 _velocity; // units per second while coasting, fixed in direction by the loss of thrust
     Start? _last; // the last thrust step, null before one
     double _pending; // coast time not yet run as a whole world tick

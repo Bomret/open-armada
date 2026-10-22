@@ -134,6 +134,12 @@ The game's rules that turn a weapon's fire into hits, shield loss, crew loss, sy
 destruction, recovered from the game's program and restated in our own words.
 _Avoid_: damage model, combat formulas
 
+**Team**
+The player a unit belongs to, numbered as the map numbers its teams. A unit starts on the team the map
+places it on; a capture moves it to another team. Hostility, targeting, selection, the selection display,
+and the state dump read the unit's current team.
+_Avoid_: owner, side, faction
+
 **Hostile**
 A unit of another team than the unit judging it, team 0 excepted. Team 0 is neutral and hostile to no one.
 _Avoid_: enemy unit, opponent

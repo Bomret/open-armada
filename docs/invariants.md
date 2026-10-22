@@ -80,3 +80,21 @@ Statement: A preview returns the notes of the asset it shows beside the view it 
 Breaks: silently
 Check: a unit test that scans the preview sources for log calls on notes and for direct `Log.Warn`, `Log.Info`, and `Log.Error` calls, and a unit test that shows one asset through the asset browser and finds each of its notes logged once.
 Paths: src/Viewer/*Preview.cs, src/Assets/AssetBrowser.cs
+
+### INV-0012
+
+Class: behavior
+Concepts: Team, Hostile, Selection display, State dump
+Statement: Hostility, targeting, orders, the selection display, and the state dump read a unit's current team; once the map sandbox runs, none of them reads the team the map placed the unit on.
+Breaks: silently
+Check: a unit test that scans the sandbox and viewer sources for reads of the placed object's team outside the map plan, the map summary, and the map previews, and a unit test that captures a unit and finds its former teammates hostile to it.
+Paths: src/Sandbox/**, src/Viewer/**
+
+### INV-0013
+
+Class: behavior
+Concepts: Play script, Play run, Map sandbox
+Statement: Every order, selection, or key action a player gives in the map sandbox has a play-script step that sends the same input event through the same handler.
+Breaks: silently
+Check: none — no cheap test pairs each input handler with a step; reviewers check that a change adding a player action adds its play-script step.
+Paths: src/Viewer/**, src/Sandbox/PlayScript.cs

@@ -370,6 +370,42 @@ thrust and runs on the world's fixed tick, so positions do not depend on frame r
 coasting ship between its tick poses; the simulated pose stays on the tick. **Stand-in**: the position moves
 by the mean velocity of each tick (the half-step integration detail is medium confidence).
 
+## Damage nodes
+
+A ship model's `damage` group holds the nodes that show wear. The combat state decides each frame which show
+(0x472120 calls 0x4677b0 for each ship; no randomness), so a node turns off again on repair or recrew. The
+sandbox decides and the view only toggles nodes; the sprite nodes under a showing node play, and a node that
+does not show hides its subtree.
+
+The class init (0x45fea0) finds seven nodes by whole name, ignoring case, with no prefix match (names at
+0x600518..0x600548): `crew`, `engines`, `life`, `sensors`, `shields`, `target`, and `borg`. The stock models
+name the shield-generator node `shield`, so that node never binds, as in the game. `borg` stays hidden;
+assimilation is not built.
+
+- **Crew chain:** the ratio r is crew over `maximumCrew` over the race's `crewYellowStatus` (0x444437,
+  0x4677b0). From the `crew` node the walk follows each node's first child. The node at depth k (the `crew`
+  node is depth 0) shows while r + 0.2k is below 1 (constants 0x5ca758 and 0x5ccf30). There is no depth limit
+  in the code; r above 0 shows at most five nodes, and a ratio of 0 shows five. The game compares the
+  ship's `maximumCrew` (ship +0x4c8) with 0 (constant 0x5ca16c) at 0x467803..0x46782a; when it is 0 the
+  numerator is 1 (constant 0x5ca238) instead of crew over `maximumCrew`, and 0x467836 divides the result by
+  the race's `crewYellowStatus` (race +0x204). The class load reads `maximumCrew` into the class
+  (0x4601d7, class +0x228; ship init copies it at 0x4618eb) and defaults it to the class's `crewCost`
+  (class +0x70). A unit whose maximum crew is 0, by an explicit `maximumCrew 0` or by no `maximumCrew` and a
+  `crewCost` of 0, has r = 1 / `crewYellowStatus`, so it shows no crew node for any `crewYellowStatus` of 1
+  or less. The sandbox's crew pool and crew-status ratio use a stand-in of the `crewCost`, at least 1, for a
+  maximum of 0; the damage nodes read the game's own maximum.
+- **System nodes:** the subtree of `engines`, `life`, `sensors`, `target`, or `shields` shows while the ship
+  system is destroyed (0x4679b0): engines, life support, sensors, weapons, and shield generator in turn (the
+  system structures at 0x518, 0x588, 0x5c0, 0x550, and 0x4e0 of the ship).
+- A model without a `damage` group, without a `crew` node, or with a differently named system node shows
+  nothing for it. A race whose `crewYellowStatus` is 0 or less shows no crew node. A chain that loops stops at
+  the first repeat.
+
+**Stand-in**: the nodes are looked up among the direct children of the `damage` group, which holds for the stock
+models; the game's search is not known beyond them. The game also compares the ship's model with its normal
+one before it shows anything (0x4677b0, first branch); the sandbox has only the normal model. A derelict has no
+crew, so its crew chain shows.
+
 ## Not known
 
 - The attack maneuver within range, and yellow alert's extra validity check.

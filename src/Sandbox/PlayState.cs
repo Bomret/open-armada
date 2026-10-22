@@ -18,16 +18,24 @@ public sealed class PlayState
 {
     readonly UnitNames _names;
     readonly Func<PlacedObject, ShipPose> _pose;
+    readonly Func<PlacedObject, Sod?> _model;
     readonly Dictionary<PlacedObject, UnitCombatState> _states = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// <c>names</c> holds the addressable units; <c>pose</c> reads a unit's current pose; <c>states</c> are the
-    /// combat states of the units in the combat world at the start of the run.
+    /// combat states of the units in the combat world at the start of the run; <c>model</c> reads a unit's model
+    /// for the damage nodes of its dump line (null: no unit has one).
     /// </summary>
-    public PlayState(UnitNames names, Func<PlacedObject, ShipPose> pose, IEnumerable<UnitCombatState> states)
+    public PlayState(
+        UnitNames names,
+        Func<PlacedObject, ShipPose> pose,
+        IEnumerable<UnitCombatState> states,
+        Func<PlacedObject, Sod?>? model = null
+    )
     {
         _names = names;
         _pose = pose;
+        _model = model ?? (_ => null);
         foreach (var state in states)
         {
             _states[state.Unit] = state;
@@ -45,7 +53,8 @@ public sealed class PlayState
     /// <c>state=none</c> after its position. Fields, space-separated: name, team, pos (x,y,z), shields, crew, one
     /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, coasting,
     /// destroyed (true once the unit has left the world), dying, alert, order,
-    /// target, shieldDown (whether the shield-down overlay shows).
+    /// target, shieldDown (whether the shield-down overlay shows), damage (the names of the showing damage nodes,
+    /// comma-separated, or <c>none</c>; see <see cref="DamageNodes"/>).
     /// </summary>
     public string Dump()
     {
@@ -76,6 +85,8 @@ public sealed class PlayState
                         + $" alert={s.Alert} order={Of(s.Order)} target={Of(s.Target)}"
                         + $" shieldDown={Flag(s.ShieldDownOverlay)}"
                 );
+                var damage = DamageNodes.Showing(_model(unit), s);
+                text.Append(" damage=").Append(damage.Count == 0 ? "none" : string.Join(',', damage));
             }
             else
             {

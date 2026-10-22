@@ -234,9 +234,17 @@ public sealed record CombatProfile
     public required float CrewCost { get; init; }
 
     /// <summary>
-    /// The <c>maximumCrew</c>, the base of the crew ratio. When it is missing or zero, the crew cost, at least 1.
+    /// The <c>maximumCrew</c> (the crew cost where missing), the base of the crew ratio. Where that is 0, the crew
+    /// cost, at least 1, as a stand-in.
     /// </summary>
     public required float MaximumCrew { get; init; }
+
+    /// <summary>
+    /// The game's own maximum crew (0x4601d7): the <c>maximumCrew</c>, or the <c>crewCost</c> where it is missing; 0
+    /// where that is 0 (no stand-in). The damage nodes read this one: the game treats a unit whose maximum crew is 0
+    /// as having a crew ratio of 1 (0x467803).
+    /// </summary>
+    public required float DefinedMaximumCrew { get; init; }
 
     /// <summary>
     /// The ship systems with hit points above zero, in the order engines, life support, weapons, shield generator,

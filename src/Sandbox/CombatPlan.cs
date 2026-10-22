@@ -15,7 +15,8 @@ namespace OpenArmada.Sandbox;
 /// Each gap is logged once per cause as a WARN; a definition or constants file that exists but cannot be read is
 /// logged instead as one ERROR per file, with its name and reason (INV-0005, INV-0002).
 /// A value the install lacks takes a stand-in (INV-0003) and is reported when the rules need it; no profile value is
-/// a non-number. MaximumCrew is above zero: a maximumCrew missing or 0 takes the stand-in crewCost, at least 1.
+/// a non-number. MaximumCrew is above zero: a maximumCrew missing defaults to the crewCost as in the game, and a
+/// maximum of 0 takes the stand-in crewCost, at least 1.
 /// </summary>
 public sealed class CombatPlan
 {
@@ -196,12 +197,14 @@ public sealed class CombatPlan
         {
             var r = new Values(d, gaps);
             var crewCost = r.Num("crewCost", 1, report: true); // stand-in: one crew
-            var maximumCrew = r.Num("maximumCrew", 0);
+            // the game's rule (0x4601d7): maximumCrew defaults to the crewCost
+            var maximumCrew = r.Num("maximumCrew", crewCost);
+            var definedMaximumCrew = Math.Max(0, maximumCrew);
             if (maximumCrew <= 0)
             {
-                // stand-in: the crew cost, or one, where no maximum crew is given; a ratio over it stays a number
+                // stand-in: the game's maximum is 0 here, but the crew-status ratio over it must stay a number
                 maximumCrew = Math.Max(1, crewCost);
-                r.Gap("maximumCrew missing or 0, stand-in crewCost (at least 1) used");
+                r.Gap("maximumCrew resolves to 0, stand-in crewCost (at least 1) used for the crew ratio");
             }
 
             var systems = new List<SystemProfile>();
@@ -232,6 +235,7 @@ public sealed class CombatPlan
                 ShieldDelay = r.Num("shieldDelay", 0),
                 CrewCost = crewCost,
                 MaximumCrew = maximumCrew,
+                DefinedMaximumCrew = definedMaximumCrew,
                 Systems = systems,
                 HullHitPercent = r.Num("hullHitPercent", 0),
                 LifeSupportLoss = r.Num("lifeSupportLoss", 0),

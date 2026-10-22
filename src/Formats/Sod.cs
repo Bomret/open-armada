@@ -376,6 +376,38 @@ public sealed class Sod
     /// </summary>
     public bool InParentCycle(Node node) => InParentCycle(Nodes, node);
 
+    Dictionary<Node, int>? _indexes;
+    ILookup<Node, Node>? _children;
+
+    /// <summary>The position of a node in <see cref="Nodes"/>, or -1 for a node the model lacks.</summary>
+    public int IndexOf(Node node)
+    {
+        _indexes ??= Nodes.Select((n, i) => (n, i)).ToDictionary(p => p.n, p => p.i);
+        return _indexes.GetValueOrDefault(node, -1);
+    }
+
+    /// <summary>
+    /// The nodes hung from a node, in model order, as <c>SodBuilder</c> hangs them: a node is the child of the first
+    /// node named by its parent, and a node in a parent cycle is the child of none. Built once per model.
+    /// </summary>
+    public IEnumerable<Node> ChildrenOf(Node node)
+    {
+        if (_children == null)
+        {
+            var first = new Dictionary<string, Node>();
+            foreach (var n in Nodes)
+            {
+                first.TryAdd(n.Name, n);
+            }
+
+            _children = Nodes
+                .Where(n => n.Parent.Length > 0 && first.ContainsKey(n.Parent) && !InParentCycle(n))
+                .ToLookup(n => first[n.Parent]);
+        }
+
+        return _children[node];
+    }
+
     static bool InParentCycle(IReadOnlyList<Node> nodes, Node node)
     {
         var seen = new HashSet<Node>();

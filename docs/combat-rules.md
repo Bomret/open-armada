@@ -235,8 +235,8 @@ raises none, and one hit raises one effect.
 - **Placement.** The effect sits at the ship's center, scaled to the shield ellipsoid and turned so one axis
   points at the contact point on the ellipsoid (0x4ee860, 0x55d840, 0x516540). **Stand-in**: the ellipsoid is
   a sphere of 1.25 times the unit's radius, the contact point is where that sphere meets the line from the
-  shot to the unit's center, and the effect's +Z axis points at it; the ellipsoid's source and the game's
-  axis are not recovered.
+  shot to the unit's center, and the +Z axis of the geometry's own SOD coordinates points at it; the
+  ellipsoid's source and the game's axis are not recovered.
 - **Color.** The color is (1 - s, s, 0), with s the shield fraction (shields over `maxHealth`) read when the
   effect spawns (0x5170e0). A projectile's effect spawns after its damage, so a hit that empties the shields
   shows red. A beam's effect spawns a tenth of the way through its lifetime, before the beam's own damage

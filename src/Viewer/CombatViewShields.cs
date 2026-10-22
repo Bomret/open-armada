@@ -96,7 +96,8 @@ public partial class CombatView
         }
     }
 
-    // Turns the effect so its +Z axis points along `direction` (world), scaled; the effect is a child of the unit node.
+    // Turns the effect so the model's own +Z axis points along `direction` (world), scaled; the effect is a child of
+    // the unit node. The import mirrors Z (SodBuilder), so the model's +Z is the node's -Z, which LookingAt aims.
     // stand-in: which axis of the game's geometry points at the contact is not recovered.
     static void Aim(Node3D effect, Node3D unit, Vector3 direction, float scale)
     {
@@ -108,7 +109,7 @@ public partial class CombatView
 
         local = local.Normalized();
         var up = Math.Abs(local.Y) > 0.999f ? Vector3.Right : Vector3.Up;
-        effect.Basis = Basis.LookingAt(-local, up).Scaled(Vector3.One * scale);
+        effect.Basis = Basis.LookingAt(local, up).Scaled(Vector3.One * scale);
     }
 
     static float ShieldScale(Node3D template, UnitCombatState target) =>

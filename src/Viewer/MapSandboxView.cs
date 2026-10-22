@@ -152,7 +152,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             combat,
             gap => AddGap(gap),
             (unit, name, pose) => art!.HardpointPosition(unit, name, pose),
-            play == null ? null : PlayScript.Seed
+            play == null ? null : PlayScript.Seed,
+            o => _sods.GetValueOrDefault(o.Model)
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
@@ -193,7 +194,12 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             // The units a script can address are those at the start; a destroyed unit leaves the selection. The
             // driver comes after the orders node, so each frame's combat step runs before the script's steps.
             var names = new UnitNames(selection.Units.Select(u => u.Object));
-            var state = new PlayState(names, orders.Pose, orders.Combat.Units.ToList());
+            var state = new PlayState(
+                names,
+                orders.Pose,
+                orders.Combat.Units.ToList(),
+                o => _sods.GetValueOrDefault(o.Model)
+            );
             var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
             var input = new PlayInput(this, names, selection, nodes, (float)_rig.CombatPlaneHeight, folder);
             AddChild(new PlayKeys(input));

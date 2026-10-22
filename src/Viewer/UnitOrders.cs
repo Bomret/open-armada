@@ -5,6 +5,7 @@ using Godot;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
+using OpenArmada.Rendering;
 using OpenArmada.Sandbox;
 
 namespace OpenArmada.Viewer;
@@ -36,6 +37,10 @@ public partial class UnitOrders : Node3D
     readonly HashSet<PlacedObject> _fighting; // the units the world was built with, to tell the destroyed ones
     readonly float _planeHeight;
     readonly MapBounds _bounds;
+    readonly Func<PlacedObject, Sod?> _model;
+
+    // Each unit's damage group and the nodes below it that the view toggles (never sprite quads, which draw themselves).
+    readonly Dictionary<PlacedObject, (Node3D Group, List<Node3D> Nodes)?> _damage = new();
 
     /// <summary>
     /// <c>planeHeight</c> is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
@@ -54,9 +59,11 @@ public partial class UnitOrders : Node3D
         CombatPlan combat,
         Action<string> gap,
         Func<PlacedObject, string, ShipPose, System.Numerics.Vector3> hardpointPosition,
-        int? seed = null
+        int? seed = null,
+        Func<PlacedObject, Sod?>? model = null
     )
     {
+        _model = model ?? (_ => null);
         _selection = selection;
         _nodes = nodes;
         _planeHeight = planeHeight;
@@ -177,6 +184,42 @@ public partial class UnitOrders : Node3D
     /// </summary>
     public override void _ExitTree() => _faults.Flush();
 
+    // Shows exactly the damage nodes the sandbox decides (DamageNodes.Showing) on the unit's model and hides the rest of
+    // the damage group. A model without a damage group shows nothing and is not reported: it is not broken.
+    void ShowDamage(UnitCombatState unit)
+    {
+        if (!_nodes.TryGetValue(unit.Unit, out var root) || !IsInstanceValid(root))
+            return;
+        if (!_damage.TryGetValue(unit.Unit, out var found))
+        {
+            found = root.FindChildren("*", "", true, false).OfType<Node3D>().FirstOrDefault(n => IsDamageGroup(n))
+                is { } group
+                ? (
+                    group,
+                    group
+                        .FindChildren("*", "", true, false)
+                        .OfType<Node3D>()
+                        .Where(n => n is not SpriteNodeQuad)
+                        .ToList()
+                )
+                : null;
+            _damage[unit.Unit] = found;
+        }
+
+        if (found is not { } groupAndNodes)
+            return;
+        var (damage, nodes) = groupAndNodes;
+        var showing = DamageNodes.Showing(_model(unit.Unit), unit).Select(NodeName.Of).ToHashSet();
+        damage.Visible = showing.Count > 0;
+        foreach (var node in nodes)
+        {
+            // Godot renames a sibling that repeats a name (`name2`, `@name@2`); the first of a name keeps it.
+            node.Visible = showing.Contains(node.Name);
+        }
+    }
+
+    static bool IsDamageGroup(Node3D node) => ((string)node.Name).Equals("damage", StringComparison.OrdinalIgnoreCase);
+
     /// <inheritdoc/>
     public override void _Process(double delta)
     {
@@ -226,6 +269,18 @@ public partial class UnitOrders : Node3D
         catch (Exception e)
         {
             _faults.Report($"combat step failed: {e.Message}");
+        }
+
+        foreach (var unit in _world.Units)
+        {
+            try
+            {
+                ShowDamage(unit);
+            }
+            catch (Exception e) // a failure of one unit's damage nodes never stops the sandbox (INV-0002)
+            {
+                _faults.Report($"damage nodes failed: {e.Message}");
+            }
         }
 
         // The world, not the step's events, says who is gone, so a failed step still takes its destroyed units out.

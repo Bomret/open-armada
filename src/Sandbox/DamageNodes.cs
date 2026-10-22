@@ -37,7 +37,14 @@ public static class DamageNodes
     /// (0x4679b0). A chain that loops stops at the first repeat. The game compares the model with the ship's normal one
     /// before it shows anything (0x4677b0, first branch); the sandbox has only the normal model (stand-in).
     /// </summary>
-    public static IReadOnlyList<string> Showing(Sod? model, UnitCombatState unit)
+    public static IReadOnlyList<string> Showing(Sod? model, UnitCombatState unit) =>
+        ShowingNodes(model, unit).Select(n => n.Name).ToList();
+
+    /// <summary>
+    /// The nodes that <see cref="Showing"/> names, as the model's own node objects in the model's node order. Two
+    /// nodes of one name under different parents are told apart here, which the names cannot do.
+    /// </summary>
+    public static IReadOnlyList<Sod.Node> ShowingNodes(Sod? model, UnitCombatState unit)
     {
         var nodes = model?.Nodes ?? [];
         var damage = nodes.FirstOrDefault(n => n.Name.Equals("damage", StringComparison.OrdinalIgnoreCase));
@@ -69,18 +76,16 @@ public static class DamageNodes
             if (!unit.SystemDestroyed(system) || Named(name) is not { } root)
                 continue;
             var pending = new Stack<Sod.Node>([root]);
-            var walked = new HashSet<Sod.Node>();
             while (pending.Count > 0)
             {
                 var node = pending.Pop();
-                if (!walked.Add(node))
+                if (!showing.Add(node))
                     continue;
-                showing.Add(node);
                 foreach (var child in ChildrenOf(node))
                     pending.Push(child);
             }
         }
 
-        return nodes.Where(showing.Contains).Select(n => n.Name).ToList();
+        return nodes.Where(showing.Contains).ToList();
     }
 }

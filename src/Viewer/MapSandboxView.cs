@@ -152,8 +152,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             combat,
             gap => AddGap(gap),
             (unit, name, pose) => art!.HardpointPosition(unit, name, pose),
-            play == null ? null : PlayScript.Seed,
-            o => _sods.GetValueOrDefault(o.Model)
+            o => _sods.GetValueOrDefault(o.Model),
+            play == null ? null : PlayScript.Seed
         );
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));

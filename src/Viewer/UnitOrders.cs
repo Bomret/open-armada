@@ -46,7 +46,7 @@ public partial class UnitOrders : Node3D
     /// <c>planeHeight</c> is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
     /// stand-ins), so orders aim at the plane the camera looks at; <c>bounds</c> are the ones the rig clamps its look-at
     /// point to. <c>combat</c> holds every unit's combat values; the units fight in a CombatWorld that this node steps
-    /// and whose state it shows through Combat. <c>seed</c> seeds the combat random source; null seeds it from the
+    /// and whose state it shows through Combat. <c>model</c> reads a unit's model for its damage nodes. <c>seed</c> seeds the combat random source; null seeds it from the
     /// system, so every run differs.
     /// </summary>
     public UnitOrders(
@@ -59,11 +59,11 @@ public partial class UnitOrders : Node3D
         CombatPlan combat,
         Action<string> gap,
         Func<PlacedObject, string, ShipPose, System.Numerics.Vector3> hardpointPosition,
-        int? seed = null,
-        Func<PlacedObject, Sod?>? model = null
+        Func<PlacedObject, Sod?> model,
+        int? seed = null
     )
     {
-        _model = model ?? (_ => null);
+        _model = model;
         _selection = selection;
         _nodes = nodes;
         _planeHeight = planeHeight;
@@ -184,7 +184,7 @@ public partial class UnitOrders : Node3D
     /// </summary>
     public override void _ExitTree() => _faults.Flush();
 
-    // Shows exactly the damage nodes the sandbox decides (DamageNodes.Showing) on the unit's model and hides the rest of
+    // Shows exactly the damage nodes the sandbox decides (DamageNodes.ShowingNodes) on the unit's model and hides the rest of
     // the damage group. A model without a damage group shows nothing and is not reported: it is not broken.
     void ShowDamage(UnitCombatState unit)
     {
@@ -209,12 +209,15 @@ public partial class UnitOrders : Node3D
         if (found is not { } groupAndNodes)
             return;
         var (damage, nodes) = groupAndNodes;
-        var showing = DamageNodes.Showing(_model(unit.Unit), unit).Select(NodeName.Of).ToHashSet();
+        var model = _model(unit.Unit);
+        var all = model?.Nodes.ToList() ?? [];
+        var showing = DamageNodes.ShowingNodes(model, unit).Select(n => all.IndexOf(n)).ToHashSet();
         damage.Visible = showing.Count > 0;
         foreach (var node in nodes)
         {
-            // Godot renames a sibling that repeats a name (`name2`, `@name@2`); the first of a name keeps it.
-            node.Visible = showing.Contains(node.Name);
+            // The builder stamps each node with its index in the model, so equal names under different parents differ.
+            node.Visible =
+                node.HasMeta(SodBuilder.SodIndexMeta) && showing.Contains((int)node.GetMeta(SodBuilder.SodIndexMeta));
         }
     }
 

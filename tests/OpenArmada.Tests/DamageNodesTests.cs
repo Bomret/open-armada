@@ -30,7 +30,7 @@ public class DamageNodesTests
             Node("life", "damage"),
             Node("sensors", "damage"),
             Node(shieldNode, "damage"),
-            Node("borg", "root")
+            Node("borg", "damage")
         );
 
     // A unit of 100 maximum crew in the fixtures' race, whose crewYellowStatus is 0.5.
@@ -220,8 +220,41 @@ public class DamageNodesTests
     }
 
     [TestMethod]
-    public void TheBorgNodeNeverShows() =>
-        CollectionAssert.DoesNotContain(DamageNodes.Showing(Ship(), Unit(0)).ToArray(), "borg");
+    public void TheBorgNodeNeverShowsEvenWithEverySystemDestroyedAndNoCrew()
+    {
+        var unit = Unit(0);
+        foreach (var system in unit.Systems.Keys)
+        {
+            Destroy(unit, system);
+        }
+
+        var showing = DamageNodes.Showing(Ship(), unit).ToArray();
+
+        Assert.IsTrue(showing.Length > 5, "the other nodes show");
+        CollectionAssert.DoesNotContain(showing, "borg");
+    }
+
+    [TestMethod]
+    public void TwoNodesOfOneNameUnderDifferentSystemNodesAreToldApart()
+    {
+        var targetFire = Node("fire", "target");
+        var engineFire = Node("fire", "engines");
+        var model = Model(
+            Node("root", ""),
+            Node("damage", "root"),
+            Node("target", "damage"),
+            targetFire,
+            Node("engines", "damage"),
+            engineFire
+        );
+        var unit = Unit();
+        Destroy(unit, SystemNames.Weapons);
+
+        var showing = DamageNodes.ShowingNodes(model, unit);
+
+        Assert.IsTrue(showing.Contains(targetFire));
+        Assert.IsFalse(showing.Contains(engineFire));
+    }
 
     [TestMethod]
     public void TheDecisionIsTheSameOnEveryCall() =>

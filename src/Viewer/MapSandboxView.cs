@@ -174,6 +174,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 orders.Combat,
                 nodes,
                 o => _sods.GetValueOrDefault(o.Model),
+                orders.ShowingNodes,
                 gap => AddGap(gap),
                 play == null ? null : PlayScript.Seed
             )

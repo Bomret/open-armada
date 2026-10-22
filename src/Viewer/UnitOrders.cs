@@ -18,7 +18,8 @@ namespace OpenArmada.Viewer;
 /// Each ship moves at its own height by its ShipMotion, fed by its physics definition, and follows the movement
 /// its CombatWorld asks of it while it attacks. Stations and all other objects never move. Pose reads the
 /// current pose of any unit, from the moment the map opens: the placed pose until the unit moves. Each frame
-/// steps the CombatWorld and takes a destroyed unit out of the scene.
+/// steps the CombatWorld, decides each unit's showing damage nodes once (ShowingNodes), and takes a destroyed unit
+/// out of the scene.
 /// </summary>
 public partial class UnitOrders : Node3D
 {
@@ -41,6 +42,10 @@ public partial class UnitOrders : Node3D
 
     // Each unit's damage group and the nodes below it that the view toggles (never sprite quads, which draw themselves).
     readonly Dictionary<PlacedObject, (Node3D Group, List<Node3D> Nodes)?> _damage = new();
+
+    // The damage nodes that show on each unit in the world this frame, decided once per frame after the step.
+    readonly Dictionary<PlacedObject, IReadOnlySet<Sod.Node>> _showing = new();
+    static readonly IReadOnlySet<Sod.Node> NoNodes = new HashSet<Sod.Node>();
 
     /// <summary>
     /// <c>planeHeight</c> is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
@@ -113,6 +118,13 @@ public partial class UnitOrders : Node3D
     /// <summary>The current pose of a unit of the map; throws KeyNotFoundException for an object that is no unit.</summary>
     public ShipPose Pose(PlacedObject unit) => _poses.Pose(unit);
 
+    /// <summary>
+    /// The nodes of the unit's model that show this frame, as <see cref="DamageNodes.ShowingNodes"/> decides them once
+    /// per frame after the step; empty for a unit without a model or out of the world. A node later in the scene reads
+    /// the current frame's nodes.
+    /// </summary>
+    public IReadOnlySet<Sod.Node> ShowingNodes(PlacedObject unit) => _showing.GetValueOrDefault(unit) ?? NoNodes;
+
     /// <inheritdoc/>
     public override void _UnhandledInput(InputEvent e)
     {
@@ -143,7 +155,7 @@ public partial class UnitOrders : Node3D
                 continue;
             }
 
-            // a ship with destroyed engines, or a derelict one, takes no move order
+            // a ship with destroyed engines, a derelict one, or a dying one takes no move order
             if (
                 target is not { } to
                 || !unit.Movable
@@ -186,8 +198,8 @@ public partial class UnitOrders : Node3D
     /// </summary>
     public override void _ExitTree() => _faults.Flush();
 
-    // Shows exactly the damage nodes the sandbox decides (DamageNodes.ShowingNodes) on the unit's model and hides the rest of
-    // the damage group. A model without a damage group shows nothing and is not reported: it is not broken.
+    // Shows exactly the damage nodes the sandbox decides for this frame (ShowingNodes) on the unit's model and hides the
+    // rest of the damage group. A model without a damage group shows nothing and is not reported: it is not broken.
     void ShowDamage(UnitCombatState unit)
     {
         if (!_nodes.TryGetValue(unit.Unit, out var root) || !IsInstanceValid(root))
@@ -212,13 +224,18 @@ public partial class UnitOrders : Node3D
             return;
         var (damage, nodes) = groupAndNodes;
         var model = _model(unit.Unit);
-        var showing = model == null ? [] : DamageNodes.ShowingNodes(model, unit).Select(model.IndexOf).ToHashSet();
+        var showing = ShowingNodes(unit.Unit);
         damage.Visible = showing.Count > 0;
         foreach (var node in nodes)
         {
             // The builder stamps each node with its index in the model, so equal names under different parents differ.
             node.Visible =
-                node.HasMeta(SodBuilder.SodIndexMeta) && showing.Contains((int)node.GetMeta(SodBuilder.SodIndexMeta));
+                model != null
+                && node.HasMeta(SodBuilder.SodIndexMeta)
+                && (int)node.GetMeta(SodBuilder.SodIndexMeta) is var index
+                && index >= 0
+                && index < model.Nodes.Count
+                && showing.Contains(model.Nodes[index]);
         }
     }
 
@@ -281,10 +298,12 @@ public partial class UnitOrders : Node3D
             _selection.Dismiss(unit.Unit);
         }
 
+        _showing.Clear();
         foreach (var unit in _world.Units)
         {
             try
             {
+                _showing[unit.Unit] = DamageNodes.ShowingNodes(_model(unit.Unit), unit).ToHashSet();
                 ShowDamage(unit);
             }
             catch (Exception e) // a failure of one unit's damage nodes never stops the sandbox (INV-0002)

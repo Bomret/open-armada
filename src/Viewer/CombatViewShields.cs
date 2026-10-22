@@ -204,7 +204,8 @@ public partial class CombatView
     }
 
     // Per frame: moves the beams' effects, drops the ones of beams that ended, and shows or removes the shield-down
-    // overlay of each unit as its state says.
+    // overlay of each unit as its state says. A failure of one unit's overlay skips only that unit and is reported
+    // through the view's repeated faults.
     void UpdateShieldEffects()
     {
         _expiring.RemoveAll(e =>
@@ -234,15 +235,22 @@ public partial class CombatView
         foreach (var state in _world.Units)
         {
             present.Add(state.Unit);
-            var shown = _overlays.TryGetValue(state.Unit, out var overlay) && IsInstanceValid(overlay);
-            if (state.ShieldDownOverlay && !shown)
+            try
             {
-                AddOverlay(state);
+                var shown = _overlays.TryGetValue(state.Unit, out var overlay) && IsInstanceValid(overlay);
+                if (state.ShieldDownOverlay && !shown)
+                {
+                    AddOverlay(state);
+                }
+                else if (!state.ShieldDownOverlay && shown)
+                {
+                    overlay!.QueueFree();
+                    _overlays.Remove(state.Unit);
+                }
             }
-            else if (!state.ShieldDownOverlay && shown)
+            catch (Exception e) // a failure of one unit's overlay never stops the others or the cleanup (INV-0002)
             {
-                overlay!.QueueFree();
-                _overlays.Remove(state.Unit);
+                _faults.Report($"shield-down overlay failed: {e.Message}");
             }
         }
 

@@ -194,7 +194,7 @@ public partial class CombatView : Node3D
     }
 
     /// <summary>
-    /// Logs the count of repeated presentation faults. Godot exits the children of a node before the node, so this
+    /// Logs the count of repeated presentation and shield-down overlay faults. Godot exits the children of a node before the node, so this
     /// runs before the run-end entry of the AssetBrowserView above the sandbox.
     /// </summary>
     public override void _ExitTree() => _faults.Flush();

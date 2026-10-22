@@ -4,6 +4,7 @@ using System.Linq;
 using System.Numerics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
+using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 using static OpenArmada.Tests.CombatFixtures;
 
@@ -1455,6 +1456,55 @@ public class CombatWorldTests
         Assert.IsFalse(state.Dying);
         Ticks(world, 50, events);
         Assert.AreEqual(1, events.OfType<UnitDestroyed>().Count(e => e.Unit == b.Object));
+    }
+
+    // A doomed unit whose engines and shield generator are destroyed shows the shield-down overlay and its engines
+    // damage node while it dies. Once it leaves, it is out of the units the views read their effects from, and the play
+    // state reports it destroyed. The views freeing their nodes is covered only by a play run.
+    [TestMethod]
+    public void AUnitThatLeavesAfterItsDyingTimeIsOutOfEveryEffectAndReportedDestroyed()
+    {
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 200, life: 0.1f), delay: 100, range: 300) }),
+        };
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 100),
+            Profile = Profile(
+                maxHealth: 0,
+                hull: 0,
+                systems: new[] { Sys(SystemNames.Engines, percent: 0), Sys(SystemNames.ShieldGenerator, percent: 0) }
+            ),
+        };
+        var world = World(out var poses, null, a, b);
+        var state = world.State(b.Object)!;
+        state.Systems[SystemNames.Engines].Destroyed = true;
+        state.Systems[SystemNames.ShieldGenerator].Destroyed = true;
+        var model = new Sod
+        {
+            Version = 1.8f,
+            Nodes =
+            [
+                new Sod.Node { Name = "root" },
+                new Sod.Node { Name = "damage", Parent = "root" },
+                new Sod.Node { Name = "engines", Parent = "damage" },
+            ],
+        };
+        var play = new PlayState(new UnitNames([a.Object, b.Object]), poses.Pose, world.Units, _ => model);
+        world.Attack(a.Object, b.Object);
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        Assert.IsTrue(state.Dying && state.ShieldDownOverlay && DamageNodes.ShowingNodes(model, state).Count > 0);
+        Ticks(world, 150);
+        var expect = (ExpectStep)PlayScript.Parse("expect b destroyed = true", "x.play").Steps.Single();
+        var effects = world.Units.Where(u => u.ShieldDownOverlay || DamageNodes.ShowingNodes(model, u).Count > 0);
+        Assert.IsTrue(
+            world.State(b.Object) == null
+                && world.Units.All(u => u.Unit != b.Object)
+                && effects.All(u => u.Unit != b.Object)
+                && play.Expect(expect) == null
+        );
     }
 
     // Three attackers on one unit that no system or hull covers: their beams land in one tick, the first a critical

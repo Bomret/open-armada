@@ -24,11 +24,12 @@ public sealed class PlayRun(
 
     /// <summary>
     /// The problem with a <c>--play</c> launch, or null when it can start: it needs Movie Maker (which forces a
-    /// fixed time step), a <c>--map</c>, and no <c>--screenshot</c>.
+    /// fixed time step), a <c>--map</c> or a <c>--layout</c>, and no <c>--screenshot</c>. Both a map and a layout
+    /// are the launch arguments' own <c>--layout</c>/<c>--map</c> problem, so this rule adds none for them.
     /// </summary>
-    public static string? LaunchProblem(bool movieMaker, bool hasMap, bool hasScreenshot) =>
+    public static string? LaunchProblem(bool movieMaker, bool hasMap, bool hasLayout, bool hasScreenshot) =>
         !movieMaker ? "--play needs Movie Maker: start with --write-movie and --fixed-fps"
-        : !hasMap ? "--play needs --map"
+        : !hasMap && !hasLayout ? "--play needs --map or --layout"
         : hasScreenshot ? "--play cannot be combined with --screenshot"
         : null;
 

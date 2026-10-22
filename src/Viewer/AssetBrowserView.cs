@@ -13,7 +13,7 @@ namespace OpenArmada.Viewer;
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; [--model Fente] [--screenshot out.png]
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]   (the map sandbox)
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --layout &lt;file&gt; [--screenshot out.png]   (the map sandbox, from a layout)
-///   mkdir -p play-out/&lt;stem&gt;; godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; --map &lt;name&gt; --play &lt;file&gt;   (a play run)
+///   mkdir -p play-out/&lt;stem&gt;; godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; (--map &lt;name&gt; | --layout &lt;file&gt;) --play &lt;file&gt;   (a play run)
 ///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
 ///   godot-mono --headless --path . -- --maps --game &lt;Armada dir&gt;   (the map summary of every map)
 /// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--maps</c>,
@@ -128,14 +128,7 @@ public partial class AssetBrowserView : Control
 
         if (mode is "map" or "layout")
         {
-            var layout = args.Value("--layout");
-            var start = Layout.Start(
-                System.Environment.GetEnvironmentVariable("PWD"),
-                System.Environment.CurrentDirectory
-            );
-            var sandbox = args.Has("--layout")
-                ? MapSandbox.OpenLayout(game, layout == null ? null : Layout.Resolve(layout, start), args.Problems)
-                : MapSandbox.Open(game, args.Value("--map"), args.Problems);
+            var sandbox = OpenSandbox(args, game);
             // The sandbox saves the screenshot; the browser's own _Process must not.
             // This full-window Control would stop every mouse event in the GUI pass, so the sandbox's
             // _UnhandledInput (selection, move orders) would never see a click.
@@ -240,24 +233,41 @@ public partial class AssetBrowserView : Control
         }
     }
 
-    // Starts a play run of the map sandbox, or logs why it cannot and quits with exit code 1 (INV-0007); the window
-    // never stays open. A run that cannot start is one log entry: a bare --play is the entry the run start wrote,
-    // and a launch problem that comes with it stays unlogged.
+    // Opens the map sandbox of --layout, resolved against the directory the command was started in, or of --map.
+    static MapSandbox OpenSandbox(LaunchArgs args, string? game)
+    {
+        if (!args.Has("--layout"))
+            return MapSandbox.Open(game, args.Value("--map"), args.Problems);
+        var layout = args.Value("--layout");
+        var start = Layout.Start(System.Environment.GetEnvironmentVariable("PWD"), System.Environment.CurrentDirectory);
+
+        return MapSandbox.OpenLayout(game, layout == null ? null : Layout.Resolve(layout, start), args.Problems);
+    }
+
+    // Starts a play run of the map sandbox on a map or a layout, or logs why it cannot and quits with exit code 1
+    // (INV-0007); the window never stays open. A run that cannot start is one log entry: a launch-argument problem
+    // (a flag without a value, or --map with --layout) is the entry the run start wrote, and a launch problem that
+    // comes with it stays unlogged.
     void StartPlayRun(LaunchArgs args, string? game)
     {
-        var problem = PlayRun.LaunchProblem(OS.HasFeature("movie"), args.Has("--map"), args.Has("--screenshot"));
+        var problem = PlayRun.LaunchProblem(
+            OS.HasFeature("movie"),
+            args.Has("--map"),
+            args.Has("--layout"),
+            args.Has("--screenshot")
+        );
         if (problem == null)
         {
             problem = PlayRun.MovieProblem(Engine.GetWriteMoviePath());
         }
 
         var file = args.Value("--play");
-        if (problem != null && file != null)
+        if (problem != null && args.Problems.Count == 0)
         {
             Log.Error(Area.Run, problem);
         }
 
-        if (problem != null || file == null)
+        if (problem != null || args.Problems.Count > 0 || file == null)
         {
             GetTree().Quit(1);
 
@@ -270,8 +280,8 @@ public partial class AssetBrowserView : Control
             Log.Error(Area.Sandbox, scriptProblem);
         }
 
-        // MapSandbox.Open logs a map that fails to open.
-        var sandbox = MapSandbox.Open(game, args.Value("--map"), args.Problems);
+        // MapSandbox logs a map or a layout that fails to open.
+        var sandbox = OpenSandbox(args, game);
         if (script.Problems.Count > 0 || sandbox.Problem != null)
         {
             GetTree().Quit(1);

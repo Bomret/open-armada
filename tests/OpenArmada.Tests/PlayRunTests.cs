@@ -251,11 +251,13 @@ public class PlayRunTests
     }
 
     [TestMethod]
-    [DataRow(false, true, false, "--play needs Movie Maker")]
-    [DataRow(true, false, false, "--play needs --map")]
-    [DataRow(true, true, true, "--play cannot be combined with --screenshot")]
-    public void ALaunchThatCannotPlayIsAProblem(bool movie, bool map, bool screenshot, string problem) =>
-        StringAssert.StartsWith(PlayRun.LaunchProblem(movie, map, screenshot), problem);
+    [DataRow(false, true, false, false, "--play needs Movie Maker")]
+    [DataRow(false, false, true, false, "--play needs Movie Maker")]
+    [DataRow(true, false, false, false, "--play needs --map or --layout")]
+    [DataRow(true, true, false, true, "--play cannot be combined with --screenshot")]
+    [DataRow(true, false, true, true, "--play cannot be combined with --screenshot")]
+    public void ALaunchThatCannotPlayIsAProblem(bool movie, bool map, bool layout, bool screenshot, string problem) =>
+        StringAssert.StartsWith(PlayRun.LaunchProblem(movie, map, layout, screenshot), problem);
 
     [TestMethod]
     public void AMovieFileInAMissingFolderIsAProblemNamingTheFolder()
@@ -281,6 +283,13 @@ public class PlayRunTests
     }
 
     [TestMethod]
-    public void ALaunchUnderMovieMakerWithAMapAndNoScreenshotHasNoProblem() =>
-        Assert.IsNull(PlayRun.LaunchProblem(true, true, false));
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    public void ALaunchUnderMovieMakerWithAMapOrALayoutAndNoScreenshotHasNoProblem(bool map, bool layout) =>
+        Assert.IsNull(PlayRun.LaunchProblem(true, map, layout, false));
+
+    [TestMethod]
+    public void ALaunchWithAMapAndALayoutLeavesTheProblemToTheLaunchArguments() =>
+        // The --layout/--map exclusion is the run's one entry; the launch rule adds no second one.
+        Assert.IsNull(PlayRun.LaunchProblem(true, true, true, false));
 }

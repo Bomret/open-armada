@@ -43,7 +43,7 @@ public sealed class PlayState
     /// decimals, the systems in a fixed order, and no time of day. A unit without combat state shows
     /// <c>state=none</c> after its position. Fields, space-separated: name, team, pos (x,y,z), shields, crew, one
     /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, destroyed,
-    /// alert, order, target.
+    /// alert, order, target, shieldDown (whether the shield-down overlay shows).
     /// </summary>
     public string Dump()
     {
@@ -71,6 +71,7 @@ public sealed class PlayState
                     CultureInfo.InvariantCulture,
                     $" derelict={Flag(s.Derelict)} immobile={Flag(s.Immobile)} coasting={Flag(s.Coasting)} destroyed={Flag(s.Destroyed)}"
                         + $" alert={s.Alert} order={Of(s.Order)} target={Of(s.Target)}"
+                        + $" shieldDown={Flag(s.ShieldDownOverlay)}"
                 );
             }
             else

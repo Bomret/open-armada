@@ -50,7 +50,7 @@ public class PlayStateTests
         Assert.AreEqual(
             "a team=1 pos=1.50,0.00,2.00 shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
                 + "Weapons=5.00/5.00/intact Sensors=4.00/4.00/intact "
-                + "derelict=false immobile=false coasting=false destroyed=false alert=Red order=b target=none",
+                + "derelict=false immobile=false coasting=false destroyed=false alert=Red order=b target=none shieldDown=false",
             lines[0]
         );
         Assert.AreEqual(4, lines.Length);
@@ -83,6 +83,21 @@ public class PlayStateTests
         StringAssert.Contains(line, "Engines=0.00/6.00/destroyed");
         StringAssert.Contains(line, "immobile=true");
         StringAssert.Contains(line, "coasting=true");
+    }
+
+    [TestMethod]
+    public void TheDumpShowsTheShieldDownOverlayOfADestroyedShieldGenerator()
+    {
+        var generator = Sys(SystemNames.ShieldGenerator, 3);
+        var unit = new UnitCombatState(Placed("c", 1, 0), Profile(systems: [generator]), "c.odf", 0, true);
+        var play = new PlayState(new UnitNames([unit.Unit]), new UnitPoses([unit.Unit]).Pose, [unit]);
+        unit.DestroySystem(SystemNames.ShieldGenerator);
+
+        StringAssert.EndsWith(play.Dump(), " shieldDown=true\n");
+
+        unit.Derelict = true;
+
+        StringAssert.EndsWith(play.Dump(), " shieldDown=false\n");
     }
 
     [TestMethod]

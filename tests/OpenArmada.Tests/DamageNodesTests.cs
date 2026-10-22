@@ -186,10 +186,11 @@ public class DamageNodesTests
     }
 
     [TestMethod]
-    public void AnIntactUnitWithoutAMaximumCrewShowsNoCrewNode()
+    public void AUnitWhoseMaximumCrewResolvesToZeroShowsNoCrewNode()
     {
-        // 0x467803: no maximumCrew makes the numerator 1, so r is 1 / crewYellowStatus (2 here), never below 1
-        // The crew pool of a sensor with no maximumCrew runs on the stand-in; it can be empty and still show no node.
+        // 0x467803: a maximum crew of 0 (explicit, or from a crewCost of 0 with no maximumCrew) makes the numerator 1,
+        // so r is 1 / crewYellowStatus (2 here), never below 1. The crew pool runs on the stand-in; it can be empty
+        // and still show no node.
         var crewless = State(Unit().Profile with { CrewCost = 1, MaximumCrew = 1, DefinedMaximumCrew = 0 });
         crewless.Crew = 0;
 

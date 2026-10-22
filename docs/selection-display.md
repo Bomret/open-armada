@@ -118,8 +118,9 @@ The engine fills these gaps with stand-ins:
 - The screen box comes from the box around the unit's meshes in world axes.
 - The pick is the click pick, the nearest object under the cursor, in place of the game's own pick.
 - A unit shows the shield bar when its `maxHealth` is above 0, in place of the game's own flag and value.
-  The crew dot takes the same gate. The game's own gate is `maximumCrew` not 0. It always holds in the
-  engine, because a `maximumCrew` missing or 0 takes the stand-in `crewCost`, at least 1.
+  The crew dot takes the same gate. The game's own gate is `maximumCrew` not 0, where a missing
+  `maximumCrew` is the `crewCost`. A unit with a `maximumCrew` of 0, or no `maximumCrew` and a `crewCost` of 0,
+  fails it and shows no dot in the game.
 - A game pixel is as large as the display scale of the screen the window is on. So the display keeps its
   size on a high-density screen.
 - A part draws in full-intensity colors at an alpha. The alpha is the opacity minus 0.5, doubled, kept

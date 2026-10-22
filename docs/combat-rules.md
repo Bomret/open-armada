@@ -388,10 +388,12 @@ assimilation is not built.
   in the code; r above 0 shows at most five nodes, and a ratio of 0 shows five. The game compares the
   ship's `maximumCrew` (ship +0x4c8) with 0 (constant 0x5ca16c) at 0x467803..0x46782a; when it is 0 the
   numerator is 1 (constant 0x5ca238) instead of crew over `maximumCrew`, and 0x467836 divides the result by
-  the race's `crewYellowStatus` (race +0x204). A unit whose definition has no `maximumCrew` (a sensor
-  tower or a turret) has r = 1 / `crewYellowStatus`, so it shows no crew node for any `crewYellowStatus` of 1
-  or less. The decision reads the definition's own `maximumCrew`, not the `crewCost` stand-in that the crew
-  pool uses.
+  the race's `crewYellowStatus` (race +0x204). The class load reads `maximumCrew` into the class
+  (0x4601d7, class +0x228; ship init copies it at 0x4618eb) and defaults it to the class's `crewCost`
+  (class +0x70). A unit whose maximum crew is 0, by an explicit `maximumCrew 0` or by no `maximumCrew` and a
+  `crewCost` of 0, has r = 1 / `crewYellowStatus`, so it shows no crew node for any `crewYellowStatus` of 1
+  or less. The sandbox's crew pool and crew-status ratio use a stand-in of the `crewCost`, at least 1, for a
+  maximum of 0; the damage nodes read the game's own maximum.
 - **System nodes:** the subtree of `engines`, `life`, `sensors`, `target`, or `shields` shows while the ship
   system is destroyed (0x4679b0): engines, life support, sensors, weapons, and shield generator in turn (the
   system structures at 0x518, 0x588, 0x5c0, 0x550, and 0x4e0 of the ship).

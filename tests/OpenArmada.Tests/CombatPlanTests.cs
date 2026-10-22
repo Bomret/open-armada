@@ -484,6 +484,25 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void AMissingMaximumCrewDefaultsToTheCrewCost()
+    {
+        // 0x4601d7: the class's maximumCrew defaults to its crewCost
+        var odf = Ship.Replace("maximumCrew = 120\r\n", "");
+        var r = Plan(new[] { "s" }, new[] { ("s", odf), ("fed", Race) }, ("RTS_CFG.h", Constants));
+        var p = ProfileOf(r);
+        Assert.AreEqual(100f, p.DefinedMaximumCrew);
+        Assert.IsFalse(r.Plan.Reports.Any(g => g.Cause.Contains("maximumCrew")));
+    }
+
+    [TestMethod]
+    public void AMissingMaximumCrewAndACrewCostOfZeroDefinesNoMaximumCrew()
+    {
+        var odf = Ship.Replace("maximumCrew = 120\r\n", "").Replace("crewCost = 100", "crewCost = 0");
+        var p = ProfileOf(Plan(new[] { "s" }, new[] { ("s", odf), ("fed", Race) }, ("RTS_CFG.h", Constants)));
+        Assert.AreEqual(0f, p.DefinedMaximumCrew);
+    }
+
+    [TestMethod]
     public void AMaximumCrewOfZeroTakesAPositiveStandIn()
     {
         var r = Plan(

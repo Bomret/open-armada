@@ -1,0 +1,10 @@
+// A Klingon Vor'cha-class warship on team 2 and a sensor station on team 1, 300 units apart at the centre, for
+// play/destroy.play. Run it with: godot-mono --path . --write-movie play-out/destroy/frame.png --fixed-fps 30 --
+// --game <install> --layout layouts/destroy.jsonc --play play/destroy.play
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "kcruise1", "team": 2, "position": [1850, 0, 2000], "label": "Vorcha6" },
+    { "class": "ksensor", "team": 1, "position": [2150, 0, 2000], "label": "Sensor5" },
+  ],
+}

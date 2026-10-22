@@ -86,6 +86,24 @@ public class SprayEmitterTests
         Assert.AreEqual(50, spray.Particles.Count);
     }
 
+    // A period of 0 spawns on every tick, so the live count is bounded by the ticks of one lifespan, however long the
+    // spray runs.
+    [TestMethod]
+    public void TheLiveParticlesNeverOutnumberTheTicksOfOneLifespan()
+    {
+        const double lifespan = 0.5;
+        var spray = Spray(Definition(period: 0, lifespan: lifespan));
+        var bound = (int)Math.Ceiling(lifespan / CombatWorld.Tick);
+        var most = 0;
+        for (var i = 0; i < 10 * 30; i++)
+        {
+            spray.Step(1.0 / 30, true, Origin);
+            most = Math.Max(most, spray.Particles.Count);
+        }
+
+        Assert.IsTrue(most <= bound, $"{most} live particles, more than {bound}");
+    }
+
     [TestMethod]
     public void TheOvershootOfATickDoesNotCarryIntoThePeriod()
     {

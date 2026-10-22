@@ -1,49 +1,10 @@
-# Klingon ships sail to the Federation Constructors on kling1 and fight them; the damage nodes of the models that lose
-# crew or systems show, and the dumps name them (kconst13 shows `target` from 186 s, four nodes from 190 s).
-# Run it with --map kling1; the README, "Run a play script", has the command. The run takes about 190 s of game time.
-scroll down 20
-hold Left 1.4
-hold Up 0.9
-wait 0.2
-box Toral Negvar1 Negvar2 Assault1 Assault2 Vorcha1 Vorcha2 Bop1 Bop2 Bop3 Bop4 Bop5
-hold Right 1.4
-hold Down 0.9
-wait 0.2
-attack kconst13
-wait 150
-dump f1
-shot f1
-wait 4
-dump f2
-shot f2
-wait 4
-dump f3
-shot f3
-wait 4
-dump f4
-shot f4
-wait 4
-dump f5
-shot f5
-wait 4
-dump f6
-shot f6
-wait 4
-dump f7
-shot f7
-wait 4
-dump f8
-shot f8
-wait 4
-dump f9
-shot f9
-wait 4
-dump f10
-shot f10
-wait 4
-dump f11
-shot f11
-wait 4
-dump f12
-shot f12
-wait 4
+# Two Federation destroyers on layouts/damage.jsonc: Low starts with a tenth of its crew, Full with all of it. The dump
+# names the damage nodes each model shows (Low shows its crew nodes, Full none); the shots show the fire on the model.
+# Run it with --layout layouts/damage.jsonc; the layout's header comment has the whole command.
+scroll up 20
+wait 1
+shot close
+dump d1
+wait 2
+shot close2
+dump d2

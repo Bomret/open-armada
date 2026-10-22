@@ -155,13 +155,13 @@ _Avoid_: alert level, stance, combat mode
 **Attack order**
 An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target
 until one of its weapons is within that weapon's range of the target's center, measured from the weapon's
-mount point on the model (see `docs/combat-rules.md`, §Firing). Keep-closing past the closing distance is an
-engine stand-in (see `docs/combat-rules.md`, §Attack order). The order ends when the target is destroyed.
+mount point on the model (see `docs/rules/combat-rules.md`, §Firing). Keep-closing past the closing distance is an
+engine stand-in (see `docs/rules/combat-rules.md`, §Attack order). The order ends when the target is destroyed.
 _Avoid_: attack command, focus fire
 
 **Tether point**
 The point an idle unit at red alert stays near. The unit closes on its pick only while its center is within
-300 units of the point, and moves back to it otherwise (see `docs/combat-rules.md`, §Alert stance). A move
+300 units of the point, and moves back to it otherwise (see `docs/rules/combat-rules.md`, §Alert stance). A move
 order sets it to the destination, and a recent hit on the unit or a teammate nearby sets it to where the unit
 stands.
 _Avoid_: home, anchor, leash

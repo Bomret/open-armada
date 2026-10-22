@@ -1,6 +1,6 @@
 namespace OpenArmada.Sandbox;
 
-/// <summary>The status of a unit's crew against its race's crew levels (docs/combat-rules.md).</summary>
+/// <summary>The status of a unit's crew against its race's crew levels (docs/rules/combat-rules.md).</summary>
 public enum CrewStatus
 {
     /// <summary>Above the race's crewYellowStatus.</summary>

@@ -105,7 +105,7 @@ public partial class UnitOrders : Node3D
                 {
                     Unit = u.Object,
                     Profile = combat.Profiles[u.Object],
-                    DefinitionName = // inferred: per-target values name a definition with its `.odf` suffix (docs/combat-rules.md)
+                    DefinitionName = // inferred: per-target values name a definition with its `.odf` suffix (docs/rules/combat-rules.md)
                         u.Object.Class + ".odf",
                     Radius = Radius(nodes[u.Object]),
                     Mobile = u.Movable && u.Unit is Ship && _plan.Physics.ContainsKey(u.Object),

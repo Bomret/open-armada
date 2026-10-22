@@ -1,6 +1,6 @@
 namespace OpenArmada.Sandbox;
 
-/// <summary>How a unit picks targets and acts on its own (docs/combat-rules.md, "Alert stance").</summary>
+/// <summary>How a unit picks targets and acts on its own (docs/rules/combat-rules.md, "Alert stance").</summary>
 public enum AlertStance
 {
     /// <summary>Picks targets by itself; an idle unit that can attack closes on its pick near its tether point, or returns to the point.</summary>

@@ -395,7 +395,7 @@ public sealed class CombatPlan
             {
                 var r = new Values(def, gaps);
 
-                // The unit-level weaponYellow and weaponRed are not read: docs/combat-rules.md names the race as
+                // The unit-level weaponYellow and weaponRed are not read: docs/rules/combat-rules.md names the race as
                 // the source of the delay factors.
                 return new RaceValues
                 {

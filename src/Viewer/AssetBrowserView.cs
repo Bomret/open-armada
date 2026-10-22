@@ -60,7 +60,7 @@ public partial class AssetBrowserView : Control
 
         if (!check && !maps && args.Has("--play"))
         {
-            args.Value("--play"); // likewise: a bare --play is logged here, once
+            args.Value("--play"); // likewise: a bare --play is recorded here, and StartPlayRun logs it once
         }
 
         var source =

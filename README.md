@@ -72,26 +72,29 @@ A layout is one JSON object. `//` and `/* */` comments and trailing commas are a
   - `position` (required): a vector.
   - `label`: a string. Default: the class name.
   - `right`, `up`, `front`: the object's axes, three vectors, as a map stores them. Give all three or none. Default: the identity facing (`[1, 0, 0]`, `[0, 1, 0]`, `[0, 0, 1]`). Zero or collapsed axes are reported as a gap, as on a map.
+  - `crew`, `shields`, `destroyedSystems`: the object's starting state, so a play run can begin mid-fight without a long fight first. `crew` is a fraction from 0 to 1 of the class's `crewCost`, `shields` a fraction from 0 to 1 of its `maxHealth`, and `destroyedSystems` an array of distinct names from `Engines`, `LifeSupport`, `Weapons`, `ShieldGenerator`, and `Sensors`, spelled as a play script's `expect` spells them. Default: full strength. The unit starts with each listed system destroyed at 0 hit points, its hit percent handed to the systems still working; then with the crew fraction of `crewCost` exactly; then with the shields fraction of `maxHealth`. A crew below one crew member starts the unit derelict, with shields 0. From there the combat rules run unchanged: a destroyed system repairs itself, and the shields regain while the shield generator works. A system the class does not have, the keys on an object that is no unit, and a `shields` above 0 on a unit that starts derelict are each reported as a gap that names the object, and the rest of the layout opens. Every unit of a map starts at full strength.
 - `background`: the name of the background model, with or without `.sod`. Default: no background.
 - `teamColors`: the team-color slot of each team, keyed by team number, such as `{ "1": 3, "2": 5 }`. Default: each team's own slot. A slot outside the install's table is reported as a gap.
 - `ambient`: the ambient light color, a vector of red, green, and blue. Default: a stand-in of `[0.35, 0.35, 0.4]`.
 
 Every number is finite. A layout that cannot be read gives one problem that names the full path of the file and either the 1-based line or the JSON path of the faulty value, such as `layout '/home/me/a.jsonc': objects[2].team: team 9 is outside 0..8`. The sandbox opens no scene and shows the problem. A layout problem is reported with or without an install.
 
-`layouts/two-ships.jsonc` is a checked-in example: two hostile destroyers 1000 units apart.
+`layouts/two-ships.jsonc` is a checked-in example: two hostile destroyers 1000 units apart. `layouts/destroy.jsonc` holds the warship and the sensor station of `play/destroy.play`.
 
 ## Run a play script
 
-A play run opens the map sandbox, runs the steps of a play script in file order on simulated time, and quits after the last step. It runs under Godot's Movie Maker, which writes a PNG per frame and one WAV of the mixed audio and forces a fixed time step. Clear the output folder before a run, and create it: Movie Maker writes its files into it from the first frame, and the run itself deletes nothing there. A run whose movie output folder is missing is a problem.
+A play run opens the map sandbox on a map or a layout, runs the steps of a play script in file order on simulated time, and quits after the last step. It runs under Godot's Movie Maker, which writes a PNG per frame and one WAV of the mixed audio and forces a fixed time step. Clear the output folder before a run, and create it: Movie Maker writes its files into it from the first frame, and the run itself deletes nothing there. A run whose movie output folder is missing is a problem.
 
 ```sh
 rm -rf play-out/duel && mkdir -p play-out/duel
-godot-mono --path . --write-movie play-out/duel/frame.png --fixed-fps 30 -- --game "/path/to/Star Trek - Armada" --map 2blue --play duel.play
+godot-mono --path . --write-movie play-out/duel/frame.png --fixed-fps 30 -- --game "/path/to/Star Trek - Armada" --layout layouts/two-ships.jsonc --play duel.play
 ```
+
+A play run on a stock map is slow under Movie Maker. A small layout with only the units the run needs keeps a run short.
 
 `play-out/<script name>/` holds the frames, the WAV, and the state dumps of the run; the script name is the script's file name without its extension. Git ignores `play-out/`. The run creates the folder for a dump or a screenshot when it is missing.
 
-`--play <file>` is only accepted under Movie Maker (`--write-movie` with `--fixed-fps`), with `--map`, and without `--screenshot`. Anything else, a `--play` without a file, and a missing movie output folder are problems: one log entry, exit code 1, and no window.
+`--play <file>` is only accepted under Movie Maker (`--write-movie` with `--fixed-fps`), with `--map` or `--layout`, and without `--screenshot`. The layout path resolves as it does without `--play`; the play script path resolves against the project folder. Anything else, a `--play` without a file, `--map` together with `--layout`, a map or layout that cannot be opened, and a missing movie output folder are problems: one log entry, exit code 1, and no window.
 
 A play script is a text file with one step per line. Blank lines and lines that start with `#` are skipped. Steps:
 
@@ -117,11 +120,11 @@ A unit is named by its map label, or by its class when the label is empty. When 
 
 A state dump has one line per unit, destroyed units included, in map order. The fields are separated by spaces: the unit's name, `team=`, `pos=` (x,y,z), `shields=`, `crew=`, one `<System>=<hit points>/<maximum>/<intact or destroyed>` for each system the unit has (in the order Engines, LifeSupport, Weapons, ShieldGenerator, Sensors), `derelict=`, `immobile=`, `destroyed=`, `alert=`, `order=`, and `target=` (a unit name or `none`). A unit without combat state shows `state=none` after its position. Numbers have two decimals and no thousands separator, whatever the system's culture, and a dump holds no time of day.
 
-The combat random source is seeded with a fixed number and the asteroids animate on frame time, so two runs of one map and one script at one frame rate write byte-identical dumps.
+The combat random source is seeded with a fixed number and the asteroids animate on frame time, so two runs of one map or layout and one script at one frame rate write byte-identical dumps. Runs at different frame rates can differ.
 
 Each problem is one `ERROR` log entry that names the script and the line, and, for a failed `expect`, the expected and the actual value. A problem is a script that is missing, a line that cannot be read, a unit that cannot be found, a failed expectation, an input step that fails as above, throws, or names a key or a modifier Godot does not know, or a dump or screenshot that cannot be written. The run then quits with exit code 1. A run that finishes quits with exit code 0.
 
-`play/destroy.play` is a checked-in play script. On `kling1`, a Vor'cha-class warship destroys a sensor station; the script takes screenshots before the fight and across the explosion, dumps the state before and after, and expects the station destroyed. Run it with `--map kling1`.
+`play/destroy.play` is a checked-in play script. On `layouts/destroy.jsonc`, a Vor'cha-class warship destroys a sensor station; the script takes screenshots before the fight and across the explosion, dumps the state before and after, and expects the station destroyed. Run it with `--layout layouts/destroy.jsonc`; the layout's header comment has the whole command.
 
 ## Measure the sound of a play run
 

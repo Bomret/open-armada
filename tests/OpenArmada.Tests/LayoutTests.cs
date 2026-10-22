@@ -137,6 +137,38 @@ public class LayoutTests
         "objects[1].position[2]: -1e999 is not a finite number"
     )]
     [DataRow("""{ "class": "x", "team": 1, "position": [0, 0, 0], "hp": 5 }""", "objects[1].hp: unknown key")]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "crew": 1.5 }""",
+        "objects[1].crew: 1.5 is outside 0..1"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "shields": -0.1 }""",
+        "objects[1].shields: -0.1 is outside 0..1"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "crew": 1e999 }""",
+        "objects[1].crew: 1e999 is not a finite number"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "crew": "half" }""",
+        "objects[1].crew: must be a number"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "destroyedSystems": "Engines" }""",
+        "objects[1].destroyedSystems: must be an array of system names"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "destroyedSystems": ["Sensors", "engines"] }""",
+        "objects[1].destroyedSystems[1]: 'engines' is no ship system; systems: Engines, LifeSupport, Weapons, ShieldGenerator, Sensors"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "destroyedSystems": [1] }""",
+        "objects[1].destroyedSystems[0]: must be a string"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "destroyedSystems": ["Weapons", "Weapons"] }""",
+        "objects[1].destroyedSystems[1]: 'Weapons' is given twice"
+    )]
     public void ABadObjectIsAProblemNamingItsJsonPath(string obj, string where)
     {
         var text =
@@ -352,5 +384,29 @@ public class LayoutTests
     {
         var text = WithObject("""{ "class": "x", "team": 1, "position": [0, 0, 0] }""", top);
         Assert.AreEqual("layout 'l.jsonc': " + where, Layout.Read("l.jsonc", text).Problem);
+    }
+
+    [TestMethod]
+    public void AStartingStateReachesTheMapObject()
+    {
+        var read = Layout.Read(
+            "l.jsonc",
+            """
+            { "bounds": { "minX": 0, "maxX": 1, "minZ": 0, "maxZ": 1 }, "objects": [
+              { "class": "a", "team": 1, "position": [0, 0, 0], "crew": 0.3, "shields": 0.5, "destroyedSystems": ["Engines", "Sensors"] },
+              { "class": "b", "team": 1, "position": [0, 0, 0], "crew": 0 },
+              { "class": "c", "team": 1, "position": [0, 0, 0] }
+            ] }
+            """
+        );
+        Assert.IsNull(read.Problem);
+        var objects = read.Asset!.Map.Objects;
+        Assert.AreEqual(0.3, objects[0].Start!.Crew!.Value, 1e-9);
+        Assert.AreEqual(0.5, objects[0].Start!.Shields!.Value, 1e-9);
+        CollectionAssert.AreEqual(new[] { "Engines", "Sensors" }, objects[0].Start!.DestroyedSystems.ToArray());
+        Assert.AreEqual(0, objects[1].Start!.Crew);
+        Assert.IsNull(objects[1].Start!.Shields);
+        Assert.AreEqual(0, objects[1].Start!.DestroyedSystems.Count);
+        Assert.IsNull(objects[2].Start);
     }
 }

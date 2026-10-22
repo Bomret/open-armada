@@ -244,6 +244,12 @@ A text file, authored outside the install, that places objects for the map sandb
 It is not a map: the game cannot load it, and it has no start positions or overview image.
 _Avoid_: scenario, test map, custom map
 
+**Starting state**
+The condition a layout object starts the fight in: its crew and shields as fractions of its class's
+maximum, and its destroyed ship systems. A unit without one, and every unit of a map, starts at full
+strength.
+_Avoid_: initial damage, preset, handicap
+
 **Preview**
 The asset browser's rendering of one asset, showing that its meaning was understood: a model as the game
 draws it, a map from above, a sound as playback, a definition as its resolved values.

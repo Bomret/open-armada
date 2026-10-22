@@ -114,7 +114,8 @@ public sealed record MapSandbox
     }
 
     // The problem that stops the sandbox opening is one ERROR entry. The command line's own problems are logged
-    // once as WARN entries of area run at run start, so their text is not repeated here.
+    // once as WARN entries of area run at run start (a play run with any of them quits before it opens a sandbox),
+    // so their text is not repeated here.
     static MapSandbox Failed(string problem)
     {
         Log.Error(Area.Sandbox, problem);

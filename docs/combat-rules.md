@@ -55,8 +55,8 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   of its own team within 400 units of it on X and on Z (0x42a000; whether the edge counts is a **stand-in**),
   the idle path posts an order without a position (0x42a370), which sets the tether point to where the unit
   stands (0x46eac0; that this order takes that path is **inferred**). So a ship under fire beyond its tether
-  keeps closing. Only a landed shot counts as a hit (**stand-in**). A hit that destroys the teammate it lands
-  on counts for no one, since the destroyed unit leaves the world at once (**stand-in**; whether the game
+  keeps closing. Only a landed shot counts as a hit (**stand-in**). A hit that dooms the teammate it lands
+  on counts like any other while that dying unit is still in the world (**stand-in**; whether the game
   counts it is not known). What else this order (command type 5)
   does, and the check at 0x42a370 that can skip it, are not traced.
 
@@ -83,7 +83,8 @@ A unit with no weapons picks no target. Otherwise, at red or yellow (0x42ff80):
 3. The current target is kept while it stays valid and within the radius.
 4. Otherwise the nearest valid target within the radius is taken.
 
-A target is valid when it is a hostile unit, not being destroyed, and not derelict (0x42faa0). The game
+A target is valid when it is a hostile unit, not being destroyed (a dying unit is being destroyed), and not
+derelict (0x42faa0). The game
 also requires that the target is visible to the unit's team; every unit is visible until fog of war
 exists (**stand-in**).
 
@@ -107,8 +108,9 @@ An attack order (0x4294e0) names one target unit.
   runs an attack maneuver that was not traced).
 - The weapons fire at the ordered target only while it is within the longest weapon range. Until then
   they fire at the nearest valid target in range, as target selection picks it (0x42fd6f).
-- The order ends, and the unit becomes idle, when the target is destroyed (0x429903). A derelict target
-  keeps the order, so an attack order can finish off a derelict.
+- The order ends, and the unit becomes idle, when the target is destroyed (0x429903). A dying target counts
+  as destroyed. A derelict target keeps the order, so an attack order can finish off a derelict. A player's
+  attack order on a dying unit is refused.
 - A unit without weapons does not accept the order.
 
 ## Firing
@@ -154,7 +156,8 @@ the target without the lead (**stand-in**).
 The ordnance definition's `classLabel` decides how a shot travels.
 
 - **Beam** (`phaser`): the beam runs from the hardpoint to the target for `lifeSpan` seconds and deals its
-  damage once, when that time ends (0x4eb47e). It deals no damage when the firing unit is gone or the
+  damage once, when that time ends (0x4eb47e). It deals no damage when the firing unit is gone or dying
+  (0x4ee5f0, 0x4eb170; see Dying units) or the
   target is more than twice the weapon's `range` away before then (0x4eb2e5). `shotSpeed` plays no part.
 - **Torpedo** (`photontorpedo`, `plasmacannon`): the torpedo flies at `shotSpeed`, turning toward its
   target by `omegaTurn` and `seekTime`, and hits on contact with its target, or with the target's shield
@@ -206,7 +209,7 @@ For a hit on a unit (0x465100):
    - A **system** loses one hit point per whole point.
    - The **hull** costs crew: the smaller of the systems part and 1, plus the crew times
      `hullCrewModifier` times the systems part, in percent.
-   - A **critical hit** of at least one whole point destroys the unit.
+   - A **critical hit** of at least one whole point makes the unit a dying unit (see Dying units).
 6. When the shields reach zero, they go down for `shieldDelay` seconds (0x465719).
 
 ## Shields
@@ -256,11 +259,46 @@ target selection. It stays on the map.
 The game can instead destroy a unit whose crew falls below one, by a flag whose source is unknown; the
 engine always makes it derelict (**stand-in**).
 
-A unit is destroyed only by a critical hit. Losing every system or the shields does not destroy it.
+A unit is destroyed only by a critical hit, which makes it a dying unit first. Losing every system or the
+shields does not destroy it.
+
+## Dying units
+
+A critical hit makes the unit a **dying unit** instead of removing it (0x468990 sets the being-destroyed
+state). The unit stays in the world until its timer runs out.
+
+- **Timer** (0x466090): 3.0 s when the unit's speed is at most 1.0, 5.0 s when its speed is above 1.0 or its
+  class sets `isHero`. The speed is the unit's position change over the latest step (**stand-in**; the
+  engine has no velocity of its own). The timer counts from the tick after the critical hit.
+- **Further hits:** a hit with damage above 0 that lands on a dying unit deals no damage and cuts 0.5 s from
+  the timer (check at 0x4651f3, 0x468990; damage gate 0x465132-0x465147). A hit with no damage does nothing.
+  A timer cut below 0 ends the phase on the next tick. Shots in flight at the unit still land (0x4ee620).
+- **Coasting:** the unit coasts (see Coasting).
+- **No targets:** no auto, red-alert, or player attack pick takes the unit (0x42faa0). A unit attacking it
+  goes idle, as for a destroyed target.
+- **No fire:** the unit fires nothing and its weapons stop (0x506d70). Its beams in flight end without damage
+  (0x4ee5f0, 0x4eb170). Its torpedoes in flight fly on, without its shooter damage bonus (0x4ee7f0); the
+  engine has no shooter damage bonus, so they land with their base damage.
+- **No upkeep:** it repairs nothing, regains no shields, and loses no crew to life support (0x465e80 returns
+  at 0x465e87).
+- **No selection:** it is deselected and cannot be selected (0x4ab5d0, 0x4ab91e and siblings), so it takes no
+  orders. The game's own check on a dying unit in the order code is not recovered; the rule rests on the
+  deselection. **Stand-in**: a right-click on a dying unit picks no unit, so the selected ships get a move
+  order to the point of the plane under it; the game's order code on a dying unit is not recovered.
+- **Small explosions:** every 0.05 s (0x600784) one of `systemexpl1` to `systemexpl7`, picked at random,
+  plays at a random point on the unit (0x466320, 0x466180, table 0x600750). The sprites are rows of the
+  install's sprite tables. The cadence keeps its own accumulator on the world's fixed tick, so it holds at
+  any frame rate. **Stand-in**: the point is uniform in the box of the unit's radius around its center, and
+  the explosion's size is fixed; 0x466180 is not recovered.
+- **End** (0x4663d0): the unit's `fireball` explosion plays at its transform, the unit leaves the world, and
+  `UnitDestroyed` is raised once. The `selfDestruct` variant of the explosion is not implemented.
+
+Every random draw goes through the combat world's seeded random source. A missing `systemexpl` sprite or
+`fireball` is reported once and skipped; the unit still leaves on time.
 
 ## Coasting
 
-A ship with no thrust, a derelict or one whose engines are destroyed, takes the no-thrust branch of the game's
+A ship with no thrust, a derelict, a dying unit, or one whose engines are destroyed, takes the no-thrust branch of the game's
 physics step (0x459440, checks 0x45969b-0x4596bf; ADR 0008). The branch tests the squared length of the
 velocity vector (offset 0x140 of the physics object) against 0.01 (0x459c46). Below it the linear acceleration
 (0x158) is zeroed (0x459c59), so the ship keeps that residual speed. Otherwise the linear acceleration is the

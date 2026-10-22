@@ -216,6 +216,7 @@ public sealed class CombatPlan
                 DefaultGreenAlert = r.Flag("defaultGreenAlert", false),
                 CanAttack = r.Flag("canAttack", true),
                 Fireball = r.Str("fireball"),
+                IsHero = r.Flag("isHero", false),
                 Race = ReadRace(d, r, gaps),
             };
         }

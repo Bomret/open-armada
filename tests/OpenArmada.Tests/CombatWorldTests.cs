@@ -814,13 +814,13 @@ public class CombatWorldTests
     }
 
     [TestMethod]
-    public void ACriticalHitDestroysTheTargetAndTheOrderEnds()
+    public void ACriticalHitDestroysTheTargetAfterItsDyingTimeAndTheOrderEnds()
     {
         var a = Fighter("a", 1, 0, Weapon(Beam(damage: 200, life: 0.1f), delay: 100, range: 200));
         var b = new Spec { Object = Placed("b", 2, 100), Profile = Profile(maxHealth: 0, hull: 0) };
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        var events = world.Step(1);
+        var events = world.Step(4);
         Assert.IsTrue(events.OfType<UnitDestroyed>().Any(e => e.Unit == b.Object));
         Assert.IsNull(world.State(b.Object));
         Assert.IsNull(world.State(a.Object)!.Order);
@@ -880,10 +880,10 @@ public class CombatWorldTests
     public void DestroyingOneOfTwoIdenticalUnitsLeavesTheOtherInTheFight()
     {
         var (one, two) = Twins(Profile(maxHealth: 0, hull: 0));
-        var a = Fighter("a", 1, 0, Weapon(Beam(damage: 200, life: 0.1f), delay: 1, range: 200));
+        var a = Fighter("a", 1, 0, Weapon(Beam(damage: 200, life: 0.1f), delay: 4, range: 200));
         var world = World(null, a, one, two);
         world.Attack(a.Object, one.Object);
-        var destroyed = world.Step(0.5).OfType<UnitDestroyed>().Single();
+        var destroyed = world.Step(3.5).OfType<UnitDestroyed>().Single();
         Assert.AreSame(one.Object, destroyed.Unit);
         Assert.IsNull(world.State(one.Object));
         Assert.IsNotNull(world.State(two.Object));
@@ -1264,7 +1264,7 @@ public class CombatWorldTests
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
         MakeDerelict(world, b);
-        var events = world.Step(1);
+        var events = world.Step(4);
         Assert.IsTrue(events.OfType<UnitDestroyed>().Any(e => e.Unit == b.Object));
         Assert.IsNull(world.State(b.Object));
         Assert.IsNull(world.State(a.Object)!.Order);
@@ -1376,5 +1376,349 @@ public class CombatWorldTests
             2
         );
         Assert.AreEqual(5, world.State(a.Object)!.Systems["Engines"].Max, 1e-6);
+    }
+
+    // The dying phase: an attacker whose one beam is a critical hit on b (b has no systems, no hull, no shields).
+    static (CombatWorld World, Spec Attacker, Spec Doomed) CriticalHitWorld(
+        Func<double>? random = null,
+        float bX = 100,
+        bool hero = false,
+        float radius = 0
+    ) => CriticalHitWorld(out _, random, bX, hero, radius);
+
+    static (CombatWorld World, Spec Attacker, Spec Doomed) CriticalHitWorld(
+        out UnitPoses poses,
+        Func<double>? random = null,
+        float bX = 100,
+        bool hero = false,
+        float radius = 0
+    )
+    {
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 200, life: 0.1f), delay: 100, range: 300) }),
+        };
+        var b = new Spec
+        {
+            Object = Placed("b", 2, bX),
+            Profile = Profile(maxHealth: 0, hull: 0) with { IsHero = hero },
+            Radius = radius,
+        };
+        var world = World(out poses, random, a, b);
+        world.Attack(a.Object, b.Object);
+
+        return (world, a, b);
+    }
+
+    // Steps one world tick at a time until `until` holds for the events of a tick; returns those events.
+    static List<CombatEvent> TickUntil(CombatWorld world, Func<List<CombatEvent>, bool> until, int most = 5000)
+    {
+        for (var i = 0; i < most; i++)
+        {
+            var events = world.Step(CombatWorld.Tick).ToList();
+            if (until(events))
+                return events;
+        }
+
+        throw new AssertFailedException("the awaited event did not come");
+    }
+
+    static int Ticks(CombatWorld world, int count, List<CombatEvent>? into = null)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            into?.AddRange(world.Step(CombatWorld.Tick));
+            if (into == null)
+                world.Step(CombatWorld.Tick);
+        }
+
+        return count;
+    }
+
+    [TestMethod]
+    public void ACriticalHitLeavesTheUnitInTheWorldAndItLeavesThreeSecondsLaterWithOneUnitDestroyed()
+    {
+        var (world, _, b) = CriticalHitWorld();
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        var state = world.State(b.Object)!;
+        Assert.IsTrue(state.Dying);
+        Assert.IsFalse(state.Destroyed);
+        var events = new List<CombatEvent>();
+        Ticks(world, 149, events);
+        Assert.IsNotNull(world.State(b.Object));
+        Assert.IsFalse(state.Destroyed);
+        Assert.AreEqual(0, events.OfType<UnitDestroyed>().Count());
+        Ticks(world, 1, events);
+        Assert.IsNull(world.State(b.Object));
+        Assert.IsTrue(state.Destroyed);
+        Assert.IsFalse(state.Dying);
+        Ticks(world, 50, events);
+        Assert.AreEqual(1, events.OfType<UnitDestroyed>().Count(e => e.Unit == b.Object));
+    }
+
+    // Three attackers on one unit that no system or hull covers: their beams land in one tick, the first a critical
+    // hit, the others further hits.
+    static (CombatWorld World, Spec Doomed) ThreeBeamsOnOne(float damage = 200)
+    {
+        var specs = Enumerable
+            .Range(1, 3)
+            .Select(i => new Spec
+            {
+                Object = Placed("a" + i, 1, 0),
+                Profile = Profile(new[] { Weapon(Beam(damage: damage, life: 0.1f), delay: 100, range: 300) }),
+            })
+            .ToList();
+        var b = new Spec { Object = Placed("b", 2, 100), Profile = Profile(maxHealth: 0, hull: 0) };
+        var world = World(null, specs.Append(b).ToArray());
+        foreach (var a in specs)
+        {
+            world.Attack(a.Object, b.Object);
+        }
+
+        return (world, b);
+    }
+
+    [TestMethod]
+    public void TwoFurtherDamagingHitsOnADyingUnitMakeItLeaveOneSecondEarlierWithoutDamageOrASecondUnitDestroyed()
+    {
+        var (world, b) = ThreeBeamsOnOne();
+        var landed = TickUntil(world, e => e.OfType<ShotLanded>().Any()).OfType<ShotLanded>().ToList();
+        Assert.AreEqual(3, landed.Count);
+        Assert.IsTrue(landed[0].Hit.Destroyed);
+        Assert.IsTrue(landed.Skip(1).All(l => l.Hit.Damage == 0 && l.Hit.Points == 0 && !l.Hit.Destroyed));
+        var events = new List<CombatEvent>();
+        Ticks(world, 99, events);
+        Assert.IsNotNull(world.State(b.Object));
+        Ticks(world, 1, events);
+        Assert.IsNull(world.State(b.Object));
+        Ticks(world, 200, events);
+        Assert.AreEqual(1, events.OfType<UnitDestroyed>().Count());
+    }
+
+    // a (team 1) dooms b (team 2) with one critical beam; c (team 1) watches with a weapon of its own and fires its
+    // one round at b at once. All shoot from x = 0.
+    static (CombatWorld World, Spec Doomed, Spec Watcher) DoomedWithWatcher(Spec? bOverride = null)
+    {
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 200, life: 0.1f), delay: 100, range: 300) }),
+        };
+        var c = new Spec
+        {
+            Object = Placed("c", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 0, life: 0.1f), delay: 100, range: 300) }),
+        };
+        var b = bOverride ?? new Spec { Object = Placed("b", 2, 100), Profile = Profile(maxHealth: 0, hull: 0) };
+        var world = World(null, a, c, b);
+        world.Attack(a.Object, b.Object);
+
+        return (world, b, c);
+    }
+
+    [TestMethod]
+    public void ADyingUnitIsPickedByNoAutoTargetChoiceAndItsAttackersGoIdle()
+    {
+        var (world, b, c) = DoomedWithWatcher();
+        world.Step(CombatWorld.Tick);
+        Assert.AreSame(world.State(b.Object), world.State(c.Object)!.Target); // c picks b while b lives
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        world.Step(CombatWorld.Tick);
+        Assert.IsTrue(world.State(b.Object)!.Dying);
+        Assert.IsNull(world.State(c.Object)!.Target);
+        Assert.IsNull(world.Units.Single(u => u.Unit.Label == "a").Order);
+        Assert.AreEqual(MoveKind.Stop, world.Units.Single(u => u.Unit.Label == "a").Intent.Kind);
+    }
+
+    [TestMethod]
+    public void AnAttackOrderOnADyingUnitIsRefused()
+    {
+        var (world, b, c) = DoomedWithWatcher();
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        Assert.IsFalse(world.Attack(c.Object, b.Object));
+    }
+
+    [TestMethod]
+    public void ADyingUnitFiresNothingAndItsBeamInFlightEndsWithoutDamage()
+    {
+        // b fires a one-second beam at a at once, and a's critical beam dooms b 0.1 s later
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 200, life: 0.1f), delay: 100, range: 300) }, maxHealth: 100),
+        };
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 100),
+            Profile = Profile(
+                new[] { Weapon(Beam(damage: 10, life: 1), delay: 0.2f, range: 300) },
+                maxHealth: 0,
+                hull: 0
+            ),
+        };
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        var events = new List<CombatEvent>();
+        events.AddRange(world.Step(0.02));
+        Assert.AreEqual(1, Fired(events, "b"));
+        TickUntil(world, e => e.OfType<ShotLanded>().Any(l => l.Shot.Target.Unit == b.Object));
+        events.Clear();
+        Ticks(world, 120, events);
+        Assert.AreEqual(0, Fired(events, "b"));
+        Assert.AreEqual(0, events.OfType<ShotLanded>().Count(l => l.Shot.Shooter.Unit == b.Object));
+        Assert.AreEqual(100, world.State(a.Object)!.Shields, 1e-6);
+    }
+
+    [TestMethod]
+    public void ATorpedoOfADyingUnitInFlightStillLandsWithItsBaseDamage()
+    {
+        // 100 units at speed 50 take 2 s, less than the 3 s of the dying phase of a unit at rest.
+        var torpedo = Beam(label: "photontorpedo", speed: 50, life: 20, damage: 10);
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 200, life: 0.1f), delay: 100, range: 300) }, maxHealth: 100),
+        };
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 100),
+            Profile = Profile(new[] { Weapon(torpedo, delay: 100, range: 300) }, maxHealth: 0, hull: 0),
+        };
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        var landed = new List<ShotLanded>();
+        var shooterDyingAtLanding = false;
+        for (var i = 0; i < 400; i++)
+        {
+            var lands = world.Step(CombatWorld.Tick).OfType<ShotLanded>().ToList();
+            if (lands.Any(l => l.Shot.Shooter.Unit == b.Object))
+            {
+                shooterDyingAtLanding = world.State(b.Object)!.Dying;
+            }
+
+            landed.AddRange(lands);
+        }
+
+        var fromB = landed.Single(l => l.Shot.Shooter.Unit == b.Object);
+        Assert.AreEqual(10, fromB.Hit.Damage, 1e-6);
+        Assert.IsTrue(shooterDyingAtLanding);
+    }
+
+    [TestMethod]
+    public void ADyingUnitRegainsNoShieldsRepairsNothingAndLosesNoCrew()
+    {
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 100),
+            Profile = Profile(
+                maxHealth: 50,
+                shieldRate: 10,
+                hull: 0,
+                lifeSupportLoss: 10,
+                systems: new[] { Sys("Weapons", percent: 0), Sys("LifeSupport", percent: 0) }
+            ),
+        };
+        var (world, _, _) = DoomedWithWatcher(b);
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        var state = world.State(b.Object)!;
+        state.Systems["Weapons"].HitPoints = 1;
+        state.DestroySystem("LifeSupport");
+        var crew = state.Crew;
+        var shields = state.Shields;
+        Ticks(world, 100);
+        Assert.AreEqual(shields, state.Shields, 1e-9);
+        Assert.AreEqual(1, state.Systems["Weapons"].HitPoints, 1e-9);
+        Assert.AreEqual(crew, state.Crew, 1e-9);
+    }
+
+    [TestMethod]
+    public void ADyingShipCoastsFromTheTickAfterTheHit()
+    {
+        var (world, _, b) = CriticalHitWorld();
+        world.Move(b.Object, 500, 0);
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        world.Step(CombatWorld.Tick);
+        var state = world.State(b.Object)!;
+        Assert.IsTrue(state.Immobile);
+        Assert.IsTrue(state.Coasting);
+        Assert.IsNotNull(state.CoastTick);
+        Assert.IsNotNull(state.CoastOvershoot);
+        Assert.IsNull(state.PlayerMove);
+        Assert.AreEqual(MoveKind.Stop, state.Intent.Kind);
+    }
+
+    [TestMethod]
+    public void AUnitThatMovedAtTheCriticalHitDiesAfterFiveSeconds()
+    {
+        var (world, _, b) = CriticalHitWorld(out var poses);
+        // the world reads the unit's speed from its position change per call, so the pose advances with every tick:
+        // 10 units per second, above 1
+        var motion = MovingTo(b.Object, 1000, 0);
+        world.Step(CombatWorld.Tick);
+        List<CombatEvent> events;
+        do
+        {
+            poses.Advance(b.Object, motion, CombatWorld.Tick);
+            events = world.Step(CombatWorld.Tick).ToList();
+        } while (!events.OfType<ShotLanded>().Any());
+        Ticks(world, 249);
+        Assert.IsNotNull(world.State(b.Object));
+        Ticks(world, 1);
+        Assert.IsNull(world.State(b.Object));
+    }
+
+    static List<SmallExplosion> SmallExplosionsOver(double frame, Func<double>? random = null, float radius = 0)
+    {
+        var (world, _, b) = CriticalHitWorld(random, radius: radius);
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        var found = new List<SmallExplosion>();
+        for (var t = 0.0; world.State(b.Object) != null && t < 10; t += frame)
+        {
+            found.AddRange(world.Step(frame).OfType<SmallExplosion>());
+        }
+
+        return found;
+    }
+
+    [TestMethod]
+    public void ADyingUnitHasASmallExplosionEveryFiftyMillisecondsAtAnyFrameRate()
+    {
+        Assert.AreEqual(60, SmallExplosionsOver(1.0 / 30).Count);
+        Assert.AreEqual(60, SmallExplosionsOver(1.0 / 60).Count);
+        Assert.AreEqual(60, SmallExplosionsOver(0.5).Count);
+    }
+
+    [TestMethod]
+    public void ASmallExplosionIsOneOfSevenPickedAtRandomAtAPointOnTheUnit()
+    {
+        var low = SmallExplosionsOver(0.02, () => 0, radius: 10)[0];
+        Assert.AreEqual("systemexpl1", low.Name);
+        Assert.AreEqual(new Vector3(-10, -10, -10), low.Offset);
+        var high = SmallExplosionsOver(0.02, () => 0.99, radius: 10)[0];
+        Assert.AreEqual("systemexpl7", high.Name);
+        Assert.AreEqual(new Vector3(9.8f, 9.8f, 9.8f), high.Offset);
+    }
+
+    [TestMethod]
+    public void AHeroUnitDiesAfterFiveSecondsEvenWhenStopped()
+    {
+        var (world, _, b) = CriticalHitWorld(hero: true);
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        Ticks(world, 249);
+        Assert.IsNotNull(world.State(b.Object));
+        Ticks(world, 1);
+        Assert.IsNull(world.State(b.Object));
+    }
+
+    [TestMethod]
+    public void ADyingTimeCutBelowZeroEndsThePhaseOnTheNextTick()
+    {
+        var (world, _, b) = CriticalHitWorld();
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        world.State(b.Object)!.DyingRemaining = -0.3;
+        Assert.IsNotNull(world.State(b.Object));
+        Assert.AreEqual(1, world.Step(CombatWorld.Tick).OfType<UnitDestroyed>().Count());
+        Assert.IsNull(world.State(b.Object));
     }
 }

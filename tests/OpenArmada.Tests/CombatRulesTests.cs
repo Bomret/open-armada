@@ -338,7 +338,7 @@ public class CombatRulesTests
         Assert.AreEqual(HitLocation.Hull, CombatRules.Location(target, 59));
         Assert.AreEqual(HitLocation.Critical, CombatRules.Location(target, 60));
         Assert.IsTrue(CombatRules.Apply(target, Beam(), 1, HitLocation.Critical, 1).Destroyed);
-        Assert.IsTrue(target.Destroyed);
+        Assert.IsTrue(target.Dying);
     }
 
     [TestMethod]
@@ -723,12 +723,51 @@ public class CombatRulesTests
     }
 
     [TestMethod]
-    public void ACriticalHitOfOneWholePointDestroysTheUnit()
+    public void ACriticalHitOfOneWholePointDoomsTheUnitButDoesNotRemoveIt()
     {
         var target = Target(shields: 0);
         var hit = CombatRules.Apply(target, Beam(), 1, HitLocation.Critical, 1);
         Assert.IsTrue(hit.Destroyed);
-        Assert.IsTrue(target.Destroyed);
+        Assert.IsTrue(target.Dying);
+        Assert.IsFalse(target.Destroyed);
+    }
+
+    [TestMethod]
+    public void ACriticalHitDoomsAUnitForThreeSecondsOrFiveWhenFastOrHero()
+    {
+        foreach (
+            var (speed, hero, seconds) in new[]
+            {
+                (0.0, false, 3.0),
+                (1.0, false, 3.0),
+                (1.5, false, 5.0),
+                (0.0, true, 5.0),
+            }
+        )
+        {
+            var target = State(Profile() with { IsHero = hero });
+            target.Shields = 0;
+            target.Speed = speed;
+            CombatRules.Apply(target, Beam(), 1, HitLocation.Critical, 1);
+            Assert.AreEqual(seconds, target.DyingRemaining, 1e-9, $"speed {speed}, hero {hero}");
+        }
+    }
+
+    [TestMethod]
+    public void AFurtherHitOnADyingUnitCutsHalfASecondOnlyWithDamageAndDealsNone()
+    {
+        var target = State(Profile());
+        target.Shields = 0;
+        CombatRules.Apply(target, Beam(), 1, HitLocation.Critical, 1);
+        var crew = target.Crew;
+        var none = CombatRules.Apply(target, Beam(), 0, HitLocation.Hull, 1);
+        Assert.AreEqual(3, target.DyingRemaining, 1e-9);
+        Assert.AreEqual(0, none.Damage);
+        var some = CombatRules.Apply(target, Beam(hullCrew: 50), 5, HitLocation.Hull, 1);
+        Assert.AreEqual(2.5, target.DyingRemaining, 1e-9);
+        Assert.AreEqual(0, some.Damage);
+        Assert.AreEqual(0, some.Points);
+        Assert.AreEqual(crew, target.Crew);
     }
 
     [TestMethod]

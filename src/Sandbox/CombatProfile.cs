@@ -245,6 +245,12 @@ public sealed record CombatProfile
     public required string Fireball { get; init; }
 
     /// <summary>
+    /// The <c>isHero</c> flag, false when the key is missing: a hero unit's dying phase lasts 5.0 s however slow it
+    /// is (0x466090).
+    /// </summary>
+    public bool IsHero { get; init; }
+
+    /// <summary>
     /// The values of the race the definition's <c>race</c> names; stand-in values when the race is missing.
     /// </summary>
     public required RaceValues Race { get; init; }

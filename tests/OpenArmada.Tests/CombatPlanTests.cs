@@ -328,6 +328,13 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void ProfileReadsIsHeroFromTheDefinition()
+    {
+        Assert.IsTrue(ProfileOf(OneShip("isHero = 1\r\n")).IsHero);
+        Assert.IsFalse(ProfileOf(OneShip("")).IsHero);
+    }
+
+    [TestMethod]
     public void ProfileHoldsShieldsCrewAndRaceValuesFromTheInstall()
     {
         var r = OneShip("canAttack = 0\r\ndefaultGreenAlert = 1\r\nfireball = \"fb\"\r\nlifeSupportLoss = 5\r\n");

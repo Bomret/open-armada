@@ -60,6 +60,10 @@ public sealed class CombatWorld
     // edge counts.
     const float TeammateBox = 400f;
 
+    // A dying unit has a small explosion every 0.05 s (0x600784) of one of systemexpl1 to systemexpl7.
+    const double SmallExplosionEvery = 0.05;
+    const int SmallExplosionNames = 7;
+
     readonly UnitPoses _poses;
     readonly double _protection;
     readonly Func<double> _random;
@@ -116,7 +120,7 @@ public sealed class CombatWorld
     /// </summary>
     public bool Attack(PlacedObject attacker, PlacedObject target)
     {
-        if (State(attacker) is not { } a || State(target) is not { } t)
+        if (State(attacker) is not { } a || State(target) is not { } t || a.Dying || t.Dying)
             return false;
         if (!CombatRules.Hostile(a.Team, t.Team) || a.Weapons.Count == 0)
             return false;
@@ -169,6 +173,11 @@ public sealed class CombatWorld
         {
             var at = _poses.Pose(u.Unit).Position;
             u.Stopped = u.Position == null || u.Position == at;
+            if (seconds > 0 && u.Position is { } before)
+            {
+                u.Speed = Vector3.Distance(before, at) / seconds;
+            }
+
             u.Position = at;
             // a ship that arrives stands exactly on its target (ShipMotion), which ends the move order
             if (
@@ -200,6 +209,12 @@ public sealed class CombatWorld
     void RunTick(List<CombatEvent> events)
     {
         _ticks++;
+        // the dying phase runs before the shots land, so a unit a hit dooms in this tick starts its timer in the next
+        foreach (var u in _units.Values.Where(u => u.Dying).ToList())
+        {
+            RunDying(u, events);
+        }
+
         AdvanceShots(events);
         foreach (var u in _units.Values.ToList())
         {
@@ -224,6 +239,40 @@ public sealed class CombatWorld
         }
     }
 
+    // One of the seven small explosions at a random point of the unit (table 0x600750, picked by 0x466320).
+    // stand-in: the point is uniform in the box of the unit's radius around its center; 0x466180 is not recovered.
+    SmallExplosion SmallExplosionOn(UnitCombatState u)
+    {
+        var index = Math.Min(SmallExplosionNames - 1, (int)(_random() * SmallExplosionNames));
+        float Axis() => (float)((_random() - 0.5) * 2 * u.Radius);
+
+        return new SmallExplosion
+        {
+            Unit = u.Unit,
+            Name = "systemexpl" + (index + 1),
+            Offset = new Vector3(Axis(), Axis(), Axis()),
+        };
+    }
+
+    // One tick of a dying unit: the timer runs, and when it is out the unit leaves the world (0x4663d0).
+    void RunDying(UnitCombatState u, List<CombatEvent> events)
+    {
+        u.ExplosionClock += Tick;
+        while (u.ExplosionClock + Epsilon >= SmallExplosionEvery)
+        {
+            u.ExplosionClock -= SmallExplosionEvery;
+            events.Add(SmallExplosionOn(u));
+        }
+
+        u.DyingRemaining -= Tick;
+        if (u.DyingRemaining > Epsilon)
+            return;
+        u.Dying = false; // the phase is over: the unit is destroyed
+        u.Destroyed = true;
+        _units.Remove(u.Unit);
+        events.Add(new UnitDestroyed { Unit = u.Unit });
+    }
+
     // The unit's position as of the current Step call (positions change only between calls).
     Vector3 Position(UnitCombatState u) => u.Position ?? _poses.Pose(u.Unit).Position;
 
@@ -238,9 +287,9 @@ public sealed class CombatWorld
     {
         var held = u.Target; // the fallback target of the previous tick, if any
         u.Target = null;
-        if (u.Weapons.Count == 0)
-            return;
-        if (u.Order is { Destroyed: true })
+        if (u.Weapons.Count == 0 || u.Dying)
+            return; // a dying unit picks and fires nothing (0x506d70)
+        if (u.Order is { Destroyed: true } or { Dying: true })
         {
             u.Order = null;
             u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
@@ -320,8 +369,8 @@ public sealed class CombatWorld
     }
 
     // Whether a shot landed less than HitWindow ago on the unit or on a unit of its team within TeammateBox.
-    // stand-in: a teammate the hit destroyed has left _units (Land), so that hit counts for no one; whether the game
-    // counts it is not known.
+    // stand-in: a dying teammate is still in _units, so its hit counts like any other until it leaves (the window ends
+    // long before a gone unit would matter); whether the game counts it is not known.
     // ponytail: every idle red unit scans every unit each tick (O(n²)); skip the scan while no hit is newer than
     // HitWindow, or a spatial index, when maps grow large.
     bool HitNearby(UnitCombatState u)
@@ -362,11 +411,11 @@ public sealed class CombatWorld
         u.AutoMove = true;
     }
 
-    // A valid target is hostile, not being destroyed, and not derelict (0x42faa0).
+    // A valid target is hostile, not being destroyed (dying or gone), and not derelict (0x42faa0).
     // stand-in: every unit is visible to every team until fog of war exists, and the extra check the game makes on
     // yellow candidates (meaning unknown) is skipped.
     static bool Valid(UnitCombatState u, UnitCombatState t) =>
-        !t.Destroyed && !t.Derelict && CombatRules.Hostile(u.Team, t.Team);
+        !t.Destroyed && !t.Dying && !t.Derelict && CombatRules.Hostile(u.Team, t.Team);
 
     // Target selection (0x42fd6f): the current target while it stays valid and within `radius`, else the nearest
     // valid one within it.
@@ -493,8 +542,12 @@ public sealed class CombatWorld
             var ordnance = shot.Weapon.Ordnance;
             if (shot.Kind == ShotKind.Beam)
             {
-                // The beam ends without damage as soon as its shooter is gone or its target is beyond twice the range.
-                if (shot.Shooter.Destroyed || Surface(shot.Shooter, shot.Target) > 2 * shot.Weapon.Range)
+                // The beam ends without damage as soon as its shooter is gone or dying (0x4ee5f0, 0x4eb170) or its target is beyond twice the range.
+                if (
+                    shot.Shooter.Destroyed
+                    || shot.Shooter.Dying
+                    || Surface(shot.Shooter, shot.Target) > 2 * shot.Weapon.Range
+                )
                 {
                     _shots.Remove(shot);
                 }
@@ -572,10 +625,8 @@ public sealed class CombatWorld
         events.Add(new ShotLanded { Shot = shot, Hit = hit });
         if (!hit.Destroyed)
             return;
-        _units.Remove(target.Unit);
-        _shots.RemoveAll(s => s.Target == target);
+        // the unit is dying now (CombatRules.Apply); shots in flight at it still land (0x4ee620) and cut its time
         target.Order = null;
         target.Target = null;
-        events.Add(new UnitDestroyed { Unit = target.Unit });
     }
 }

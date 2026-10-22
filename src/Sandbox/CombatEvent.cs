@@ -191,3 +191,19 @@ public sealed record UnitDestroyed : CombatEvent
     /// <summary>The map object of the destroyed unit.</summary>
     public required PlacedObject Unit { get; init; }
 }
+
+/// <summary>
+/// A small explosion on a dying unit: one of <c>systemexpl1</c> to <c>systemexpl7</c> plays at a point on the unit
+/// (0x466320, 0x466180).
+/// </summary>
+public sealed record SmallExplosion : CombatEvent
+{
+    /// <summary>The map object of the dying unit.</summary>
+    public required PlacedObject Unit { get; init; }
+
+    /// <summary>The explosion definition, without <c>.odf</c>: <c>systemexpl1</c> to <c>systemexpl7</c>.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The point of the explosion as an offset from the unit's center, in world axes.</summary>
+    public required Vector3 Offset { get; init; }
+}

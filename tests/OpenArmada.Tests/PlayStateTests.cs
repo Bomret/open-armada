@@ -50,7 +50,7 @@ public class PlayStateTests
         Assert.AreEqual(
             "a team=1 pos=1.50,0.00,2.00 shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
                 + "Weapons=5.00/5.00/intact Sensors=4.00/4.00/intact "
-                + "derelict=false immobile=false coasting=false destroyed=false alert=Red order=b target=none",
+                + "derelict=false immobile=false coasting=false destroyed=false dying=false alert=Red order=b target=none",
             lines[0]
         );
         Assert.AreEqual(4, lines.Length);
@@ -68,6 +68,29 @@ public class PlayStateTests
         scene.StateB.Destroyed = true;
 
         StringAssert.Contains(scene.Play.Dump().Split('\n')[1], "immobile=false coasting=false destroyed=true");
+    }
+
+    [TestMethod]
+    public void TheDumpShowsADyingUnitAsDyingAndNotYetDestroyed()
+    {
+        var scene = new Scene();
+        scene.StateB.Dying = true;
+
+        StringAssert.Contains(
+            scene.Play.Dump().Split('\n')[1],
+            "immobile=true coasting=true destroyed=false dying=true"
+        );
+    }
+
+    [TestMethod]
+    public void ADyingExpectationHoldsDuringThePhaseAndNotBefore()
+    {
+        var scene = new Scene();
+
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("b", "dying", "=", "false")));
+        Assert.IsNotNull(scene.Play.Expect(Scene.Expect("b", "dying", "=", "true")));
+        scene.StateB.Dying = true;
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("b", "dying", "=", "true")));
     }
 
     [TestMethod]
@@ -154,6 +177,15 @@ public class PlayStateTests
         scene.StateB.Destroyed = true;
 
         Assert.IsNull(scene.Play.Expect(Scene.Expect("b", "destroyed", "=", "true")));
+    }
+
+    [TestMethod]
+    public void ADyingExpectationHoldsAsFalseForADestroyedAndRemovedUnit()
+    {
+        var scene = new Scene();
+        scene.StateB.Destroyed = true;
+
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("b", "dying", "=", "false")));
     }
 
     [TestMethod]

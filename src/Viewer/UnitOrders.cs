@@ -116,6 +116,8 @@ public partial class UnitOrders : Node3D
             return;
         var origin = camera.ProjectRayOrigin(click.Position);
         var direction = camera.ProjectRayNormal(click.Position);
+        // stand-in: a dying unit is unselectable, so UnitAt never returns it and a right-click on it gives the selected
+        // ships a move order to the plane point under it; the game's order code on a dying unit is not recovered.
         var clicked = _selection.UnitAt(click.Position);
         var hit = MoveGeometry.PlaneTarget(
             new System.Numerics.Vector3(origin.X, origin.Y, origin.Z),
@@ -226,6 +228,12 @@ public partial class UnitOrders : Node3D
         catch (Exception e)
         {
             _faults.Report($"combat step failed: {e.Message}");
+        }
+
+        // A dying unit is deselected and cannot be selected again (0x4ab5d0, 0x4ab91e), so it takes no orders.
+        foreach (var unit in _world.Units.Where(u => u.Dying))
+        {
+            _selection.Dismiss(unit.Unit);
         }
 
         // The world, not the step's events, says who is gone, so a failed step still takes its destroyed units out.

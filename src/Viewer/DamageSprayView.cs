@@ -14,7 +14,7 @@ namespace OpenArmada.Viewer;
 /// Draws the damage emitters of the units in the fight: each frame it steps every emitter's <see cref="SprayEmitter"/>
 /// by the frame's seconds, from the emitter node's world frame and whether its damage node shows
 /// (<see cref="DamageNodes.ShowingNodes"/>), and draws each live particle as a billboard of its sprite at its size,
-/// with the sprite node's animation playing once from the particle's birth. An emitter under a hidden damage node
+/// with the sprite node's animation playing once from the particle's birth (stand-in). An emitter under a hidden damage node
 /// draws nothing. The simulation and the decisions are the sandbox's; this node only moves quads. It comes after the
 /// orders node in the scene, so a frame's damage nodes and unit poses are current when it runs. What the install
 /// lacks is reported once (INV-0002): the emitter gaps through <c>gap</c>, a sprite texture as a log entry.
@@ -40,6 +40,7 @@ public partial class DamageSprayView : Node3D
     readonly Dictionary<Sod, DamageEmitters> _emitters = new();
     readonly Dictionary<string, Texture2D?> _textures = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<(PlacedObject, Sod.Node), Spray> _sprays = new();
+    readonly Dictionary<Node3D, Dictionary<int, Node3D>> _built = new();
 
     /// <summary>
     /// <c>nodes</c> are the unit nodes of the scene; <c>model</c> reads a unit's model; <c>seed</c> fixes the random
@@ -85,6 +86,12 @@ public partial class DamageSprayView : Node3D
                 live.Add(key);
                 if (!built.TryGetValue(sod.IndexOf(damage.Node), out var node))
                     continue;
+                if (!IsInstanceValid(node))
+                {
+                    _built.Remove(root);
+
+                    continue;
+                }
                 if (!_sprays.TryGetValue(key, out var spray))
                 {
                     _sprays[key] = spray = NewSpray(damage);
@@ -94,6 +101,11 @@ public partial class DamageSprayView : Node3D
                 spray.Emitter.Step(delta, on, FrameOf(node.GlobalTransform));
                 Draw(spray, on);
             }
+        }
+
+        foreach (var root in _built.Keys.Where(r => !IsInstanceValid(r)).ToList())
+        {
+            _built.Remove(root);
         }
 
         // A unit that left the world takes its particles with it.
@@ -121,14 +133,23 @@ public partial class DamageSprayView : Node3D
         return resolved;
     }
 
-    // The built nodes of a model by their index in the model (SodBuilder.SodIndexMeta).
-    static Dictionary<int, Node3D> BuiltNodes(Node3D root) =>
-        root.FindChildren("*", "", true, false)
+    // The built nodes of a model by their index in the model (SodBuilder.SodIndexMeta), walked once per root: the walk
+    // is recursive, so it is not repeated each frame. A root with no built node yet is walked again next frame.
+    Dictionary<int, Node3D> BuiltNodes(Node3D root)
+    {
+        if (_built.TryGetValue(root, out var known))
+            return known;
+        var built = root.FindChildren("*", "", true, false)
             .OfType<Node3D>()
             .Append(root)
             .Where(n => n.HasMeta(SodBuilder.SodIndexMeta))
             .GroupBy(n => (int)n.GetMeta(SodBuilder.SodIndexMeta))
             .ToDictionary(g => g.Key, g => g.First());
+        if (built.Count > 0)
+            _built[root] = built;
+
+        return built;
+    }
 
     // The node's own axes in the world. The builder mirrors the model's Z (SodBuilder.ToGodot), so a model's +Z is the
     // built node's -Z.
@@ -192,7 +213,8 @@ public partial class DamageSprayView : Node3D
             quad.Position = new Vector3(particle.Position.X, particle.Position.Y, particle.Position.Z);
             ((QuadMesh)quad.Mesh).Size = new Vector2((float)Math.Max(width, 0), (float)Math.Max(height, 0));
             var material = (StandardMaterial3D)quad.MaterialOverride;
-            // The animation plays once from the particle's birth and holds its last keyframe.
+            // stand-in: the animation plays once from the particle's birth and holds its last keyframe (the game's
+            // looping of a particle animation is not recovered).
             var draw = SpriteNodeQuad.Show(
                 material,
                 sprite,
@@ -201,7 +223,7 @@ public partial class DamageSprayView : Node3D
                 particle.Age,
                 loop: false
             );
-            quad.Visible = draw && spray.Emitter.Drawn(particle, sprite.Width, sprite.Height);
+            quad.Visible = draw && SprayEmitter.Drawn(width, height);
         }
     }
 

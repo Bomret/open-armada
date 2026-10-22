@@ -76,15 +76,8 @@ public static class DamageNodes
         {
             if (!unit.SystemDestroyed(system) || Named(name) is not { } root)
                 continue;
-            var pending = new Stack<Sod.Node>([root]);
-            while (pending.Count > 0)
-            {
-                var node = pending.Pop();
-                if (!showing.Add(node))
-                    continue;
-                foreach (var child in ChildrenOf(node))
-                    pending.Push(child);
-            }
+            showing.Add(root);
+            showing.UnionWith(model.Descendants(root));
         }
 
         return nodes.Where(showing.Contains).ToList();

@@ -47,15 +47,35 @@ public class SprayEmitterTests
         }
     }
 
+    // The timer resets to the period on a spawn (0x57549f) and counts down on the fixed 0.02 s tick. A period of 0.11 s
+    // is 6 ticks (0.11 - 6 * 0.02 < 0, 5 ticks leave 0.01), so the 50 ticks of a second spawn on ticks 1, 7, ..., 49.
     [TestMethod]
     [DataRow(10)]
+    [DataRow(24)]
     [DataRow(30)]
+    [DataRow(45)]
     [DataRow(60)]
-    public void APeriodOfATenthSpawnsTenParticlesInASecondAtAnyFrameRateFromTen(int framesPerSecond)
+    public void TheSameCountSpawnsInASecondOfSimulatedTimeAtAnyFrameRate(int framesPerSecond)
     {
-        var spray = Spray(Definition(period: 0.1));
+        var spray = Spray(Definition(period: 0.11));
         Run(spray, 1, framesPerSecond);
-        Assert.AreEqual(10, spray.Particles.Count);
+        Assert.AreEqual(9, spray.Particles.Count);
+    }
+
+    [TestMethod]
+    public void OneStepOfASecondSpawnsTheSameCountAsManySmallOnes()
+    {
+        var spray = Spray(Definition(period: 0.11));
+        spray.Step(1, true, Origin);
+        Assert.AreEqual(9, spray.Particles.Count);
+    }
+
+    [TestMethod]
+    public void AStepLongerThanThePeriodSpawnsAtMostOneParticlePerTick()
+    {
+        var spray = Spray(Definition(period: 0.01));
+        spray.Step(1, true, Origin);
+        Assert.AreEqual(50, spray.Particles.Count);
     }
 
     [TestMethod]
@@ -63,7 +83,17 @@ public class SprayEmitterTests
     {
         var spray = Spray(Definition(period: 0));
         Run(spray, 1, 10);
-        Assert.AreEqual(10, spray.Particles.Count);
+        Assert.AreEqual(50, spray.Particles.Count);
+    }
+
+    [TestMethod]
+    public void TheOvershootOfATickDoesNotCarryIntoThePeriod()
+    {
+        // A period of 0.1 s is 5 ticks, and in 32-bit float the timer then ends a hair above 0, so a spawn takes the 6th
+        // tick: with no carry that is one particle per 0.12 s (about 8.3 per second), 9 in the 50 ticks of a second.
+        var spray = Spray(Definition(period: 0.1));
+        Run(spray, 1, 50);
+        Assert.AreEqual(9, spray.Particles.Count);
     }
 
     [TestMethod]
@@ -71,10 +101,26 @@ public class SprayEmitterTests
     {
         var spray = Spray(Definition(period: 100, velocity: 8));
         var frame = new EmitterFrame(new Vector3(5, 1, 2), Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
-        spray.Step(0.1, true, frame);
+        spray.Step(CombatWorld.Tick, true, frame);
         Assert.AreEqual(new Vector3(5, 1, 2), spray.Particles.Single().Position);
         Run(spray, 0.5, 10, frame: frame);
-        Assert.AreEqual(new Vector3(5, 1, 6).Z, spray.Particles.Single().Position.Z, 1e-4);
+        Assert.AreEqual(5, spray.Particles.Single().Position.X, 1e-4);
+        Assert.AreEqual(1, spray.Particles.Single().Position.Y, 1e-4);
+        Assert.AreEqual(6, spray.Particles.Single().Position.Z, 1e-4);
+    }
+
+    [TestMethod]
+    public void AParticleOfATurnedNodeStartsAtItAndMovesOnlyAlongItsZ()
+    {
+        var spray = Spray(Definition(period: 100, velocity: 8));
+        var turned = new EmitterFrame(new Vector3(5, 1, 2), -Vector3.UnitZ, Vector3.UnitY, Vector3.UnitX);
+        spray.Step(CombatWorld.Tick, true, turned);
+        Run(spray, 0.5, 10, frame: turned);
+        var position = spray.Particles.Single().Position;
+        Assert.AreEqual(
+            (9f, 1f, 2f),
+            (MathF.Round(position.X, 3), MathF.Round(position.Y, 3), MathF.Round(position.Z, 3))
+        );
     }
 
     [TestMethod]
@@ -82,7 +128,7 @@ public class SprayEmitterTests
     {
         var spray = Spray(Definition(period: 100, velocity: 10));
         var turned = new EmitterFrame(Vector3.Zero, -Vector3.UnitZ, Vector3.UnitY, Vector3.UnitX);
-        spray.Step(0.1, true, turned);
+        spray.Step(CombatWorld.Tick, true, turned);
         Run(spray, 1, 10, frame: turned);
         Assert.AreEqual(new Vector3(10, 0, 0).X, spray.Particles.Single().Position.X, 1e-4);
     }
@@ -118,7 +164,7 @@ public class SprayEmitterTests
     public void AParticleIsGoneAtItsLifespan()
     {
         var spray = Spray(Definition(period: 100, lifespan: 1));
-        spray.Step(0.1, true, Origin);
+        spray.Step(CombatWorld.Tick, true, Origin);
         Run(spray, 0.9, 10);
         Assert.AreEqual(1, spray.Particles.Count);
         Run(spray, 0.1, 10);
@@ -129,7 +175,7 @@ public class SprayEmitterTests
     public void AParticleGrowsByTheExpansionRatePerSecondOfAge()
     {
         var spray = Spray(Definition(period: 100, expansion: 1.1));
-        spray.Step(0.1, true, Origin);
+        spray.Step(CombatWorld.Tick, true, Origin);
         Run(spray, 0.5, 10);
         Assert.AreEqual(2 + 1.1 * 0.5, spray.Size(2, spray.Particles.Single()), 1e-6);
     }
@@ -138,11 +184,15 @@ public class SprayEmitterTests
     public void AParticleWhoseSizeReachesZeroOrLessIsNotDrawn()
     {
         var spray = Spray(Definition(period: 100, expansion: -1));
-        spray.Step(0.1, true, Origin);
+        spray.Step(CombatWorld.Tick, true, Origin);
         Run(spray, 1.5, 10);
-        Assert.IsTrue(spray.Drawn(spray.Particles.Single(), 2, 2));
+        Assert.IsTrue(
+            SprayEmitter.Drawn(spray.Size(2, spray.Particles.Single()), spray.Size(2, spray.Particles.Single()))
+        );
         Run(spray, 0.5, 10);
-        Assert.IsFalse(spray.Drawn(spray.Particles.Single(), 2, 2));
+        Assert.IsFalse(
+            SprayEmitter.Drawn(spray.Size(2, spray.Particles.Single()), spray.Size(2, spray.Particles.Single()))
+        );
     }
 
     [TestMethod]
@@ -166,9 +216,9 @@ public class SprayEmitterTests
     [TestMethod]
     public void ANodeShownAgainSpraysAgain()
     {
-        var spray = Spray(Definition());
+        var spray = Spray(Definition(period: 0.11));
         Run(spray, 1, 10, showing: false);
         Run(spray, 1, 10);
-        Assert.AreEqual(10, spray.Particles.Count);
+        Assert.AreEqual(9, spray.Particles.Count);
     }
 }

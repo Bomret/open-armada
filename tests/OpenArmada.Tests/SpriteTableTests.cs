@@ -194,11 +194,19 @@ public class SpriteTableTests
     }
 
     [TestMethod]
+    public void AnEmitterBlockWithNoSpriteKeyIsReportedByName()
+    {
+        var t = Read("a.spr", ("a.spr", Head + "@emitter vent\ntype=spray\nvelocity=3\n@end_emitter\n"));
+        Assert.AreEqual("vent", t.Emitters.Single().Name);
+        StringAssert.Contains(t.Notes.Single(), "a.spr: emitter 'vent' has no sprite key");
+    }
+
+    [TestMethod]
     public void AnUnreadableEmitterValueIsReportedAndTheFieldKeepsItsDefault()
     {
-        var t = Read("a.spr", ("a.spr", Head + "@emitter e\ntype=spray\nvelocity=fast\n@end_emitter\n"));
+        var t = Read("a.spr", ("a.spr", Head + "@emitter e\ntype=spray\nsprite=s\nvelocity=fast\n@end_emitter\n"));
         Assert.AreEqual(0.0, t.Emitters.Single().Velocity);
-        StringAssert.Contains(t.Notes.Single(), "a.spr:5: emitter 'e' key 'velocity' value 'fast' is not a number");
+        StringAssert.Contains(t.Notes.Single(), "a.spr:6: emitter 'e' key 'velocity' value 'fast' is not a number");
     }
 
     [TestMethod]

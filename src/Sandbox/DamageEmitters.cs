@@ -35,7 +35,7 @@ public sealed record DamageEmitter
 public sealed class DamageEmitters(IReadOnlyList<DamageEmitter> emitters, IReadOnlyList<ReportEntry> reports)
 {
     const string MissingDefinition = "emitter missing from the sprite tables, it sprays nothing";
-    const string MissingSprite = "emitter names a sprite node no table defines, it sprays nothing";
+    const string MissingSprite = "emitter names no sprite node, or one no table defines, it sprays nothing";
     const string NotPlayed = "emitter type is not played, it sprays nothing";
 
     /// <summary>The emitters that spray, in the model's node order.</summary>
@@ -54,16 +54,7 @@ public sealed class DamageEmitters(IReadOnlyList<DamageEmitter> emitters, IReadO
         var damage = model.Nodes.FirstOrDefault(n => n.Name.Equals("damage", StringComparison.OrdinalIgnoreCase));
         if (damage == null)
             return new DamageEmitters([], []);
-        var under = new HashSet<Sod.Node>();
-        var pending = new Stack<Sod.Node>(model.ChildrenOf(damage));
-        while (pending.Count > 0)
-        {
-            var node = pending.Pop();
-            if (!under.Add(node))
-                continue;
-            foreach (var child in model.ChildrenOf(node))
-                pending.Push(child);
-        }
+        var under = model.Descendants(damage).ToHashSet();
 
         var definitions = new Dictionary<string, SpriteEmitter>(StringComparer.OrdinalIgnoreCase);
         var lines = new Dictionary<string, (SpriteTable Table, SpriteNodeLine Line)>(StringComparer.OrdinalIgnoreCase);
@@ -96,7 +87,11 @@ public sealed class DamageEmitters(IReadOnlyList<DamageEmitter> emitters, IReadO
 
             if (!lines.TryGetValue(definition.Sprite, out var hit))
             {
-                gaps.Add(MissingSprite, definition.Sprite, node);
+                gaps.Add(
+                    MissingSprite,
+                    definition.Sprite.Length > 0 ? definition.Sprite : $"{definition.Name} (no sprite key)",
+                    node
+                );
 
                 continue;
             }

@@ -447,6 +447,10 @@ public sealed class SpriteTable
             }
         }
 
+        // Only a spray needs its sprite: a cloud or a beam is not played.
+        if (emitter.Kind == EmitterKind.Spray && emitter.Sprite.Length == 0)
+            _notes.Add($"{table}: emitter '{name}' has no sprite key");
+
         return emitter;
     }
 

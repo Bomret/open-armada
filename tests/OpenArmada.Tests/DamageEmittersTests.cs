@@ -21,6 +21,7 @@ public class DamageEmittersTests
         + "@sprite_node ventplas plasma const (2,2) (1,1,1) billboard\n"
         + "@emitter plasmasml\ntype=spray\nsprite=ventplas\nexpansion_rate=1.1\nfiring_period=0.1\nlifespan=2.999\nvelocity=8.0\nspread_angle=5.0\n@end_emitter\n"
         + "@emitter nosprite\ntype=spray\nsprite=nosuchnode\nfiring_period=0.1\nlifespan=1\nvelocity=1\n@end_emitter\n"
+        + "@emitter nokey\ntype=spray\nfiring_period=0.1\nlifespan=1\nvelocity=1\n@end_emitter\n"
         + "@emitter plasmacloud\ntype=cloud\nsprite=ventplas\n@end_emitter\n";
 
     GameFileSystem Install() => new(temp.MakeInstall(new[] { ("Sprites/emitter.spr", EmitterTable) }));
@@ -84,6 +85,14 @@ public class DamageEmittersTests
         var report = resolved.Reports.Single();
         CollectionAssert.AreEqual(new[] { "nosuchnode" }, report.Names.ToArray());
         Assert.AreEqual(2, report.Count);
+    }
+
+    [TestMethod]
+    public void AnEmitterWithNoSpriteKeyIsReportedByItsNameAndSkipped()
+    {
+        var resolved = DamageEmitters.For(Install(), Model(Node("a_1", "engines", "nokey")));
+        Assert.AreEqual(0, resolved.Emitters.Count);
+        CollectionAssert.AreEqual(new[] { "nokey (no sprite key)" }, resolved.Reports.Single().Names.ToArray());
     }
 
     [TestMethod]

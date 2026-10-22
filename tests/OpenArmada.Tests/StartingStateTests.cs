@@ -136,6 +136,7 @@ public class StartingStateTests
 
         Assert.IsTrue(s.Derelict);
         Assert.AreEqual(0, s.Shields);
+        Assert.AreEqual(0, s.Crew);
         Assert.AreEqual(0, reports.Length, string.Join("\n", reports));
     }
 

@@ -247,7 +247,7 @@ reading is not known). A destroyed system works again only once it is back at fu
 
 ## Crew, derelicts, and destruction
 
-A unit starts with `crewCost` crew; a unit that starts below one is derelict from the start. A layout object's starting state can lower the crew to a fraction of `crewCost`, lower the shields, and start ship systems destroyed (`README.md`, "Open a layout"); a starting crew below one is derelict the same way. The game starts every unit at full strength, so the starting state is the engine's own (**stand-in**). When the
+A unit starts with `crewCost` crew; a unit that starts below one is derelict from the start. A layout object's starting state can lower the crew to a fraction of `crewCost`, lower the shields, and start ship systems destroyed (`README.md`, "Open a layout"); a starting crew below one is derelict the same way, with crew 0 and shields 0. The game starts every unit at full strength, so the starting state is the engine's own (**stand-in**). When the
 crew falls below one (0x466ca0), the crew is set to zero
 and the unit becomes **derelict**: all its systems go offline and its shields go down. A derelict
 unit regains no shields, loses no crew to life support, fires no weapon, and is no valid target for

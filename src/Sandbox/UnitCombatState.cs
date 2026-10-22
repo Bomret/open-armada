@@ -153,8 +153,8 @@ public sealed class UnitCombatState(
     /// <summary>
     /// Puts the unit in its starting state, in this order: each listed system the unit has is destroyed at 0 hit
     /// points by <see cref="DestroySystem"/>; the crew is set to the fraction of crewCost exactly, and a crew below
-    /// one makes the unit derelict with shields 0, as a unit derelict from the start is; then the shields are set to
-    /// the fraction of maxHealth. From there the combat rules run unchanged.
+    /// one makes the unit derelict with crew 0 and shields 0, as a unit derelict from the start is; then the shields
+    /// are set to the fraction of maxHealth. From there the combat rules run unchanged.
     /// </summary>
     public void Begin(StartingState start)
     {
@@ -174,6 +174,7 @@ public sealed class UnitCombatState(
         if (Crew < 1)
         {
             Derelict = true;
+            Crew = 0;
             Shields = 0;
 
             return;

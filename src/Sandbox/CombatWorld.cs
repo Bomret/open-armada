@@ -188,6 +188,12 @@ public sealed class CombatWorld
             RunTick(events);
         }
 
+        // the part of this call after the tick that found a unit without thrust, for the view's coast
+        foreach (var u in _units.Values)
+        {
+            u.CoastOvershoot = u.CoastTick is { } tick ? (_ticks - tick) * Tick + _pending : null;
+        }
+
         return events;
     }
 
@@ -202,12 +208,13 @@ public sealed class CombatWorld
             Think(u);
             if (u.Coasting)
             {
-                u.Intent = new MoveIntent { Kind = MoveKind.Coast }; // no order moves a ship without thrust
+                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a ship without thrust
                 u.PlayerMove = null;
+                u.CoastTick ??= _ticks;
             }
-            else if (u.Intent.Kind == MoveKind.Coast)
+            else
             {
-                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // thrust is back: the ship stands and takes orders
+                u.CoastTick = null;
             }
 
             Fire(u, events);

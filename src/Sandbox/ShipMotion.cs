@@ -51,10 +51,24 @@ public sealed class ShipMotion
     // defines no such rule.
     const float PivotAngle = MathF.PI / 2;
 
-    // The no-thrust branch of the game's physics step (0x459440, checks 0x45969b-0x4596bf): speed drops by 2.0
-    // per second per second against the heading until speed squared is below 0.01 (0x5cc140), then stays.
+    // The no-thrust branch of the game's physics step (0x459440, checks 0x45969b-0x4596bf): the velocity vector
+    // loses 2.0 per second per second against its own direction (0x459ca6-0x459cfe, constant 0x5cc140) until its
+    // squared length is below 0.01 (0x459c46), then stays. The turn rate is not damped (0x459c0a) and only
+    // changes the heading, so the path is straight.
     const float CoastDeceleration = 2f;
     const float CoastRest = 0.01f;
+
+    // The state a thrust step started from, so a coast that began inside that step can take it back.
+    readonly record struct Start(
+        Vector3 Position,
+        float Heading,
+        float Bank,
+        float Speed,
+        float TurnRate,
+        Vector2? Target,
+        Vector2? Facing,
+        double Seconds
+    );
 
     readonly PhysicsValues _physics;
     Vector3 _position;
@@ -62,7 +76,8 @@ public sealed class ShipMotion
     float _bank;
     float _speed; // units per second along the heading, as of the last step
     float _turnRate; // radians per second, as of the last step
-    bool _coasting;
+    Vector3 _velocity; // units per second while coasting, fixed in direction by the loss of thrust
+    Start? _last; // the last thrust step, null before one
     double _pending; // coast time not yet run as a whole world tick
     Vector2? _target; // X, Z
     Vector2? _facing; // X, Z of the point a ship turns to face in place; never set together with _target
@@ -76,39 +91,66 @@ public sealed class ShipMotion
     }
 
     /// <summary>Whether the ship coasts: it has no thrust, and no order moves it (ADR 0008).</summary>
-    public bool Coasting => _coasting;
+    public bool Coasting { get; private set; }
 
     /// <summary>
-    /// Takes the thrust away: the ship keeps its current speed along its heading and its current turn rate and
-    /// slows at 2.0 units/s² until its speed is below 0.1, then keeps that residual speed (0x459440). Its orders
-    /// end, and no order gives it thrust back until <see cref="Thrust"/>. A ship already coasting keeps its coast.
+    /// Takes the thrust away: the ship keeps its current velocity, its current speed along its heading, and its
+    /// current turn rate. The velocity slows at 2.0 units/s² against its own direction until its speed is below
+    /// 0.1, then stays; the turn rate only turns the heading (0x459440). Its orders end, and no order gives it
+    /// thrust back until <see cref="Thrust"/>. A ship already coasting keeps its coast.
+    /// <c>overshoot</c> is how many seconds of the ship's last <see cref="Step"/> lie after the combat world's tick
+    /// that took the thrust away: the ship takes that part of the step back, follows its orders for the rest, and
+    /// coasts on from that tick, in phase with the world's ticks. Call it right after that step; an overshoot
+    /// longer than the step, or a ship that made no thrust step, counts as none.
     /// stand-in: the position moves by the mean speed of each world tick (the half-step detail is medium
-    /// confidence); a coast runs on the combat world's ticks, a part of a tick waits for the next step.
+    /// confidence); a part of a tick waits for the next step.
     /// </summary>
-    public void Coast()
+    public void Coast(double overshoot = 0)
     {
-        if (_coasting)
+        if (Coasting)
             return;
-        _coasting = true;
+        if (overshoot > 0 && _last is { } last && overshoot <= last.Seconds + 1e-9)
+        {
+            overshoot = Math.Min(overshoot, last.Seconds);
+            (_position, _heading, _bank, _speed, _turnRate, _target, _facing) = (
+                last.Position,
+                last.Heading,
+                last.Bank,
+                last.Speed,
+                last.TurnRate,
+                last.Target,
+                last.Facing
+            );
+            Step(last.Seconds - overshoot);
+        }
+        else
+        {
+            overshoot = 0;
+        }
+
+        Coasting = true;
         _target = null;
         _facing = null;
+        _velocity = _speed * new Vector3(MathF.Sin(_heading), 0, MathF.Cos(_heading));
         _pending = 0;
+        RunCoast(overshoot);
     }
 
     /// <summary>Gives the thrust back: the ship stands at rest and takes orders again. No effect on a ship that does not coast.</summary>
     public void Thrust()
     {
-        if (!_coasting)
+        if (!Coasting)
             return;
-        _coasting = false;
+        Coasting = false;
         _speed = 0;
         _turnRate = 0;
+        _last = null;
     }
 
     /// <summary>Replaces the previous order; the ship keeps its own height. A coasting ship ignores it.</summary>
     public void SetTarget(float x, float z)
     {
-        if (_coasting)
+        if (Coasting)
             return;
         _facing = null;
         _target = new Vector2(x, z);
@@ -117,7 +159,7 @@ public sealed class ShipMotion
     /// <summary>Replaces the previous order; the ship stays where it is, at its own height, and keeps its heading.</summary>
     public void Stop()
     {
-        if (_coasting)
+        if (Coasting)
             return;
         _target = null;
         _facing = null;
@@ -134,7 +176,7 @@ public sealed class ShipMotion
     /// </summary>
     public void Face(float x, float z)
     {
-        if (_coasting)
+        if (Coasting)
             return;
         _target = null;
         _facing = new Vector2(x, z);
@@ -150,17 +192,32 @@ public sealed class ShipMotion
         };
 
     /// <summary>
+    /// The pose to draw: the simulated <see cref="Pose"/>, and for a coasting ship also the part of a world tick
+    /// that has not run yet, at the ship's current velocity and turn rate, so a frame shorter than a tick still
+    /// shows movement. Only the view reads it; the simulated state stays on the world's ticks.
+    /// </summary>
+    public ShipPose Drawn =>
+        Coasting
+            ? Pose with
+            {
+                Position = _position + _velocity * (float)_pending,
+                Heading = Wrap(_heading + _turnRate * (float)_pending),
+            }
+            : Pose;
+
+    /// <summary>
     /// Moves the ship by its order for <c>seconds</c> and returns the pose it reaches. A ship that reaches its target
     /// stands exactly on it and its order ends. Zero or negative seconds change nothing.
     /// </summary>
     public ShipPose Step(double seconds)
     {
-        if (seconds > 0 && _coasting)
+        if (seconds > 0 && Coasting)
         {
             RunCoast(seconds);
         }
         else if (seconds > 0)
         {
+            _last = new Start(_position, _heading, _bank, _speed, _turnRate, _target, _facing, seconds);
             _speed = 0;
             _turnRate = 0;
             if (_target is { } target)
@@ -185,10 +242,11 @@ public sealed class ShipMotion
         while (_pending + Epsilon >= CombatWorld.Tick)
         {
             _pending -= CombatWorld.Tick;
-            var before = _speed;
-            if (_speed * _speed >= CoastRest)
-                _speed = MathF.Max(0, _speed - CoastDeceleration * dt);
-            _position += new Vector3(MathF.Sin(_heading), 0, MathF.Cos(_heading)) * ((before + _speed) / 2 * dt);
+            var before = _velocity;
+            var speed = before.Length();
+            if (speed * speed >= CoastRest)
+                _velocity = before / speed * MathF.Max(0, speed - CoastDeceleration * dt);
+            _position += (before + _velocity) / 2 * dt;
             _heading = Wrap(_heading + _turnRate * dt);
         }
     }

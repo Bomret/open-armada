@@ -182,16 +182,15 @@ public partial class UnitOrders : Node3D
     {
         foreach (var unit in _world.Units)
         {
-            if (unit.Intent.Kind != MoveKind.None && Motion(unit.Unit) is { } motion)
+            if (unit.CoastOvershoot is { } overshoot && Motion(unit.Unit) is { } coaster)
             {
-                if (unit.Intent.Kind != MoveKind.Coast)
-                    motion.Thrust();
+                coaster.Coast(overshoot);
+            }
+            else if (unit.Intent.Kind != MoveKind.None && Motion(unit.Unit) is { } motion)
+            {
+                motion.Thrust();
                 switch (unit.Intent.Kind)
                 {
-                    case MoveKind.Coast:
-                        motion.Coast();
-
-                        break;
                     case MoveKind.MoveTo:
                         motion.SetTarget(unit.Intent.X, unit.Intent.Z);
 
@@ -210,7 +209,8 @@ public partial class UnitOrders : Node3D
 
         foreach (var (o, (motion, initial, start, scale)) in _moving)
         {
-            var pose = _poses.Advance(o, motion, delta);
+            _poses.Advance(o, motion, delta);
+            var pose = motion.Drawn; // a coasting ship is drawn between its tick poses; the simulated pose stays on the tick
             var q = MoveGeometry.Orientation(initial, pose.Heading - start, pose.Bank);
             _nodes[o].Transform = new Transform3D(
                 new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)) * Basis.FromScale(scale),

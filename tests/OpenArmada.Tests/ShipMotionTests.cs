@@ -370,6 +370,57 @@ public class ShipMotionTests
     }
 
     [TestMethod]
+    public void ACoastingShipThatDrivesWhileTurningFollowsAStraightLine()
+    {
+        var ship = Ship();
+        ship.SetTarget(500, 1000); // far off, 27 degrees to the side: it drives while it turns
+        ship.Step(0.5);
+        var turning = ship.Pose.Heading;
+        ship.Coast();
+        var start = ship.Pose.Position;
+        var middle = ship.Step(1).Position;
+        var end = ship.Step(1).Position;
+        Assert.AreNotEqual(turning, ship.Pose.Heading, 1e-3, "the heading keeps turning");
+        var first = middle - start;
+        var second = end - middle;
+        Assert.AreEqual(0, first.X * second.Z - first.Z * second.X, 1e-3);
+    }
+
+    [TestMethod]
+    public void ACoastingShipIsDrawnBetweenItsTickPosesWhileItsSimulatedPoseStaysOnTheTick()
+    {
+        var ship = Cruising();
+        var tick = ship.Pose.Position;
+        ship.Step(0.01); // half a world tick
+        AssertAt(tick, ship.Pose.Position);
+        Assert.AreEqual(tick.Z + 0.1f, ship.Drawn.Position.Z, 0.01); // 10 units/s for 0.01 s
+        ship.Step(0.01);
+        Assert.IsTrue(ship.Pose.Position.Z > tick.Z + 0.19f);
+        Assert.AreEqual(ship.Pose.Position.Z, ship.Drawn.Position.Z, 1e-4);
+    }
+
+    [TestMethod]
+    public void AShipThatDoesNotCoastIsDrawnAtItsPose()
+    {
+        var ship = Ship();
+        ship.SetTarget(0, 100);
+        ship.Step(0.3);
+        Assert.AreEqual(ship.Pose, ship.Drawn);
+    }
+
+    [TestMethod]
+    public void AShipThatLosesThrustInsideAStepFollowsItsOrdersUpToTheTickAndCoastsFromIt()
+    {
+        var ship = Ship();
+        ship.SetTarget(0, 1000);
+        ship.Step(0.5);
+        ship.Step(0.1); // the world's tick came 0.04 s before the end of this step
+        ship.Coast(0.04);
+        // 0.56 s of driving at 10 units/s, then two coast ticks: 10 -> 9.96 -> 9.92 units/s
+        Assert.AreEqual(5.6f + 0.02f * 9.98f + 0.02f * 9.94f, ship.Pose.Position.Z, 1e-3);
+    }
+
+    [TestMethod]
     public void AShipStandingStillStaysStillWhenItLosesThrust()
     {
         var ship = Ship();

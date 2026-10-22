@@ -333,6 +333,34 @@ public class CombatWorldTests
         return motion;
     }
 
+    // A ship drives ahead at 10 units/s and loses its engines after 0.5667 s; the sandbox's frame at `fps` runs for 2 s:
+    // the world's decision drives the motion, the motion moves the unit, then combat steps.
+    static float CoastingShipZ(int fps)
+    {
+        var a = WithSystems("a", 1, 0, null, Sys("Engines"));
+        var world = World(out var poses, null, a);
+        var motion = MovingTo(a.Object, 0, 1000);
+        for (var frame = 0; frame < 2 * fps; frame++)
+        {
+            if (frame == 17 * fps / 30) // at 0.5667 s: the world tick that takes the thrust (0.58 s) falls inside a frame
+                world.State(a.Object)!.DestroySystem("Engines");
+            if (world.State(a.Object)!.CoastOvershoot is { } overshoot)
+                motion.Coast(overshoot);
+            poses.Advance(a.Object, motion, 1.0 / fps);
+            world.Step(1.0 / fps);
+        }
+
+        return poses.Pose(a.Object).Position.Z;
+    }
+
+    [TestMethod]
+    public void AShipThatLosesThrustMidFrameCoastsFromTheWorldTickAtAnyFrameRate()
+    {
+        var thirty = CoastingShipZ(30);
+        Assert.AreEqual(thirty, CoastingShipZ(60), 1e-3);
+        Assert.IsTrue(thirty > 10 && thirty < 19.9, $"z {thirty}");
+    }
+
     [TestMethod]
     public void TheClosingRangeIsMeasuredSurfaceToSurface()
     {
@@ -1107,7 +1135,8 @@ public class CombatWorldTests
         world.State(a.Object)!.DestroySystem("Engines");
         world.State(b.Object)!.DestroySystem("Engines");
         var events = world.Step(0.02);
-        Assert.AreEqual(MoveKind.Coast, world.State(a.Object)!.Intent.Kind);
+        Assert.IsTrue(world.State(a.Object)!.Coasting);
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
         Assert.IsTrue(events.OfType<ShotFired>().Where(e => e.Shot.Target.Unit == b.Object).All(e => e.Shot.Hits));
         Assert.IsTrue(events.OfType<ShotFired>().Any(e => e.Shot.Target.Unit == b.Object));
     }
@@ -1164,7 +1193,8 @@ public class CombatWorldTests
         MakeDerelict(world, a);
         var events = world.Step(3);
         Assert.AreEqual(0, Fired(events, "a"));
-        Assert.AreEqual(MoveKind.Coast, world.State(a.Object)!.Intent.Kind);
+        Assert.IsTrue(world.State(a.Object)!.Coasting);
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
         Assert.IsNotNull(world.State(a.Object));
     }
 
@@ -1207,7 +1237,8 @@ public class CombatWorldTests
         world.Attack(a.Object, b.Object);
         world.State(a.Object)!.DestroySystem("Engines");
         world.Step(1);
-        Assert.AreEqual(MoveKind.Coast, world.State(a.Object)!.Intent.Kind);
+        Assert.IsTrue(world.State(a.Object)!.Coasting);
+        Assert.AreEqual(MoveKind.Stop, world.State(a.Object)!.Intent.Kind);
     }
 
     [TestMethod]

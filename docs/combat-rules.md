@@ -429,7 +429,8 @@ after 5 steps of 0.02 s. The game steps the timer by the frame's seconds. **Stan
 fixed 0.02 s tick of simulated time (`CombatWorld.Tick`), so the rate is the same at any frame rate and step size.
 
 **Particle** (0x5746d0): it starts at the emitter node's world transform, rotated by three angles, each uniform in
-plus or minus `spread_angle` (so the tilt from +Z can reach `spread_angle` times the square root of two). It moves
+plus or minus `spread_angle` (so the tilt from +Z reaches at most acos(cos² `spread_angle`), about `spread_angle` times the square root of two for
+small angles). It moves
 along the node's local +Z at `velocity`. It draws as a billboard of its sprite node at the sprite node's size plus
 `expansion_rate` times its age. **Stand-in**: the sprite node's animation plays once from the particle's birth and
 holds its last keyframe. A size at or below 0 is not drawn (0x584040). It dies at `lifespan`.

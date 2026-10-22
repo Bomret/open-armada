@@ -134,17 +134,37 @@ public class SprayEmitterTests
     }
 
     [TestMethod]
-    public void AParticleLeavesWithinTheSpreadAngleOfTheNodesZ()
+    public void AParticleTurnsByEachOfThreeAnglesUpToThePlusOrMinusSpreadAngle()
     {
-        var spray = Spray(Definition(period: 0.1, velocity: 10, spread: 5));
-        Run(spray, 10, 10);
-        var angles = spray
-            .Particles.Select(p => Math.Acos(Vector3.Dot(Vector3.Normalize(p.Velocity), Vector3.UnitZ)) * 180 / Math.PI)
-            .ToList();
-        // Each of the three angles is within the spread of 0; two of them tilt the direction, so the tilt stays within
-        // the spread times the square root of two, and the particles do differ.
-        Assert.IsTrue(angles.All(a => a <= 5 * Math.Sqrt(2) + 1e-3), $"largest tilt {angles.Max()}");
-        Assert.IsTrue(angles.Max() > 1, $"largest tilt {angles.Max()}");
+        // The random source gives the extremes 0 and 1 (angles -5 and +5 degrees), and over 8 particles the three
+        // angles take every combination. Roll about Z leaves +Z alone, so the pitch gives y = sin(5) at most and the
+        // yaw then gives x = cos(5) * sin(5) at most, and the tilt from +Z is at most acos(cos(5)^2): about 7.07
+        // degrees, which is the spread times the square root of two only for small angles.
+        var call = 0;
+        double Extremes()
+        {
+            var n = call++;
+            return (n / 3 >> n % 3) & 1;
+        }
+
+        var spray = new SprayEmitter(Definition(period: 0, velocity: 1, spread: 5), Extremes);
+        Run(spray, 0.16, 50); // 8 ticks, one particle each
+        var directions = spray.Particles.Select(p => Vector3.Normalize(p.Velocity)).ToList();
+        var spread = 5 * Math.PI / 180;
+        Assert.AreEqual(8, directions.Count);
+        Assert.AreEqual(
+            (
+                Math.Round(Math.Cos(spread) * Math.Sin(spread), 4),
+                Math.Round(Math.Sin(spread), 4),
+                Math.Round(Math.Acos(Math.Cos(spread) * Math.Cos(spread)), 4)
+            ),
+            (
+                Math.Round(directions.Max(d => Math.Abs(d.X)), 4),
+                Math.Round(directions.Max(d => Math.Abs(d.Y)), 4),
+                Math.Round(directions.Max(d => Math.Acos(d.Z)), 4)
+            ),
+            "largest x, y, and tilt"
+        );
     }
 
     [TestMethod]

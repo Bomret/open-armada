@@ -1,9 +1,6 @@
-# One Klingon warship destroys a sensor station on kling1: the critical hit makes the station a dying unit, small
-# explosions play on it for three seconds, then its fireball plays and it leaves the map.
-# Run it with --map kling1; the README, "Run a play script", has the command.
-scroll down 20
-hold Right 1.4
-hold Down 1.6
+# One Klingon warship destroys a sensor station: the critical hit makes the station a dying unit, small explosions
+# play on it for three seconds, then its fireball plays and it leaves the map.
+# Run it with --layout layouts/destroy.jsonc; the layout's header comment has the command.
 wait 0.2
 shot before
 dump before
@@ -18,9 +15,9 @@ wait 1
 shot dying-2
 wait 1.2
 shot explosion-1
-wait 1
+wait 0.3
 shot explosion-2
-wait 2
+wait 0.3
 shot explosion-3
 dump after
 expect Sensor5 destroyed = true

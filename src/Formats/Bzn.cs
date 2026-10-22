@@ -126,6 +126,26 @@ public sealed record MapObject
 
     /// <summary>The file offset of the object's first header token.</summary>
     public required int Offset { get; init; }
+
+    /// <summary>
+    /// The object's starting state; null for full strength. A .bzn read leaves it null; a layout sets it (ADR 0007).
+    /// </summary>
+    public StartingState? Start { get; init; }
+}
+
+/// <summary>
+/// The condition a placed object starts the fight in. Each value left unset is full strength.
+/// </summary>
+public sealed record StartingState
+{
+    /// <summary>The crew as a fraction from 0 to 1 of the class's crewCost; null for the full crew.</summary>
+    public double? Crew { get; init; }
+
+    /// <summary>The shields as a fraction from 0 to 1 of the class's maxHealth; null for full shields.</summary>
+    public double? Shields { get; init; }
+
+    /// <summary>The ship systems that start destroyed, by name, each once.</summary>
+    public IReadOnlyList<string> DestroyedSystems { get; init; } = [];
 }
 
 /// <summary>One of the 9 team records. Fields named Unknown are read but their meaning is not known.</summary>

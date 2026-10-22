@@ -60,7 +60,7 @@ Breaks: loudly
 
 Class: behavior
 Concepts: Play run, Play script, State dump
-Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map and one play script write identical state dumps.
+Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map or layout and one play script write identical state dumps.
 Breaks: silently
 Check: a unit test that runs one play script twice against the same sandbox plan and compares the state dumps.
 

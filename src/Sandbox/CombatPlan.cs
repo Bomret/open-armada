@@ -82,6 +82,11 @@ public sealed class CombatPlan
             }
         }
 
+        foreach (var (o, profile) in profiles)
+        {
+            StartGaps(o, profile, gaps);
+        }
+
         // The plan is complete: each grouped report is one WARN, the same text as its on-screen line. A definition
         // that cannot be read is an ERROR entry of its own instead (see Failed); its grouped line is display only.
         var reports = gaps.Entries;
@@ -91,6 +96,23 @@ public sealed class CombatPlan
         }
 
         return new CombatPlan(profiles, reports, protection, bonus);
+    }
+
+    // The parts of a unit's starting state the unit cannot take, each a gap naming the object.
+    static void StartGaps(PlacedObject o, CombatProfile profile, Gaps gaps)
+    {
+        if (o.Start is not { } start)
+            return;
+        var who = $"{o.Label} ({o.Class})";
+        foreach (var name in start.DestroyedSystems.Where(n => profile.Systems.All(s => s.Name != n)))
+        {
+            gaps.Add("destroyed system the class does not have, left out", $"{who}: {name}", o);
+        }
+
+        if (start.Shields > 0 && (start.Crew ?? 1) * profile.CrewCost < 1)
+        {
+            gaps.Add("shields on a unit that starts derelict, shields 0 used", who, o);
+        }
     }
 
     // Marks the causes of an asset that failed to load; each is logged as one ERROR at the failure site.

@@ -125,20 +125,51 @@ public sealed record SpriteAnimation
     public double FrameSeconds => Count > 0 ? Length / Count : 0;
 }
 
+/// <summary>How an emitter spawns its particles (<c>type=</c> of an <c>@emitter</c>, read at 0x599ab0).</summary>
+public enum EmitterKind
+{
+    /// <summary>The block names no type, or one the reader does not know.</summary>
+    Unknown = 0,
+
+    /// <summary>A stream of particles from one point (<c>spray</c>).</summary>
+    Spray = 1,
+
+    /// <summary>A volume of particles (<c>cloud</c>).</summary>
+    Cloud = 2,
+
+    /// <summary>A beam (<c>beam</c>).</summary>
+    Beam = 3,
+}
+
 /// <summary>
-/// An @emitter block: its name and its lines up to @end_emitter, kept as written (comments removed,
-/// blanks collapsed) and not interpreted.
+/// An @emitter block (read at 0x599ab0): its name and the fields of its keys up to @end_emitter. A key the block
+/// leaves out keeps 0 (or "" for the sprite); the table's notes name an unknown key and a value that is no number.
 /// </summary>
 public sealed record SpriteEmitter
 {
-    /// <summary>The name after <c>@emitter</c>.</summary>
+    /// <summary>The name after <c>@emitter</c>; an emitter node of a model names it.</summary>
     public required string Name { get; init; }
 
-    /// <summary>
-    /// The lines between <c>@emitter</c> and <c>@end_emitter</c>, with comments removed and blanks collapsed to one
-    /// space.
-    /// </summary>
-    public required IReadOnlyList<string> Body { get; init; }
+    /// <summary>The <c>type=</c> of the block.</summary>
+    public EmitterKind Kind { get; init; }
+
+    /// <summary>The <c>sprite=</c>: the name of a <c>@sprite_node</c> line, which gives the particle's sprite and size.</summary>
+    public string Sprite { get; init; } = "";
+
+    /// <summary>The <c>spread_angle=</c> in degrees: each of a particle's three start angles is within it of 0.</summary>
+    public double SpreadAngle { get; init; }
+
+    /// <summary>The <c>expansion_rate=</c> in world units per second, added to the sprite node's size.</summary>
+    public double ExpansionRate { get; init; }
+
+    /// <summary>The <c>velocity=</c> in world units per second along the node's +Z (0x5757b0).</summary>
+    public double Velocity { get; init; }
+
+    /// <summary>The <c>lifespan=</c> in seconds.</summary>
+    public double Lifespan { get; init; }
+
+    /// <summary>The <c>firing_period=</c> in seconds between spawns.</summary>
+    public double FiringPeriod { get; init; }
 }
 
 /// <summary>
@@ -344,6 +375,81 @@ public sealed class SpriteTable
         };
     }
 
+    // The emitter of a block's "key=value" lines. The keys of a cloud (particle_count, cloud_radius) and pixel are read
+    // and unused: this reader does not play clouds and the use of pixel is not recovered. A bad key or value is a note.
+    SpriteEmitter EmitterOf(string table, string name, List<(int Line, string Key, string Value)> body)
+    {
+        var emitter = new SpriteEmitter { Name = name };
+        foreach (var (line, key, value) in body)
+        {
+            void Number(Func<double, SpriteEmitter> set)
+            {
+                if (
+                    double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var v)
+                    && double.IsFinite(v)
+                )
+                {
+                    emitter = set(v);
+                }
+                else
+                {
+                    _notes.Add($"{table}:{line}: emitter '{name}' key '{key}' value '{value}' is not a number");
+                }
+            }
+
+            switch (key)
+            {
+                case "type":
+                    var kind = value switch
+                    {
+                        "spray" => EmitterKind.Spray,
+                        "cloud" => EmitterKind.Cloud,
+                        "beam" => EmitterKind.Beam,
+                        _ => EmitterKind.Unknown,
+                    };
+                    if (kind == EmitterKind.Unknown)
+                        _notes.Add($"{table}:{line}: emitter '{name}' has unknown type '{value}'");
+                    emitter = emitter with { Kind = kind };
+
+                    break;
+                case "sprite":
+                    emitter = emitter with { Sprite = value };
+
+                    break;
+                case "spread_angle":
+                    Number(v => emitter with { SpreadAngle = v });
+
+                    break;
+                case "expansion_rate":
+                    Number(v => emitter with { ExpansionRate = v });
+
+                    break;
+                case "velocity":
+                    Number(v => emitter with { Velocity = v });
+
+                    break;
+                case "lifespan":
+                    Number(v => emitter with { Lifespan = v });
+
+                    break;
+                case "firing_period":
+                    Number(v => emitter with { FiringPeriod = v });
+
+                    break;
+                case "pixel":
+                case "particle_count":
+                case "cloud_radius":
+                    break;
+                default:
+                    _notes.Add($"{table}:{line}: emitter '{name}' has an unknown key '{key}'");
+
+                    break;
+            }
+        }
+
+        return emitter;
+    }
+
     static float? Float(string s) =>
         float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && float.IsFinite(v) ? v : null;
 
@@ -403,7 +509,7 @@ public sealed class SpriteTable
         var inKeyframes = false;
         string? emitter = null;
         var emitterLine = 0;
-        var emitterBody = new List<string>();
+        var emitterBody = new List<(int Line, string Key, string Value)>();
 
         // An animation is complete when the next one starts or the table ends.
         void CloseAnimation()
@@ -440,13 +546,16 @@ public sealed class SpriteTable
             {
                 if (t[0] == "@end_emitter")
                 {
-                    _emitters.Add(new SpriteEmitter { Name = emitter, Body = emitterBody.ToArray() });
+                    _emitters.Add(EmitterOf(table, emitter, emitterBody));
                     emitter = null;
                     emitterBody.Clear();
                 }
                 else
                 {
-                    emitterBody.Add(string.Join(" ", t));
+                    // "key=value", also with blanks around the '='; a line with no '=' is a key with no value.
+                    var joined = string.Concat(t);
+                    var eq = joined.IndexOf('=');
+                    emitterBody.Add(eq < 0 ? (n, joined, "") : (n, joined[..eq], joined[(eq + 1)..]));
                 }
 
                 continue;

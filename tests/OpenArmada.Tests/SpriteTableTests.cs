@@ -151,6 +151,56 @@ public class SpriteTableTests
             )
         );
 
+    const string SprayBlock =
+        "@emitter plasmasml\ntype=spray\npixel=(0.9,0.9,0.2)\nsprite=ventplas\nexpansion_rate=1.1\n"
+        + "firing_period=0.1\nlifespan=2.999\nvelocity=8.0\nspread_angle=5.0\n";
+
+    [TestMethod]
+    public void ASprayEmitterReadsItsFieldsWithTheirUnits()
+    {
+        var e = Read("a.spr", ("a.spr", Head + SprayBlock + "@end_emitter\n")).Emitters.Single();
+        Assert.AreEqual(EmitterKind.Spray, e.Kind);
+        Assert.AreEqual("ventplas", e.Sprite);
+        Assert.AreEqual(
+            (5.0, 1.1, 8.0, 2.999, 0.1),
+            (e.SpreadAngle, e.ExpansionRate, e.Velocity, e.Lifespan, e.FiringPeriod)
+        );
+    }
+
+    [TestMethod]
+    public void CloudAndBeamEmittersReadTheirType()
+    {
+        var t = Read(
+            "a.spr",
+            (
+                "a.spr",
+                Head
+                    + "@emitter c\ntype=cloud\nparticle_count=30\ncloud_radius=20\n@end_emitter\n@emitter b\ntype=beam\n@end_emitter\n"
+            )
+        );
+        CollectionAssert.AreEqual(
+            new[] { EmitterKind.Cloud, EmitterKind.Beam },
+            t.Emitters.Select(e => e.Kind).ToArray()
+        );
+        Assert.AreEqual(0, t.Notes.Count);
+    }
+
+    [TestMethod]
+    public void AnUnknownEmitterKeyIsReportedAndTheRestStillParses()
+    {
+        var t = Read("a.spr", ("a.spr", Head + SprayBlock + "wobble=3\n@end_emitter\n"));
+        Assert.AreEqual(8.0, t.Emitters.Single().Velocity);
+        StringAssert.Contains(t.Notes.Single(), "a.spr:12: emitter 'plasmasml' has an unknown key 'wobble'");
+    }
+
+    [TestMethod]
+    public void AnUnreadableEmitterValueIsReportedAndTheFieldKeepsItsDefault()
+    {
+        var t = Read("a.spr", ("a.spr", Head + "@emitter e\ntype=spray\nvelocity=fast\n@end_emitter\n"));
+        Assert.AreEqual(0.0, t.Emitters.Single().Velocity);
+        StringAssert.Contains(t.Notes.Single(), "a.spr:5: emitter 'e' key 'velocity' value 'fast' is not a number");
+    }
+
     [TestMethod]
     public void UnterminatedEmitterIsReportedAtItsLine()
     {
@@ -386,7 +436,7 @@ public class SpriteTableTests
             )
         );
         Assert.AreEqual("rift", t.Emitters.Single().Name);
-        CollectionAssert.AreEqual(new[] { "type=spray", "velocity=12" }, t.Emitters.Single().Body.ToArray());
+        Assert.AreEqual(12.0, t.Emitters.Single().Velocity);
         var node = t.SpriteNodes.Single();
         Assert.AreEqual(("n", "s", "const"), (node.Node, node.Sprite, node.Animation));
         Assert.AreEqual((1f, 1f, new Vector3(1, 1, 1), true), (node.Width, node.Height, node.Colour, node.Billboard));

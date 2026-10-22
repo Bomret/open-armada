@@ -297,7 +297,11 @@ public class PlayRunTests
     [TestMethod]
     public void EachLaunchArgumentProblemStopsThePlayLaunch() =>
         CollectionAssert.AreEqual(
-            new[] { "--play needs a value", "--layout and --map cannot be given together" },
+            new[]
+            {
+                "play run cannot start: --play needs a value",
+                "play run cannot start: --layout and --map cannot be given together",
+            },
             PlayRun
                 .LaunchErrors(null, ["--play needs a value", "--layout and --map cannot be given together"])
                 .ToArray()
@@ -306,14 +310,14 @@ public class PlayRunTests
     [TestMethod]
     public void TheLaunchProblemAloneStopsThePlayLaunch() =>
         CollectionAssert.AreEqual(
-            new[] { "--play needs --map or --layout" },
+            new[] { "play run cannot start: --play needs --map or --layout" },
             PlayRun.LaunchErrors("--play needs --map or --layout", []).ToArray()
         );
 
     [TestMethod]
     public void LaunchArgumentProblemsStopThePlayLaunchWithoutTheLaunchProblem() =>
         CollectionAssert.AreEqual(
-            new[] { "--layout needs a value" },
+            new[] { "play run cannot start: --layout needs a value" },
             PlayRun.LaunchErrors("--play needs --map or --layout", ["--layout needs a value"]).ToArray()
         );
 
@@ -330,7 +334,7 @@ public class PlayRunTests
         args.Value("--play");
 
         CollectionAssert.AreEqual(
-            new[] { "--game needs a value" },
+            new[] { "play run cannot start: --game needs a value" },
             PlayRun.LaunchErrors(PlayRun.LaunchProblem(true, false, true, false), args.Problems).ToArray()
         );
     }

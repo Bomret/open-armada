@@ -75,7 +75,8 @@ public partial class AssetBrowserView : Control
             $"run start: mode {mode}, install {(game == null ? "none" : Log.Quote(game))} (from {source}), "
                 + $"arguments [{string.Join(", ", userArgs.Select(Log.Quote))}], log {Log.Quote(logFile)}"
         );
-        // A play run cannot start with a launch-argument problem, so StartPlayRun logs each one as ERROR instead.
+        // A play run cannot start with a launch-argument problem, so StartPlayRun logs each one as an ERROR entry
+        // that names the play run that failed to open instead.
         if (mode != "play")
         {
             foreach (var problem in args.Problems)
@@ -249,9 +250,9 @@ public partial class AssetBrowserView : Control
     }
 
     // Starts a play run of the map sandbox on a map or a layout, or logs why it cannot and quits with exit code 1
-    // (INV-0007); the window never stays open. Each problem of PlayRun.LaunchErrors is one ERROR entry: the
-    // launch-argument problems (a flag without a value, or --map with --layout), which the run start left to this
-    // method, or else the launch problem.
+    // (INV-0007); the window never stays open. Each entry of PlayRun.LaunchErrors is one ERROR entry,
+    // "play run cannot start: <problem>": the launch-argument problems (a flag without a value, or --map with
+    // --layout), which the run start left to this method, or else the launch problem.
     void StartPlayRun(LaunchArgs args, string? game)
     {
         var problem = PlayRun.LaunchProblem(

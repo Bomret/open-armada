@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OpenArmada.Sandbox;
 
@@ -38,12 +39,19 @@ public sealed class PlayRun(
     /// The launch-argument problems (a flag without a value, such as a bare <c>--game</c>, or <c>--map</c> with
     /// <c>--layout</c>) are each returned, and then <c>launchProblem</c> (of <see cref="LaunchProblem"/> or
     /// <see cref="MovieProblem"/>) is left out, so one cause is never two entries. Without them,
-    /// <c>launchProblem</c> is the one problem when there is one.
+    /// <c>launchProblem</c> is the one problem when there is one. Every entry reads
+    /// <c>play run cannot start: &lt;problem&gt;</c>: its cause is the play run that failed to open, so it is never
+    /// the text of the WARN entry another mode logs for the same launch-argument problem.
     /// </summary>
-    public static IReadOnlyList<string> LaunchErrors(string? launchProblem, IReadOnlyList<string> argumentProblems) =>
-        argumentProblems.Count > 0 ? argumentProblems
-        : launchProblem != null ? [launchProblem]
-        : [];
+    public static IReadOnlyList<string> LaunchErrors(string? launchProblem, IReadOnlyList<string> argumentProblems)
+    {
+        IReadOnlyList<string> problems =
+            argumentProblems.Count > 0 ? argumentProblems
+            : launchProblem != null ? [launchProblem]
+            : [];
+
+        return problems.Select(problem => $"play run cannot start: {problem}").ToArray();
+    }
 
     /// <summary>
     /// The problem with the Movie Maker output, or null: Movie Maker opens its PNG and WAV files at engine start

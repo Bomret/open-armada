@@ -1498,13 +1498,9 @@ public class CombatWorldTests
         Assert.IsTrue(state.Dying && state.ShieldDownOverlay && DamageNodes.ShowingNodes(model, state).Count > 0);
         Ticks(world, 150);
         var expect = (ExpectStep)PlayScript.Parse("expect b destroyed = true", "x.play").Steps.Single();
-        var effects = world.Units.Where(u => u.ShieldDownOverlay || DamageNodes.ShowingNodes(model, u).Count > 0);
-        Assert.IsTrue(
-            world.State(b.Object) == null
-                && world.Units.All(u => u.Unit != b.Object)
-                && effects.All(u => u.Unit != b.Object)
-                && play.Expect(expect) == null
-        );
+        Assert.IsNull(world.State(b.Object), "the world still holds a state for the unit that left");
+        Assert.IsTrue(world.Units.All(u => u.Unit != b.Object), "the unit that left is still among the world's units");
+        Assert.IsNull(play.Expect(expect), "expect b destroyed = true failed");
     }
 
     // Three attackers on one unit that no system or hull covers: their beams land in one tick, the first a critical

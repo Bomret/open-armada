@@ -5,8 +5,8 @@ using OpenArmada.Diagnostics;
 namespace OpenArmada.Tests;
 
 /// <summary>
-/// Captures the lines <see cref="Log"/> writes while it lives, starting a fresh run of the textures
-/// <see cref="ViewerLog.TextureFailed"/> logged; disposing restores the previous sink and counts.
+/// Captures the lines <see cref="Log"/> writes while it lives, starting a fresh run of the textures and sprite tables
+/// <see cref="ViewerLog.TextureFailed"/> and <see cref="ViewerLog.SpriteTableFailed"/> logged; disposing restores the previous sink and counts.
 /// </summary>
 sealed class CapturedLog : IDisposable
 {
@@ -14,7 +14,7 @@ sealed class CapturedLog : IDisposable
 
     public CapturedLog()
     {
-        ViewerLog.ResetTextures();
+        ViewerLog.ResetRun();
         _redirect = Log.Redirect(Lines.Add);
     }
 

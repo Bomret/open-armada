@@ -1,7 +1,6 @@
 using System.Linq;
 using Godot;
 using OpenArmada.Assets;
-using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Viewer;
@@ -15,7 +14,7 @@ public sealed class CursorPreview : KindPreview
     public override string KindName => CursorKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var cursor = (CursorImage)kind.Load(files, name);
         var image = Image.CreateEmpty(cursor.Width * Scale, cursor.Height * Scale, false, Image.Format.Rgba8);
@@ -52,11 +51,13 @@ public sealed class CursorPreview : KindPreview
             image.FillRect(edge, Colors.Cyan);
         }
 
-        ViewerLog.Notes(name, cursor.Notes);
-
-        return new ImagePane(
-            $"{cursor.Width}x{cursor.Height}, hotspot at ({cursor.HotspotX}, {cursor.HotspotY}){string.Concat(cursor.Notes.Select(n => " - " + n))}",
-            new[] { (name, image) }
-        );
+        return new Preview
+        {
+            View = new ImagePane(
+                $"{cursor.Width}x{cursor.Height}, hotspot at ({cursor.HotspotX}, {cursor.HotspotY}){string.Concat(cursor.Notes.Select(n => " - " + n))}",
+                new[] { (name, image) }
+            ),
+            Notes = cursor.Notes,
+        };
     }
 }

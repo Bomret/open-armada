@@ -11,7 +11,7 @@ public sealed class PalettePreview : KindPreview
     public override string KindName => PaletteKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var colors = (IReadOnlyList<(byte R, byte G, byte B)>)kind.Load(files, name);
         var image = Image.CreateEmpty(16, 16, false, Image.Format.Rgb8);
@@ -32,6 +32,6 @@ public sealed class PalettePreview : KindPreview
         box.AddChild(new Label { Text = $"{colors.Count} colors, 8 bits per channel" });
         box.AddChild(swatches);
 
-        return box;
+        return new Preview { View = box };
     }
 }

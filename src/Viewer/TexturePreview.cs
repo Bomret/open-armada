@@ -12,7 +12,7 @@ public sealed class TexturePreview : KindPreview
     public override string KindName => TextureKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var t = (TextureAsset)kind.Load(files, name);
         var images = t
@@ -20,7 +20,7 @@ public sealed class TexturePreview : KindPreview
             .Select(l => ($"{l.Name}: {Describe(l.Info)}", GodotDecoders.Tga(l.Data, l.Name)))
             .ToList();
 
-        return new ImagePane($"{Describe(t.Base.Info)}, {t.Mips.Count} mip level(s)", images);
+        return new Preview { View = new ImagePane($"{Describe(t.Base.Info)}, {t.Mips.Count} mip level(s)", images) };
     }
 
     static string Describe(TgaInfo i) =>

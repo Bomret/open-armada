@@ -11,7 +11,7 @@ public sealed class SoundPreview : KindPreview
     public override string KindName => SoundKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var wav = (WavInfo)kind.Load(files, name);
         var seconds = wav.Data.Length / (double)(wav.SampleRate * wav.Channels * wav.BitsPerSample / 8);
@@ -42,6 +42,6 @@ public sealed class SoundPreview : KindPreview
         box.AddChild(player);
         box.AddChild(play);
 
-        return box;
+        return new Preview { View = box };
     }
 }

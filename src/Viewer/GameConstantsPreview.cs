@@ -16,7 +16,7 @@ public sealed class GameConstantsPreview : KindPreview
     public override string KindName => GameConstantsKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var c = (GameConstants)kind.Load(files, name);
         var includes = c.Includes.Count == 0 ? "" : "INCLUDES\n" + string.Join("\n", c.Includes) + "\n\n";
@@ -25,6 +25,10 @@ public sealed class GameConstantsPreview : KindPreview
             $"{v.Type, -6} {v.Name.PadRight(width)}  {(v.Number is { } n ? n.ToString(CultureInfo.InvariantCulture) : v.IsString ? $"\"{v.Text}\"" : v.Text)}"
         );
 
-        return ReadOnlyText(NotesBlock(name, c.Notes) + includes + string.Join("\n", values), true);
+        return new Preview
+        {
+            View = ReadOnlyText(NotesBlock(c.Notes) + includes + string.Join("\n", values), true),
+            Notes = c.Notes,
+        };
     }
 }

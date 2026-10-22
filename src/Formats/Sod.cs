@@ -205,6 +205,49 @@ public sealed class Sod
             Position;
     }
 
+    /// <summary>
+    /// The model as the game loads it at <c>scale</c>, a unit class's <c>scaleSOD</c>: each node's position is
+    /// multiplied by the scale, and so are the vertices of each mesh when the scale is not 1. The axes of a node, the
+    /// texture coordinates, and the animation channels stay as stored. A scale of 1 returns this model itself.
+    /// </summary>
+    public Sod Scaled(float scale)
+    {
+        if (scale == 1f)
+            return this;
+
+        return new Sod
+        {
+            Version = Version,
+            TextureMaterials = TextureMaterials,
+            LightingMaterials = LightingMaterials,
+            Nodes = Nodes
+                .Select(n => new Node
+                {
+                    Type = n.Type,
+                    Name = n.Name,
+                    Parent = n.Parent,
+                    Transform = n.Transform with { Position = n.Transform.Position * scale },
+                    Mesh =
+                        n.Mesh == null
+                            ? null
+                            : new Mesh
+                            {
+                                TextureMaterial = n.Mesh.TextureMaterial,
+                                Texture = n.Mesh.Texture,
+                                Vertices = n.Mesh.Vertices.Select(v => v * scale).ToArray(),
+                                TexCoords = n.Mesh.TexCoords,
+                                Groups = n.Mesh.Groups,
+                                BackfaceCull = n.Mesh.BackfaceCull,
+                            },
+                    Emitter = n.Emitter,
+                })
+                .ToList(),
+            Channels = Channels,
+            References = References,
+            Problems = Problems,
+        };
+    }
+
     static readonly float[] KnownVersions = { 1.2f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f };
 
     /// <summary>Reads the whole file at <c>path</c> and parses it with <see cref="Read"/>.</summary>

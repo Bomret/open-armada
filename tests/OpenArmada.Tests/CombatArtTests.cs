@@ -280,6 +280,31 @@ public class CombatArtTests
     }
 
     [TestMethod]
+    public void HardpointPositionOfAScaledClassIsTheScaledOffset()
+    {
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01"));
+        var plain = (unit.Unit with { Model = "placed", Position = new Vector3(10, 0, 0) }, unit.Profile);
+        var scaled = (plain.Item1 with { Scale = 1.5f }, unit.Profile);
+        var model = Latin1(
+            new SodBytes(1.8f)
+                .Lighting(("lit", 1f, 1))
+                .Nodes(
+                    new NodeSpec { Name = "root", Parent = "" },
+                    new NodeSpec
+                    {
+                        Name = "hp01",
+                        Parent = "root",
+                        Position = [2, 0, 3],
+                    }
+                )
+                .End()
+        );
+        var art = CombatArt.Build(Install(("SOD/placed.sod", model)), new[] { plain, scaled });
+        Assert.IsTrue(Vector3.Distance(new Vector3(12, 0, -3), WorldOf(art, plain, "hp01")) < 1e-4f);
+        Assert.IsTrue(Vector3.Distance(new Vector3(13, 0, -4.5f), WorldOf(art, scaled, "hp01")) < 1e-4f);
+    }
+
+    [TestMethod]
     public void HardpointMissingFromTheModelMeasuresFromTheCenterAndStaysAGap()
     {
         var unit = Unit(Armed("phaser", "ph.wav", "hp99"));

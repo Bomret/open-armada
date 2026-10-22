@@ -445,6 +445,36 @@ tick after the node shows spawns a particle (the start value is set outside 0x57
 angles turn the direction as roll about Z, then pitch about X, then yaw about Y (the order is not recovered). The
 particles' random source is the play run's seed (INV-0008).
 
+## Model scale
+
+A class loads its model at the scale its definition's `scaleSOD` gives. The class load (0x46a470) reads the
+value into the class (0x46b01d–0x46b031, class +0x1b0) with a default of 1 and passes it to both model loads
+(0x46b046, 0x46b061). From there it reaches the SOD node reader (0x59b650) through 0x58a790 and 0x59c130.
+
+- **Node positions:** the reader multiplies the position of each node's stored transform by the scale
+  (0x59b746–0x59b764). The node's axes stay as stored, so the scale does not carry down the hierarchy through
+  them.
+- **Mesh vertices:** when the scale is not 1, the reader multiplies the vertices of each mesh node (type 1 or
+  9, test at 0x595ef0) by the scale on all three axes (0x59ba49–0x59ba6e, through the mesh's 0x5910a0).
+- **Sprite nodes:** the same call is empty for a sprite node (0x574cb0), so a sprite node moves with its
+  scaled position and keeps the size its sprite table gives.
+
+Together these scale the model uniformly about its origin. Everything the sandbox reads from the model sees
+the scaled model: the selection and combat radius from its meshes, hardpoints, damage nodes, damage
+emitters, and sprite-node positions. In the stock 1.2 install, 34 definitions set `scaleSOD`, most of them
+`wingman` classes such as `fbattle` (1.4) and `romega` (0.8). The asset browser's model preview draws a
+model at its stored size, since a model there has no class.
+
+The lookup (0x553c30) takes the first line whose start matches the key, ignoring case, and that holds a `=`.
+It reads the value with the format `= %g`, so `1.3f` gives 1.3 and `.8` gives 0.8. A definition's own line
+comes before the lines of its includes. The sandbox matches the whole key, ignoring case, as for every other
+key; every stock line that sets the scale spells the key in full.
+
+**Stand-in**: a value that is no number gives a scale of 1 and is reported. The game keeps whatever its
+scan leaves in the value. The animation channels of a model keep their stored positions; whether the game
+scales them is not recovered, and the sandbox does not play them. The asteroid field definition `mafield`
+sets 1.5; the sandbox draws its rocks at their stored size.
+
 ## Not known
 
 - The attack maneuver within range, and yellow alert's extra validity check.

@@ -123,8 +123,12 @@ public sealed class CombatArt
     readonly Dictionary<string, Dictionary<string, string>> _nodesOfModel = new(StringComparer.OrdinalIgnoreCase);
     Dictionary<string, (SpriteTable Table, Sprite Sprite)>? _rows;
 
-    // Per model: each node name, matched without regard to case, to the node's offset in the model.
-    readonly Dictionary<string, Dictionary<string, Vector3>> _offsetsOfModel = new(StringComparer.OrdinalIgnoreCase);
+    // Per model: the model as read; null when it cannot be read.
+    readonly Dictionary<string, Sod?> _sodOfModel = new(StringComparer.OrdinalIgnoreCase);
+
+    // Per model, lowercased, and scale: each node name, matched without regard to case, to the node's offset in the
+    // model loaded at that scale (Sod.Scaled).
+    readonly Dictionary<(string Model, float Scale), Dictionary<string, Vector3>> _offsetsOfModel = new();
 
     CombatArt(GameFileSystem files) => _files = files;
 
@@ -258,7 +262,7 @@ public sealed class CombatArt
     public Vector3 HardpointPosition(PlacedObject unit, string name, ShipPose pose)
     {
         // stand-in: a hardpoint the model lacks, or a model that cannot be read, sits at the unit's center.
-        var offset = OffsetsOf(unit.Model).GetValueOrDefault(name);
+        var offset = OffsetsOf(unit.Model, unit.Scale).GetValueOrDefault(name);
 
         return HardpointGeometry.WorldPosition(unit, pose, offset);
     }
@@ -287,28 +291,34 @@ public sealed class CombatArt
         return _nodesOfModel[model];
     }
 
-    // The offsets of a model's nodes by name; none when the model cannot be read.
-    Dictionary<string, Vector3> OffsetsOf(string model)
+    // The offsets of a model's nodes by name, the model loaded at the scale; none when the model cannot be read.
+    Dictionary<string, Vector3> OffsetsOf(string model, float scale)
     {
         Load(model);
+        var key = (model.ToLowerInvariant(), scale);
+        if (!_offsetsOfModel.TryGetValue(key, out var offsets))
+        {
+            _offsetsOfModel[key] = offsets = _sodOfModel[model] is { } sod
+                ? HardpointGeometry.Offsets(sod.Scaled(scale))
+                : new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
+        }
 
-        return _offsetsOfModel[model];
+        return offsets;
     }
 
-    // Reads a model once, filling both per-model caches.
+    // Reads a model once, filling the per-model caches.
     void Load(string model)
     {
         if (_nodesOfModel.ContainsKey(model))
             return;
 
         var nodes = _nodesOfModel[model] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        _offsetsOfModel[model] = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
+        _sodOfModel[model] = null;
         try
         {
-            var sod = Sod.Read(_files.ReadAllBytes(model + ".sod"));
+            var sod = _sodOfModel[model] = Sod.Read(_files.ReadAllBytes(model + ".sod"));
             foreach (var node in sod.Nodes)
                 nodes.TryAdd(node.Name, NodeName.Of(node.Name));
-            _offsetsOfModel[model] = HardpointGeometry.Offsets(sod);
         }
         catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
     }

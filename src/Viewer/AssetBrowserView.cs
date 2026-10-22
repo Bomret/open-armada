@@ -75,9 +75,13 @@ public partial class AssetBrowserView : Control
             $"run start: mode {mode}, install {(game == null ? "none" : Log.Quote(game))} (from {source}), "
                 + $"arguments [{string.Join(", ", userArgs.Select(Log.Quote))}], log {Log.Quote(logFile)}"
         );
-        foreach (var problem in args.Problems)
+        // A play run cannot start with a launch-argument problem, so StartPlayRun logs each one as ERROR instead.
+        if (mode != "play")
         {
-            Log.Warn(Area.Run, problem);
+            foreach (var problem in args.Problems)
+            {
+                Log.Warn(Area.Run, problem);
+            }
         }
 
         if (check)
@@ -245,9 +249,9 @@ public partial class AssetBrowserView : Control
     }
 
     // Starts a play run of the map sandbox on a map or a layout, or logs why it cannot and quits with exit code 1
-    // (INV-0007); the window never stays open. A run that cannot start is one log entry: a launch-argument problem
-    // (a flag without a value, or --map with --layout) is the entry the run start wrote, and a launch problem that
-    // comes with it stays unlogged.
+    // (INV-0007); the window never stays open. Each problem of PlayRun.LaunchErrors is one ERROR entry: the
+    // launch-argument problems (a flag without a value, or --map with --layout), which the run start left to this
+    // method, or else the launch problem.
     void StartPlayRun(LaunchArgs args, string? game)
     {
         var problem = PlayRun.LaunchProblem(
@@ -262,12 +266,13 @@ public partial class AssetBrowserView : Control
         }
 
         var file = args.Value("--play");
-        if (problem != null && args.Problems.Count == 0)
+        var errors = PlayRun.LaunchErrors(problem, args.Problems);
+        foreach (var error in errors)
         {
-            Log.Error(Area.Run, problem);
+            Log.Error(Area.Run, error);
         }
 
-        if (problem != null || args.Problems.Count > 0 || file == null)
+        if (errors.Count > 0 || file == null)
         {
             GetTree().Quit(1);
 

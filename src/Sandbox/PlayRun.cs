@@ -34,6 +34,18 @@ public sealed class PlayRun(
         : null;
 
     /// <summary>
+    /// The problems that stop a <c>--play</c> launch, each one ERROR entry (INV-0005); none means the run starts.
+    /// The launch-argument problems (a flag without a value, such as a bare <c>--game</c>, or <c>--map</c> with
+    /// <c>--layout</c>) are each returned, and then <c>launchProblem</c> (of <see cref="LaunchProblem"/> or
+    /// <see cref="MovieProblem"/>) is left out, so one cause is never two entries. Without them,
+    /// <c>launchProblem</c> is the one problem when there is one.
+    /// </summary>
+    public static IReadOnlyList<string> LaunchErrors(string? launchProblem, IReadOnlyList<string> argumentProblems) =>
+        argumentProblems.Count > 0 ? argumentProblems
+        : launchProblem != null ? [launchProblem]
+        : [];
+
+    /// <summary>
     /// The problem with the Movie Maker output, or null: Movie Maker opens its PNG and WAV files at engine start
     /// and writes nothing, yet the run goes on, when the folder of <c>moviePath</c> (the <c>--write-movie</c> value)
     /// does not exist. A relative path is checked against the working directory, which is where Godot resolves it:

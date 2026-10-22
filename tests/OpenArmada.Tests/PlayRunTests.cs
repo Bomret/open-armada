@@ -293,4 +293,45 @@ public class PlayRunTests
     public void ALaunchWithAMapAndALayoutLeavesTheProblemToTheLaunchArguments() =>
         // The --layout/--map exclusion is the run's one entry; the launch rule adds no second one.
         Assert.IsNull(PlayRun.LaunchProblem(true, true, true, false));
+
+    [TestMethod]
+    public void EachLaunchArgumentProblemStopsThePlayLaunch() =>
+        CollectionAssert.AreEqual(
+            new[] { "--play needs a value", "--layout and --map cannot be given together" },
+            PlayRun
+                .LaunchErrors(null, ["--play needs a value", "--layout and --map cannot be given together"])
+                .ToArray()
+        );
+
+    [TestMethod]
+    public void TheLaunchProblemAloneStopsThePlayLaunch() =>
+        CollectionAssert.AreEqual(
+            new[] { "--play needs --map or --layout" },
+            PlayRun.LaunchErrors("--play needs --map or --layout", []).ToArray()
+        );
+
+    [TestMethod]
+    public void LaunchArgumentProblemsStopThePlayLaunchWithoutTheLaunchProblem() =>
+        CollectionAssert.AreEqual(
+            new[] { "--layout needs a value" },
+            PlayRun.LaunchErrors("--play needs --map or --layout", ["--layout needs a value"]).ToArray()
+        );
+
+    [TestMethod]
+    public void APlayLaunchWithoutProblemsStarts() => Assert.AreEqual(0, PlayRun.LaunchErrors(null, []).Count);
+
+    [TestMethod]
+    public void ABareGameFlagStopsThePlayLaunchEvenWithAnInstallFromTheEnvironment()
+    {
+        // The install would come from ARMADA_DIR; the bare --game is still the run's one problem.
+        var args = new LaunchArgs(["--game", "--layout", "duel.jsonc", "--play", "duel.play"]);
+        args.Value("--game");
+        args.Value("--layout");
+        args.Value("--play");
+
+        CollectionAssert.AreEqual(
+            new[] { "--game needs a value" },
+            PlayRun.LaunchErrors(PlayRun.LaunchProblem(true, false, true, false), args.Problems).ToArray()
+        );
+    }
 }

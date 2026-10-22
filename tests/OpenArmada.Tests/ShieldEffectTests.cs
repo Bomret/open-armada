@@ -87,19 +87,16 @@ public class ShieldEffectTests
         var effect = world.Step(1).OfType<ShieldHitEffect>().Single();
 
         Assert.AreEqual(0.9, effect.Fraction, 1e-6);
-        Assert.AreEqual(0.1, effect.Red, 1e-6);
-        Assert.AreEqual(0.9, effect.Green, 1e-6);
     }
 
     [TestMethod]
-    public void AHitThatEmptiesTheShieldsStillRaisesTheEffectFullyRed()
+    public void AHitThatEmptiesTheShieldsStillRaisesTheEffectWithAFractionOfZero()
     {
         var (world, _, _) = Fight(Torpedo(), shields: 10);
 
         var effect = world.Step(1).OfType<ShieldHitEffect>().Single();
 
-        Assert.AreEqual(1, effect.Red, 1e-6);
-        Assert.AreEqual(0, effect.Green, 1e-6);
+        Assert.AreEqual(0, effect.Fraction, 1e-6);
     }
 
     [TestMethod]

@@ -204,17 +204,15 @@ public sealed record ShieldHitEffect : CombatEvent
     /// <summary>Seconds the effect lasts, for a projectile.</summary>
     public required double Duration { get; init; }
 
-    /// <summary>The target's shield fraction (shields over the maximum) when the effect was raised, after the damage.</summary>
+    /// <summary>
+    /// The target's shield fraction (shields over the maximum) when the effect was raised: after the damage for a
+    /// projectile, before the beam's damage for a beam. The effect's color is red 1 minus the fraction, green the
+    /// fraction, blue 0 (0x5170e0).
+    /// </summary>
     public required double Fraction { get; init; }
 
     /// <summary>The contact point on the shield, in world units, when the effect was raised.</summary>
     public required Vector3 Contact { get; init; }
-
-    /// <summary>The effect's red, 1 minus the shield fraction (0x5170e0).</summary>
-    public double Red => 1 - Fraction;
-
-    /// <summary>The effect's green, the shield fraction.</summary>
-    public double Green => Fraction;
 
     /// <summary>Whether a beam raised it, so the effect lasts as long as the beam and follows its contact point.</summary>
     public bool FollowsBeam => Shot.Kind == ShotKind.Beam;

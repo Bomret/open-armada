@@ -519,7 +519,7 @@ public sealed class CombatWorld
                         var target = shot.Target;
                         events.Add(
                             target.Shields > 0 && !ordnance.IgnoreShield
-                                ? ShieldEffect(shot, shot.Position)
+                                ? ShieldEffect(shot)
                                 : new HullHitSprite
                                 {
                                     Shot = shot,
@@ -594,8 +594,9 @@ public sealed class CombatWorld
     }
 
     // The shield hit effect of the shot on its target, with the shield fraction as it is now (0x5170e0) and the contact
-    // point toward `from`.
-    ShieldHitEffect ShieldEffect(Shot shot, Vector3 from)
+    // point toward the shot's position. A projectile's effect is raised after its damage, a beam's at a tenth of its
+    // lifetime, before the beam's own damage lands.
+    ShieldHitEffect ShieldEffect(Shot shot)
     {
         var target = shot.Target;
         var ordnance = shot.Weapon.Ordnance;
@@ -607,7 +608,7 @@ public sealed class CombatWorld
             Geometry = ordnance.ShieldGeometryName,
             Duration = ordnance.ShieldDuration,
             Fraction = target.Profile.MaxHealth > 0 ? Math.Clamp(target.Shields / target.Profile.MaxHealth, 0, 1) : 0,
-            Contact = ShieldContact(from, Position(target), target.Radius),
+            Contact = ShieldContact(shot.Position, Position(target), target.Radius),
         };
     }
 
@@ -636,7 +637,7 @@ public sealed class CombatWorld
         events.Add(new ShotLanded { Shot = shot, Hit = hit });
         if (shielded && shot.Kind != ShotKind.Beam)
         {
-            events.Add(ShieldEffect(shot, shot.Position));
+            events.Add(ShieldEffect(shot));
         }
 
         if (!hit.Destroyed)

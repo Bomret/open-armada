@@ -110,7 +110,7 @@ public sealed class CombatArt
     // The shield-down overlay's geometry (0x467b70).
     const string ShieldDownModelName = "xshlddie";
 
-    readonly List<string> _shieldGeometries = new();
+    readonly HashSet<string> _shieldGeometries = new(StringComparer.OrdinalIgnoreCase);
     readonly GameFileSystem _files;
     readonly Gaps _gaps = new();
     readonly HashSet<string> _unreadable = new(StringComparer.OrdinalIgnoreCase);
@@ -141,7 +141,11 @@ public sealed class CombatArt
             foreach (var weapon in profile.Weapons)
             {
                 art.ResolveSprite(weapon, unit);
-                art.ResolveShieldGeometry(weapon.Ordnance.ShieldGeometryName, unit);
+                if (!weapon.Ordnance.IgnoreShield)
+                {
+                    art.ResolveShieldGeometry(weapon.Ordnance.ShieldGeometryName, unit);
+                }
+
                 if (weapon.Ordnance.ClassLabel == "phaser")
                 {
                     art.ResolveHullSprite(unit);
@@ -307,7 +311,7 @@ public sealed class CombatArt
         {
             _gaps.Add(MissingShieldGeometry, name, unit);
         }
-        else if (!_shieldGeometries.Contains(name, StringComparer.OrdinalIgnoreCase))
+        else
         {
             _shieldGeometries.Add(name);
         }

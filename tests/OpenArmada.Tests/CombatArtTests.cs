@@ -86,6 +86,15 @@ public class CombatArtTests
     }
 
     [TestMethod]
+    public void ShieldGeometryOfOrdnanceThatIgnoresShieldsIsNeitherListedNorReported()
+    {
+        var art = CombatArt.Build(Install(), new[] { WithOrdnance(Beam(shieldGeometry: "xnone", ignoreShield: true)) });
+
+        Assert.AreEqual(0, art.ShieldGeometries.Count());
+        Assert.AreEqual(0, art.Reports.Count);
+    }
+
+    [TestMethod]
     public void ShieldGeometryTheInstallLacksIsOneGapWithItsNameAndNotListed()
     {
         var art = CombatArt.Build(

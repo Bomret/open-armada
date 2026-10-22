@@ -7,6 +7,10 @@ Target audience: LLMs working in this repo. The folder layout is in `README.md` 
 `OpenArmada.<Folder>`, one namespace per folder of `src/`. For example, `OpenArmada.Formats`. Tests use
 `OpenArmada.Tests`.
 
+Namespaces depend in one direction: `OpenArmada.Formats` and `OpenArmada.Assets` never use `OpenArmada.Sandbox`
+or `OpenArmada.Viewer`. A type that both layers need lives in the lower one. For example, `SystemNames` is in
+`OpenArmada.Formats`. `NamespaceTests` fails on a `using` that breaks the rule.
+
 ## Godot boundary
 
 `src/Formats/`, `src/Assets/`, and `src/Sandbox/` are Godot-free. The test project compiles their source

@@ -89,15 +89,23 @@ public partial class UnitSelection : Node3D
         Select(unit != null ? new[] { unit } : Array.Empty<SelectableUnit>());
     }
 
-    /// <summary>Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected.</summary>
-    public void Remove(PlacedObject unit)
+    /// <summary>
+    /// Takes a dying unit out of the selection: it is deselected and no click or box picks it again. Its node stays in
+    /// the scene, and a click on it picks no unit. A unit that is not a unit of the scene changes nothing.
+    /// </summary>
+    public void Dismiss(PlacedObject unit)
     {
         if (_units.Remove(unit, out var selectable) && _marks.Remove(selectable, out var mark))
         {
             mark.Ring.QueueFree();
             mark.Name.QueueFree();
         }
+    }
 
+    /// <summary>Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected.</summary>
+    public void Remove(PlacedObject unit)
+    {
+        Dismiss(unit);
         if (_nodes.Remove(unit, out var node))
         {
             node.QueueFree();

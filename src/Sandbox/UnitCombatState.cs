@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
@@ -150,13 +151,58 @@ public sealed class UnitCombatState(
     }
 
     /// <summary>
-    /// Whether the unit has no thrust and no order moves it: derelict, or with its engines destroyed. The one place
-    /// that decides it, so a further reason (a dying unit) joins here.
+    /// Puts the unit in its starting state, in this order: each listed system the unit has is destroyed at 0 hit
+    /// points by <see cref="DestroySystem"/>; the crew is set to the fraction of crewCost exactly, and a crew below
+    /// one makes the unit derelict with crew 0 and shields 0, as a unit derelict from the start is; then the shields
+    /// are set to the fraction of maxHealth. From there the combat rules run unchanged.
     /// </summary>
-    public bool Immobile => Derelict || SystemDestroyed(SystemNames.Engines);
+    public void Begin(StartingState start)
+    {
+        // stand-in: a destroyed system costs no crew here, so the starting crew is the fraction exactly; the game
+        // starts every unit at full strength.
+        foreach (var name in start.DestroyedSystems.Where(Systems.ContainsKey))
+        {
+            Systems[name].HitPoints = 0;
+            DestroySystem(name);
+        }
+
+        if (start.Crew is { } crew)
+        {
+            Crew = crew * Profile.CrewCost;
+        }
+
+        if (Crew < 1)
+        {
+            Derelict = true;
+            Crew = 0;
+            Shields = 0;
+
+            return;
+        }
+
+        if (start.Shields is { } shields)
+        {
+            // stand-in: no shield-down timer, so shields of 0 regain from the first tick.
+            Shields = shields * Profile.MaxHealth;
+        }
+    }
+
+    /// <summary>
+    /// Whether the unit has no thrust and no order moves it: derelict, with its engines destroyed, or dying. The one
+    /// place that decides it.
+    /// </summary>
+    public bool Immobile => Derelict || SystemDestroyed(SystemNames.Engines) || Dying;
 
     /// <summary>Whether the unit coasts (ADR 0008): a unit that moves at all and has no thrust.</summary>
     public bool Coasting => Mobile && Immobile;
+
+    /// <summary>
+    /// Whether the unit shows the shield-down overlay: its shield generator is destroyed and it is not derelict
+    /// (created 0x467b70, 0x4679b0; removed 0x467e06 when the generator is back, 0x466e7e when the unit turns derelict;
+    /// created again 0x466f07 when the crew recovers while the generator is still offline). One flag, so a unit never
+    /// has more than one overlay.
+    /// </summary>
+    public bool ShieldDownOverlay => !Derelict && SystemDestroyed(SystemNames.ShieldGenerator);
 
     /// <summary>The world tick that found the unit without thrust; null while the unit has thrust.</summary>
     public long? CoastTick { get; set; }
@@ -204,8 +250,33 @@ public sealed class UnitCombatState(
     /// <summary>What the world asks the unit's motion to do; the default leaves the motion alone.</summary>
     public MoveIntent Intent { get; set; }
 
-    /// <summary>Whether a critical hit destroyed the unit; the world then removes it.</summary>
+    /// <summary>
+    /// Whether the unit has left the world: its dying phase ended. A critical hit makes it a dying unit first
+    /// (<see cref="Dying"/>).
+    /// </summary>
     public bool Destroyed { get; set; }
+
+    /// <summary>
+    /// Whether a critical hit doomed the unit and it has not yet left the world (a dying unit): it coasts, is no
+    /// valid target, fires, repairs, regains and loses nothing, and its timer runs (0x468990).
+    /// </summary>
+    public bool Dying { get; set; }
+
+    /// <summary>
+    /// The seconds of the dying phase left; each further damaging hit cuts 0.5 s (0x465100). At or below zero the
+    /// unit leaves on the next tick. Meaningful only while <see cref="Dying"/>.
+    /// </summary>
+    public double DyingRemaining { get; set; }
+
+    /// <summary>The simulated seconds since the last small explosion on the dying unit, kept on the world's ticks.</summary>
+    public double ExplosionClock { get; set; }
+
+    /// <summary>
+    /// The unit's speed in world units per second as of the latest Step call: its position change over that call.
+    /// The dying time depends on it (0x466090). stand-in: the world has no velocity of its own, so the speed is
+    /// read from the positions.
+    /// </summary>
+    public double Speed { get; set; }
 
     /// <summary>
     /// The position at the latest Step call, read once per call: the ticks of the call use it, and the next call

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 using static OpenArmada.Tests.CombatFixtures;
 
@@ -251,11 +252,13 @@ public class PlayRunTests
     }
 
     [TestMethod]
-    [DataRow(false, true, false, "--play needs Movie Maker")]
-    [DataRow(true, false, false, "--play needs --map")]
-    [DataRow(true, true, true, "--play cannot be combined with --screenshot")]
-    public void ALaunchThatCannotPlayIsAProblem(bool movie, bool map, bool screenshot, string problem) =>
-        StringAssert.StartsWith(PlayRun.LaunchProblem(movie, map, screenshot), problem);
+    [DataRow(false, true, false, false, "--play needs Movie Maker")]
+    [DataRow(false, false, true, false, "--play needs Movie Maker")]
+    [DataRow(true, false, false, false, "--play needs --map or --layout")]
+    [DataRow(true, true, false, true, "--play cannot be combined with --screenshot")]
+    [DataRow(true, false, true, true, "--play cannot be combined with --screenshot")]
+    public void ALaunchThatCannotPlayIsAProblem(bool movie, bool map, bool layout, bool screenshot, string problem) =>
+        StringAssert.StartsWith(PlayRun.LaunchProblem(movie, map, layout, screenshot), problem);
 
     [TestMethod]
     public void AMovieFileInAMissingFolderIsAProblemNamingTheFolder()
@@ -281,6 +284,58 @@ public class PlayRunTests
     }
 
     [TestMethod]
-    public void ALaunchUnderMovieMakerWithAMapAndNoScreenshotHasNoProblem() =>
-        Assert.IsNull(PlayRun.LaunchProblem(true, true, false));
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    public void ALaunchUnderMovieMakerWithAMapOrALayoutAndNoScreenshotHasNoProblem(bool map, bool layout) =>
+        Assert.IsNull(PlayRun.LaunchProblem(true, map, layout, false));
+
+    [TestMethod]
+    public void ALaunchWithAMapAndALayoutLeavesTheProblemToTheLaunchArguments() =>
+        // The --layout/--map exclusion is the run's one entry; the launch rule adds no second one.
+        Assert.IsNull(PlayRun.LaunchProblem(true, true, true, false));
+
+    [TestMethod]
+    public void EachLaunchArgumentProblemStopsThePlayLaunch() =>
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "play run cannot start: --play needs a value",
+                "play run cannot start: --layout and --map cannot be given together",
+            },
+            PlayRun
+                .LaunchErrors(null, ["--play needs a value", "--layout and --map cannot be given together"])
+                .ToArray()
+        );
+
+    [TestMethod]
+    public void TheLaunchProblemAloneStopsThePlayLaunch() =>
+        CollectionAssert.AreEqual(
+            new[] { "play run cannot start: --play needs --map or --layout" },
+            PlayRun.LaunchErrors("--play needs --map or --layout", []).ToArray()
+        );
+
+    [TestMethod]
+    public void LaunchArgumentProblemsStopThePlayLaunchWithoutTheLaunchProblem() =>
+        CollectionAssert.AreEqual(
+            new[] { "play run cannot start: --layout needs a value" },
+            PlayRun.LaunchErrors("--play needs --map or --layout", ["--layout needs a value"]).ToArray()
+        );
+
+    [TestMethod]
+    public void APlayLaunchWithoutProblemsStarts() => Assert.AreEqual(0, PlayRun.LaunchErrors(null, []).Count);
+
+    [TestMethod]
+    public void ABareGameFlagStopsThePlayLaunchEvenWithAnInstallFromTheEnvironment()
+    {
+        // The install would come from ARMADA_DIR; the bare --game is still the run's one problem.
+        var args = new LaunchArgs(["--game", "--layout", "duel.jsonc", "--play", "duel.play"]);
+        args.Value("--game");
+        args.Value("--layout");
+        args.Value("--play");
+
+        CollectionAssert.AreEqual(
+            new[] { "play run cannot start: --game needs a value" },
+            PlayRun.LaunchErrors(PlayRun.LaunchProblem(true, false, true, false), args.Problems).ToArray()
+        );
+    }
 }

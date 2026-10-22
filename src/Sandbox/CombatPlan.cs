@@ -82,6 +82,11 @@ public sealed class CombatPlan
             }
         }
 
+        foreach (var (o, profile) in profiles)
+        {
+            StartGaps(o, profile, gaps);
+        }
+
         // The plan is complete: each grouped report is one WARN, the same text as its on-screen line. A definition
         // that cannot be read is an ERROR entry of its own instead (see Failed); its grouped line is display only.
         var reports = gaps.Entries;
@@ -91,6 +96,23 @@ public sealed class CombatPlan
         }
 
         return new CombatPlan(profiles, reports, protection, bonus);
+    }
+
+    // The parts of a unit's starting state the unit cannot take, each a gap naming the object.
+    static void StartGaps(PlacedObject o, CombatProfile profile, Gaps gaps)
+    {
+        if (o.Start is not { } start)
+            return;
+        var who = $"{o.Label} ({o.Class})";
+        foreach (var name in start.DestroyedSystems.Where(n => profile.Systems.All(s => s.Name != n)))
+        {
+            gaps.Add("destroyed system the class does not have, left out", $"{who}: {name}", o);
+        }
+
+        if (start.Shields > 0 && (start.Crew ?? 1) * profile.CrewCost < 1)
+        {
+            gaps.Add("shields on a unit that starts derelict, shields 0 used", who, o);
+        }
     }
 
     // Marks the causes of an asset that failed to load; each is logged as one ERROR at the failure site.
@@ -218,6 +240,7 @@ public sealed class CombatPlan
                 DefaultGreenAlert = r.Flag("defaultGreenAlert", false),
                 CanAttack = r.Flag("canAttack", true),
                 Fireball = r.Str("fireball"),
+                IsHero = r.Flag("isHero", false),
                 Race = ReadRace(d, r, gaps),
             };
         }
@@ -309,6 +332,12 @@ public sealed class CombatPlan
                             OmegaTurn = o.Num("omegaTurn", 0),
                             SeekTime = o.Num("seekTime", 0),
                             Sprite = o.Str("Sprite"),
+                            IgnoreShield = o.Flag("ignoreShield", false),
+                            ShieldGeometryName = o.Str("shieldGeometryName") is { Length: > 0 } geometry
+                                ? geometry
+                                : OrdnanceProfile.DefaultShieldGeometry,
+                            ShieldDuration = o.Num("shieldDuration", OrdnanceProfile.DefaultShieldDuration),
+                            Size = o.Num("size", 1),
                         },
                     }
                 );

@@ -249,6 +249,42 @@ public class CombatArtTests
         Assert.AreEqual(3.5f, explosion.Length);
     }
 
+    // A second sprite table with the seven small explosion sprites of a dying unit (the install's weapon.spr has them).
+    static (string Path, string Content) SmallExplosionTable() =>
+        (
+            "Sprites/small.spr",
+            "sprite_table\n@reference=128\n@animation flip\noffset 4 0.5 step\n@auto=column\n@keyframes\n"
+                + string.Concat(Enumerable.Range(1, 7).Select(i => $"systemexpl{i} tex 0 0 32 32 @anim=flip\n"))
+        );
+
+    [TestMethod]
+    public void TheSevenSmallExplosionSpritesResolveFromTheSpriteTablesAndShowTheirFlipbook()
+    {
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01"));
+        var art = CombatArt.Build(Install(SmallExplosionTable()), new[] { unit });
+        art.AddSmallExplosions();
+        var sprite = art.Sprite("systemexpl3")!;
+        Assert.AreEqual(4, sprite.Frames.Count);
+        Assert.AreEqual(0.125, sprite.FrameSeconds, 1e-9);
+        Assert.AreEqual(0, art.Reports.Count);
+    }
+
+    [TestMethod]
+    public void SmallExplosionSpritesTheTablesLackAreOneGapLoggedOnceAndShowNothing()
+    {
+        using var log = new CapturedLog();
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01"));
+        var art = CombatArt.Build(Install(), new[] { unit });
+        log.Lines.Clear();
+        art.AddSmallExplosions();
+        Assert.IsNull(art.Sprite("systemexpl1"));
+        var gap = art.Reports.Single();
+        StringAssert.Contains(gap.Cause, "small explosion");
+        Assert.AreEqual(7, gap.Names.Count);
+        Assert.AreEqual(1, log.Lines.Count, log.Text);
+        StringAssert.Contains(log.Lines[0], " WARN combat: " + gap.Text);
+    }
+
     [TestMethod]
     public void MissingExplosionDefinitionIsAGapAndNoExplosion()
     {

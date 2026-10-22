@@ -105,12 +105,23 @@ public class PlayScriptTests
     [DataRow("expect a shields > many", "'many' is not a number")]
     [DataRow("expect a destroyed < true", "'destroyed' takes only '=', not '<'")]
     [DataRow("expect a destroyed = maybe", "'maybe' is not true or false")]
+    [DataRow("expect a dying < true", "'dying' takes only '=', not '<'")]
+    [DataRow("expect a dying = maybe", "'maybe' is not true or false")]
     public void AnUnreadableLineIsOneProblemNamingTheFileAndTheLine(string line, string reason)
     {
         var script = PlayScript.Parse($"wait 1\n{line}\n", "play/x.play");
 
         Assert.AreEqual(1, script.Steps.Count);
         CollectionAssert.AreEqual(new[] { $"play/x.play line 2: {reason}" }, script.Problems.ToArray());
+    }
+
+    [TestMethod]
+    public void ADyingExpectationParsesLikeADestroyedOne()
+    {
+        var step = (ExpectStep)PlayScript.Parse("expect a dying = true", "x.play").Steps.Single();
+
+        Assert.AreEqual("dying", step.Field);
+        Assert.AreEqual("true", step.Value);
     }
 
     [TestMethod]

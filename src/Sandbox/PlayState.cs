@@ -42,8 +42,8 @@ public sealed class PlayState
     /// The state dump: one line per addressable unit in plan order, <c>\n</c>-terminated, invariant culture, two
     /// decimals, the systems in a fixed order, and no time of day. A unit without combat state shows
     /// <c>state=none</c> after its position. Fields, space-separated: name, team, pos (x,y,z), shields, crew, one
-    /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, destroyed,
-    /// alert, order, target.
+    /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, coasting,
+    /// destroyed (true once the unit has left the world), dying, alert, order, target.
     /// </summary>
     public string Dump()
     {
@@ -70,6 +70,7 @@ public sealed class PlayState
                 text.Append(
                     CultureInfo.InvariantCulture,
                     $" derelict={Flag(s.Derelict)} immobile={Flag(s.Immobile)} coasting={Flag(s.Coasting)} destroyed={Flag(s.Destroyed)}"
+                        + $" dying={Flag(s.Dying)}"
                         + $" alert={s.Alert} order={Of(s.Order)} target={Of(s.Target)}"
                 );
             }
@@ -104,6 +105,11 @@ public sealed class PlayState
         {
             case "destroyed":
                 actual = Flag(state.Destroyed);
+                holds = actual == step.Value;
+
+                break;
+            case "dying":
+                actual = Flag(state.Dying);
                 holds = actual == step.Value;
 
                 break;

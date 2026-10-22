@@ -228,6 +228,12 @@ public partial class UnitOrders : Node3D
             _faults.Report($"combat step failed: {e.Message}");
         }
 
+        // A dying unit is deselected and cannot be selected again (0x4ab5d0, 0x4ab91e), so it takes no orders.
+        foreach (var unit in _world.Units.Where(u => u.Dying))
+        {
+            _selection.Dismiss(unit.Unit);
+        }
+
         // The world, not the step's events, says who is gone, so a failed step still takes its destroyed units out.
         foreach (var unit in _fighting.Where(u => _world.State(u) == null).ToList())
         {

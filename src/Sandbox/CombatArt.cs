@@ -101,6 +101,7 @@ public sealed class CombatArt
     const string NoExplosionSound = "explosion names no sound, the destruction is silent";
     const string MissingExplosionSound = "explosion sound missing from the install, it is not played";
     const string NoExplosionModel = "explosion names no model that the install holds, it shows no model";
+    const string MissingSmallExplosion = "small explosion sprite missing from the sprite tables, it is not drawn";
     const string MissingHardpoint = "hardpoint missing from the model, its shots leave from the unit's center";
 
     readonly GameFileSystem _files;
@@ -161,6 +162,35 @@ public sealed class CombatArt
         }
 
         return art;
+    }
+
+    /// <summary>
+    /// Resolves the seven small explosion sprites of a dying unit, <c>systemexpl1</c> to <c>systemexpl7</c>, from the
+    /// sprite tables into <see cref="Sprites"/>; <see cref="Sprite"/> gives each. The sprites the tables lack are one
+    /// gap, logged here as one WARN entry, and are skipped (INV-0002). Call it after <see cref="Build"/>.
+    /// </summary>
+    public void AddSmallExplosions()
+    {
+        _rows ??= SpriteArt.Rows(_files);
+        var missing = false;
+        for (var i = 1; i <= 7; i++)
+        {
+            var name = "systemexpl" + i;
+            if (_rows.TryGetValue(name, out var row))
+            {
+                _sprites[name] = SpriteArt.Of(row.Table, row.Sprite);
+            }
+            else
+            {
+                _gaps.Add(MissingSmallExplosion, name);
+                missing = true;
+            }
+        }
+
+        if (missing)
+        {
+            Log.Warn(Area.Combat, _gaps.Entries.Single(r => r.Cause == MissingSmallExplosion).Text);
+        }
     }
 
     /// <summary>Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.</summary>

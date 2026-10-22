@@ -57,6 +57,28 @@ public sealed record OrdnanceProfile
     /// is missing.
     /// </summary>
     public required string Sprite { get; init; }
+
+    /// <summary>The geometry of the shield hit effect when the definition names none (0x516b80).</summary>
+    public const string DefaultShieldGeometry = "xshldx01";
+
+    /// <summary>The seconds of the shield hit effect when the definition names none (0x4ea15a).</summary>
+    public const float DefaultShieldDuration = 0.8f;
+
+    /// <summary>The <c>ignoreShield</c> flag: a hit of this ordnance raises no shield hit effect (0x4ec22a).</summary>
+    public bool IgnoreShield { get; init; }
+
+    /// <summary>The <c>shieldGeometryName</c>: the model of the shield hit effect (0x4ea4e4).</summary>
+    public string ShieldGeometryName { get; init; } = DefaultShieldGeometry;
+
+    /// <summary>The <c>shieldDuration</c> in seconds: how long a projectile's shield hit effect lasts (0x4ea521).</summary>
+    public float ShieldDuration { get; init; } = DefaultShieldDuration;
+
+    /// <summary>
+    /// The ordnance definition's <c>size</c>: a beam's hull hit sprite is drawn at twice this (0x6173dc, 0x6173e0).
+    /// stand-in: the key is read from the ordnance definition and is 1 when it is missing; the game reads the field of
+    /// the weapon, and which definition holds it is not confirmed.
+    /// </summary>
+    public float Size { get; init; } = 1;
 }
 
 /// <summary>

@@ -183,6 +183,60 @@ public sealed record ShotLanded : CombatEvent
 }
 
 /// <summary>
+/// A shield hit effect: the shield geometry flashes around the target. A projectile raises it as it lands (after the
+/// hit is applied); a beam raises it once a tenth of its lifetime has passed and the effect then follows the beam's
+/// contact point until the beam ends, so <see cref="Duration"/> is only the projectile's.
+/// </summary>
+public sealed record ShieldHitEffect : CombatEvent
+{
+    /// <summary>The shot that raised the effect.</summary>
+    public required Shot Shot { get; init; }
+
+    /// <summary>The unit the effect sits on.</summary>
+    public required PlacedObject Unit { get; init; }
+
+    /// <summary>The shield geometry's model name, without <c>.sod</c>.</summary>
+    public required string Geometry { get; init; }
+
+    /// <summary>Seconds the effect lasts, for a projectile.</summary>
+    public required double Duration { get; init; }
+
+    /// <summary>The target's shield fraction (shields over the maximum) when the effect was raised, after the damage.</summary>
+    public required double Fraction { get; init; }
+
+    /// <summary>The contact point on the shield, in world units, when the effect was raised.</summary>
+    public required Vector3 Contact { get; init; }
+
+    /// <summary>The effect's red, 1 minus the shield fraction (0x5170e0).</summary>
+    public double Red => 1 - Fraction;
+
+    /// <summary>The effect's green, the shield fraction.</summary>
+    public double Green => Fraction;
+
+    /// <summary>Whether a beam raised it, so the effect lasts as long as the beam and follows its contact point.</summary>
+    public bool FollowsBeam => Shot.Kind == ShotKind.Beam;
+}
+
+/// <summary>
+/// A beam on a target whose shields are down (or whose ordnance ignores shields) shows a hull hit sprite at the
+/// target instead of a shield hit effect, from a tenth of the beam's lifetime until the beam ends.
+/// </summary>
+public sealed record HullHitSprite : CombatEvent
+{
+    /// <summary>The beam that raised it.</summary>
+    public required Shot Shot { get; init; }
+
+    /// <summary>The unit the sprite sits on.</summary>
+    public required PlacedObject Unit { get; init; }
+
+    /// <summary>The sprite's name in the sprite tables.</summary>
+    public const string SpriteName = "explosion1";
+
+    /// <summary>The sprite's scale, 2.0 times the ordnance's <see cref="OrdnanceProfile.Size"/>.</summary>
+    public required float Scale { get; init; }
+}
+
+/// <summary>
 /// A hit destroyed a unit. The event follows that hit's <see cref="ShotLanded"/>; the world removes the unit and
 /// every shot at it.
 /// </summary>

@@ -90,6 +90,23 @@ public class ShieldEffectTests
     }
 
     [TestMethod]
+    public void TheEffectIsStampedWithTheWorldTimeOfItsTickWhateverTheStepSize()
+    {
+        var (whole, _, _) = Fight(Torpedo());
+        var (fine, _, _) = Fight(Torpedo());
+        var coarse = whole.Step(1).OfType<ShieldHitEffect>().Single();
+        ShieldHitEffect? small = null;
+        for (var i = 0; i < 50 && small == null; i++)
+        {
+            small = fine.Step(0.02).OfType<ShieldHitEffect>().SingleOrDefault();
+        }
+
+        Assert.IsTrue(coarse.Raised > 0);
+        Assert.AreEqual(small!.Raised, coarse.Raised, 1e-9);
+        Assert.AreEqual(small.Raised, fine.Time, 1e-9);
+    }
+
+    [TestMethod]
     public void AHitThatEmptiesTheShieldsStillRaisesTheEffectWithAFractionOfZero()
     {
         var (world, _, _) = Fight(Torpedo(), shields: 10);

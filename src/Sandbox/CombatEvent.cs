@@ -204,6 +204,9 @@ public sealed record ShieldHitEffect : CombatEvent
     /// <summary>Seconds the effect lasts, for a projectile.</summary>
     public required double Duration { get; init; }
 
+    /// <summary>The world time of the tick that raised the effect; a projectile's effect ends at this plus <see cref="Duration"/>.</summary>
+    public required double Raised { get; init; }
+
     /// <summary>
     /// The target's shield fraction (shields over the maximum) when the effect was raised: after the damage for a
     /// projectile, before the beam's damage for a beam. The effect's color is red 1 minus the fraction, green the

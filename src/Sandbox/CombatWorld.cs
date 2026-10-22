@@ -76,6 +76,9 @@ public sealed class CombatWorld
     double _pending;
     long _ticks;
 
+    /// <summary>Seconds of fight the ticks that ran add up to.</summary>
+    public double Time => _ticks * Tick;
+
     /// <summary>
     /// A world of the units, without orders. <c>shieldDamageProtection</c> and
     /// <c>systemHitpointsBonus</c> are the RTS_CFG.h constants; <c>random</c> returns a number in [0, 1) per call.
@@ -607,6 +610,7 @@ public sealed class CombatWorld
             Unit = target.Unit,
             Geometry = ordnance.ShieldGeometryName,
             Duration = ordnance.ShieldDuration,
+            Raised = Time,
             Fraction = target.Profile.MaxHealth > 0 ? Math.Clamp(target.Shields / target.Profile.MaxHealth, 0, 1) : 0,
             Contact = ShieldContact(shot.Position, Position(target), target.Radius),
         };

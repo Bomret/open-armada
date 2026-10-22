@@ -257,8 +257,8 @@ public sealed class UnitCombatState(
     public bool Destroyed { get; set; }
 
     /// <summary>
-    /// Whether a critical hit doomed the unit and it has not yet left the world (a dying unit): it coasts, is no
-    /// valid target, fires, repairs, regains and loses nothing, and its timer runs (0x468990).
+    /// Whether a critical hit doomed the unit and it has not yet left the world (a dying unit): a dying ship coasts;
+    /// the unit is no valid target, fires, repairs, regains and loses nothing, and its timer runs (0x468990).
     /// </summary>
     public bool Dying { get; set; }
 

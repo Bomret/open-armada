@@ -329,7 +329,7 @@ state). The unit stays in the world until its timer runs out.
 - **Further hits:** a hit with damage above 0 that lands on a dying unit deals no damage and cuts 0.5 s from
   the timer (check at 0x4651f3, 0x468990; damage gate 0x465132-0x465147). A hit with no damage does nothing.
   A timer cut below 0 ends the phase on the next tick. Shots in flight at the unit still land (0x4ee620).
-- **Coasting:** the unit coasts (see Coasting).
+- **Coasting:** a dying ship coasts (see Coasting). A dying station stays where it is.
 - **No targets:** no auto, red-alert, or player attack pick takes the unit (0x42faa0). A unit attacking it
   goes idle, as for a destroyed target.
 - **No fire:** the unit fires nothing and its weapons stop (0x506d70). Its beams in flight end without damage
@@ -429,11 +429,11 @@ after 5 steps of 0.02 s. The game steps the timer by the frame's seconds. **Stan
 fixed 0.02 s tick of simulated time (`CombatWorld.Tick`), so the rate is the same at any frame rate and step size.
 
 **Particle** (0x5746d0): it starts at the emitter node's world transform, rotated by three angles, each uniform in
-plus or minus `spread_angle` (so the tilt from +Z reaches at most acos(cos² `spread_angle`), about `spread_angle` times the square root of two for
-small angles). It moves
-along the node's local +Z at `velocity`. It draws as a billboard of its sprite node at the sprite node's size plus
-`expansion_rate` times its age. **Stand-in**: the sprite node's animation plays once from the particle's birth and
-holds its last keyframe. A size at or below 0 is not drawn (0x584040). It dies at `lifespan`.
+plus or minus `spread_angle` (so the tilt from +Z reaches at most acos(cos² `spread_angle`), about `spread_angle`
+times the square root of two for small angles). It moves along the node's local +Z at `velocity`. It draws as a
+billboard of its sprite node at the sprite node's size plus `expansion_rate` times its age. **Stand-in**: the sprite
+node's animation plays once from the particle's birth and holds its last keyframe. A size at or below 0 is not drawn
+(0x584040). It dies at `lifespan`.
 
 An emitter under a hidden damage node neither sprays nor draws (scene traversal skips it, 0x57cee0). An emitter
 whose definition or sprite node is missing is reported once and skipped; the model still loads.

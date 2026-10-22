@@ -25,13 +25,13 @@ public enum HitLocation
     /// <summary>A hit on the hull, which costs crew.</summary>
     Hull,
 
-    /// <summary>A critical hit: no location took the roll. One whole point or more destroys the unit.</summary>
+    /// <summary>A critical hit: no location took the roll. One whole point or more dooms the unit (its dying phase).</summary>
     Critical,
 }
 
 /// <summary>
 /// The outcome of one hit on a unit: where it landed, the damage rolled, the shield points lost, the crew lost,
-/// the whole points of the systems part that passed on, and whether it destroyed the unit.
+/// the whole points of the systems part that passed on, and whether it doomed the unit.
 /// </summary>
 public sealed record Hit
 {
@@ -58,7 +58,10 @@ public sealed record Hit
     /// </summary>
     public required int Points { get; init; }
 
-    /// <summary>Whether the hit destroyed the unit: a critical hit of at least one whole point.</summary>
+    /// <summary>
+    /// Whether the hit doomed the unit and started its dying phase: a critical hit of at least one whole point. The
+    /// unit leaves the world when its dying time runs out (<see cref="UnitDestroyed"/>).
+    /// </summary>
     public required bool Destroyed { get; init; }
 }
 
@@ -216,8 +219,8 @@ public sealed record HullHitSprite : CombatEvent
 }
 
 /// <summary>
-/// A hit destroyed a unit. The event follows that hit's <see cref="ShotLanded"/>; the world removes the unit and
-/// every shot at it.
+/// A dying unit's time ran out and the unit left the world. The world raises it in the tick the unit leaves, not with
+/// the hit that doomed it; the shots still at the unit are dropped later, as the world advances its shots.
 /// </summary>
 public sealed record UnitDestroyed : CombatEvent
 {

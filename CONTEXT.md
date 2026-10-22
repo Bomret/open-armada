@@ -190,9 +190,9 @@ A hit that lands on no ship system and not on the hull. It makes the unit a dyin
 _Avoid_: core breach, instant kill
 
 **Dying unit**
-A unit that a critical hit has doomed and that has not yet exploded. It coasts, fires nothing, and is no
-valid target; small explosions play on it until its timer runs out, then its fireball plays and it leaves
-the map.
+A unit that a critical hit has doomed and that has not yet exploded. It fires nothing and is no valid
+target, and a dying ship coasts; small explosions play on it until its timer runs out, then its fireball
+plays and it leaves the map.
 _Avoid_: dead unit, destroyed unit, wreck
 
 **Coasting**

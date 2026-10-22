@@ -184,8 +184,7 @@ public class ShieldEffectTests
     }
 
     [TestMethod]
-    public void AUnitWithoutAShieldGeneratorShowsNoOverlay() =>
-        Assert.IsFalse(State(Profile()).ShieldDownOverlay);
+    public void AUnitWithoutAShieldGeneratorShowsNoOverlay() => Assert.IsFalse(State(Profile()).ShieldDownOverlay);
 
     [TestMethod]
     public void ABeamRaisesOneEffectOnceATenthOfItsLifeHasPassed()

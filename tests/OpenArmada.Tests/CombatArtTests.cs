@@ -70,9 +70,7 @@ public class CombatArtTests
     {
         var unit = Unit(Armed("phaser", "ph.wav", "hp01") with { Ordnance = ordnance with { Sprite = "phaser" } });
 
-        return generator
-            ? (unit.Unit, unit.Profile with { Systems = [Sys(SystemNames.ShieldGenerator)] })
-            : unit;
+        return generator ? (unit.Unit, unit.Profile with { Systems = [Sys(SystemNames.ShieldGenerator)] }) : unit;
     }
 
     [TestMethod]

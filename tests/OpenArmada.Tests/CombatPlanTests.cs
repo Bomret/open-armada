@@ -128,8 +128,7 @@ public class CombatPlanTests
             ("beam2", Beam.Replace("beamo", "ord2")),
             (
                 "ord2",
-                BeamOrd
-                    + "ignoreShield = 1\r\nshieldGeometryName = \"xother\"\r\nshieldDuration = 2.5\r\nsize = 3\r\n"
+                BeamOrd + "ignoreShield = 1\r\nshieldGeometryName = \"xother\"\r\nshieldDuration = 2.5\r\nsize = 3\r\n"
             )
         );
 

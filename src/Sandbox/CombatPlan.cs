@@ -308,10 +308,9 @@ public sealed class CombatPlan
                             SeekTime = o.Num("seekTime", 0),
                             Sprite = o.Str("Sprite"),
                             IgnoreShield = o.Flag("ignoreShield", false),
-                            ShieldGeometryName =
-                                o.Str("shieldGeometryName") is { Length: > 0 } geometry
-                                    ? geometry
-                                    : OrdnanceProfile.DefaultShieldGeometry,
+                            ShieldGeometryName = o.Str("shieldGeometryName") is { Length: > 0 } geometry
+                                ? geometry
+                                : OrdnanceProfile.DefaultShieldGeometry,
                             ShieldDuration = o.Num("shieldDuration", OrdnanceProfile.DefaultShieldDuration),
                             Size = o.Num("size", 1),
                         },

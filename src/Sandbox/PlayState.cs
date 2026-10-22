@@ -18,16 +18,24 @@ public sealed class PlayState
 {
     readonly UnitNames _names;
     readonly Func<PlacedObject, ShipPose> _pose;
+    readonly Func<PlacedObject, Sod?> _model;
     readonly Dictionary<PlacedObject, UnitCombatState> _states = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// <c>names</c> holds the addressable units; <c>pose</c> reads a unit's current pose; <c>states</c> are the
-    /// combat states of the units in the combat world at the start of the run.
+    /// combat states of the units in the combat world at the start of the run; <c>model</c> reads a unit's model
+    /// for the damage nodes of its dump line (null: no unit has one).
     /// </summary>
-    public PlayState(UnitNames names, Func<PlacedObject, ShipPose> pose, IEnumerable<UnitCombatState> states)
+    public PlayState(
+        UnitNames names,
+        Func<PlacedObject, ShipPose> pose,
+        IEnumerable<UnitCombatState> states,
+        Func<PlacedObject, Sod?>? model = null
+    )
     {
         _names = names;
         _pose = pose;
+        _model = model ?? (_ => null);
         foreach (var state in states)
         {
             _states[state.Unit] = state;
@@ -43,8 +51,11 @@ public sealed class PlayState
     /// The state dump: one line per addressable unit in plan order, <c>\n</c>-terminated, invariant culture, two
     /// decimals, the systems in a fixed order, and no time of day. A unit without combat state shows
     /// <c>state=none</c> after its position. Fields, space-separated: name, team, pos (x,y,z), shields, crew, one
-    /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, destroyed,
-    /// alert, order, target.
+    /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, coasting,
+    /// destroyed (true once the unit has left the world), dying, alert, order,
+    /// target, shieldDown (the state's shield-down overlay flag), damage (the names of the damage nodes the state
+    /// selects, comma-separated, or <c>none</c>; see <see cref="DamageNodes"/>). A unit that has left the world keeps
+    /// the values of its last state in every field.
     /// </summary>
     public string Dump()
     {
@@ -70,9 +81,13 @@ public sealed class PlayState
 
                 text.Append(
                     CultureInfo.InvariantCulture,
-                    $" derelict={Flag(s.Derelict)} immobile={Flag(s.Immobile)} destroyed={Flag(s.Destroyed)}"
+                    $" derelict={Flag(s.Derelict)} immobile={Flag(s.Immobile)} coasting={Flag(s.Coasting)} destroyed={Flag(s.Destroyed)}"
+                        + $" dying={Flag(s.Dying)}"
                         + $" alert={s.Alert} order={Of(s.Order)} target={Of(s.Target)}"
+                        + $" shieldDown={Flag(s.ShieldDownOverlay)}"
                 );
+                var damage = DamageNodes.Showing(_model(unit), s);
+                text.Append(" damage=").Append(damage.Count == 0 ? "none" : string.Join(',', damage));
             }
             else
             {
@@ -88,7 +103,7 @@ public sealed class PlayState
     /// <summary>
     /// Checks one <c>expect</c> step. Returns null when it holds, else the problem without script or line:
     /// an unresolvable unit, a unit without combat state, a unit that was destroyed and removed (only
-    /// <c>destroyed</c> can be asked of it), a system the unit lacks, or the expected and the actual value.
+    /// <c>destroyed</c> and <c>dying</c> can be asked of it), a system the unit lacks, or the expected and the actual value.
     /// </summary>
     public string? Expect(ExpectStep step)
     {
@@ -97,7 +112,7 @@ public sealed class PlayState
             return problem;
         if (!_states.TryGetValue(unit, out var state))
             return $"unit '{step.Unit}' has no combat state";
-        if (state.Destroyed && step.Field != "destroyed")
+        if (state.Destroyed && step.Field is not ("destroyed" or "dying"))
             return $"unit '{step.Unit}' was destroyed and removed";
         string actual;
         bool holds;
@@ -105,6 +120,11 @@ public sealed class PlayState
         {
             case "destroyed":
                 actual = Flag(state.Destroyed);
+                holds = actual == step.Value;
+
+                break;
+            case "dying":
+                actual = Flag(state.Dying);
                 holds = actual == step.Value;
 
                 break;

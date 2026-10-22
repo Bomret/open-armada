@@ -21,6 +21,20 @@ public class PlayStateTests
         public readonly UnitCombatState StateB;
         public readonly PlayState Play;
 
+        // Unit a's model has a damage group with a crew chain and an engines node; the other units have no model.
+        static readonly Sod AModel = new()
+        {
+            Version = 1.8f,
+            Nodes =
+            [
+                new Sod.Node { Name = "root" },
+                new Sod.Node { Name = "damage", Parent = "root" },
+                new Sod.Node { Name = "crew", Parent = "damage" },
+                new Sod.Node { Name = "crew1", Parent = "crew" },
+                new Sod.Node { Name = "engines", Parent = "damage" },
+            ],
+        };
+
         public Scene()
         {
             var systems = new[]
@@ -33,7 +47,7 @@ public class PlayStateTests
             StateB = new UnitCombatState(B, Profile(), "b.odf", 0, true);
             var names = new UnitNames([A, B, Rock]);
             var poses = new UnitPoses([A, B, Rock]);
-            Play = new PlayState(names, poses.Pose, [StateA, StateB]);
+            Play = new PlayState(names, poses.Pose, [StateA, StateB], o => o == A ? AModel : null);
         }
 
         public static ExpectStep Expect(string unit, string field, string op, string value) =>
@@ -51,7 +65,7 @@ public class PlayStateTests
         Assert.AreEqual(
             "a team=1 pos=1.50,0.00,2.00 shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
                 + "Weapons=5.00/5.00/intact Sensors=4.00/4.00/intact "
-                + "derelict=false immobile=false destroyed=false alert=Red order=b target=none",
+                + "derelict=false immobile=false coasting=false destroyed=false dying=false alert=Red order=b target=none shieldDown=false damage=crew",
             lines[0]
         );
         Assert.AreEqual(4, lines.Length);
@@ -68,7 +82,30 @@ public class PlayStateTests
         var scene = new Scene();
         scene.StateB.Destroyed = true;
 
-        StringAssert.Contains(scene.Play.Dump().Split('\n')[1], "immobile=false destroyed=true");
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[1], "immobile=false coasting=false destroyed=true");
+    }
+
+    [TestMethod]
+    public void TheDumpShowsADyingUnitAsDyingAndNotYetDestroyed()
+    {
+        var scene = new Scene();
+        scene.StateB.Dying = true;
+
+        StringAssert.Contains(
+            scene.Play.Dump().Split('\n')[1],
+            "immobile=true coasting=true destroyed=false dying=true"
+        );
+    }
+
+    [TestMethod]
+    public void ADyingExpectationHoldsDuringThePhaseAndNotBefore()
+    {
+        var scene = new Scene();
+
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("b", "dying", "=", "false")));
+        Assert.IsNotNull(scene.Play.Expect(Scene.Expect("b", "dying", "=", "true")));
+        scene.StateB.Dying = true;
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("b", "dying", "=", "true")));
     }
 
     [TestMethod]
@@ -83,6 +120,39 @@ public class PlayStateTests
 
         StringAssert.Contains(line, "Engines=0.00/6.00/destroyed");
         StringAssert.Contains(line, "immobile=true");
+        StringAssert.Contains(line, "coasting=true");
+    }
+
+    [TestMethod]
+    public void TheDumpListsTheShowingDamageNodesInModelOrder()
+    {
+        var scene = new Scene();
+        scene.StateA.Crew = 10; // 10% over crewYellowStatus 0.5 is 0.2: the crew node and the next one show
+        scene.StateA.Systems[SystemNames.Engines].Destroyed = true;
+
+        var line = scene.Play.Dump().Split('\n')[0];
+
+        Assert.IsTrue(line.EndsWith(" damage=crew,crew1,engines"), line);
+        Assert.AreEqual(line, scene.Play.Dump().Split('\n')[0]);
+    }
+
+    [TestMethod]
+    public void TheDumpShowsNoDamageForAUnitWhoseModelIsUnknown() =>
+        Assert.IsTrue(new Scene().Play.Dump().Split('\n')[1].EndsWith(" damage=none"));
+
+    [TestMethod]
+    public void TheDumpShowsTheShieldDownOverlayOfADestroyedShieldGenerator()
+    {
+        var generator = Sys(SystemNames.ShieldGenerator, 3);
+        var unit = new UnitCombatState(Placed("c", 1, 0), Profile(systems: [generator]), "c.odf", 0, true);
+        var play = new PlayState(new UnitNames([unit.Unit]), new UnitPoses([unit.Unit]).Pose, [unit]);
+        unit.DestroySystem(SystemNames.ShieldGenerator);
+
+        StringAssert.EndsWith(play.Dump(), " shieldDown=true damage=none\n");
+
+        unit.Derelict = true;
+
+        StringAssert.EndsWith(play.Dump(), " shieldDown=false damage=none\n");
     }
 
     [TestMethod]
@@ -154,6 +224,15 @@ public class PlayStateTests
         scene.StateB.Destroyed = true;
 
         Assert.IsNull(scene.Play.Expect(Scene.Expect("b", "destroyed", "=", "true")));
+    }
+
+    [TestMethod]
+    public void ADyingExpectationHoldsAsFalseForADestroyedAndRemovedUnit()
+    {
+        var scene = new Scene();
+        scene.StateB.Destroyed = true;
+
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("b", "dying", "=", "false")));
     }
 
     [TestMethod]

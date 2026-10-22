@@ -55,8 +55,8 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   of its own team within 400 units of it on X and on Z (0x42a000; whether the edge counts is a **stand-in**),
   the idle path posts an order without a position (0x42a370), which sets the tether point to where the unit
   stands (0x46eac0; that this order takes that path is **inferred**). So a ship under fire beyond its tether
-  keeps closing. Only a landed shot counts as a hit (**stand-in**). A hit that destroys the teammate it lands
-  on counts for no one, since the destroyed unit leaves the world at once (**stand-in**; whether the game
+  keeps closing. Only a landed shot counts as a hit (**stand-in**). A hit that dooms the teammate it lands
+  on counts like any other while that dying unit is still in the world (**stand-in**; whether the game
   counts it is not known). What else this order (command type 5)
   does, and the check at 0x42a370 that can skip it, are not traced.
 
@@ -83,7 +83,8 @@ A unit with no weapons picks no target. Otherwise, at red or yellow (0x42ff80):
 3. The current target is kept while it stays valid and within the radius.
 4. Otherwise the nearest valid target within the radius is taken.
 
-A target is valid when it is a hostile unit, not being destroyed, and not derelict (0x42faa0). The game
+A target is valid when it is a hostile unit, not being destroyed (a dying unit is being destroyed), and not
+derelict (0x42faa0). The game
 also requires that the target is visible to the unit's team; every unit is visible until fog of war
 exists (**stand-in**).
 
@@ -107,8 +108,9 @@ An attack order (0x4294e0) names one target unit.
   runs an attack maneuver that was not traced).
 - The weapons fire at the ordered target only while it is within the longest weapon range. Until then
   they fire at the nearest valid target in range, as target selection picks it (0x42fd6f).
-- The order ends, and the unit becomes idle, when the target is destroyed (0x429903). A derelict target
-  keeps the order, so an attack order can finish off a derelict.
+- The order ends, and the unit becomes idle, when the target is destroyed (0x429903). A dying target counts
+  as destroyed. A derelict target keeps the order, so an attack order can finish off a derelict. A player's
+  attack order on a dying unit is refused.
 - A unit without weapons does not accept the order.
 
 ## Firing
@@ -154,7 +156,8 @@ the target without the lead (**stand-in**).
 The ordnance definition's `classLabel` decides how a shot travels.
 
 - **Beam** (`phaser`): the beam runs from the hardpoint to the target for `lifeSpan` seconds and deals its
-  damage once, when that time ends (0x4eb47e). It deals no damage when the firing unit is gone or the
+  damage once, when that time ends (0x4eb47e). It deals no damage when the firing unit is gone or dying
+  (0x4ee5f0, 0x4eb170; see Dying units) or the
   target is more than twice the weapon's `range` away before then (0x4eb2e5). `shotSpeed` plays no part.
 - **Torpedo** (`photontorpedo`, `plasmacannon`): the torpedo flies at `shotSpeed`, turning toward its
   target by `omegaTurn` and `seekTime`, and hits on contact with its target, or with the target's shield
@@ -206,7 +209,7 @@ For a hit on a unit (0x465100):
    - A **system** loses one hit point per whole point.
    - The **hull** costs crew: the smaller of the systems part and 1, plus the crew times
      `hullCrewModifier` times the systems part, in percent.
-   - A **critical hit** of at least one whole point destroys the unit.
+   - A **critical hit** of at least one whole point makes the unit a dying unit (see Dying units).
 6. When the shields reach zero, they go down for `shieldDelay` seconds (0x465719).
 
 ## Shields
@@ -219,6 +222,59 @@ up to the maximum (0x466b00). After the shields went down, they regain nothing u
 passed. A hit that leaves the shields above zero does not restart that delay. A destroyed shield
 generator stops the regain and leaves the current shields as they are.
 
+### Shield hit effect
+
+A landed hit of a torpedo or pulse spawns a shield hit effect when the target's shield fraction before the
+hit is above 0 and the ordnance does not set `ignoreShield`. The game reads the gate before it applies the
+damage (0x4ec22a/0x4ec288, 0x4ec9f0/0x4eca4b, 0x4ed3da/0x4ed440). A hit on a unit with its shields at 0
+raises none, and one hit raises one effect.
+
+- **Geometry and duration.** The geometry is the ordnance's `shieldGeometryName`, `xshldx01` when the key is
+  missing (0x4ea4e4, 0x516b80). It lasts the ordnance's `shieldDuration` seconds, 0.8 when the key is
+  missing (0x4ea521, 0x4ea15a).
+- **Placement.** The effect sits at the ship's center, scaled to the shield ellipsoid and turned so one axis
+  points at the contact point on the ellipsoid (0x4ee860, 0x55d840, 0x516540). **Stand-in**: the ellipsoid is
+  a sphere of 1.25 times the unit's radius, the contact point is where that sphere meets the line from the
+  shot to the unit's center, and the effect's +Z axis points at it; the ellipsoid's source and the game's
+  axis are not recovered.
+- **Color.** The color is (1 - s, s, 0), with s the shield fraction (shields over `maxHealth`) read when the
+  effect spawns (0x5170e0). A projectile's effect spawns after its damage, so a hit that empties the shields
+  shows red. A beam's effect spawns a tenth of the way through its lifetime, before the beam's own damage
+  lands at its end, so a beam reads the shields as they stand then. **Stand-in**: the view sets the ambient and
+  the diffuse color of every surface of the geometry to this color, and the geometry's texture still
+  modulates it.
+- **Timing.** A projectile's effect ends `shieldDuration` seconds after the world tick that raised it; the
+  world's clock times it, so the duration holds at any frame rate and step size.
+
+A **beam** spawns one effect once a tenth of its lifetime has passed and its head is in reach of the target
+(0x4eb170; the constant 0.9 at 0x6173e8 is read as the share of the lifetime still to go). The effect then
+follows the beam's current contact point (0x516c40) until the beam ends; the contact point faces the hardpoint
+the beam is drawn from at that moment, not the one it fired from. The beam's timing runs on the
+world's fixed tick. A beam cut off before that point (its firing unit gone, or its target beyond twice the
+range) shows nothing. **Stand-in**: the head is in reach once the surfaces of shooter and target are within
+the weapon's `range`; the radius the game tests is not recovered.
+
+A beam on a target whose shields are at 0, or whose ordnance sets `ignoreShield`, shows an `explosion1`
+sprite at the hull instead, scaled 2.0 times the weapon's size field (0x6173dc, 0x6173e0). **Stand-in**: the
+size field is read as the ordnance definition's `size` key (1 when missing), the sprite is `explosion1` of the
+`explosion1` family, and a size of 1 draws 8 world units wide.
+
+A geometry or sprite the install lacks is reported once with its name and skipped; the fight goes on. The
+shield geometry of ordnance that sets `ignoreShield` is neither loaded nor reported, because that ordnance
+never shows one.
+
+### Shield-down overlay
+
+A unit shows the `xshlddie` geometry, centered and white (the view sets the ambient and diffuse color of
+every surface to white, so the geometry's own texture colors it), while its shield generator is destroyed and the unit
+is not derelict. It is created when the generator goes offline and the unit is not derelict and has none
+(0x467b70, 0x4679b0), removed when the generator is back online (0x467e06) or the unit turns derelict
+(0x466e7e), and created again when the crew recovers while the generator is still offline (0x466f07). A
+unit never has more than one. The state dump's `shieldDown` field is the unit state's overlay flag;
+a unit that has left the map keeps its last value.
+**Stand-in**: nothing in the engine raises a derelict unit's crew again, so the last rule applies only to a
+state set from outside.
+
 ## Ship systems
 
 Each of the five ship systems has the definition's `enginesHitPoints`, `lifeSupportHitPoints`,
@@ -228,7 +284,7 @@ for a system that has any (0x460f8c). A system with zero hit points does not exi
 A system at zero hit points is destroyed (0x467b70). The crew loses 1 plus the system's `<system>CrewLoss`
 percent of the crew, unless the unit is derelict. A destroyed system means:
 
-- **Engines:** the unit cannot move (**inferred**), and every shot at it hits.
+- **Engines:** the unit has no thrust and coasts (see Coasting), and every shot at it hits.
 - **Life support:** each second the crew loses 1 plus `lifeSupportLoss` percent of the crew, until the
   unit is derelict (0x465f6f).
 - **Weapons:** no weapon fires.
@@ -260,7 +316,134 @@ target selection. It stays on the map.
 The game can instead destroy a unit whose crew falls below one, by a flag whose source is unknown; the
 engine always makes it derelict (**stand-in**).
 
-A unit is destroyed only by a critical hit. Losing every system or the shields does not destroy it.
+A unit is destroyed only by a critical hit, which makes it a dying unit first. Losing every system or the
+shields does not destroy it.
+
+## Dying units
+
+A critical hit makes the unit a **dying unit** instead of removing it (0x468990 sets the being-destroyed
+state). The unit stays in the world until its timer runs out.
+
+- **Timer** (0x466090): 3.0 s when the unit's speed is at most 1.0, 5.0 s when its speed is above 1.0 or its
+  class sets `isHero`. The speed is the unit's position change over the latest step (**stand-in**; the
+  engine has no velocity of its own). The timer counts from the tick after the critical hit.
+- **Further hits:** a hit with damage above 0 that lands on a dying unit deals no damage and cuts 0.5 s from
+  the timer (check at 0x4651f3, 0x468990; damage gate 0x465132-0x465147). A hit with no damage does nothing.
+  A timer cut below 0 ends the phase on the next tick. Shots in flight at the unit still land (0x4ee620).
+- **Coasting:** a dying ship coasts (see Coasting). A dying station stays where it is.
+- **No targets:** no auto, red-alert, or player attack pick takes the unit (0x42faa0). A unit attacking it
+  goes idle, as for a destroyed target.
+- **No fire:** the unit fires nothing and its weapons stop (0x506d70). Its beams in flight end without damage
+  (0x4ee5f0, 0x4eb170). Its torpedoes in flight fly on, without its shooter damage bonus (0x4ee7f0); the
+  engine has no shooter damage bonus, so they land with their base damage.
+- **No upkeep:** it repairs nothing, regains no shields, and loses no crew to life support (0x465e80 returns
+  at 0x465e87).
+- **No selection:** it is deselected and cannot be selected (0x4ab5d0, 0x4ab91e and siblings), so it takes no
+  orders. The game's own check on a dying unit in the order code is not recovered; the rule rests on the
+  deselection. **Stand-in**: a right-click on a dying unit picks no unit, so the selected ships get a move
+  order to the point of the plane under it; the game's order code on a dying unit is not recovered.
+- **Small explosions:** every 0.05 s (0x600784) one of `systemexpl1` to `systemexpl7`, picked at random,
+  plays at a random point on the unit (0x466320, 0x466180, table 0x600750). The sprites are rows of the
+  install's sprite tables. The cadence keeps its own accumulator on the world's fixed tick, so it holds at
+  any frame rate. **Stand-in**: the point is uniform in the box of the unit's radius around its center, and
+  the explosion's size is fixed; 0x466180 is not recovered.
+- **End** (0x4663d0): the unit's `fireball` explosion plays at its transform, the unit leaves the world, and
+  `UnitDestroyed` is raised once. The `selfDestruct` variant of the explosion is not implemented.
+
+Every random draw goes through the combat world's seeded random source. A missing `systemexpl` sprite or
+`fireball` is reported once and skipped; the unit still leaves on time.
+
+## Coasting
+
+A ship with no thrust, a derelict, a dying unit, or one whose engines are destroyed, takes the no-thrust branch of the game's
+physics step (0x459440, checks 0x45969b-0x4596bf; ADR 0008). The branch tests the squared length of the
+velocity vector (offset 0x140 of the physics object) against 0.01 (0x459c46). Below it the linear acceleration
+(0x158) is zeroed (0x459c59), so the ship keeps that residual speed. Otherwise the linear acceleration is the
+velocity normalized times the constant −2.0 at 0x5cc140 (0x459ca6-0x459cfe), with no heading term: the
+velocity slows against its own direction. The angular acceleration (0x164) is zeroed at 0x459c0a, so the
+current turn rate continues undamped and only turns the heading. A coasting ship therefore travels a straight
+line while its heading keeps turning. A turning derelict writes no velocity (0x466ca0), so the ship keeps
+what it had. A ship that stands still when it loses thrust stays still.
+
+No order, stop, face, or player move gives a coasting ship thrust. A ship whose engines are repaired and that
+is not derelict takes orders again. The coast starts at the combat world's tick that finds the unit without
+thrust and runs on the world's fixed tick, so positions do not depend on frame rate. The view draws a
+coasting ship between its tick poses; the simulated pose stays on the tick. **Stand-in**: the position moves
+by the mean velocity of each tick (the half-step integration detail is medium confidence).
+
+## Damage nodes
+
+A ship model's `damage` group holds the nodes that show wear. The combat state decides each frame which show
+(0x472120 calls 0x4677b0 for each ship; no randomness), so a node turns off again on repair or recrew. The
+sandbox decides and the view only toggles nodes; the sprite nodes under a showing node play, and a node that
+does not show hides its subtree.
+
+The class init (0x45fea0) finds seven nodes by whole name, ignoring case, with no prefix match (names at
+0x600518..0x600548): `crew`, `engines`, `life`, `sensors`, `shields`, `target`, and `borg`. The stock models
+name the shield-generator node `shield`, so that node never binds, as in the game. `borg` stays hidden;
+assimilation is not built.
+
+- **Crew chain:** the ratio r is crew over `maximumCrew` over the race's `crewYellowStatus` (0x444437,
+  0x4677b0). From the `crew` node the walk follows each node's first child. The node at depth k (the `crew`
+  node is depth 0) shows while r + 0.2k is below 1 (constants 0x5ca758 and 0x5ccf30). There is no depth limit
+  in the code; r above 0 shows at most five nodes, and a ratio of 0 shows five. The game compares the
+  ship's `maximumCrew` (ship +0x4c8) with 0 (constant 0x5ca16c) at 0x467803..0x46782a; when it is 0 the
+  numerator is 1 (constant 0x5ca238) instead of crew over `maximumCrew`, and 0x467836 divides the result by
+  the race's `crewYellowStatus` (race +0x204). The class load reads `maximumCrew` into the class
+  (0x4601d7, class +0x228; ship init copies it at 0x4618eb) and defaults it to the class's `crewCost`
+  (class +0x70). A unit whose maximum crew is 0, by an explicit `maximumCrew 0` or by no `maximumCrew` and a
+  `crewCost` of 0, has r = 1 / `crewYellowStatus`, so it shows no crew node for any `crewYellowStatus` of 1
+  or less. The sandbox's crew pool and crew-status ratio use a stand-in of the `crewCost`, at least 1, for a
+  maximum of 0; the damage nodes read the game's own maximum.
+- **System nodes:** the subtree of `engines`, `life`, `sensors`, `target`, or `shields` shows while the ship
+  system is destroyed (0x4679b0): engines, life support, sensors, weapons, and shield generator in turn (the
+  system structures at 0x518, 0x588, 0x5c0, 0x550, and 0x4e0 of the ship).
+- A model without a `damage` group, without a `crew` node, or with a differently named system node shows
+  nothing for it. A race whose `crewYellowStatus` is 0 or less shows no crew node. A chain that loops stops at
+  the first repeat.
+
+**Stand-in**: the nodes are looked up among the direct children of the `damage` group, which holds for the stock
+models; the game's search is not known beyond them. The game also compares the ship's model with its normal
+one before it shows anything (0x4677b0, first branch); the sandbox has only the normal model. A derelict has no
+crew, so its crew chain shows.
+
+## Damage emitters
+
+An emitter node (SOD node type 12) under a damage node names an `@emitter` block of a sprite table (0x59b650,
+0x58a960). The sprite table parser reads the block (0x599ab0) with these keys:
+
+- `type`: `spray` (1), `cloud` (2), or `beam` (3). Only spray plays; the others are read and reported as not
+  played (**stand-in**).
+- `sprite`: the name of a `@sprite_node` line, which gives the particle's sprite, size, colour, and node
+  animation. A spray block with no `sprite` key is reported by the parser, and a name no table defines is reported; the
+  emitter sprays nothing in either case.
+- `spread_angle`: degrees. `expansion_rate`: world units per second, added to the sprite node's size. `velocity`:
+  world units per second (0x5757b0). `lifespan`: seconds. `firing_period`: seconds between spawns.
+- `pixel`, `particle_count`, and `cloud_radius` are read and unused (the use of `pixel` is not recovered).
+  Any other key is reported, and the rest of the block still parses.
+
+**Spray** (0x575400): each step the timer (a 32-bit float) counts down by the step's seconds (0x575425). While the
+emitter is active and the timer is below 0, one particle spawns and the timer is set to the period (0x57549f). The
+overshoot is not carried, so a step spawns at most one particle, a period of 0 means one per step, and a period of
+0.1 s gives one particle every 0.12 s (about 8.3 per second) when float arithmetic leaves the timer a hair above 0
+after 5 steps of 0.02 s. The game steps the timer by the frame's seconds. **Stand-in**: the sandbox steps it on the
+fixed 0.02 s tick of simulated time (`CombatWorld.Tick`), so the rate is the same at any frame rate and step size.
+
+**Particle** (0x5746d0): it starts at the emitter node's world transform, rotated by three angles, each uniform in
+plus or minus `spread_angle` (so the tilt from +Z reaches at most acos(cos² `spread_angle`), about `spread_angle`
+times the square root of two for small angles). It moves along the node's local +Z at `velocity`. It draws as a
+billboard of its sprite node at the sprite node's size plus `expansion_rate` times its age. **Stand-in**: the sprite
+node's animation plays once from the particle's birth and holds its last keyframe. A size at or below 0 is not drawn
+(0x584040). It dies at `lifespan`.
+
+An emitter under a hidden damage node neither sprays nor draws (scene traversal skips it, 0x57cee0). An emitter
+whose definition or sprite node is missing is reported once and skipped; the model still loads.
+
+**Stand-in**: the live particles of an emitter whose node turns hidden freeze (age and position) and are not drawn
+until the node shows again, since what the game does to them is not recovered. The timer starts at 0, so the first
+tick after the node shows spawns a particle (the start value is set outside 0x575400, not recovered). The three
+angles turn the direction as roll about Z, then pitch about X, then yaw about Y (the order is not recovered). The
+particles' random source is the play run's seed (INV-0008).
 
 ## Not known
 

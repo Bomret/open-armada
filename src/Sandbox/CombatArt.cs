@@ -101,8 +101,17 @@ public sealed class CombatArt
     const string NoExplosionSound = "explosion names no sound, the destruction is silent";
     const string MissingExplosionSound = "explosion sound missing from the install, it is not played";
     const string NoExplosionModel = "explosion names no model that the install holds, it shows no model";
+    const string MissingSmallExplosion = "small explosion sprite missing from the sprite tables, it is not drawn";
     const string MissingHardpoint = "hardpoint missing from the model, its shots leave from the unit's center";
 
+    const string MissingShieldGeometry = "shield geometry missing from the install, its shield hit effect is not shown";
+    const string MissingShieldDownModel = "shield-down model missing from the install, the overlay is not shown";
+    const string MissingHullSprite = "hull hit sprite missing from the sprite tables, a beam on a hull shows none";
+
+    // The shield-down overlay's geometry (0x467b70).
+    const string ShieldDownModelName = "xshlddie";
+
+    readonly HashSet<string> _shieldGeometries = new(StringComparer.OrdinalIgnoreCase);
     readonly GameFileSystem _files;
     readonly Gaps _gaps = new();
     readonly HashSet<string> _unreadable = new(StringComparer.OrdinalIgnoreCase);
@@ -133,6 +142,16 @@ public sealed class CombatArt
             foreach (var weapon in profile.Weapons)
             {
                 art.ResolveSprite(weapon, unit);
+                if (!weapon.Ordnance.IgnoreShield)
+                {
+                    art.ResolveShieldGeometry(weapon.Ordnance.ShieldGeometryName, unit);
+                }
+
+                if (weapon.Ordnance.ClassLabel == "phaser")
+                {
+                    art.ResolveHullSprite(unit);
+                }
+
                 if (art.ResolveSound(weapon.FireSound, weapon.Name, NoSound, MissingSound, unit))
                 {
                     art._fireSounds.Add(weapon.FireSound);
@@ -145,6 +164,11 @@ public sealed class CombatArt
                         art._gaps.Add(MissingHardpoint, hardpoint, unit);
                     }
                 }
+            }
+
+            if (profile.Systems.Any(s => s.Name == SystemNames.ShieldGenerator))
+            {
+                art.ResolveShieldDownModel(unit);
             }
 
             if (art.ResolveExplosion(profile.Fireball, unit) is { } explosion)
@@ -163,6 +187,35 @@ public sealed class CombatArt
         return art;
     }
 
+    /// <summary>
+    /// Resolves the seven small explosion sprites of a dying unit, <c>systemexpl1</c> to <c>systemexpl7</c>, from the
+    /// sprite tables into <see cref="Sprites"/>; <see cref="Sprite"/> gives each. The sprites the tables lack are one
+    /// gap, logged here as one WARN entry, and are skipped (INV-0002). Call it after <see cref="Build"/>.
+    /// </summary>
+    public void AddSmallExplosions()
+    {
+        _rows ??= SpriteArt.Rows(_files);
+        var missing = false;
+        for (var i = 1; i <= 7; i++)
+        {
+            var name = "systemexpl" + i;
+            if (_rows.TryGetValue(name, out var row))
+            {
+                _sprites[name] = SpriteArt.Of(row.Table, row.Sprite);
+            }
+            else
+            {
+                _gaps.Add(MissingSmallExplosion, name);
+                missing = true;
+            }
+        }
+
+        if (missing)
+        {
+            Log.Warn(Area.Combat, _gaps.Entries.Single(r => r.Cause == MissingSmallExplosion).Text);
+        }
+    }
+
     /// <summary>Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.</summary>
     public IEnumerable<SpriteArt> Sprites => _sprites.Values;
 
@@ -175,6 +228,15 @@ public sealed class CombatArt
     /// <summary>Every explosion model the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
     public IEnumerable<string> ExplosionModels =>
         _explosions.Values.Select(e => e.Model).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The shield hit effect geometries the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
+    public IEnumerable<string> ShieldGeometries => _shieldGeometries;
+
+    /// <summary>
+    /// The shield-down overlay model (<c>xshlddie</c>, without <c>.sod</c>) when a unit has a shield generator and
+    /// the install holds it; else null (a gap when a unit needs it).
+    /// </summary>
+    public string? ShieldDownModel { get; private set; }
 
     /// <summary>The shot sprite of an ordnance's <c>Sprite</c> name; null when it is missing (a gap).</summary>
     public SpriteArt? Sprite(string name) => _sprites.GetValueOrDefault(name);
@@ -270,6 +332,45 @@ public sealed class CombatArt
         }
 
         _sprites[name] = SpriteArt.Of(row.Table, row.Sprite);
+    }
+
+    // The shield hit effect geometry of an ordnance: listed when the install holds it, else a gap with its name.
+    void ResolveShieldGeometry(string name, PlacedObject unit)
+    {
+        if (_files.Find(name + ".sod") == null)
+        {
+            _gaps.Add(MissingShieldGeometry, name, unit);
+        }
+        else
+        {
+            _shieldGeometries.Add(name);
+        }
+    }
+
+    void ResolveShieldDownModel(PlacedObject unit)
+    {
+        if (_files.Find(ShieldDownModelName + ".sod") == null)
+        {
+            _gaps.Add(MissingShieldDownModel, ShieldDownModelName, unit);
+        }
+        else
+        {
+            ShieldDownModel = ShieldDownModelName;
+        }
+    }
+
+    // The hull hit sprite a beam shows on a target without shields: resolved like a shot sprite.
+    void ResolveHullSprite(PlacedObject unit)
+    {
+        _rows ??= SpriteArt.Rows(_files);
+        if (_rows.TryGetValue(HullHitSprite.SpriteName, out var row))
+        {
+            _sprites[HullHitSprite.SpriteName] = SpriteArt.Of(row.Table, row.Sprite);
+        }
+        else
+        {
+            _gaps.Add(MissingHullSprite, HullHitSprite.SpriteName, unit);
+        }
     }
 
     // Whether the install holds the sound; else a gap, `none` for an empty name and `missing` for a name it lacks.

@@ -186,8 +186,39 @@ stays on the map until it is destroyed.
 _Avoid_: dead ship, disabled ship, wreck
 
 **Critical hit**
-A hit that lands on no ship system and not on the hull. It destroys the unit.
+A hit that lands on no ship system and not on the hull. It makes the unit a dying unit.
 _Avoid_: core breach, instant kill
+
+**Dying unit**
+A unit that a critical hit has doomed and that has not yet exploded. It fires nothing and is no valid
+target, and a dying ship coasts; small explosions play on it until its timer runs out, then its fireball
+plays and it leaves the map.
+_Avoid_: dead unit, destroyed unit, wreck
+
+**Coasting**
+The motion of a ship that has no thrust: a dying unit, a derelict, or a ship whose engines are
+destroyed. It keeps its velocity and its turn rate and slows down at a fixed rate.
+_Avoid_: drifting, gliding, inertia
+
+**Shield hit effect**
+The shield geometry that flashes around a unit for a moment when a hit lands while its shields are up,
+turned toward the hit and colored from red to green by the shields left.
+_Avoid_: shield flash, shield bubble, impact effect
+
+**Shield-down overlay**
+The shield geometry that stays on a unit while its shield generator is destroyed.
+_Avoid_: shield collapse, shield-die effect
+
+**Damage node**
+A node in a ship model's `damage` group that shows wear: a crew node that shows as the crew falls, or a
+system node that shows while its ship system is destroyed. Its sprite nodes and damage emitters run
+only while it shows.
+_Avoid_: damage layer, damage texture, damage decal
+
+**Damage emitter**
+An emitter node under a damage node that sprays short-lived sprites, such as venting plasma or steam,
+by its sprite table's `@emitter` definition.
+_Avoid_: particle system, smoke emitter
 
 **Crew status**
 The state of a unit's crew against its race's crew levels: green, yellow at or below `crewYellowStatus`,

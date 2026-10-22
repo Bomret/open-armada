@@ -1,4 +1,5 @@
-# One Klingon warship destroys a sensor station; the shots show the explosion at the station.
+# One Klingon warship destroys a sensor station: the critical hit makes the station a dying unit, small explosions
+# play on it for three seconds, then its fireball plays and it leaves the map.
 # Run it with --layout layouts/destroy.jsonc; the layout's header comment has the command.
 wait 0.2
 shot before
@@ -6,6 +7,13 @@ dump before
 select Vorcha6
 attack Sensor5
 wait 3
+dump dying
+expect Sensor5 dying = true
+expect Sensor5 destroyed = false
+shot dying-1
+wait 1
+shot dying-2
+wait 1.2
 shot explosion-1
 wait 0.3
 shot explosion-2

@@ -1,6 +1,7 @@
 # 3. Ships move by a kinematic model fed by the physics definition
 
 **Status:** Accepted
+**Amended by:** ADR 0008
 
 A ship in the map sandbox turns toward its target at its physics definition's `yawRotationRate`, banks up
 to its `maxRoll`, travels at its `impulseSpeed`, and stops at the target. The engine does not reproduce

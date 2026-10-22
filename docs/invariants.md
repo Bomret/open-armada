@@ -80,3 +80,12 @@ Statement: A preview returns the notes of the asset it shows beside the view it 
 Breaks: silently
 Check: a unit test that scans the preview sources for log calls on notes and for direct `Log.Warn`, `Log.Info`, and `Log.Error` calls, and a unit test that shows one asset through the asset browser and finds each of its notes logged once.
 Paths: src/Viewer/*Preview.cs, src/Assets/AssetBrowser.cs
+
+### INV-0011
+
+Class: architecture
+Concepts: Map sandbox, Combat rules, Dying unit, Coasting, Damage node
+Statement: The map sandbox's combat state and rules live in code without a Godot dependency; which effects a unit shows, its dying phase, and its coasting are decided there, and the Godot view only draws what that state and its events say.
+Breaks: loudly
+Check: the test project compiles `src/Sandbox` without Godot, so a Godot reference there fails the build of the tests.
+Paths: src/Sandbox/**

@@ -42,12 +42,19 @@ public sealed class CombatWorld
     public const double Tick = 0.02;
 
     // stand-in: a shield bubble reaches this many radii from a unit's center; the game's shape is not known.
-    const float BubbleRadii = 1.25f;
+    /// <summary>How many radii a shield bubble reaches from a unit's center (stand-in); the shield hit effect sits on it.</summary>
+    public const float BubbleRadii = 1.25f;
 
     // stand-in: a flying shot touches a unit of radius 0 (a model without meshes) within this many world units of
     // its center, so such a unit can be hit; the game's collision radius is not known.
     const float ZeroRadiusContactReach = 5f;
     const double Epsilon = 1e-9;
+
+    // A beam shows its effect once this share of its lifetime has passed: 1 - 0.9 (0x6173e8).
+    const double BeamEffectStart = 0.1;
+
+    // The hull hit sprite of a beam is drawn at this times the ordnance's size (0x6173dc, 0x6173e0).
+    const float HullSpriteScale = 2f;
     const float ArrivedWithin = 1e-3f;
 
     // An idle unit at red closes on its pick only while its center is within 300 units of its tether point, in
@@ -61,6 +68,10 @@ public sealed class CombatWorld
     // edge counts.
     const float TeammateBox = 400f;
 
+    // A dying unit has a small explosion every 0.05 s (0x600784) of one of systemexpl1 to systemexpl7.
+    const double SmallExplosionEvery = 0.05;
+    const int SmallExplosionNames = 7;
+
     readonly UnitPoses _poses;
     readonly double _protection;
     readonly Func<double> _random;
@@ -69,6 +80,9 @@ public sealed class CombatWorld
     readonly List<Shot> _shots = new();
     double _pending;
     long _ticks;
+
+    /// <summary>Seconds of fight the ticks that ran add up to.</summary>
+    public double Time => _ticks * Tick;
 
     /// <summary>
     /// A world of the units, without orders. <c>shieldDamageProtection</c> and
@@ -123,7 +137,7 @@ public sealed class CombatWorld
     /// </summary>
     public bool Attack(PlacedObject attacker, PlacedObject target)
     {
-        if (State(attacker) is not { } a || State(target) is not { } t)
+        if (State(attacker) is not { } a || State(target) is not { } t || a.Dying || t.Dying)
             return false;
         if (!CombatRules.Hostile(a.Team, t.Team) || a.Weapons.Count == 0)
             return false;
@@ -176,6 +190,11 @@ public sealed class CombatWorld
         {
             var at = _poses.Pose(u.Unit).Position;
             u.Stopped = u.Position == null || u.Position == at;
+            if (seconds > 0 && u.Position is { } before)
+            {
+                u.Speed = Vector3.Distance(before, at) / seconds;
+            }
+
             u.Position = at;
             // a ship that arrives stands exactly on its target (ShipMotion), which ends the move order
             if (
@@ -195,22 +214,39 @@ public sealed class CombatWorld
             RunTick(events);
         }
 
+        // the part of this call after the tick that found a unit without thrust, for the view's coast
+        foreach (var u in _units.Values)
+        {
+            u.CoastOvershoot = u.CoastTick is { } tick ? (_ticks - tick) * Tick + _pending : null;
+        }
+
         return events;
     }
 
     void RunTick(List<CombatEvent> events)
     {
         _ticks++;
+        // the dying phase runs before the shots land, so a unit a hit dooms in this tick starts its timer in the next
+        foreach (var u in _units.Values.Where(u => u.Dying).ToList())
+        {
+            RunDying(u, events);
+        }
+
         AdvanceShots(events);
         foreach (var u in _units.Values.ToList())
         {
             if (u.Destroyed)
                 continue;
             Think(u);
-            if (u.Mobile && u.Immobile)
+            if (u.Coasting)
             {
-                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a derelict ship or one with dead engines
+                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a ship without thrust
                 u.PlayerMove = null;
+                u.CoastTick ??= _ticks;
+            }
+            else
+            {
+                u.CoastTick = null;
             }
 
             Fire(u, events);
@@ -218,6 +254,40 @@ public sealed class CombatWorld
             CombatRules.Sustain(u, Tick);
             CombatRules.Repair(u, Tick);
         }
+    }
+
+    // One of the seven small explosions at a random point of the unit (table 0x600750, picked by 0x466320).
+    // stand-in: the point is uniform in the box of the unit's radius around its center; 0x466180 is not recovered.
+    SmallExplosion SmallExplosionOn(UnitCombatState u)
+    {
+        var index = Math.Min(SmallExplosionNames - 1, (int)(_random() * SmallExplosionNames));
+        float Axis() => (float)((_random() - 0.5) * 2 * u.Radius);
+
+        return new SmallExplosion
+        {
+            Unit = u.Unit,
+            Name = "systemexpl" + (index + 1),
+            Offset = new Vector3(Axis(), Axis(), Axis()),
+        };
+    }
+
+    // One tick of a dying unit: the timer runs, and when it is out the unit leaves the world (0x4663d0).
+    void RunDying(UnitCombatState u, List<CombatEvent> events)
+    {
+        u.ExplosionClock += Tick;
+        while (u.ExplosionClock + Epsilon >= SmallExplosionEvery)
+        {
+            u.ExplosionClock -= SmallExplosionEvery;
+            events.Add(SmallExplosionOn(u));
+        }
+
+        u.DyingRemaining -= Tick;
+        if (u.DyingRemaining > Epsilon)
+            return;
+        u.Dying = false; // the phase is over: the unit is destroyed
+        u.Destroyed = true;
+        _units.Remove(u.Unit);
+        events.Add(new UnitDestroyed { Unit = u.Unit });
     }
 
     // The unit's position as of the current Step call (positions change only between calls).
@@ -234,9 +304,9 @@ public sealed class CombatWorld
     {
         var held = u.Target; // the fallback target of the previous tick, if any
         u.Target = null;
-        if (u.Weapons.Count == 0)
-            return;
-        if (u.Order is { Destroyed: true })
+        if (u.Weapons.Count == 0 || u.Dying)
+            return; // a dying unit picks and fires nothing (0x506d70)
+        if (u.Order is { Destroyed: true } or { Dying: true })
         {
             u.Order = null;
             u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
@@ -316,8 +386,8 @@ public sealed class CombatWorld
     }
 
     // Whether a shot landed less than HitWindow ago on the unit or on a unit of its team within TeammateBox.
-    // stand-in: a teammate the hit destroyed has left _units (Land), so that hit counts for no one; whether the game
-    // counts it is not known.
+    // stand-in: a dying teammate is still in _units, so its hit counts like any other until it leaves (the window ends
+    // long before a gone unit would matter); whether the game counts it is not known.
     // ponytail: every idle red unit scans every unit each tick (O(n²)); skip the scan while no hit is newer than
     // HitWindow, or a spatial index, when maps grow large.
     bool HitNearby(UnitCombatState u)
@@ -358,11 +428,11 @@ public sealed class CombatWorld
         u.AutoMove = true;
     }
 
-    // A valid target is hostile, not being destroyed, and not derelict (0x42faa0).
+    // A valid target is hostile, not being destroyed (dying or gone), and not derelict (0x42faa0).
     // stand-in: every unit is visible to every team until fog of war exists, and the extra check the game makes on
     // yellow candidates (meaning unknown) is skipped.
     static bool Valid(UnitCombatState u, UnitCombatState t) =>
-        !t.Destroyed && !t.Derelict && CombatRules.Hostile(u.Team, t.Team);
+        !t.Destroyed && !t.Dying && !t.Derelict && CombatRules.Hostile(u.Team, t.Team);
 
     // Target selection (0x42fd6f): the current target while it stays valid and within `radius`, else the nearest
     // valid one within it.
@@ -489,15 +559,44 @@ public sealed class CombatWorld
             var ordnance = shot.Weapon.Ordnance;
             if (shot.Kind == ShotKind.Beam)
             {
-                // The beam ends without damage as soon as its shooter is gone or its target is beyond twice the range.
-                if (shot.Shooter.Destroyed || Surface(shot.Shooter, shot.Target) > 2 * shot.Weapon.Range)
+                // The beam ends without damage as soon as its shooter is gone or dying (0x4ee5f0, 0x4eb170) or its target is beyond twice the range.
+                if (
+                    shot.Shooter.Destroyed
+                    || shot.Shooter.Dying
+                    || Surface(shot.Shooter, shot.Target) > 2 * shot.Weapon.Range
+                )
                 {
                     _shots.Remove(shot);
                 }
-                else if (shot.Age + Epsilon >= ordnance.LifeSpan)
+                else
                 {
-                    _shots.Remove(shot);
-                    Land(shot, events);
+                    // a tenth of the lifetime in, with the head in reach: the beam shows its effect (0x4eb170, 0.9 at
+                    // 0x6173e8 read as the share of the lifetime left)
+                    if (
+                        !shot.EffectRaised
+                        && shot.Age + Epsilon >= BeamEffectStart * ordnance.LifeSpan
+                        && Surface(shot.Shooter, shot.Target) <= shot.Weapon.Range
+                    )
+                    {
+                        shot.EffectRaised = true;
+                        var target = shot.Target;
+                        events.Add(
+                            target.Shields > 0 && !ordnance.IgnoreShield
+                                ? ShieldEffect(shot)
+                                : new HullHitSprite
+                                {
+                                    Shot = shot,
+                                    Unit = target.Unit,
+                                    Scale = HullSpriteScale * ordnance.Size,
+                                }
+                        );
+                    }
+
+                    if (shot.Age + Epsilon >= ordnance.LifeSpan)
+                    {
+                        _shots.Remove(shot);
+                        Land(shot, events);
+                    }
                 }
 
                 continue;
@@ -557,21 +656,58 @@ public sealed class CombatWorld
         return Vector3.Distance(from + along * t, point);
     }
 
+    // The shield hit effect of the shot on its target, with the shield fraction as it is now (0x5170e0) and the contact
+    // point toward the shot's position. A projectile's effect is raised after its damage, a beam's at a tenth of its
+    // lifetime, before the beam's own damage lands.
+    ShieldHitEffect ShieldEffect(Shot shot)
+    {
+        var target = shot.Target;
+        var ordnance = shot.Weapon.Ordnance;
+
+        return new ShieldHitEffect
+        {
+            Shot = shot,
+            Unit = target.Unit,
+            Geometry = ordnance.ShieldGeometryName,
+            Duration = ordnance.ShieldDuration,
+            Raised = Time,
+            Fraction = target.Profile.MaxHealth > 0 ? Math.Clamp(target.Shields / target.Profile.MaxHealth, 0, 1) : 0,
+            Contact = ShieldContact(shot.Position, Position(target), target.Radius),
+        };
+    }
+
+    /// <summary>
+    /// The point on the shield bubble of a unit at <c>center</c> with <c>radius</c> that faces <c>from</c>; the center
+    /// for a unit without radius. stand-in: the bubble is a sphere of <see cref="BubbleRadii"/> radii (the game scales
+    /// the geometry to the shield ellipsoid, whose source is not recovered).
+    /// </summary>
+    public static Vector3 ShieldContact(Vector3 from, Vector3 center, float radius)
+    {
+        var toward = from - center;
+
+        return toward == Vector3.Zero ? center : center + Vector3.Normalize(toward) * radius * BubbleRadii;
+    }
+
     // The shot lands: its damage and hit location are rolled and applied to the target.
     void Land(Shot shot, List<CombatEvent> events)
     {
         var target = shot.Target;
         var damage = CombatRules.Damage(shot.Weapon.Ordnance, target.DefinitionName, _random());
         var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
+        // the gate reads the shields before the damage (0x4ec22a, 0x4ec9f0, 0x4ed3da); a beam raised its effect earlier
+        var shielded = target.Shields > 0 && !shot.Weapon.Ordnance.IgnoreShield;
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
         target.LastHit = _ticks;
         events.Add(new ShotLanded { Shot = shot, Hit = hit });
+        if (shielded && shot.Kind != ShotKind.Beam)
+        {
+            events.Add(ShieldEffect(shot));
+        }
+
         if (!hit.Destroyed)
             return;
-        _units.Remove(target.Unit);
-        _shots.RemoveAll(s => s.Target == target);
+        // the unit is dying now (CombatRules.Apply); shots in flight at it still land (0x4ee620) and cut its time
         target.Order = null;
         target.Target = null;
-        events.Add(new UnitDestroyed { Unit = target.Unit });
     }
 }

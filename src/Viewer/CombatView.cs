@@ -13,7 +13,8 @@ namespace OpenArmada.Viewer;
 /// <summary>
 /// Draws and sounds the fight on the combat events of the orders node: a beam from the firing hardpoint to its
 /// target for its life, a torpedo along its flight, each with the sprite its ordnance names; the weapon's fire
-/// sound at the firing unit, once per weapon volley; the explosion of a destroyed unit where it was. A shot that
+/// sound at the firing unit, once per weapon volley; the small explosions on a dying unit; the explosion of a
+/// destroyed unit where it was. A shot that
 /// missed is drawn too, aimed beside its target, for its ordnance's life. Everything the install may lack is
 /// read once when the node is built and reported through the CombatArt (INV-0002); a shot or a destruction
 /// without its art still resolves.
@@ -24,6 +25,9 @@ public partial class CombatView : Node3D
     // ordnance's own radius is not read yet.
     const float BeamThickness = 6f;
     const float TorpedoSize = 16f;
+
+    // stand-in: the size of a small explosion's billboard in world units; the game's size is not known.
+    const float SmallExplosionSize = 24f;
 
     sealed class Drawn
     {
@@ -113,6 +117,8 @@ public partial class CombatView : Node3D
             }
         }
 
+        LoadShieldModels(art, builder, gap);
+
         orders.Stepped += OnStep;
     }
 
@@ -159,8 +165,23 @@ public partial class CombatView : Node3D
                         Draw(shot);
 
                         break;
+                    case ShieldHitEffect effect:
+                        RaiseShieldEffect(effect);
+
+                        break;
+                    case HullHitSprite sprite:
+                        RaiseHullSprite(sprite);
+
+                        break;
                     case UnitDestroyed { Unit: var unit }:
                         Explode(unit);
+
+                        break;
+                    case SmallExplosion { Unit: var dying, Name: var name, Offset: var offset }:
+                        if (At(dying) is { } center)
+                        {
+                            ShowSmallExplosion(name, center + Gd(offset));
+                        }
 
                         break;
                 }
@@ -173,7 +194,7 @@ public partial class CombatView : Node3D
     }
 
     /// <summary>
-    /// Logs the count of repeated presentation faults. Godot exits the children of a node before the node, so this
+    /// Logs the count of repeated presentation and shield-down overlay faults. Godot exits the children of a node before the node, so this
     /// runs before the run-end entry of the AssetBrowserView above the sandbox.
     /// </summary>
     public override void _ExitTree() => _faults.Flush();
@@ -313,6 +334,38 @@ public partial class CombatView : Node3D
         d.Root.Position = new Vector3(shot.Position.X, shot.Position.Y, shot.Position.Z);
     }
 
+    // A small explosion of a dying unit: its sprite's flipbook plays once on a billboard at the point; a sprite the
+    // install lacks shows nothing (reported once, CombatArt.AddSmallExplosions).
+    void ShowSmallExplosion(string name, Vector3 at)
+    {
+        if (_art.Sprite(name) is not { } art || Texture(art.Sprite.Texture) is not { } tex)
+            return;
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoTexture = tex,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        SpriteMaterial.Blend(material, art.Sprite.Material);
+        var quad = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = new Vector2(SmallExplosionSize, SmallExplosionSize), Material = material },
+            Position = at,
+        };
+        AddChild(quad);
+        // stand-in: a sprite without a flipbook shows for half a second; the game's duration is not known.
+        var length = art.FrameSeconds > 0 ? art.FrameSeconds * art.Frames.Count : 0.5;
+        var tween = quad.CreateTween();
+        tween.TweenMethod(
+            Callable.From<double>(age => SpriteMaterial.ShowFrame(material, art.Sprite, art.FrameAt(age), tex)),
+            0.0,
+            length,
+            length
+        );
+        tween.TweenCallback(Callable.From(quad.QueueFree));
+    }
+
     void Explode(PlacedObject unit)
     {
         if (_art.Explosion(unit) is not { } explosion || At(unit) is not { } at)
@@ -353,6 +406,7 @@ public partial class CombatView : Node3D
     /// <inheritdoc/>
     public override void _Process(double delta)
     {
+        UpdateShieldEffects();
         var live = _world.Shots.ToHashSet();
         _drawn.RemoveAll(d =>
         {

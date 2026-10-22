@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
+using OpenArmada.Formats;
 using OpenArmada.Sandbox;
 using static OpenArmada.Tests.CombatFixtures;
 using static OpenArmada.Tests.SodBytes;
@@ -23,7 +24,7 @@ public class CombatArtTests
 
     const string Sprites =
         "sprite_table\n@reference=128\n@tmaterial=additive\n@animation flip\noffset 4 0.5 step\n@auto=column\n@keyframes\n"
-        + "phaser tex 0 0 128 21\ntorp tex2 0 0 32 32 @anim=flip\n";
+        + "phaser tex 0 0 128 21\ntorp tex2 0 0 32 32 @anim=flip\nexplosion1 tex3 0 0 32 32\n";
     const string Explosion = "explSound = \"boom.wav\"\r\ndbName = \"xplode\"\r\nlength = 3.5\r\n";
 
     static string Latin1(byte[] bytes) => Encoding.Latin1.GetString(bytes);
@@ -48,6 +49,7 @@ public class CombatArtTests
                     ("addon/xfb.odf", Explosion),
                     ("SOD/xplode.sod", Model("root")),
                     ("SOD/ship.sod", Model("root", "hp01")),
+                    ("SOD/xshldx01.sod", Model("root")),
                 }
                     .Concat(more)
                     .ToArray()
@@ -64,6 +66,95 @@ public class CombatArtTests
 
     static (PlacedObject Unit, CombatProfile Profile) Unit(WeaponProfile weapon, string fireball = "xfb") =>
         (Placed("ship", 1, 0) with { Model = "ship" }, Profile(new[] { weapon }) with { Fireball = fireball });
+
+    static (PlacedObject Unit, CombatProfile Profile) WithOrdnance(OrdnanceProfile ordnance, bool generator = false)
+    {
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01") with { Ordnance = ordnance with { Sprite = "phaser" } });
+
+        return generator ? (unit.Unit, unit.Profile with { Systems = [Sys(SystemNames.ShieldGenerator)] }) : unit;
+    }
+
+    [TestMethod]
+    public void ShieldGeometryTheInstallHoldsIsListedOnce()
+    {
+        var art = CombatArt.Build(
+            Install(),
+            new[] { WithOrdnance(Beam(label: "photontorpedo")), WithOrdnance(Beam(label: "photontorpedo")) }
+        );
+
+        CollectionAssert.AreEqual(new[] { "xshldx01" }, art.ShieldGeometries.ToArray());
+        Assert.AreEqual(0, art.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ShieldGeometryOfOrdnanceThatIgnoresShieldsIsNeitherListedNorReported()
+    {
+        var art = CombatArt.Build(Install(), new[] { WithOrdnance(Beam(shieldGeometry: "xnone", ignoreShield: true)) });
+
+        Assert.AreEqual(0, art.ShieldGeometries.Count());
+        Assert.AreEqual(0, art.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ShieldGeometryTheInstallLacksIsOneGapWithItsNameAndNotListed()
+    {
+        var art = CombatArt.Build(
+            Install(),
+            new[] { WithOrdnance(Beam(shieldGeometry: "xnone")), WithOrdnance(Beam(shieldGeometry: "xnone")) }
+        );
+
+        Assert.AreEqual(0, art.ShieldGeometries.Count());
+        var gap = art.Reports.Single();
+        CollectionAssert.AreEqual(new[] { "xnone" }, gap.Names.ToArray());
+        Assert.AreEqual(2, gap.Count);
+    }
+
+    [TestMethod]
+    public void ShieldDownOverlayModelIsListedForAUnitWithAShieldGenerator()
+    {
+        var art = CombatArt.Build(Install(("SOD/xshlddie.sod", Model("root"))), new[] { WithOrdnance(Beam(), true) });
+
+        Assert.AreEqual("xshlddie", art.ShieldDownModel);
+        Assert.AreEqual(0, art.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ShieldDownOverlayModelTheInstallLacksIsOneGapAndNull()
+    {
+        var art = CombatArt.Build(Install(), new[] { WithOrdnance(Beam(), true), WithOrdnance(Beam(), true) });
+
+        Assert.IsNull(art.ShieldDownModel);
+        CollectionAssert.AreEqual(new[] { "xshlddie" }, art.Reports.Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void NoShieldDownOverlayModelIsNeededWithoutAShieldGenerator() =>
+        Assert.IsNull(CombatArt.Build(Install(), new[] { WithOrdnance(Beam()) }).ShieldDownModel);
+
+    [TestMethod]
+    public void HullHitSpriteMissingFromTheTablesIsAGapForABeam()
+    {
+        var files = new GameFileSystem(
+            temp.MakeInstall(
+                ("Sprites/weapon.spr", Sprites.Replace("explosion1 tex3 0 0 32 32\n", "")),
+                ("SOD/xshldx01.sod", Model("root")),
+                ("SOD/ship.sod", Model("root", "hp01")),
+                ("addon/xfb.odf", Explosion),
+                ("SOD/xplode.sod", Model("root")),
+                ("addon/boom.wav", "x"),
+                ("addon/ph.wav", "x")
+            )
+        );
+
+        var art = CombatArt.Build(files, new[] { WithOrdnance(Beam()) });
+
+        Assert.IsNull(art.Sprite(HullHitSprite.SpriteName));
+        CollectionAssert.AreEqual(new[] { "explosion1" }, art.Reports.Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void HullHitSpriteIsResolvedForABeam() =>
+        Assert.IsNotNull(CombatArt.Build(Install(), new[] { WithOrdnance(Beam()) }).Sprite(HullHitSprite.SpriteName));
 
     [TestMethod]
     public void SpriteHasItsBlendAndItsFlipbookFrames()
@@ -249,6 +340,42 @@ public class CombatArtTests
         Assert.AreEqual(3.5f, explosion.Length);
     }
 
+    // A second sprite table with the seven small explosion sprites of a dying unit (the install's weapon.spr has them).
+    static (string Path, string Content) SmallExplosionTable() =>
+        (
+            "Sprites/small.spr",
+            "sprite_table\n@reference=128\n@animation flip\noffset 4 0.5 step\n@auto=column\n@keyframes\n"
+                + string.Concat(Enumerable.Range(1, 7).Select(i => $"systemexpl{i} tex 0 0 32 32 @anim=flip\n"))
+        );
+
+    [TestMethod]
+    public void TheSevenSmallExplosionSpritesResolveFromTheSpriteTablesAndShowTheirFlipbook()
+    {
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01"));
+        var art = CombatArt.Build(Install(SmallExplosionTable()), new[] { unit });
+        art.AddSmallExplosions();
+        var sprite = art.Sprite("systemexpl3")!;
+        Assert.AreEqual(4, sprite.Frames.Count);
+        Assert.AreEqual(0.125, sprite.FrameSeconds, 1e-9);
+        Assert.AreEqual(0, art.Reports.Count);
+    }
+
+    [TestMethod]
+    public void SmallExplosionSpritesTheTablesLackAreOneGapLoggedOnceAndShowNothing()
+    {
+        using var log = new CapturedLog();
+        var unit = Unit(Armed("phaser", "ph.wav", "hp01"));
+        var art = CombatArt.Build(Install(), new[] { unit });
+        log.Lines.Clear();
+        art.AddSmallExplosions();
+        Assert.IsNull(art.Sprite("systemexpl1"));
+        var gap = art.Reports.Single();
+        StringAssert.Contains(gap.Cause, "small explosion");
+        Assert.AreEqual(7, gap.Names.Count);
+        Assert.AreEqual(1, log.Lines.Count, log.Text);
+        StringAssert.Contains(log.Lines[0], " WARN combat: " + gap.Text);
+    }
+
     [TestMethod]
     public void MissingExplosionDefinitionIsAGapAndNoExplosion()
     {
@@ -300,7 +427,7 @@ public class CombatArtTests
         var a = Unit(Armed("phaser", "ph.wav", "hp01"));
         var b = Unit(Armed("phaser", "ph.wav", "hp01"));
         var art = CombatArt.Build(Install(), new[] { a, b });
-        Assert.AreEqual(1, art.Sprites.Count());
+        Assert.AreEqual(2, art.Sprites.Count()); // the shot sprite and the beams' hull hit sprite
         CollectionAssert.AreEquivalent(new[] { "ph.wav", "boom.wav" }, art.Sounds.ToArray());
         CollectionAssert.AreEqual(new[] { "xplode" }, art.ExplosionModels.ToArray());
     }

@@ -164,7 +164,7 @@ public static class SelectionDisplay
     /// its bottom edge, in the unit's crew status. Null for a unit whose maxHealth is not above 0.
     /// </summary>
     public static CrewDot? CrewDotOf(ScreenBox box, UnitCombatState state, float scale) =>
-        // stand-in: the shield bar's gate; the game's own gate, maximumCrew not 0, always holds (CombatPlan)
+        // stand-in: the shield bar's gate; the game's own gate is maximumCrew (crewCost where missing) not 0
         state.Profile.MaxHealth <= 0
             ? null
             : new CrewDot(

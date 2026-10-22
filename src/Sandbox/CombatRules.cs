@@ -11,6 +11,14 @@ namespace OpenArmada.Sandbox;
 /// </summary>
 public static class CombatRules
 {
+    // The dying time in seconds (0x466090): 3.0, or 5.0 for a unit whose speed is above 1.0 or that is a hero.
+    const double DyingShort = 3;
+    const double DyingLong = 5;
+    const double DyingFastSpeed = 1;
+
+    // The seconds a further damaging hit cuts from a dying unit's time (0x465100).
+    const double DyingHitCut = 0.5;
+
     /// <summary>Units of different teams are hostile; team 0 is neutral and hostile to no one.</summary>
     public static bool Hostile(int a, int b) => a != b && a != 0 && b != 0;
 
@@ -104,12 +112,13 @@ public static class CombatRules
     }
 
     /// <summary>
-    /// Repairs the unit's damaged systems for <c>seconds</c> (the rules' "Repair"). A derelict unit repairs nothing.
+    /// Repairs the unit's damaged systems for <c>seconds</c> (the rules' "Repair"). A derelict or dying unit repairs
+    /// nothing (0x465e80 returns for a dying unit at 0x465e87).
     /// stand-in: the officer factor is 1.
     /// </summary>
     public static void Repair(UnitCombatState unit, double seconds)
     {
-        if (unit.Derelict)
+        if (unit.Derelict || unit.Dying)
             return;
         var race = unit.Profile.Race;
         var factor = CrewFactor(unit, race.RepairYellow, race.RepairRed);
@@ -131,11 +140,11 @@ public static class CombatRules
 
     /// <summary>
     /// Life support loss for <c>seconds</c>: the crew of a unit with destroyed life support falls by 1 plus
-    /// lifeSupportLoss percent of the crew per second. A derelict unit loses none.
+    /// lifeSupportLoss percent of the crew per second. A derelict or dying unit loses none.
     /// </summary>
     public static void Sustain(UnitCombatState unit, double seconds)
     {
-        if (unit.Derelict || !unit.SystemDestroyed(SystemNames.LifeSupport))
+        if (unit.Derelict || unit.Dying || !unit.SystemDestroyed(SystemNames.LifeSupport))
             return;
         unit.Crew -= (1 + unit.Crew * unit.Profile.LifeSupportLoss / 100) * seconds;
         CheckCrew(unit);
@@ -164,6 +173,26 @@ public static class CombatRules
         double shieldDamageProtection
     )
     {
+        if (target.Dying)
+        {
+            // a further hit on a dying unit deals no damage; one with damage above 0 cuts the dying time instead
+            // (0x465132-0x465147 gate, 0x4651f3 and 0x468990 cut)
+            if (damage > 0)
+            {
+                target.DyingRemaining -= DyingHitCut;
+            }
+
+            return new Hit
+            {
+                Location = location,
+                Damage = 0,
+                ShieldLoss = 0,
+                CrewLoss = 0,
+                Points = 0,
+                Destroyed = false,
+            };
+        }
+
         var name = target.DefinitionName;
         var shieldPart = damage * shieldDamageProtection;
         var systemsPart = damage - shieldPart;
@@ -231,7 +260,11 @@ public static class CombatRules
             CheckCrew(target);
         }
 
-        target.Destroyed |= destroyed;
+        if (destroyed)
+        {
+            target.Dying = true;
+            target.DyingRemaining = target.Speed > DyingFastSpeed || target.Profile.IsHero ? DyingLong : DyingShort;
+        }
 
         return new Hit
         {
@@ -246,11 +279,11 @@ public static class CombatRules
 
     /// <summary>
     /// Regains shield points for <c>seconds</c>: nothing while the shields are down after reaching zero, then the
-    /// rate per second up to the maximum.
+    /// rate per second up to the maximum. A derelict or dying unit regains none.
     /// </summary>
     public static void RegainShields(UnitCombatState unit, double seconds)
     {
-        if (unit.Derelict || unit.SystemDestroyed(SystemNames.ShieldGenerator))
+        if (unit.Derelict || unit.Dying || unit.SystemDestroyed(SystemNames.ShieldGenerator))
             return;
         var down = Math.Min(unit.ShieldDown, seconds);
         unit.ShieldDown -= down;

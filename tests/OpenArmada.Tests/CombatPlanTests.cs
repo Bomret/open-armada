@@ -110,6 +110,37 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void OrdnanceWithoutShieldKeysUsesTheDefaultGeometryAndDuration()
+    {
+        var o = ProfileOf(OneShip("weapon1 = \"beam\"\r\nweaponHardpoints1 = \"hp1\"\r\n")).Weapons.Single().Ordnance;
+
+        Assert.AreEqual("xshldx01", o.ShieldGeometryName);
+        Assert.AreEqual(0.8f, o.ShieldDuration);
+        Assert.IsFalse(o.IgnoreShield);
+        Assert.AreEqual(1f, o.Size);
+    }
+
+    [TestMethod]
+    public void OrdnanceShieldKeysAreRead()
+    {
+        var r = OneShip(
+            "weapon1 = \"beam2\"\r\nweaponHardpoints1 = \"hp1\"\r\n",
+            ("beam2", Beam.Replace("beamo", "ord2")),
+            (
+                "ord2",
+                BeamOrd + "ignoreShield = 1\r\nshieldGeometryName = \"xother\"\r\nshieldDuration = 2.5\r\nsize = 3\r\n"
+            )
+        );
+
+        var o = ProfileOf(r).Weapons.Single().Ordnance;
+
+        Assert.IsTrue(o.IgnoreShield);
+        Assert.AreEqual("xother", o.ShieldGeometryName);
+        Assert.AreEqual(2.5f, o.ShieldDuration);
+        Assert.AreEqual(3f, o.Size);
+    }
+
+    [TestMethod]
     public void SlotNumbersWithGapsKeepTheirOwnHardpoints()
     {
         var r = OneShip(
@@ -328,6 +359,13 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void ProfileReadsIsHeroFromTheDefinition()
+    {
+        Assert.IsTrue(ProfileOf(OneShip("isHero = 1\r\n")).IsHero);
+        Assert.IsFalse(ProfileOf(OneShip("")).IsHero);
+    }
+
+    [TestMethod]
     public void ProfileHoldsShieldsCrewAndRaceValuesFromTheInstall()
     {
         var r = OneShip("canAttack = 0\r\ndefaultGreenAlert = 1\r\nfireball = \"fb\"\r\nlifeSupportLoss = 5\r\n");
@@ -446,6 +484,25 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void AMissingMaximumCrewDefaultsToTheCrewCost()
+    {
+        // 0x4601d7: the class's maximumCrew defaults to its crewCost
+        var odf = Ship.Replace("maximumCrew = 120\r\n", "");
+        var r = Plan(new[] { "s" }, new[] { ("s", odf), ("fed", Race) }, ("RTS_CFG.h", Constants));
+        var p = ProfileOf(r);
+        Assert.AreEqual(100f, p.DefinedMaximumCrew);
+        Assert.IsFalse(r.Plan.Reports.Any(g => g.Cause.Contains("maximumCrew")));
+    }
+
+    [TestMethod]
+    public void AMissingMaximumCrewAndACrewCostOfZeroDefinesNoMaximumCrew()
+    {
+        var odf = Ship.Replace("maximumCrew = 120\r\n", "").Replace("crewCost = 100", "crewCost = 0");
+        var p = ProfileOf(Plan(new[] { "s" }, new[] { ("s", odf), ("fed", Race) }, ("RTS_CFG.h", Constants)));
+        Assert.AreEqual(0f, p.DefinedMaximumCrew);
+    }
+
+    [TestMethod]
     public void AMaximumCrewOfZeroTakesAPositiveStandIn()
     {
         var r = Plan(
@@ -455,6 +512,7 @@ public class CombatPlanTests
         );
         var p = ProfileOf(r);
         Assert.AreEqual(100f, p.MaximumCrew);
+        Assert.AreEqual(0f, p.DefinedMaximumCrew);
         Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.Contains("maximumCrew")));
     }
 

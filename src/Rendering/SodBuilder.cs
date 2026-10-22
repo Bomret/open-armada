@@ -64,6 +64,12 @@ public sealed class SodBuilder
     }
 
     /// <summary>
+    /// The metadata key under which each built node holds its index in <c>Sod.Nodes</c>. A copy of the built node
+    /// (Duplicate) carries it, so a view maps a model node to the node it drew without going by name.
+    /// </summary>
+    public const string SodIndexMeta = "sodIndex";
+
+    /// <summary>
     /// Builds the model with its team materials in <c>teamColor</c> (the last color set when null); <c>asset</c>,
     /// the model's name, is named in the log entry of a texture that fails (ViewerLog.TextureFailed).
     /// </summary>
@@ -83,6 +89,7 @@ public sealed class SodBuilder
         {
             Node3D node = n.Mesh != null ? BuildMesh(sod, n) : new Node3D();
             node.Name = NodeName.Of(n.Name);
+            node.SetMeta(SodIndexMeta, nodes.Count);
             node.Transform = ToGodot(n.Transform);
             nodes.Add((n, node));
         }

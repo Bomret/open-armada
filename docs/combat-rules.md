@@ -270,7 +270,8 @@ every surface to white, so the geometry's own texture colors it), while its shie
 is not derelict. It is created when the generator goes offline and the unit is not derelict and has none
 (0x467b70, 0x4679b0), removed when the generator is back online (0x467e06) or the unit turns derelict
 (0x466e7e), and created again when the crew recovers while the generator is still offline (0x466f07). A
-unit never has more than one. The state dump's `shieldDown` field tells whether the overlay shows.
+unit never has more than one. The state dump's `shieldDown` field is the unit state's overlay flag;
+a unit that has left the map keeps its last value.
 **Stand-in**: nothing in the engine raises a derelict unit's crew again, so the last rule applies only to a
 state set from outside.
 

@@ -53,8 +53,9 @@ public sealed class PlayState
     /// <c>state=none</c> after its position. Fields, space-separated: name, team, pos (x,y,z), shields, crew, one
     /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, coasting,
     /// destroyed (true once the unit has left the world), dying, alert, order,
-    /// target, shieldDown (whether the shield-down overlay shows), damage (the names of the showing damage nodes,
-    /// comma-separated, or <c>none</c>; see <see cref="DamageNodes"/>).
+    /// target, shieldDown (the state's shield-down overlay flag), damage (the names of the damage nodes the state
+    /// selects, comma-separated, or <c>none</c>; see <see cref="DamageNodes"/>). A unit that has left the world keeps
+    /// the values of its last state in every field.
     /// </summary>
     public string Dump()
     {

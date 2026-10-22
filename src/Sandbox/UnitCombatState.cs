@@ -158,6 +158,14 @@ public sealed class UnitCombatState(
     /// <summary>Whether the unit coasts (ADR 0008): a unit that moves at all and has no thrust.</summary>
     public bool Coasting => Mobile && Immobile;
 
+    /// <summary>
+    /// Whether the unit shows the shield-down overlay: its shield generator is destroyed and it is not derelict
+    /// (created 0x467b70, 0x4679b0; removed 0x467e06 when the generator is back, 0x466e7e when the unit turns derelict;
+    /// created again 0x466f07 when the crew recovers while the generator is still offline). One flag, so a unit never
+    /// has more than one overlay.
+    /// </summary>
+    public bool ShieldDownOverlay => !Derelict && SystemDestroyed(SystemNames.ShieldGenerator);
+
     /// <summary>The world tick that found the unit without thrust; null while the unit has thrust.</summary>
     public long? CoastTick { get; set; }
 

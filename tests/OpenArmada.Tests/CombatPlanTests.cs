@@ -110,6 +110,37 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void OrdnanceWithoutShieldKeysUsesTheDefaultGeometryAndDuration()
+    {
+        var o = ProfileOf(OneShip("weapon1 = \"beam\"\r\nweaponHardpoints1 = \"hp1\"\r\n")).Weapons.Single().Ordnance;
+
+        Assert.AreEqual("xshldx01", o.ShieldGeometryName);
+        Assert.AreEqual(0.8f, o.ShieldDuration);
+        Assert.IsFalse(o.IgnoreShield);
+        Assert.AreEqual(1f, o.Size);
+    }
+
+    [TestMethod]
+    public void OrdnanceShieldKeysAreRead()
+    {
+        var r = OneShip(
+            "weapon1 = \"beam2\"\r\nweaponHardpoints1 = \"hp1\"\r\n",
+            ("beam2", Beam.Replace("beamo", "ord2")),
+            (
+                "ord2",
+                BeamOrd + "ignoreShield = 1\r\nshieldGeometryName = \"xother\"\r\nshieldDuration = 2.5\r\nsize = 3\r\n"
+            )
+        );
+
+        var o = ProfileOf(r).Weapons.Single().Ordnance;
+
+        Assert.IsTrue(o.IgnoreShield);
+        Assert.AreEqual("xother", o.ShieldGeometryName);
+        Assert.AreEqual(2.5f, o.ShieldDuration);
+        Assert.AreEqual(3f, o.Size);
+    }
+
+    [TestMethod]
     public void SlotNumbersWithGapsKeepTheirOwnHardpoints()
     {
         var r = OneShip(

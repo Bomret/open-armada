@@ -30,10 +30,18 @@ static class CombatFixtures
         string label = "phaser",
         float speed = 100,
         float omega = 1,
-        float seek = 5
+        float seek = 5,
+        bool ignoreShield = false,
+        string shieldGeometry = OrdnanceProfile.DefaultShieldGeometry,
+        float shieldDuration = OrdnanceProfile.DefaultShieldDuration,
+        float size = 1
     ) =>
         new()
         {
+            IgnoreShield = ignoreShield,
+            ShieldGeometryName = shieldGeometry,
+            ShieldDuration = shieldDuration,
+            Size = size,
             ClassLabel = label,
             DamageBase = TargetValue.Of(damage),
             DamageVariance = TargetValue.Of(variance),

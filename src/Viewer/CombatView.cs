@@ -117,6 +117,8 @@ public partial class CombatView : Node3D
             }
         }
 
+        LoadShieldModels(art, builder, gap);
+
         orders.Stepped += OnStep;
     }
 
@@ -161,6 +163,14 @@ public partial class CombatView : Node3D
                         }
 
                         Draw(shot);
+
+                        break;
+                    case ShieldHitEffect effect:
+                        RaiseShieldEffect(effect);
+
+                        break;
+                    case HullHitSprite sprite:
+                        RaiseHullSprite(sprite);
 
                         break;
                     case UnitDestroyed { Unit: var unit }:
@@ -396,6 +406,7 @@ public partial class CombatView : Node3D
     /// <inheritdoc/>
     public override void _Process(double delta)
     {
+        UpdateShieldEffects();
         var live = _world.Shots.ToHashSet();
         _drawn.RemoveAll(d =>
         {

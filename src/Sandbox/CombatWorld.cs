@@ -41,12 +41,19 @@ public sealed class CombatWorld
     public const double Tick = 0.02;
 
     // stand-in: a shield bubble reaches this many radii from a unit's center; the game's shape is not known.
-    const float BubbleRadii = 1.25f;
+    /// <summary>How many radii a shield bubble reaches from a unit's center (stand-in); the shield hit effect sits on it.</summary>
+    public const float BubbleRadii = 1.25f;
 
     // stand-in: a flying shot touches a unit of radius 0 (a model without meshes) within this many world units of
     // its center, so such a unit can be hit; the game's collision radius is not known.
     const float ZeroRadiusContactReach = 5f;
     const double Epsilon = 1e-9;
+
+    // A beam shows its effect once this share of its lifetime has passed: 1 - 0.9 (0x6173e8).
+    const double BeamEffectStart = 0.1;
+
+    // The hull hit sprite of a beam is drawn at this times the ordnance's size (0x6173dc, 0x6173e0).
+    const float HullSpriteScale = 2f;
     const float ArrivedWithin = 1e-3f;
 
     // An idle unit at red closes on its pick only while its center is within 300 units of its tether point, in
@@ -72,6 +79,9 @@ public sealed class CombatWorld
     readonly List<Shot> _shots = new();
     double _pending;
     long _ticks;
+
+    /// <summary>Seconds of fight the ticks that ran add up to.</summary>
+    public double Time => _ticks * Tick;
 
     /// <summary>
     /// A world of the units, without orders. <c>shieldDamageProtection</c> and
@@ -551,10 +561,35 @@ public sealed class CombatWorld
                 {
                     _shots.Remove(shot);
                 }
-                else if (shot.Age + Epsilon >= ordnance.LifeSpan)
+                else
                 {
-                    _shots.Remove(shot);
-                    Land(shot, events);
+                    // a tenth of the lifetime in, with the head in reach: the beam shows its effect (0x4eb170, 0.9 at
+                    // 0x6173e8 read as the share of the lifetime left)
+                    if (
+                        !shot.EffectRaised
+                        && shot.Age + Epsilon >= BeamEffectStart * ordnance.LifeSpan
+                        && Surface(shot.Shooter, shot.Target) <= shot.Weapon.Range
+                    )
+                    {
+                        shot.EffectRaised = true;
+                        var target = shot.Target;
+                        events.Add(
+                            target.Shields > 0 && !ordnance.IgnoreShield
+                                ? ShieldEffect(shot)
+                                : new HullHitSprite
+                                {
+                                    Shot = shot,
+                                    Unit = target.Unit,
+                                    Scale = HullSpriteScale * ordnance.Size,
+                                }
+                        );
+                    }
+
+                    if (shot.Age + Epsilon >= ordnance.LifeSpan)
+                    {
+                        _shots.Remove(shot);
+                        Land(shot, events);
+                    }
                 }
 
                 continue;
@@ -614,15 +649,54 @@ public sealed class CombatWorld
         return Vector3.Distance(from + along * t, point);
     }
 
+    // The shield hit effect of the shot on its target, with the shield fraction as it is now (0x5170e0) and the contact
+    // point toward the shot's position. A projectile's effect is raised after its damage, a beam's at a tenth of its
+    // lifetime, before the beam's own damage lands.
+    ShieldHitEffect ShieldEffect(Shot shot)
+    {
+        var target = shot.Target;
+        var ordnance = shot.Weapon.Ordnance;
+
+        return new ShieldHitEffect
+        {
+            Shot = shot,
+            Unit = target.Unit,
+            Geometry = ordnance.ShieldGeometryName,
+            Duration = ordnance.ShieldDuration,
+            Raised = Time,
+            Fraction = target.Profile.MaxHealth > 0 ? Math.Clamp(target.Shields / target.Profile.MaxHealth, 0, 1) : 0,
+            Contact = ShieldContact(shot.Position, Position(target), target.Radius),
+        };
+    }
+
+    /// <summary>
+    /// The point on the shield bubble of a unit at <c>center</c> with <c>radius</c> that faces <c>from</c>; the center
+    /// for a unit without radius. stand-in: the bubble is a sphere of <see cref="BubbleRadii"/> radii (the game scales
+    /// the geometry to the shield ellipsoid, whose source is not recovered).
+    /// </summary>
+    public static Vector3 ShieldContact(Vector3 from, Vector3 center, float radius)
+    {
+        var toward = from - center;
+
+        return toward == Vector3.Zero ? center : center + Vector3.Normalize(toward) * radius * BubbleRadii;
+    }
+
     // The shot lands: its damage and hit location are rolled and applied to the target.
     void Land(Shot shot, List<CombatEvent> events)
     {
         var target = shot.Target;
         var damage = CombatRules.Damage(shot.Weapon.Ordnance, target.DefinitionName, _random());
         var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
+        // the gate reads the shields before the damage (0x4ec22a, 0x4ec9f0, 0x4ed3da); a beam raised its effect earlier
+        var shielded = target.Shields > 0 && !shot.Weapon.Ordnance.IgnoreShield;
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
         target.LastHit = _ticks;
         events.Add(new ShotLanded { Shot = shot, Hit = hit });
+        if (shielded && shot.Kind != ShotKind.Beam)
+        {
+            events.Add(ShieldEffect(shot));
+        }
+
         if (!hit.Destroyed)
             return;
         // the unit is dying now (CombatRules.Apply); shots in flight at it still land (0x4ee620) and cut its time

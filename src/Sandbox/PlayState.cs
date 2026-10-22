@@ -43,7 +43,8 @@ public sealed class PlayState
     /// decimals, the systems in a fixed order, and no time of day. A unit without combat state shows
     /// <c>state=none</c> after its position. Fields, space-separated: name, team, pos (x,y,z), shields, crew, one
     /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, coasting,
-    /// destroyed (true once the unit has left the world), dying, alert, order, target.
+    /// destroyed (true once the unit has left the world), dying, alert, order,
+    /// target, shieldDown (whether the shield-down overlay shows).
     /// </summary>
     public string Dump()
     {
@@ -72,6 +73,7 @@ public sealed class PlayState
                     $" derelict={Flag(s.Derelict)} immobile={Flag(s.Immobile)} coasting={Flag(s.Coasting)} destroyed={Flag(s.Destroyed)}"
                         + $" dying={Flag(s.Dying)}"
                         + $" alert={s.Alert} order={Of(s.Order)} target={Of(s.Target)}"
+                        + $" shieldDown={Flag(s.ShieldDownOverlay)}"
                 );
             }
             else

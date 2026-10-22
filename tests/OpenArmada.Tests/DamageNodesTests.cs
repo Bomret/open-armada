@@ -18,6 +18,8 @@ public class DamageNodesTests
         Model(
             Node("root", ""),
             Node("damage", "root"),
+            Node("borg", "damage"),
+            Node("borgfire", "borg"),
             Node("crew", "damage"),
             Node("crew1", "crew"),
             Node("crew2", "crew1"),
@@ -29,8 +31,7 @@ public class DamageNodesTests
             Node("engines", "damage"),
             Node("life", "damage"),
             Node("sensors", "damage"),
-            Node(shieldNode, "damage"),
-            Node("borg", "damage")
+            Node(shieldNode, "damage")
         );
 
     // A unit of 100 maximum crew in the fixtures' race, whose crewYellowStatus is 0.5.
@@ -232,6 +233,7 @@ public class DamageNodesTests
 
         Assert.IsTrue(showing.Length > 5, "the other nodes show");
         CollectionAssert.DoesNotContain(showing, "borg");
+        CollectionAssert.DoesNotContain(showing, "borgfire");
     }
 
     [TestMethod]

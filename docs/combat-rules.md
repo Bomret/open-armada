@@ -235,11 +235,18 @@ raises none, and one hit raises one effect.
   shot to the unit's center, and the effect's +Z axis points at it; the ellipsoid's source and the game's
   axis are not recovered.
 - **Color.** The color is (1 - s, s, 0), with s the shield fraction (shields over `maxHealth`) read when the
-  effect spawns, after the damage (0x5170e0). A hit that empties the shields shows red.
+  effect spawns (0x5170e0). A projectile's effect spawns after its damage, so a hit that empties the shields
+  shows red. A beam's effect spawns a tenth of the way through its lifetime, before the beam's own damage
+  lands at its end, so a beam reads the shields as they stand then. **Stand-in**: the view sets the ambient and
+  the diffuse color of every surface of the geometry to this color, and the geometry's texture still
+  modulates it.
+- **Timing.** A projectile's effect ends `shieldDuration` seconds after the world tick that raised it; the
+  world's clock times it, so the duration holds at any frame rate and step size.
 
 A **beam** spawns one effect once a tenth of its lifetime has passed and its head is in reach of the target
 (0x4eb170; the constant 0.9 at 0x6173e8 is read as the share of the lifetime still to go). The effect then
-follows the beam's current contact point (0x516c40) until the beam ends. The beam's timing runs on the
+follows the beam's current contact point (0x516c40) until the beam ends; the contact point faces the hardpoint
+the beam is drawn from at that moment, not the one it fired from. The beam's timing runs on the
 world's fixed tick. A beam cut off before that point (its firing unit gone, or its target beyond twice the
 range) shows nothing. **Stand-in**: the head is in reach once the surfaces of shooter and target are within
 the weapon's `range`; the radius the game tests is not recovered.
@@ -249,11 +256,14 @@ sprite at the hull instead, scaled 2.0 times the weapon's size field (0x6173dc, 
 size field is read as the ordnance definition's `size` key (1 when missing), the sprite is `explosion1` of the
 `explosion1` family, and a size of 1 draws 8 world units wide.
 
-A geometry or sprite the install lacks is reported once with its name and skipped; the fight goes on.
+A geometry or sprite the install lacks is reported once with its name and skipped; the fight goes on. The
+shield geometry of ordnance that sets `ignoreShield` is neither loaded nor reported, because that ordnance
+never shows one.
 
 ### Shield-down overlay
 
-A unit shows the `xshlddie` geometry, centered and white, while its shield generator is destroyed and the unit
+A unit shows the `xshlddie` geometry, centered and white (the view sets the ambient and diffuse color of
+every surface to white, so the geometry's own texture colors it), while its shield generator is destroyed and the unit
 is not derelict. It is created when the generator goes offline and the unit is not derelict and has none
 (0x467b70, 0x4679b0), removed when the generator is back online (0x467e06) or the unit turns derelict
 (0x466e7e), and created again when the crew recovers while the generator is still offline (0x466f07). A

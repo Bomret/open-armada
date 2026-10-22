@@ -30,7 +30,10 @@ public partial class CombatView
 
     readonly List<Following> _following = new();
     readonly Dictionary<PlacedObject, Node3D> _overlays = new(ReferenceEqualityComparer.Instance);
-    readonly Dictionary<string, float> _modelRadii = new(StringComparer.OrdinalIgnoreCase);
+
+    // A projectile's effect and the world time it ends at; the world's clock, not the frame's, so the duration holds at
+    // any frame rate and step size.
+    readonly List<(Node3D Node, double End)> _expiring = new();
 
     // Builds the templates of the shield geometries and the shield-down model the install holds.
     void LoadShieldModels(CombatArt art, SodBuilder builder, Action<string> gap)
@@ -61,10 +64,8 @@ public partial class CombatView
     }
 
     // The half of the template's longest extent, so a scale of reach over it fits the model to the shield bubble.
-    float ModelRadius(string name, Node3D template)
+    static float ModelRadius(Node3D template)
     {
-        if (_modelRadii.TryGetValue(name, out var known))
-            return known;
         Aabb? box = null;
         foreach (var mesh in template.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
         {
@@ -74,20 +75,21 @@ public partial class CombatView
         var radius = box is { } a ? Math.Max(a.Size.X, Math.Max(a.Size.Y, a.Size.Z)) / 2 : 0;
 
         // stand-in: a model without extent is drawn unscaled
-        return _modelRadii[name] = radius > 0 ? radius : 1;
+        return radius > 0 ? radius : 1;
     }
 
-    // Gives every surface of the model its own copy of the material with the albedo color.
-    static void Tint(Node3D root, Color color)
+    // Draws the model in one color. Every surface gets its own copy of its material, since a duplicated node shares
+    // the template's materials; the model's surfaces are shader materials (SurfaceMaterial).
+    static void Colorize(Node3D root, Color color)
     {
         foreach (var mesh in root.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
         {
             for (var i = 0; i < mesh.GetSurfaceOverrideMaterialCount(); i++)
             {
-                if (mesh.GetActiveMaterial(i) is BaseMaterial3D material)
+                if (mesh.GetActiveMaterial(i) is ShaderMaterial material)
                 {
-                    var own = (BaseMaterial3D)material.Duplicate();
-                    own.AlbedoColor = color;
+                    var own = (ShaderMaterial)material.Duplicate();
+                    SurfaceMaterial.Colorize(own, color);
                     mesh.SetSurfaceOverrideMaterial(i, own);
                 }
             }
@@ -109,8 +111,8 @@ public partial class CombatView
         effect.Basis = Basis.LookingAt(-local, up).Scaled(Vector3.One * scale);
     }
 
-    float ShieldScale(string model, Node3D template, UnitCombatState target) =>
-        target.Radius > 0 ? target.Radius * CombatWorld.BubbleRadii / ModelRadius(model, template) : 1;
+    static float ShieldScale(Node3D template, UnitCombatState target) =>
+        target.Radius > 0 ? target.Radius * CombatWorld.BubbleRadii / ModelRadius(template) : 1;
 
     void RaiseShieldEffect(ShieldHitEffect effect)
     {
@@ -121,9 +123,9 @@ public partial class CombatView
         if (!IsInstanceValid(unit))
             return;
         var node = (Node3D)template.Duplicate();
-        Tint(node, new Color((float)effect.Red, (float)effect.Green, 0));
+        Colorize(node, new Color((float)(1 - effect.Fraction), (float)effect.Fraction, 0));
         unit.AddChild(node);
-        var scale = ShieldScale(effect.Geometry, template, target);
+        var scale = ShieldScale(template, target);
         Aim(node, unit, Gd(effect.Contact) - unit.GlobalPosition, scale);
         if (effect.FollowsBeam)
         {
@@ -139,13 +141,7 @@ public partial class CombatView
             return;
         }
 
-        GetTree().CreateTimer(effect.Duration).Timeout += () =>
-        {
-            if (IsInstanceValid(node))
-            {
-                node.QueueFree();
-            }
-        };
+        _expiring.Add((node, effect.Raised + effect.Duration));
     }
 
     void RaiseHullSprite(HullHitSprite sprite)
@@ -184,7 +180,12 @@ public partial class CombatView
     {
         if (!IsInstanceValid(f.Node) || At(f.Shot.Target.Unit) is not { } center)
             return false;
-        var toward = Gd(f.Shot.Position) - center;
+        // toward the hardpoint the beam draws from now (Place), not the one it fired from
+        var origin =
+            _drawn.Find(d => ReferenceEquals(d.Shot, f.Shot)) is { } drawn && IsInstanceValid(drawn.Source)
+                ? drawn.Source.GlobalPosition
+                : Gd(f.Shot.Position);
+        var toward = origin - center;
         if (f.Unit is { } unit)
         {
             if (!IsInstanceValid(unit))
@@ -206,6 +207,17 @@ public partial class CombatView
     // overlay of each unit as its state says.
     void UpdateShieldEffects()
     {
+        _expiring.RemoveAll(e =>
+        {
+            var gone = !IsInstanceValid(e.Node) || _world.Time >= e.End;
+            if (gone && IsInstanceValid(e.Node))
+            {
+                e.Node.QueueFree();
+            }
+
+            return gone;
+        });
+
         var live = _world.Shots.ToHashSet();
         _following.RemoveAll(f =>
         {
@@ -253,7 +265,8 @@ public partial class CombatView
             return;
         // white and centered; the overlay stays until the state says otherwise
         var node = (Node3D)template.Duplicate();
-        node.Basis = Basis.Identity.Scaled(Vector3.One * ShieldScale(name, template, state));
+        Colorize(node, Colors.White);
+        node.Basis = Basis.Identity.Scaled(Vector3.One * ShieldScale(template, state));
         unit.AddChild(node);
         _overlays[state.Unit] = node;
     }

@@ -50,6 +50,19 @@ public static class SurfaceMaterial
         mat.SetShaderParameter("power", s.Power);
     }
 
+    /// <summary>
+    /// Draws the material in one color: ambient and diffuse become <c>color</c>, the specular goes out, and the
+    /// texture still modulates. A model drawn in one color, such as a shield effect, calls it on each surface's own
+    /// copy of the material.
+    /// </summary>
+    public static void Colorize(ShaderMaterial mat, Color color)
+    {
+        var rgb = new Vector3(color.R, color.G, color.B);
+        mat.SetShaderParameter("ambient", rgb);
+        mat.SetShaderParameter("diffuse", rgb);
+        mat.SetShaderParameter("specular", Vector3.Zero);
+    }
+
     static Vector3 ToGodot(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
 
     static Shader ShaderFor(LightingModel model, BlendState blend, bool cull)

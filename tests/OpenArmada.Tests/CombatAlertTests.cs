@@ -364,6 +364,7 @@ public class CombatAlertTests
         Place(poses, a.Object, 400);
         state.DestroySystem("Engines");
         world.Step(0.02);
+        Assert.IsTrue(state.Coasting);
         Assert.AreEqual(MoveKind.Stop, state.Intent.Kind);
         state.Systems["Engines"].HitPoints = state.Systems["Engines"].Max;
         state.RestoreSystem("Engines");

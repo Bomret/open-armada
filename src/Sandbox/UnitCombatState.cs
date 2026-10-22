@@ -149,8 +149,24 @@ public sealed class UnitCombatState(
         }
     }
 
-    /// <summary>Whether the unit cannot move: derelict, or with its engines destroyed.</summary>
+    /// <summary>
+    /// Whether the unit has no thrust and no order moves it: derelict, or with its engines destroyed. The one place
+    /// that decides it, so a further reason (a dying unit) joins here.
+    /// </summary>
     public bool Immobile => Derelict || SystemDestroyed(SystemNames.Engines);
+
+    /// <summary>Whether the unit coasts (ADR 0008): a unit that moves at all and has no thrust.</summary>
+    public bool Coasting => Mobile && Immobile;
+
+    /// <summary>The world tick that found the unit without thrust; null while the unit has thrust.</summary>
+    public long? CoastTick { get; set; }
+
+    /// <summary>
+    /// How many seconds of the latest Step call lie after <see cref="CoastTick"/>; null while the unit has thrust
+    /// at the world's ticks. The view hands it to ShipMotion.Coast, so the coast starts at that tick and not at the
+    /// frame that follows it.
+    /// </summary>
+    public double? CoastOvershoot { get; set; }
 
     /// <summary>The state of each weapon of the profile, in profile order.</summary>
     public List<WeaponState> Weapons { get; } = profile.Weapons.Select(w => new WeaponState(w)).ToList();

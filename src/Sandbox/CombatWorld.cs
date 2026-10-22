@@ -188,6 +188,12 @@ public sealed class CombatWorld
             RunTick(events);
         }
 
+        // the part of this call after the tick that found a unit without thrust, for the view's coast
+        foreach (var u in _units.Values)
+        {
+            u.CoastOvershoot = u.CoastTick is { } tick ? (_ticks - tick) * Tick + _pending : null;
+        }
+
         return events;
     }
 
@@ -200,10 +206,15 @@ public sealed class CombatWorld
             if (u.Destroyed)
                 continue;
             Think(u);
-            if (u.Mobile && u.Immobile)
+            if (u.Coasting)
             {
-                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a derelict ship or one with dead engines
+                u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a ship without thrust
                 u.PlayerMove = null;
+                u.CoastTick ??= _ticks;
+            }
+            else
+            {
+                u.CoastTick = null;
             }
 
             Fire(u, events);

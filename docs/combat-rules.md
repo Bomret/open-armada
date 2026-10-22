@@ -228,7 +228,7 @@ for a system that has any (0x460f8c). A system with zero hit points does not exi
 A system at zero hit points is destroyed (0x467b70). The crew loses 1 plus the system's `<system>CrewLoss`
 percent of the crew, unless the unit is derelict. A destroyed system means:
 
-- **Engines:** the unit cannot move (**inferred**), and every shot at it hits.
+- **Engines:** the unit has no thrust and coasts (see Coasting), and every shot at it hits.
 - **Life support:** each second the crew loses 1 plus `lifeSupportLoss` percent of the crew, until the
   unit is derelict (0x465f6f).
 - **Weapons:** no weapon fires.
@@ -257,6 +257,24 @@ The game can instead destroy a unit whose crew falls below one, by a flag whose 
 engine always makes it derelict (**stand-in**).
 
 A unit is destroyed only by a critical hit. Losing every system or the shields does not destroy it.
+
+## Coasting
+
+A ship with no thrust, a derelict or one whose engines are destroyed, takes the no-thrust branch of the game's
+physics step (0x459440, checks 0x45969b-0x4596bf; ADR 0008). The branch tests the squared length of the
+velocity vector (offset 0x140 of the physics object) against 0.01 (0x459c46). Below it the linear acceleration
+(0x158) is zeroed (0x459c59), so the ship keeps that residual speed. Otherwise the linear acceleration is the
+velocity normalized times the constant −2.0 at 0x5cc140 (0x459ca6-0x459cfe), with no heading term: the
+velocity slows against its own direction. The angular acceleration (0x164) is zeroed at 0x459c0a, so the
+current turn rate continues undamped and only turns the heading. A coasting ship therefore travels a straight
+line while its heading keeps turning. A turning derelict writes no velocity (0x466ca0), so the ship keeps
+what it had. A ship that stands still when it loses thrust stays still.
+
+No order, stop, face, or player move gives a coasting ship thrust. A ship whose engines are repaired and that
+is not derelict takes orders again. The coast starts at the combat world's tick that finds the unit without
+thrust and runs on the world's fixed tick, so positions do not depend on frame rate. The view draws a
+coasting ship between its tick poses; the simulated pose stays on the tick. **Stand-in**: the position moves
+by the mean velocity of each tick (the half-step integration detail is medium confidence).
 
 ## Not known
 

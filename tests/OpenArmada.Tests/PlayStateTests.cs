@@ -50,7 +50,7 @@ public class PlayStateTests
         Assert.AreEqual(
             "a team=1 pos=1.50,0.00,2.00 shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
                 + "Weapons=5.00/5.00/intact Sensors=4.00/4.00/intact "
-                + "derelict=false immobile=false destroyed=false alert=Red order=b target=none",
+                + "derelict=false immobile=false coasting=false destroyed=false alert=Red order=b target=none",
             lines[0]
         );
         Assert.AreEqual(4, lines.Length);
@@ -67,7 +67,7 @@ public class PlayStateTests
         var scene = new Scene();
         scene.StateB.Destroyed = true;
 
-        StringAssert.Contains(scene.Play.Dump().Split('\n')[1], "immobile=false destroyed=true");
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[1], "immobile=false coasting=false destroyed=true");
     }
 
     [TestMethod]
@@ -82,6 +82,7 @@ public class PlayStateTests
 
         StringAssert.Contains(line, "Engines=0.00/6.00/destroyed");
         StringAssert.Contains(line, "immobile=true");
+        StringAssert.Contains(line, "coasting=true");
     }
 
     [TestMethod]

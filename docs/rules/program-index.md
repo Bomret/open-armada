@@ -1,0 +1,759 @@
+# Program index of Armada.exe
+
+This index says where a function, rule, or topic lives in `Armada.exe`, so an investigation starts at the right
+address instead of searching the whole program. It holds addresses and our own words only (ADR 0004). The
+rules themselves live in the rule notes it links to.
+
+## The program
+
+| Fact | Value |
+|---|---|
+| File | `Armada.exe` of the Star Trek: Armada 1.2 install (`$ARMADA_DIR`) |
+| Size | 2,502,701 bytes |
+| SHA-256 | `c5f32464c6b4322469d79ba19d33f26fde67b5c06ca2ee24a071cd67a52a88b5` |
+| Format | PE, x86, MSVC C++ with RTTI |
+| Image base | 0x400000 |
+| Sections | `.text`, `.rdata`, `.data`, `.idata`, `.rsrc`, `.reloc` |
+| Game code band | 0x401000–0x5bb4c0: the game and its Storm3D engine, 8,123 functions |
+| Outside the band | 0x5bb4c2 onward: import thunks, the C runtime, `entry` (0x5bbdac), and exception unwind handlers, 3,395 functions |
+
+Every routine in the band is game layer: the 1.2 release has no platform layer added after the fact. The
+`layer` column is there so the format matches the other projects that use it.
+
+## How to look something up
+
+1. Search this index for the topic, the address, the ODF key, or the class.
+2. Read the local dump (`decomp/armada/dump/`, see `tools/GhidraDump/README.md`): `functions/<0xaddress>.c`
+   for one function, `functions.tsv` for callers, callees, and strings, `strings.tsv` to go from a string to
+   the functions that use it, `vtables.tsv` to go from a class to its methods.
+3. Confirm unclear pseudocode against the instructions (Ghidra on `decomp/armada/project/`, or `objdump`). The pseudocode can be wrong: 0x501820
+   returns the remainder of a division where the pseudocode shows the quotient.
+
+Strong anchors in this program, strongest first:
+
+- **ODF keys.** Every definition key is a string passed to an ODF getter, so a key leads to the routine that
+  reads it (see ODF keys).
+- **RTTI class names.** 444 vtables carry their class name. A class's own vtable slots lie in one address
+  range, which places the class in the program (see By topic).
+- **Source paths.** Assert and log calls pass the original source file, `D:\Startrek\Source\<dir>\<file>.cpp`.
+  A path places a function in its source file.
+- **Log texts.** Diagnostic strings name methods, for example `Program::GameOpenLoad() took %d seconds.`
+
+## Status and columns
+
+A routine row has the columns address, our name, role, status, layer, evidence anchor, and rule note.
+
+- **confirmed**: read in the decompile or the instructions.
+- **inferred**: from callers, strings, keys, or the class's vtable, not read.
+- **unknown**: the role is open; the row records the address and the anchor that led to it.
+
+Names are `Class_Method` for a method of an RTTI class and `Subsystem_Verb` otherwise. The same names can go into
+the Ghidra project, so its names can be rebuilt from this index.
+
+## By topic
+
+Address ranges come from the classes' own vtable slots and from source paths; they are **inferred** and
+approximate. A class whose name ends in `Class` is the definition (read from an ODF) of the class without
+the suffix.
+
+### Program, startup, and frame loop
+
+Range 0x43f2b0–0x4434d0 (`Game Logic\Program.cpp`). Not surveyed; see Unexplored.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x4404a0 | Program_GameOpenPreLoad | Loads the game before a mission; checks the CD | inferred | game | log text `GameOpenPreLoad() took %d seconds.` | — |
+| 0x4407b0 | Program_GameOpenLoad | Second loading step of a mission | inferred | game | log text `Program::GameOpenLoad() took %d seconds.` | — |
+
+### Object definitions (ODF)
+
+The getters at 0x5537a0–0x554a40 (`Misc\ParameterDB.cpp`) read one key from a definition. Each takes the
+key name, a pointer to the field, and a default.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x553ba0 | Odf_GetInt | Reads a whole number key | inferred | game | `sscanf` without locale; 112 call sites | — |
+| 0x553c30 | Odf_GetFloat | Reads a decimal key; the first line whose start matches the key wins | confirmed | game | 256 call sites | [combat-rules](combat-rules.md#model-scale) |
+| 0x553d40 | Odf_GetString | Reads a text key into a buffer | inferred | game | 8 call sites | — |
+| 0x553e20 | Odf_GetName | Reads a text key | inferred | game | 62 call sites | — |
+| 0x553f20 | Odf_GetLookup | Reads a key and maps it through a table | inferred | game | 6 call sites | — |
+| 0x554060 | Odf_GetFloatList | Reads decimal values | inferred | game | 11 call sites | — |
+| 0x554320 | Odf_GetVector3 | Reads three decimals (`%g %g %g`) | inferred | game | 15 call sites | — |
+| 0x554430 | Odf_GetVector2 | Reads two decimals | inferred | game | 1 call site | — |
+| 0x554530 | Odf_GetList | Reads a list key | unknown | game | 5 call sites | — |
+| 0x5537a0 | Odf_GetText | Reads a key as a text object | unknown | game | 8 call sites | — |
+| 0x4ffd70 | Name_Equals | Compares two names, case-sensitive | confirmed | game | — | [combat-rules](combat-rules.md#values-that-depend-on-the-target) |
+
+### Races
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x443df0 | RaceLoader_Load | Reads `races_odf` and `numberOfRaces`, then each race | inferred | game | `RaceLoader` vtable slot 0 | — |
+| 0x4440b0 | Race_FindByName | Returns the race with a given name | confirmed | game | called with `borg` (0x601240) | [combat-rules](combat-rules.md#damage-nodes) |
+| 0x4442b0 | Race_Load | Reads a race's keys: crew statuses, repair factors, officers | confirmed | game | `Game Logic\Race.cpp`; key `crewYellowStatus` | [combat-rules](combat-rules.md#damage-nodes) |
+
+### Game object definitions
+
+Each definition class reads its ODF in a load routine that first calls its base class's load. The ODF keys
+section lists every key with its reader.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x46a0d0 | GameObjectClass_Init | Sets the prototype defaults of a definition, for example `shieldPad` 0.5 | confirmed | game | 0x46a39d | [shield-effects](shield-effects.md#shield-ellipsoid) |
+| 0x46a470 | GameObjectClass_Load | Reads the keys every object has, including `scaleSOD`, and loads the model | confirmed | game | `GameObjectClass.cpp` | [combat-rules](combat-rules.md#model-scale) |
+| 0x46b8f0 | GameObjectClass_ShieldEllipsoid | Builds the shield ellipsoid from the box of the loaded model | confirmed | game | — | [shield-effects](shield-effects.md#shield-ellipsoid) |
+| 0x46bae0 | GameObjectClass_ModelPoints | Collects the model's points through the node transforms | confirmed | game | — | [shield-effects](shield-effects.md#shield-ellipsoid) |
+| 0x45fea0 | CraftClass_Load | Reads a ship's keys; binds the damage nodes by name | confirmed | game | key `maximumCrew`; node names 0x600518–0x600548 | [combat-rules](combat-rules.md#damage-nodes) |
+| 0x460f30 | CraftClass_LoadSystem | Reads one system's keys (`<system>HitPoints`, `SparkTime`, `TargetHardpoints`) | confirmed | game | `CraftClass.cpp`; `%sHitPoints` | [combat-rules](combat-rules.md#ship-systems) |
+| 0x5053a0 | WeaponClass_Load | Reads a weapon's keys | inferred | game | `WeaponClass.cpp`; 35 keys | — |
+| 0x4e9ed0 | OrdnanceClass_Init | Sets the prototype defaults of an ordnance definition | confirmed | game | 0x4ea15a | [shield-effects](shield-effects.md#model-and-duration) |
+| 0x4ea1e0 | OrdnanceClass_Load | Reads an ordnance's keys, including the shield effect's | confirmed | game | `OrdnanceClass.cpp` | [shield-effects](shield-effects.md#model-and-duration) |
+
+### Ships (Craft)
+
+Range 0x462d80–0x469a40 (`Game Object\Craft\Craft.cpp`). Hits, ship systems, crew, repair, damage nodes,
+and dying.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x4617b0 | Craft_Init | Sets up a ship from its definition; copies `maximumCrew` | confirmed | game | 0x4618eb | [combat-rules](combat-rules.md#damage-nodes) |
+| 0x464dd0 | Craft_RollHitLocation | Rolls where a hit lands | confirmed | game | — | [combat-rules](combat-rules.md#hit-location) |
+| 0x465100 | Craft_ApplyHit | Applies a hit to shields, systems, and crew; queues a system explosion at the hit node | confirmed | game | `systemexpl1`–`7` | [combat-rules](combat-rules.md#applying-a-hit) |
+| 0x465e80 | Craft_UpdateLifeSupport | Takes crew each second while life support is destroyed | confirmed | game | 0x465f6f | [combat-rules](combat-rules.md#ship-systems) |
+| 0x466090 | Craft_DyingTimer | Sets the dying phase's length from the speed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x466180 | Craft_RandomModelPoint | Picks a random point on the model | inferred | game | walks meshes through 0x4662b0 | [combat-rules](combat-rules.md#dying-units) |
+| 0x466320 | Craft_PlayDyingExplosion | Plays a dying explosion at a random point | confirmed | game | table 0x600750 | [combat-rules](combat-rules.md#dying-units) |
+| 0x4663d0 | Craft_EndDying | Ends the dying phase with the `fireball` explosion | confirmed | game | key `fireball` | [combat-rules](combat-rules.md#dying-units) |
+| 0x466b00 | Craft_RegenerateShields | Regains shield strength up to the maximum | confirmed | game | — | [combat-rules](combat-rules.md#shields) |
+| 0x466ca0 | Craft_OnCrewChanged | Re-evaluates a ship after a crew change | inferred | game | called after crew loss in 0x467b70 | [combat-rules](combat-rules.md#hit-location) |
+| 0x4675d0 | Craft_ShareSystemDamage | Gives a destroyed system's share to the working systems | inferred | game | 0x467600 | [combat-rules](combat-rules.md#hit-location) |
+| 0x467620 | Craft_PassSystemDamage | Sends system damage on, or to the critical share when no system works | inferred | game | — | [combat-rules](combat-rules.md#hit-location) |
+| 0x4677b0 | Craft_UpdateDamageNodes | Shows the crew chain, system, and `borg` damage nodes | confirmed | game | flags at node +0x58 | [combat-rules](combat-rules.md#damage-nodes) |
+| 0x4679b0 | CraftSystem_DisableFor | Takes a system offline for a time | confirmed | game | no caller found | [combat-rules](combat-rules.md#damage-nodes) |
+| 0x467a80 | CraftSystem_SetHeld | Holds a system offline or releases it | confirmed | game | no caller found | — |
+| 0x467b70 | CraftSystem_TakeDamage | Takes hit points; at 0 the system stops working and the crew loses its share | confirmed | game | log `%s 0x%x : System Destroyed` | [combat-rules](combat-rules.md#ship-systems) |
+| 0x467d40 | CraftSystem_TryRestore | Works the system again once its timer ran out, it is not held, and it is at full hit points | confirmed | game | — | [combat-rules](combat-rules.md#repair) |
+| 0x468060 | CraftSystem_RepairRate | The time one hit point of repair takes | confirmed | game | race `repairRed`, `repairYellow` | [combat-rules](combat-rules.md#repair) |
+| 0x4683d0 | Craft_RepairSystems | Repairs every damaged system; emits repair sparks | confirmed | game | `xspark` | [combat-rules](combat-rules.md#repair) |
+| 0x4685c0 | Craft_RepairAll | The full-repair path (0x468760) | unknown | game | — | [combat-rules](combat-rules.md#not-known) |
+| 0x468990 | Craft_BeginDying | Marks the unit as being destroyed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x4692f0 | Craft_SpawnShieldDownOverlay | Spawns the shield-down overlay | confirmed | game | 0x469368–0x4693a6 | [shield-effects](shield-effects.md#shield-down-overlay) |
+| 0x472120 | GameObject_FrameUpdate | A per-frame update that runs the damage nodes for each ship | inferred | game | calls 0x4677b0 | [combat-rules](combat-rules.md#damage-nodes) |
+| 0x459440 | HoverCraft_PhysicsStep | One physics step of a ship's motion | confirmed | game | `HoverCraft.cpp`; log `pitch:% .2f, roll:` | [combat-rules](combat-rules.md#coasting) |
+
+### Units in general (Entity, GameObject)
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x46d790 | Entity_InitHealth | Sets the shield maximum from `maxHealth`; there is no hull | confirmed | game | 0x46d9ef | [combat-rules](combat-rules.md#shields) |
+| 0x46e340 | GameObject_RecordHit | Records the time of the last hit | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
+| 0x46e640 | GameObject_HitRecently | Whether a hit landed less than 1 s ago | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
+| 0x46e670 | GameObject_CloakState | Reads the cloak state (+0x40) | inferred | game | cast at 0x46e79b | [shield-effects](shield-effects.md#shield-down-overlay) |
+| 0x46eac0 | GameObject_UpdateTether | Moves the tether point of the alert stance | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
+
+### Unit AI: alert stance, targets, orders
+
+Range 0x4259d0–0x430400 (`Ai\Tactical\CraftProcess.cpp`). Strategic AI lies before it; see Unexplored.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x425a20 | CraftProcess_Create | Starts a unit's process; sets the start stance | inferred | game | 0x425bcf, key `defaultGreenAlert` | [combat-rules](combat-rules.md#alert-stance) |
+| 0x4266a0 | CraftProcess_Reset | Resets the stance | inferred | game | 0x4266bd | [combat-rules](combat-rules.md#alert-stance) |
+| 0x4294e0 | CraftProcess_AttackOrder | An order to attack one unit | confirmed | game | — | [combat-rules](combat-rules.md#attack-order) |
+| 0x42a000 | CraftProcess_EnemyNear | Whether an enemy is within 400 units on X and Z | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
+| 0x42a170 | CraftProcess_Update | Picks a target each tick and hands it to the weapons | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
+| 0x42c400 | CraftProcess_AttackManeuver | The attack maneuver | unknown | game | — | [combat-rules](combat-rules.md#alert-stance) |
+| 0x42faa0 | Target_IsValid | Whether a unit is a valid target; a derelict is not | confirmed | game | — | [combat-rules](combat-rules.md#target-selection) |
+| 0x42fb90 | Target_FindNearest | The nearest valid target in range | confirmed | game | 0x42fd6f | [combat-rules](combat-rules.md#attack-order) |
+| 0x42ff80 | Craft_SetWeaponTarget | Hands a target to a unit's weapons | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
+| 0x4300a0 | Target_IsValidFor | The target test of target selection | confirmed | game | — | [combat-rules](combat-rules.md#target-selection) |
+| 0x436840 | Team_IsAITeam | Whether a team is played by the AI | confirmed | game | getter name `IsAITeam` | [combat-rules](combat-rules.md#alert-stance) |
+
+### Weapons and firing
+
+Weapon definitions 0x5030d0–0x505d00, weapons 0x506080–0x50c810 (`Weapon\`).
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x506120 | AreaEffectCannon_FireDelay | Reads `crewAffectsWeaponDelay` in a reload delay | inferred | game | 0x506452 | [combat-rules](combat-rules.md#firing) |
+| 0x506d70 | Craft_StopWeapons | Stops every weapon of a dying unit | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x508750 | ReflectWeapon_Apply | The reflector special | inferred | game | 0x50883c | [shield-effects](shield-effects.md#other-effects-of-the-same-object) |
+| 0x509bd0 | Weapon_Update | Fires when the reload delay passed and the unit holds a target | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
+| 0x50a170 | Weapon_InFireArc | The `restrictFireArc` test | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
+| 0x50a290 | Weapon_DistanceToTarget | Distance from the hardpoint to the target | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
+| 0x50a3b0 | Weapon_RollToHit | The to-hit roll when the weapon fires | confirmed | game | — | [combat-rules](combat-rules.md#to-hit) |
+| 0x50a520 | Weapon_InRange | Whether the target is in range | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
+| 0x50a7c0 | Weapon_AimHit | Aims a shot that hits | confirmed | game | — | [combat-rules](combat-rules.md#to-hit) |
+| 0x50aab0 | Weapon_AimMiss | Aims a missed shot: leads the target and offsets the aim | confirmed | game | — | [combat-rules](combat-rules.md#to-hit) |
+| 0x50b690 | Weapon_ReloadDelay | The reload delay, with `crewAffectsWeaponDelay` | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
+
+### Ordnance: shots, beams, torpedoes, mines
+
+Definitions 0x4e9410–0x4eab30, ordnance 0x4ebb10–0x4ef950 (`Ordnance\`).
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x4e70f0 | Ordnance_RollDamage | `damageBase` plus a random part up to `damageVariance` either way | confirmed | game | 0x4e7158 | [combat-rules](combat-rules.md#damage) |
+| 0x4eb170 | Beam_Update | A beam deals its damage once, when its time ends | inferred | game | 0x4eb47e | [combat-rules](combat-rules.md#shots) |
+| 0x4ec100 | Ordnance_HitShields | Whether a hit meets the shields (`ignoreShield`) | inferred | game | 0x4ec27a | [combat-rules](combat-rules.md#shots) |
+| 0x4ec880 | Mine_Update | A mine's tick; spawns the shield effect on a hit | inferred | game | `Mine.cpp`; 0x4eca69 | [shield-effects](shield-effects.md#when-it-spawns) |
+| 0x4ed150 | Missile_Update | Steers a torpedo by `omegaTurn`, `seekTime`; ends at `lifeSpan` | confirmed | game | `Missile.cpp` | [combat-rules](combat-rules.md#shots) |
+| 0x4ee5f0 | Ordnance_ShooterDying | Ends ordnance whose shooter is dying | inferred | game | — | [combat-rules](combat-rules.md#shots) |
+| 0x4ee620 | Ordnance_TargetDying | Lets shots in flight at a dying unit land | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x4ee7f0 | Ordnance_DropShooterBonus | A dying shooter's torpedoes fly on without its bonus | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x4ee860 | Ordnance_HitTest | Maps a shot's segment into the unit and tests the shield ellipsoid | confirmed | game | — | [shield-effects](shield-effects.md#contact) |
+
+### Special weapons and timed effects
+
+Specials 0x4d9010–0x4e9350, one definition class and one class per special. Timed effects on a unit
+0x55ef00–0x563a00 (`SpecialObjectEffect` and its `Timed…` subclasses). Special flags 0x564100–0x5648b0
+(`SpecialFlag\SpecialFlag.cpp`).
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x4dc9c0 | EnergyShieldConverter_Apply | The Energy Shield Converter's effect on shields | inferred | game | `wshldadd`; 0x4dca33 | [shield-effects](shield-effects.md#other-effects-of-the-same-object) |
+| 0x4dfe00 | ManheimEffect_Apply | The Manheim effect, 2.0 s | inferred | game | `wmanhiem`; 0x4dffd1 | [shield-effects](shield-effects.md#other-effects-of-the-same-object) |
+| 0x4e5da0 | ShieldInversion_Apply | The Shield Inversion's effect on shields | inferred | game | `wshldsub`; 0x4e5e68 | [shield-effects](shield-effects.md#other-effects-of-the-same-object) |
+| 0x5623f0 | ShieldRemodulationEffect_Apply | The Shield Remodulation effect | inferred | game | `wshldrmd`; 0x5624c0 | [shield-effects](shield-effects.md#other-effects-of-the-same-object) |
+
+### Effects at nodes: sparks and system explosions
+
+Range 0x514940–0x516200.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x515d50 | NodeEffect_Queue | Queues a sprite effect at a model node (queue 0x67f57c) | confirmed | game | `xspark`, `systemexpl1` | — |
+| 0x515f40 | NodeEffect_Age | Ages the queued effects; removes one whose age passed its duration | confirmed | game | — | — |
+| 0x515fb0 | NodeEffect_Draw | Draws the queued effects at their nodes' world positions | confirmed | game | — | — |
+
+### Shield effect
+
+Range 0x5169a0–0x517070 (`ShieldEffect`).
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x516540 | ShieldEffect_Spawn | Spawns the shield hit effect or the shield-down overlay | confirmed | game | — | [shield-effects](shield-effects.md#the-effect-object) |
+| 0x5169a0 | ShieldEffect_LoadGeometry | Loads one of the seven shield models | confirmed | game | names 0x5d2a80 | [shield-effects](shield-effects.md#the-effect-object) |
+| 0x516b80 | ShieldEffect_DefaultGeometry | `xshldx01` for a missing key | confirmed | game | — | [shield-effects](shield-effects.md#model-and-duration) |
+| 0x516b90 | ShieldEffect_FindGeometry | Matches `shieldGeometryName` against the seven names | confirmed | game | — | [shield-effects](shield-effects.md#model-and-duration) |
+| 0x516c40 | ShieldEffect_MoveContact | Turns the effect to a new contact point | confirmed | game | — | [shield-effects](shield-effects.md#when-it-spawns) |
+| 0x516fa0 | ShieldEffect_Update | Ends the effect after its duration; −1 keeps it | confirmed | game | — | [shield-effects](shield-effects.md#the-effect-object) |
+| 0x5170e0 | ShieldEffect_Colour | The effect's colour, white without a team | confirmed | game | 0x690b60 | [shield-effects](shield-effects.md#the-effect-object) |
+| 0x55d160 | Matrix_YawPitchRoll | Rotation from pitch, yaw, roll: roll about Z, then pitch about X, then yaw about Y | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x55d840 | Matrix_FromDirection | Builds a transform from a direction | inferred | game | — | [shield-effects](shield-effects.md#placement-and-size) |
+
+### Interface: selection display
+
+Range 0x499ab0–0x49b9c0 (`SelectionDisplay`). The rest of the interface, 0x47ea90–0x4b0280, is unexplored.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x499ac0 | SelectionDisplay_LoadSprites | Loads the display's sprites by name | confirmed | game | key `selectSystem` | [selection-display](selection-display.md#loaded-sprites) |
+| 0x499f70 | SelectionDisplay_Update | Updates the hovered unit, group key, and fade once per frame | confirmed | game | — | [selection-display](selection-display.md#which-units-show-it) |
+| 0x49a3f0 | SelectionDisplay_ScreenBox | The unit's screen box | confirmed | game | — | [selection-display](selection-display.md#the-units-screen-box) |
+| 0x49a4a0 | SelectionDisplay_ProjectCorners | Projects the box corners | unknown | game | — | [selection-display](selection-display.md#the-units-screen-box) |
+| 0x49abf0 | SelectionDisplay_DrawShieldBar | Draws with `select_shield_bar` | confirmed | game | — | [selection-display](selection-display.md#loaded-sprites) |
+| 0x49ad50 | SelectionDisplay_DrawPart | Draws one part of the display | confirmed | game | — | [selection-display](selection-display.md#which-units-show-it) |
+| 0x49afe0 | SelectionDisplay_DrawCrewDots | Draws with `select_crew_dot` | confirmed | game | — | [selection-display](selection-display.md#loaded-sprites) |
+| 0x49b6a0 | SelectionDisplay_Fade | The display fade | confirmed | game | — | [selection-display](selection-display.md#which-units-show-it) |
+| 0x4ab5d0 | OverView_Deselect | Deselects a dying unit | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x4ab8c0 | OverView_CanSelect | Refuses to select a dying unit | confirmed | game | 0x4ab91e | [combat-rules](combat-rules.md#dying-units) |
+
+### Storm3D: models, nodes, and the scene walk
+
+Storm3D (`ST3D_…` classes) runs about 0x5746d0–0x5a6200: nodes, meshes, sprites, lights, cameras, the Direct3D 7
+and software devices, textures, and the SOD and sprite table readers.
+
+Node flags at node +0x58: bit 0 skips the node's own drawing and its emitter step; bit 1 skips its children.
+Node +0x1c is the first child and +0x20 the next sibling.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x57b3f0 | Camera_FrustumTest | Whether an instance is inside the view | confirmed | game | — | — |
+| 0x57cee0 | Node_MeshWalk | Walks the meshes of a node tree, honouring the flags; not the render walk | confirmed | game | casts to `ST3D_Mesh` | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x57ff30 | Model_FindNode | Finds a model node by whole name, ignoring case | confirmed | game | — | [combat-rules](combat-rules.md#damage-nodes) |
+| 0x580110 | Node_DrawWalk | The render walk: draws a node and steps its emitter unless bit 0 is set; descends unless bit 1 is set | confirmed | game | node vtable +0x10, +0x2c | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x580510 | Node_NameEquals | Compares a node's name, ignoring case | confirmed | game | `_stricmp` | [combat-rules](combat-rules.md#damage-nodes) |
+| 0x58a790 | Model_LoadSod | A step of the model load toward the SOD reader | confirmed | game | — | [combat-rules](combat-rules.md#model-scale) |
+| 0x58a960 | Model_BindEmitter | Binds an emitter node to its sprite table block | inferred | game | — | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x58b4c0 | Instance_FrameSeconds | The seconds since the instance's last frame (+0x98 − +0x9c) | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x58b4f0 | Instance_UpdateParticles | Moves and ages the instance's particles; removes dead ones | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x58b590 | Instance_DrawParticles | Draws the instance's particles | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x58cb60 | Instance_Draw | Draws an instance: its particles, then the node walk | confirmed | game | 0x58cc3e | [shield-effects](shield-effects.md#flipbook) |
+| 0x58d0e0 | Instance_SetRadius | Sets the instance radius from the model | confirmed | game | 0x58d190 | [shield-effects](shield-effects.md#placement-and-size) |
+| 0x5910a0 | Mesh_Scale | Scales a mesh on all three axes | confirmed | game | — | [combat-rules](combat-rules.md#model-scale) |
+| 0x595ef0 | Sod_IsMeshNode | Tests a SOD node's type for a mesh | confirmed | game | — | [combat-rules](combat-rules.md#model-scale) |
+| 0x5967f0 | Model_PointBox | The per-axis box of the points the model load collects | confirmed | game | — | [shield-effects](shield-effects.md#shield-ellipsoid) |
+| 0x598f90 | SpriteNode_FindByName | Finds a sprite node by name up to the underscore, ignoring case | confirmed | game | — | [shield-effects](shield-effects.md#shield-ellipsoid) |
+| 0x599000 | SpriteNode_Corners | A sprite node's corner points | confirmed | game | — | [shield-effects](shield-effects.md#shield-ellipsoid) |
+| 0x599380 | SpriteNode_Size | A sprite's width and height in the node's XY plane | confirmed | game | — | [shield-effects](shield-effects.md#shield-ellipsoid) |
+| 0x59b650 | Sod_ReadNode | Reads one SOD node | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x59c130 | Sod_ReadModel | Reads a SOD model | confirmed | game | — | [combat-rules](combat-rules.md#model-scale) |
+| 0x580040 | Model_AllPoints | Collects every mesh vertex and sprite corner | confirmed | game | — | [shield-effects](shield-effects.md#shield-ellipsoid) |
+
+### Storm3D: particles and emitters
+
+Range 0x5746d0–0x575c00 (`ST3D_ParticleEmitter` and its `_Spray`, `_Cloud`, `_Beam` subclasses; particle
+classes `SprayParticle`, `RandomParticle`, `StraightParticle`).
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x501820 | Random_Signed | A random decimal, uniform in −1..1 | confirmed | game | instructions; the pseudocode is wrong | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x501870 | Random_Scaled | The same draw times its argument times 1e-5 | confirmed | game | — | — |
+| 0x5746d0 | Particle_Init | Places a new particle at the emitter node, turned by three random angles within the spread | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x5753a0 | SprayEmitter_Create | Creates a spray emitter; its timer starts at the period | confirmed | game | `ST3D_ParticleEmitter_Spray` vtable 0x5d39ac | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x575400 | SprayEmitter_Step | Counts the timer down; below 0 spawns a particle and resets the timer | confirmed | game | vtable slot 13 | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x5754c0 | SprayEmitter_Clone | Copies a spray emitter for a model instance | confirmed | game | vtable slot 12 | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x5756e0 | RandomParticle_Update | A cloud particle dies at its lifespan or beyond the cloud radius | confirmed | game | `RandomParticle` vtable | — |
+| 0x5757b0 | SprayParticle_Update | Moves a spray particle at its velocity | confirmed | game | `SprayParticle` vtable 0x5d3a04 | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x575840 | ParticleEmitter_Init | The base emitter setup; the emitter starts active (+0x90) | confirmed | game | — | — |
+| 0x5758e0 | ParticleEmitter_Step | Steps the emitter with the instance's frame seconds | confirmed | game | vtable slot 11 of every emitter | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x575950 | Particle_Create | Creates a particle by kind: 0 cloud, 1 spray, 2 beam | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x584040 | DeviceDX7_DrawSprite | Draws a sprite; a size at or below 0 draws nothing | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
+| 0x599ab0 | SpriteTable_ParseEmitter | Reads an `@emitter` block; turns degrees into radians | confirmed | game | keys `spread_angle`, `firing_period` | [combat-rules](combat-rules.md#damage-emitters) |
+
+### Storm3D: textures, animation, and drawing
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x576220 | AnimationChannel_Frame | The frame of a flipbook at a time | confirmed | game | — | [shield-effects](shield-effects.md#flipbook) |
+| 0x577350 | AnimationChannel_Copy | Copies a channel without its mode | confirmed | game | — | [shield-effects](shield-effects.md#flipbook) |
+| 0x580a00 | Device_DrawNoDepth | Draws without depth writes | confirmed | game | 0x580a35 | [shield-effects](shield-effects.md#drawing) |
+| 0x589070 | Material_Replace | Replaces a node's lighting material | confirmed | game | 0x5891ef | [shield-effects](shield-effects.md#drawing) |
+| 0x58fd80 | Mesh_SetLightingMaterial | Sets a mesh's lighting material | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
+| 0x59a5b0 | Texture_FlipbookCells | The cells of a flipbook texture | confirmed | game | — | [shield-effects](shield-effects.md#flipbook) |
+| 0x59c730 | Texture_Upload | Uploads a texture; reads the file's origin bit | confirmed | game | — | [shield-effects](shield-effects.md#flipbook) |
+| 0x59f050 | Tga_Origin | A TGA file's origin bit | confirmed | game | — | [shield-effects](shield-effects.md#flipbook) |
+| 0x59f320 | Texture_ColourKey | The colour-key path of a texture load | unknown | game | — | [shield-effects](shield-effects.md#drawing) |
+| 0x59fa90 | Texture_LoadForDevice | Loads `Textures\RGB` for a 16- or 32-bit device | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
+| 0x5a39a0 | Mesh_FlipbookUv | Adds a flipbook cell's UV offset | confirmed | game | 0x5a3a65 | [shield-effects](shield-effects.md#flipbook) |
+| 0x5a4200 | Mesh_VertexColour | Sets each vertex's colour | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
+| 0x5a62c0 | Workspace_CullFront | Face culling of a draw | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
+| 0x5a6360 | Workspace_CullBack | Face culling of a draw | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
+
+### Audio
+
+Range 0x5abbc0–0x5b6180 (`Utilities\Audio\`). Settings from `audio_odf` are read at 0x5abbc0. Unexplored.
+
+## Structures and globals
+
+Offsets are from the start of the object. A ship is a `Craft`; its definition is a `CraftClass`.
+
+### Ship (`Craft`)
+
+| Offset | Field | Type | Evidence |
+|---|---|---|---|
+| +0x60 | Model size | float | spark and explosion size (0x4683d0, 0x465100) |
+| +0xa0 | Current model | pointer | 0x4677b0 |
+| +0xe0 | Definition (`CraftClass`) | pointer | 0x4677b0 |
+| +0x1a4 | Race | pointer | 0x4677b0 |
+| +0x1ac | Object checked before the shield-down overlay spawns; role unknown | pointer | 0x467b70 |
+| +0x4c8 | `maximumCrew` | float | 0x4677b0, 0x4618eb |
+| +0x4d8 | Crew | float | 0x4677b0, 0x467b70 |
+| +0x4dc | Derelict | byte | 0x467b70 |
+| +0x4e0 | Shield generator system | system | 0x4677b0 |
+| +0x518 | Engines system | system | 0x4677b0 |
+| +0x550 | Weapons system | system | 0x4677b0 |
+| +0x588 | Life support system | system | 0x4677b0 |
+| +0x5c0 | Sensors system | system | 0x4677b0 |
+| +0x620 | Shield-down overlay handle, −1 for none | int | 0x467b70, 0x467d40 |
+
+### Ship system (5 per ship, 0x38 bytes)
+
+| Offset | Field | Type | Evidence |
+|---|---|---|---|
+| +0x00 | Working | byte | cleared at 0x467b70, set at 0x467d40 |
+| +0x04 | Maximum hit points | int | 0x467d40 |
+| +0x08 | Hit points | int | 0x467b70 |
+| +0x14 | `<system>CrewLoss` percent | float | 0x467b70 (times 0.01 at 0x5caa90) |
+| +0x1c, +0x20 | Repair time per hit point | float | 0x467b70 |
+| +0x24 | `<system>SparkTime` | float | 0x4683d0 |
+| +0x28 | Spark timer | float | 0x4683d0 |
+| +0x2c | Disable timer | float | 0x4679b0, 0x467d40 |
+| +0x30 | Held offline | byte | 0x467a80, 0x467d40 |
+
+### Ship definition (`CraftClass`)
+
+| Offset | Field | Type | Evidence |
+|---|---|---|---|
+| +0x70 | `crewCost` | int | combat-rules |
+| +0x1e8 | Normal model | pointer | 0x4677b0 |
+| +0x228 | `maximumCrew` | float | 0x4601d7 |
+| +0x434 | Damage node `crew` | node | 0x45fea0 |
+| +0x438 | Damage node `shields` | node | 0x45fea0 |
+| +0x43c | Damage node `target` | node | 0x45fea0 |
+| +0x440 | Damage node `sensors` | node | 0x45fea0 |
+| +0x444 | Damage node `engines` | node | 0x45fea0 |
+| +0x448 | Damage node `life` | node | 0x45fea0 |
+| +0x44c | Damage node `borg` | node | 0x45fea0 |
+
+### Race
+
+| Offset | Field | Type | Evidence |
+|---|---|---|---|
+| +0x204 | `crewYellowStatus` | float | 0x4677b0 |
+
+### Storm3D node (`ST3D_Node`)
+
+| Offset | Field | Type | Evidence |
+|---|---|---|---|
+| +0x08 | Name | char pointer | 0x580510 |
+| +0x1c | First child | node | 0x57cee0, 0x4677b0 |
+| +0x20 | Next sibling | node | 0x57cee0 |
+| +0x58 | Flags: bit 0 skip self, bit 1 skip children | uint | 0x580110, 0x4677b0 |
+
+### Spray emitter (`ST3D_ParticleEmitter_Spray`, 0xa0 bytes)
+
+| Offset | Field | Type | Evidence |
+|---|---|---|---|
+| +0x74 | Spread angle, radians | float | 0x5746d0 |
+| +0x90 | Active | byte | 0x575840, 0x575400 |
+| +0x98 | Timer | float | 0x575400, 0x5753a0 |
+| +0x9c | Firing period | float | 0x575400, 0x5753a0 |
+
+### Globals
+
+| Address | Name | Role | Evidence |
+|---|---|---|---|
+| 0x5ca16c | Zero | float 0.0 | many |
+| 0x5ca238 | One | float 1.0 | 0x4677b0 |
+| 0x5ca758 | OneDouble | double 1.0 | 0x4677b0 |
+| 0x5ccf30 | CrewChainStep | float 0.2 | 0x4677b0 |
+| 0x600518–0x600548 | DamageNodeNames | `crew`, `engines`, `life`, `sensors`, `shields`, `target`, `borg` | 0x45fea0 |
+| 0x600750 | DyingExplosionTable | Dying explosion sprites | 0x466320 |
+| 0x601240 | BorgRaceName | `borg` | 0x4677b0 |
+| 0x639fcc | BorgRace | The `borg` race, looked up once | 0x4677b0 |
+| 0x67f57c | NodeEffectQueue | Queued effects at model nodes | 0x515d50 |
+| 0x690b60 | White | Default effect colour | 0x5170e0 |
+| 0x6d4aa0 | CurrentScene | The scene being drawn; +0x118 the current instance | 0x575400, 0x580110 |
+
+## By address
+
+Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit by hand.
+
+<!-- by-address:start -->
+| Address | Name | Status | Topic |
+|---|---|---|---|
+| 0x425a20 | CraftProcess_Create | inferred | Unit AI: alert stance, targets, orders |
+| 0x4266a0 | CraftProcess_Reset | inferred | Unit AI: alert stance, targets, orders |
+| 0x4294e0 | CraftProcess_AttackOrder | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42a000 | CraftProcess_EnemyNear | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42a170 | CraftProcess_Update | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42c400 | CraftProcess_AttackManeuver | unknown | Unit AI: alert stance, targets, orders |
+| 0x42faa0 | Target_IsValid | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42fb90 | Target_FindNearest | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42ff80 | Craft_SetWeaponTarget | confirmed | Unit AI: alert stance, targets, orders |
+| 0x4300a0 | Target_IsValidFor | confirmed | Unit AI: alert stance, targets, orders |
+| 0x436840 | Team_IsAITeam | confirmed | Unit AI: alert stance, targets, orders |
+| 0x4404a0 | Program_GameOpenPreLoad | inferred | Program, startup, and frame loop |
+| 0x4407b0 | Program_GameOpenLoad | inferred | Program, startup, and frame loop |
+| 0x443df0 | RaceLoader_Load | inferred | Races |
+| 0x4440b0 | Race_FindByName | confirmed | Races |
+| 0x4442b0 | Race_Load | confirmed | Races |
+| 0x459440 | HoverCraft_PhysicsStep | confirmed | Ships (Craft) |
+| 0x45fea0 | CraftClass_Load | confirmed | Game object definitions |
+| 0x460f30 | CraftClass_LoadSystem | confirmed | Game object definitions |
+| 0x4617b0 | Craft_Init | confirmed | Ships (Craft) |
+| 0x464dd0 | Craft_RollHitLocation | confirmed | Ships (Craft) |
+| 0x465100 | Craft_ApplyHit | confirmed | Ships (Craft) |
+| 0x465e80 | Craft_UpdateLifeSupport | confirmed | Ships (Craft) |
+| 0x466090 | Craft_DyingTimer | confirmed | Ships (Craft) |
+| 0x466180 | Craft_RandomModelPoint | inferred | Ships (Craft) |
+| 0x466320 | Craft_PlayDyingExplosion | confirmed | Ships (Craft) |
+| 0x4663d0 | Craft_EndDying | confirmed | Ships (Craft) |
+| 0x466b00 | Craft_RegenerateShields | confirmed | Ships (Craft) |
+| 0x466ca0 | Craft_OnCrewChanged | inferred | Ships (Craft) |
+| 0x4675d0 | Craft_ShareSystemDamage | inferred | Ships (Craft) |
+| 0x467620 | Craft_PassSystemDamage | inferred | Ships (Craft) |
+| 0x4677b0 | Craft_UpdateDamageNodes | confirmed | Ships (Craft) |
+| 0x4679b0 | CraftSystem_DisableFor | confirmed | Ships (Craft) |
+| 0x467a80 | CraftSystem_SetHeld | confirmed | Ships (Craft) |
+| 0x467b70 | CraftSystem_TakeDamage | confirmed | Ships (Craft) |
+| 0x467d40 | CraftSystem_TryRestore | confirmed | Ships (Craft) |
+| 0x468060 | CraftSystem_RepairRate | confirmed | Ships (Craft) |
+| 0x4683d0 | Craft_RepairSystems | confirmed | Ships (Craft) |
+| 0x4685c0 | Craft_RepairAll | unknown | Ships (Craft) |
+| 0x468990 | Craft_BeginDying | confirmed | Ships (Craft) |
+| 0x4692f0 | Craft_SpawnShieldDownOverlay | confirmed | Ships (Craft) |
+| 0x46a0d0 | GameObjectClass_Init | confirmed | Game object definitions |
+| 0x46a470 | GameObjectClass_Load | confirmed | Game object definitions |
+| 0x46b8f0 | GameObjectClass_ShieldEllipsoid | confirmed | Game object definitions |
+| 0x46bae0 | GameObjectClass_ModelPoints | confirmed | Game object definitions |
+| 0x46d790 | Entity_InitHealth | confirmed | Units in general (Entity, GameObject) |
+| 0x46e340 | GameObject_RecordHit | confirmed | Units in general (Entity, GameObject) |
+| 0x46e640 | GameObject_HitRecently | confirmed | Units in general (Entity, GameObject) |
+| 0x46e670 | GameObject_CloakState | inferred | Units in general (Entity, GameObject) |
+| 0x46eac0 | GameObject_UpdateTether | confirmed | Units in general (Entity, GameObject) |
+| 0x472120 | GameObject_FrameUpdate | inferred | Ships (Craft) |
+| 0x499ac0 | SelectionDisplay_LoadSprites | confirmed | Interface: selection display |
+| 0x499f70 | SelectionDisplay_Update | confirmed | Interface: selection display |
+| 0x49a3f0 | SelectionDisplay_ScreenBox | confirmed | Interface: selection display |
+| 0x49a4a0 | SelectionDisplay_ProjectCorners | unknown | Interface: selection display |
+| 0x49abf0 | SelectionDisplay_DrawShieldBar | confirmed | Interface: selection display |
+| 0x49ad50 | SelectionDisplay_DrawPart | confirmed | Interface: selection display |
+| 0x49afe0 | SelectionDisplay_DrawCrewDots | confirmed | Interface: selection display |
+| 0x49b6a0 | SelectionDisplay_Fade | confirmed | Interface: selection display |
+| 0x4ab5d0 | OverView_Deselect | confirmed | Interface: selection display |
+| 0x4ab8c0 | OverView_CanSelect | confirmed | Interface: selection display |
+| 0x4dc9c0 | EnergyShieldConverter_Apply | inferred | Special weapons and timed effects |
+| 0x4dfe00 | ManheimEffect_Apply | inferred | Special weapons and timed effects |
+| 0x4e5da0 | ShieldInversion_Apply | inferred | Special weapons and timed effects |
+| 0x4e70f0 | Ordnance_RollDamage | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4e9ed0 | OrdnanceClass_Init | confirmed | Game object definitions |
+| 0x4ea1e0 | OrdnanceClass_Load | confirmed | Game object definitions |
+| 0x4eb170 | Beam_Update | inferred | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ec100 | Ordnance_HitShields | inferred | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ec880 | Mine_Update | inferred | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ed150 | Missile_Update | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ee5f0 | Ordnance_ShooterDying | inferred | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ee620 | Ordnance_TargetDying | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ee7f0 | Ordnance_DropShooterBonus | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ee860 | Ordnance_HitTest | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ffd70 | Name_Equals | confirmed | Object definitions (ODF) |
+| 0x501820 | Random_Signed | confirmed | Storm3D: particles and emitters |
+| 0x501870 | Random_Scaled | confirmed | Storm3D: particles and emitters |
+| 0x5053a0 | WeaponClass_Load | inferred | Game object definitions |
+| 0x506120 | AreaEffectCannon_FireDelay | inferred | Weapons and firing |
+| 0x506d70 | Craft_StopWeapons | confirmed | Weapons and firing |
+| 0x508750 | ReflectWeapon_Apply | inferred | Weapons and firing |
+| 0x509bd0 | Weapon_Update | confirmed | Weapons and firing |
+| 0x50a170 | Weapon_InFireArc | confirmed | Weapons and firing |
+| 0x50a290 | Weapon_DistanceToTarget | confirmed | Weapons and firing |
+| 0x50a3b0 | Weapon_RollToHit | confirmed | Weapons and firing |
+| 0x50a520 | Weapon_InRange | confirmed | Weapons and firing |
+| 0x50a7c0 | Weapon_AimHit | confirmed | Weapons and firing |
+| 0x50aab0 | Weapon_AimMiss | confirmed | Weapons and firing |
+| 0x50b690 | Weapon_ReloadDelay | confirmed | Weapons and firing |
+| 0x515d50 | NodeEffect_Queue | confirmed | Effects at nodes: sparks and system explosions |
+| 0x515f40 | NodeEffect_Age | confirmed | Effects at nodes: sparks and system explosions |
+| 0x515fb0 | NodeEffect_Draw | confirmed | Effects at nodes: sparks and system explosions |
+| 0x516540 | ShieldEffect_Spawn | confirmed | Shield effect |
+| 0x5169a0 | ShieldEffect_LoadGeometry | confirmed | Shield effect |
+| 0x516b80 | ShieldEffect_DefaultGeometry | confirmed | Shield effect |
+| 0x516b90 | ShieldEffect_FindGeometry | confirmed | Shield effect |
+| 0x516c40 | ShieldEffect_MoveContact | confirmed | Shield effect |
+| 0x516fa0 | ShieldEffect_Update | confirmed | Shield effect |
+| 0x5170e0 | ShieldEffect_Colour | confirmed | Shield effect |
+| 0x5537a0 | Odf_GetText | unknown | Object definitions (ODF) |
+| 0x553ba0 | Odf_GetInt | inferred | Object definitions (ODF) |
+| 0x553c30 | Odf_GetFloat | confirmed | Object definitions (ODF) |
+| 0x553d40 | Odf_GetString | inferred | Object definitions (ODF) |
+| 0x553e20 | Odf_GetName | inferred | Object definitions (ODF) |
+| 0x553f20 | Odf_GetLookup | inferred | Object definitions (ODF) |
+| 0x554060 | Odf_GetFloatList | inferred | Object definitions (ODF) |
+| 0x554320 | Odf_GetVector3 | inferred | Object definitions (ODF) |
+| 0x554430 | Odf_GetVector2 | inferred | Object definitions (ODF) |
+| 0x554530 | Odf_GetList | unknown | Object definitions (ODF) |
+| 0x55d160 | Matrix_YawPitchRoll | confirmed | Shield effect |
+| 0x55d840 | Matrix_FromDirection | inferred | Shield effect |
+| 0x5623f0 | ShieldRemodulationEffect_Apply | inferred | Special weapons and timed effects |
+| 0x5746d0 | Particle_Init | confirmed | Storm3D: particles and emitters |
+| 0x5753a0 | SprayEmitter_Create | confirmed | Storm3D: particles and emitters |
+| 0x575400 | SprayEmitter_Step | confirmed | Storm3D: particles and emitters |
+| 0x5754c0 | SprayEmitter_Clone | confirmed | Storm3D: particles and emitters |
+| 0x5756e0 | RandomParticle_Update | confirmed | Storm3D: particles and emitters |
+| 0x5757b0 | SprayParticle_Update | confirmed | Storm3D: particles and emitters |
+| 0x575840 | ParticleEmitter_Init | confirmed | Storm3D: particles and emitters |
+| 0x5758e0 | ParticleEmitter_Step | confirmed | Storm3D: particles and emitters |
+| 0x575950 | Particle_Create | confirmed | Storm3D: particles and emitters |
+| 0x576220 | AnimationChannel_Frame | confirmed | Storm3D: textures, animation, and drawing |
+| 0x577350 | AnimationChannel_Copy | confirmed | Storm3D: textures, animation, and drawing |
+| 0x57b3f0 | Camera_FrustumTest | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x57cee0 | Node_MeshWalk | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x57ff30 | Model_FindNode | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x580040 | Model_AllPoints | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x580110 | Node_DrawWalk | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x580510 | Node_NameEquals | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x580a00 | Device_DrawNoDepth | confirmed | Storm3D: textures, animation, and drawing |
+| 0x584040 | DeviceDX7_DrawSprite | confirmed | Storm3D: particles and emitters |
+| 0x589070 | Material_Replace | confirmed | Storm3D: textures, animation, and drawing |
+| 0x58a790 | Model_LoadSod | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x58a960 | Model_BindEmitter | inferred | Storm3D: models, nodes, and the scene walk |
+| 0x58b4c0 | Instance_FrameSeconds | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x58b4f0 | Instance_UpdateParticles | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x58b590 | Instance_DrawParticles | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x58cb60 | Instance_Draw | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x58d0e0 | Instance_SetRadius | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x58fd80 | Mesh_SetLightingMaterial | confirmed | Storm3D: textures, animation, and drawing |
+| 0x5910a0 | Mesh_Scale | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x595ef0 | Sod_IsMeshNode | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x5967f0 | Model_PointBox | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x598f90 | SpriteNode_FindByName | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x599000 | SpriteNode_Corners | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x599380 | SpriteNode_Size | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x599ab0 | SpriteTable_ParseEmitter | confirmed | Storm3D: particles and emitters |
+| 0x59a5b0 | Texture_FlipbookCells | confirmed | Storm3D: textures, animation, and drawing |
+| 0x59b650 | Sod_ReadNode | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x59c130 | Sod_ReadModel | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x59c730 | Texture_Upload | confirmed | Storm3D: textures, animation, and drawing |
+| 0x59f050 | Tga_Origin | confirmed | Storm3D: textures, animation, and drawing |
+| 0x59f320 | Texture_ColourKey | unknown | Storm3D: textures, animation, and drawing |
+| 0x59fa90 | Texture_LoadForDevice | confirmed | Storm3D: textures, animation, and drawing |
+| 0x5a39a0 | Mesh_FlipbookUv | confirmed | Storm3D: textures, animation, and drawing |
+| 0x5a4200 | Mesh_VertexColour | confirmed | Storm3D: textures, animation, and drawing |
+| 0x5a62c0 | Workspace_CullFront | confirmed | Storm3D: textures, animation, and drawing |
+| 0x5a6360 | Workspace_CullBack | confirmed | Storm3D: textures, animation, and drawing |
+<!-- by-address:end -->
+
+## Unexplored
+
+Ranges and anchors nobody has investigated. When an investigation covers one, add its routines to a topic
+table and narrow or remove its line here.
+
+| Range | Contents | Anchors |
+|---|---|---|
+| 0x401570–0x4233b0 | Strategic AI: missions, goals, agents, squads, the scheduler, path planning | `Ai\Strategic AI\*.cpp`; classes `AiMission`, `Goal`, `STAgent`, `Scheduler`, `A_Star_*` |
+| 0x430710–0x436000 | Salvage and starbase AI, `AI` | `SalvageProcess`, `StarbaseProcess`, `Ai\Ai.cpp` |
+| 0x43d160–0x4434d0 | Game events, localized strings, the program and its frame loop | `Game Logic\Program.cpp`, `GameEvent.cpp`, `Localized_Strings.cpp` |
+| 0x446d70–0x44a7e0 | Fog of war, shroud, cloak fog, scan grid, tech tree | `Fog`, `Shroud`, `ScanGrid`, `TechnologyTree`; key `techlvl_odf` |
+| 0x44afc0–0x4548d0 | Map objects: asteroid fields, nebulas, black holes, ion storms, planets, wormholes, scrap | `…Class` definitions; keys in ODF keys |
+| 0x454970–0x45fb80 | Buildings and support ships: construction rigs, freighters, mining, shipyards, starbases, research | `ConstructionRig`, `Freighter`, `MiningStation`, `Shipyard`, `Starbase`, `ResearchStation` |
+| 0x462d80–0x469a40 | Ship code beyond the rows above: movement orders, cloaking, boarding, officers | `Craft.cpp` |
+| 0x46be50–0x4725d0 | Entity and game object code beyond the rows above | `Entity.cpp`, `GameObject.cpp` |
+| 0x477a20–0x47ea10 | Cameras, cinematics, video | `CinematicCamera`, `GameCamera`, `ShotDirector`, `PlayVideo` |
+| 0x47ea90–0x4b0280 | The interface beyond the selection display: control panel, radar, ship display, comm bar, overview | `ControlPanel`, `MapRadar`, `ShipDisplay`, `CommDisplay`, `OverView` |
+| 0x4bb000–0x4d8fe0 | Network: transports, file transfer, round store, sync, replays | `Network\*.cpp` |
+| 0x4d9010–0x4e9350 | Special weapons beyond the rows above | one class per special |
+| 0x4f15d0–0x500300 | Utilities: cache, cineractive scripts, debug, parser, log, lookup tables | `Utilities\*.cpp` |
+| 0x50c950–0x51e000 | Building effects, ghosts, worker bees, explosions, shockwaves | `BuildingEffect`, `Explosion`, `ShockwaveCannon` |
+| 0x51eca0–0x552000 | Shell: menus, multiplayer setup, load and save | `Shell\*.cpp`, `LoadSaveGame.cpp` |
+| 0x5547e0–0x55b830 | Parameter database internals, queue managers, user profile | `ParameterDB.cpp`, `QueueManager.cpp` |
+| 0x55ef00–0x5648b0 | Timed effects and special flags beyond the rows above | `Timed…` classes, `SpecialFlag.cpp` |
+| 0x576450–0x5a6200 | Storm3D beyond the rows above: devices, lights, LOD, text streams | `ST3D_…` classes |
+| 0x5abbc0–0x5b7b10 | Audio, jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
+
+<!-- coverage:start -->
+Coverage: the index names 159 routines of the 8,123 functions in the game code band: 122 confirmed, 31 inferred, 6 unknown.
+<!-- coverage:end -->
+
+## ODF keys
+
+Every ODF key the program reads through a getter, with the routine that reads it. Built from the dump by
+`tools/GhidraDump/program_index.py`. A key read with a short string (under 8 characters, such as `range`)
+can be missing (for example `crew`, `life`); search `strings.tsv` for it.
+
+<!-- odf-keys:start -->
+| Reader | Owner | Keys |
+|---|---|---|
+| 0x402860 | called by `Inst4XMission` | `hisPilots`, `hisScrap`, `myPilots`, `myScrap` |
+| 0x4408b0 | — | `techlvl_odf` |
+| 0x443df0 | RaceLoader_Load | `numberOfRaces`, `races_odf` |
+| 0x4442b0 | Race_Load | `boardingStrength`, `crewAccumulationRate`, `crewRedStatus`, `crewRetreatRatio`, `crewYellowStatus`, `displayName`, `interfaceConfiguration`, `interfaceSprites`, `officerName`, `officerOperate`, `officerRes`, `officerUpgradeODF`, `planetCrewAccumulationModifier`, `repairRed`, `repairStrength`, `repairYellow`, `retreatStrength`, `weaponRed`, `weaponYellow` |
+| 0x448aa0 | — | `teamcolor_odf` |
+| 0x44af20 | — | `effectRadius` |
+| 0x44afc0 | a method of `AreaEffectObjectClass` | `effectRadius` |
+| 0x44b200 | called by `AsteroidFieldClass` | `fieldRadius`, `maxAsteroids`, `minAsteroids`, `orbitingSpeed`, `repelIfWithin`, `rotationSpeed` |
+| 0x44b7d0 | called by `BlackHoleClass` | `EventRadius`, `GravityForce`, `GravityRadius`, `Rotation`, `ScaleSize` |
+| 0x44bc60 | called by `IonStormClass` | `damageValue`, `lifeTimer`, `Rotation`, `ScalingCount`, `ScalingStepSize` |
+| 0x44bfa0 | called by `NebulaClass` | `blue_glow`, `blue_glow_range`, `clearEffects`, `craft_speed_coefficient`, `craft_speed_limit`, `damageCrewModifier`, `damageHullModifier`, `damageThreshold`, `damageValue`, `damageVariance`, `disableCloak`, `disableCrew`, `disableSensors`, `disableShields`, `disableWeapons`, `glow_falloff_range`, `glow_falloff_start`, `green_glow`, `green_glow_range`, `hideContents`, `lifeTimer`, `min_speed_change`, `one_in_n_chance_of_light_source`, `pathing_cost`, `red_glow`, `red_glow_range`, `regenValue`, `repairValue`, `speed_change_period_divisor`, `speed_change_range` |
+| 0x44cad0 | — | `crewModifier`, `Rotation` |
+| 0x44cba0 | a method of `PlanetClass` | `crewModifier`, `Rotation` |
+| 0x44cde0 | — | `infinite`, `rotationSpeed` |
+| 0x44cf10 | a method of `ScrapClass` | `infinite`, `rotationSpeed` |
+| 0x44d2a0 | called by `UtritiumBallClass` | `damageValue`, `lifeTimer`, `Radius`, `Rotation`, `ScalingCount`, `ScalingStepSize` |
+| 0x44d580 | called by `WormHoleClass` | `AnimationRadius`, `AnimationTime`, `blue_glow`, `ClosedScale`, `closeSound`, `DisableTimer`, `glow_falloff_range`, `glow_falloff_start`, `green_glow`, `MaxScaleFactor`, `MaxSpeedFactor`, `OpenScale`, `openSound`, `red_glow`, `Rotation`, `ScaleEffectRange`, `SpeedEffectRange`, `TransportRadius` |
+| 0x454b70 | called by `ConstructionRigClass` | `numberOfWorkerBees`, `timeUntilClosure`, `timeUntilTakeoff`, `timeWelding`, `weldingBeamSprite`, `weldingBeamWidth`, `workerBeeHardpoints`, `workerBeeName` |
+| 0x454fe0 | — | `maxScrap` |
+| 0x455080 | a method of `FreighterClass` | `maxScrap` |
+| 0x4553a0 | called by `FreighterClass` | `physicsFile` |
+| 0x455cf0 | a method of `HoverCraftClass` | `physicsFile` |
+| 0x455ec0 | called by `MiningStationClass` | `dilithiumTransferRate`, `dockingBuffer`, `dockingHardpoint`, `freighterName` |
+| 0x4561c0 | called by `ProducerClass` | `buildHardpoint`, `recrewRate` |
+| 0x4564d0 | — | `isUpgrade` |
+| 0x456580 | a method of `ResearchPodClass` | `isUpgrade` |
+| 0x456770 | called by `ResearchStationClass` | `podHardpoints`, `upgrade` |
+| 0x456cd0 | called by `ShipyardClass` | `buildAnimation`, `dockingBuffer`, `repairFacility`, `repairHardpoint`, `repairSide` |
+| 0x457010 | called by `StarbaseClass` | `maximumUpgrades`, `officerGain` |
+| 0x45fea0 | CraftClass_Load | `alwaysUseSpecialWeapons`, `attackPower`, `canAttack`, `criticalHitPercent`, `criticalTargetHardpoints`, `damagedScan`, `defaultGreenAlert`, `fireball`, `hullHitPercent`, `hullTargetHardpoints`, `intrinsicValue`, `is_starbase`, `isHero`, `lifeSupportLoss`, `maximumCrew`, `physicsFile`, `possibleCraftNames`, `rangeScan`, `scout`, `selfDestruct`, `shieldDelay`, `shieldRate`, `specialEnergyRate` |
+| 0x461520 | — | `isTranswarpGate` |
+| 0x4615e0 | a method of `SensorArrayClass` | `isTranswarpGate` |
+| 0x46a470 | GameObjectClass_Load | `aiName`, `ambientSound`, `animation`, `avoidanceClass`, `avoidMe`, `baseName`, `buildTime`, `collisionRadius`, `crewCost`, `decommissionValue`, `dilithiumCost`, `distanceBelowGrid`, `hidden`, `keymapLabel`, `label`, `mapColor`, `mapIcon`, `mapSize`, `mapSprite`, `maxHealth`, `maxSpecialEnergy`, `moveBelowCombatArea`, `officerCost`, `physicsFile`, `scaleSOD`, `shieldPad`, `tooltip`, `unitName`, `verboseTooltip`, `weldingAnimSpeed`, `weldingRadius`, `weldingSpeed`, `weldingSpriteName` |
+| 0x46b380 | called by `ConstructionRig` | `classLabel` |
+| 0x46c2e0 | — | `officerGain` |
+| 0x46c370 | a method of `UpgradeClass` | `officerGain` |
+| 0x4811c0 | called by `ControlPanel` | `buildName`, `forceToNeutral` |
+| 0x489b70 | a method of `ShipDisplay` | `infoSystem` |
+| 0x492440 | a method of `OfficerDisplay` | `officerTooltip`, `officerVerboseTooltip` |
+| 0x493d90 | a method of `SpeedRail` | `speedSingleButtonGap` |
+| 0x499ac0 | SelectionDisplay_LoadSprites | `selectSystem` |
+| 0x49c570 | called by `CinematicView` | `button_odf`, `colorActive`, `colorBorderDisabled`, `colorBorderMouseOver`, `colorBorderNormal`, `colorDisabled`, `colorMouseOver`, `colorNormal`, `colorPressed` |
+| 0x49cf20 | called by `SpeedRail` | `component_odf`, `tooltipDelay`, `verboseTooltipDelay` |
+| 0x4a2e70 | a method of `CommDisplay` | `commBarNumberOfPlayers`, `commIndicatorAnchor`, `commIndicatorWidth` |
+| 0x4a8440 | — | `gui_fed_cfg` |
+| 0x4c0a50 | — | `StartLocations` |
+| 0x4d93d0 | — | `blastRadius`, `objectName` |
+| 0x4d94a0 | a method of `ArtilleryClass` | `blastRadius`, `objectName` |
+| 0x4d9c50 | called by `BlackHoleCreatorClass` | `expansionTime`, `initialScale`, `maxScale`, `retractionTime`, `timeAtMaxSize`, `visualFactor` |
+| 0x4da4c0 | — | `attackRange`, `lengthScale`, `radiusScale` |
+| 0x4da590 | a method of `BorgBoreClass` | `attackRange`, `lengthScale`, `radiusScale` |
+| 0x4daed0 | — | `chainDamageModifier`, `chainRadius`, `maxHits` |
+| 0x4daf90 | a method of `ChainPulsarClass` | `chainDamageModifier`, `chainRadius`, `maxHits` |
+| 0x4dbb30 | called by `ComputerOverrideClass` | `ownerSystemDuration`, `particleArt`, `targetSystemDuration`, `timeBetweenSystems` |
+| 0x4dc570 | called by `DeathChantClass` | `DamageModifier`, `FireModifier`, `HitModifier`, `RepairModifier`, `SpeedModifier`, `TurnModifier` |
+| 0x4dd1d0 | — | `shieldsReturned` |
+| 0x4dd260 | a method of `FedRepairTeamClass` | `shieldsReturned` |
+| 0x4dd560 | — | `slowPercent` |
+| 0x4dd5f0 | a method of `GravityMineClass` | `slowPercent` |
+| 0x4ddab0 | called by `HoldingBeamClass` | `boardingDelay`, `boardingInterval`, `boardingSize`, `lengthScale`, `radiusScale`, `targetRange` |
+| 0x4de650 | — | `objectName` |
+| 0x4de710 | a method of `IonStormTorpedoClass` | `objectName` |
+| 0x4defa0 | called by `KlingonCommandoTeamClass` | `fallDuration`, `fallRate`, `partySize`, `rotationRate`, `stayDuration`, `timeDelay` |
+| 0x4dfab0 | — | `effectTimer` |
+| 0x4dfb40 | a method of `ManheimEffectClass` | `effectTimer` |
+| 0x4e0190 | called by `MicroOrganismClass` | `particleArt`, `specialEnergyDelay`, `specialEnergyDrainRate` |
+| 0x4e0630 | — | `lengthScale`, `radiusScale` |
+| 0x4e06e0 | a method of `MiningBeamClass` | `lengthScale`, `radiusScale` |
+| 0x4e0fd0 | called by `NanitesClass` | `AIeffectTime`, `effectTexture`, `maxTime`, `minTime`, `movementSpeed`, `rollRate`, `startReturnTime` |
+| 0x4e16c0 | — | `flareSprite` |
+| 0x4e1750 | a method of `PhaserClass` | `flareSprite` |
+| 0x4e2300 | called by `PlasmaOverdriveClass` | `DamageModifier`, `FireModifier`, `HitModifier`, `RepairModifier`, `SpeedModifier`, `TurnModifier` |
+| 0x4e32f0 | — | `detectCloak`, `periodScan`, `rangeScan` |
+| 0x4e33b0 | a method of `ProbeTorpedoClass` | `detectCloak`, `periodScan`, `rangeScan` |
+| 0x4e3a80 | — | `percentage` |
+| 0x4e3b10 | a method of `PsychonicBlastClass` | `percentage` |
+| 0x4e42f0 | — | `repulsionForce` |
+| 0x4e4380 | a method of `RepulsionFieldClass` | `repulsionForce` |
+| 0x4e4c60 | called by `RepulsionWaveClass` | `amplitude`, `explosionRadius`, `frequency`, `repulsionForce`, `segments`, `spreadSpeed`, `Sprite`, `waveArc`, `waveLength`, `waveSpeed` |
+| 0x4e5ef0 | — | `drainRate` |
+| 0x4e5f80 | a method of `ShieldInversionClass` | `drainRate` |
+| 0x4e69d0 | called by `TargetOverrideClass` | `segmentLength`, `segmentRadius`, `segmentTexture`, `segmentVariance` |
+| 0x4e7b00 | called by `TractorBeamClass` | `lengthScale`, `omegaType`, `radiusScale`, `targetRange`, `targetSpeed` |
+| 0x4e83c0 | — | `initialDistance`, `scaleSize` |
+| 0x4e8460 | a method of `TranswarpDriveClass` | `initialDistance`, `scaleSize` |
+| 0x4e8a90 | called by `UtritiumBeamClass` | `objectName`, `scaleCount`, `scaleValue` |
+| 0x4e9940 | called by `AntiMatterMineClass` | `detectRadius`, `omegaTurn`, `shotAccel` |
+| 0x4e9bc0 | called by `ChainPulsarClass` | `omegaTurn`, `seekTime` |
+| 0x4e9c70 | a method of `MissileClass` | `omegaTurn`, `seekTime` |
+| 0x4ea1e0 | OrdnanceClass_Load | `damageBase`, `damageThreshold`, `damageVariance`, `hitSound`, `hullCrewModifier`, `ignoreShield`, `Length`, `lifeSpan`, `lightColor`, `lightFalloffRange`, `lightFalloffStart`, `lodShift`, `Radius`, `shieldCrewModifier`, `shieldDuration`, `shieldGeometryName`, `shotColor`, `shotGeometry`, `shotInfo`, `shotSound`, `shotSpeed`, `specialEnergyCost`, `specialValue`, `Sprite`, `spriteDuration` |
+| 0x4ea860 | — | `classLabel` |
+| 0x502ff0 | called by `AreaEffectCannonClass` | `hitCondition`, `maxTargets`, `waveEffect`, `waveName` |
+| 0x5032d0 | — | `hitCondition`, `maxTargets` |
+| 0x503380 | a method of `AreaEffectMissileClass` | `hitCondition`, `maxTargets` |
+| 0x5035a0 | called by `CannonClass` | `maxShots`, `minimumShotInterval`, `saveFire` |
+| 0x5038d0 | called by `CloakingDeviceClass` | `effectTimer`, `stepSize`, `transparency`, `unsafeCloakDistance` |
+| 0x503b20 | a method of `DetectCloakClass` | `detectClass`, `detectTimer` |
+| 0x503bf0 | — | `detectClass`, `detectTimer` |
+| 0x504160 | a method of `PhaseCloakDeviceClass` | `energyDrainRate` |
+| 0x504210 | — | `energyDrainRate` |
+| 0x504440 | a method of `ReflectWeaponClass` | `reflectBeam`, `reflectMissile` |
+| 0x504500 | — | `reflectBeam`, `reflectMissile` |
+| 0x504760 | a method of `RegenerationWeaponClass` | `regenModifier` |
+| 0x504810 | — | `regenModifier` |
+| 0x504a00 | a method of `ToggleWeaponClass` | `needTarget` |
+| 0x504ab0 | — | `needTarget` |
+| 0x504e80 | called by `HideEffect` | `classLabel` |
+| 0x5053a0 | WeaponClass_Load | `AItargetLocation`, `beneficial`, `buttonBorder`, `buttonPriority`, `buttonSlot`, `cloakEnable`, `crewAffectsWeaponDelay`, `fireEventID`, `fireSound`, `hitChance`, `needTarget`, `offSound`, `ordName`, `range`, `regularWeaponDelay`, `restrictFireArc`, `shotDelay`, `slowToHitModifier`, `special`, `specialEnergyCost`, `stopToHitModifier`, `switchToAttack`, `targetAlliedBuildings`, `targetAlliedCraft`, `targetEnemyBuildings`, `targetEnemyCraft`, `targetLocation`, `toggle`, `toHitSlowModifier`, `toHitStopModifier`, `toHitWarpModifier`, `tooltip`, `verboseTooltip`, `warpToHitModifier`, `wpnName` |
+| 0x505db0 | — | `drainRate`, `lifetime`, `wormholeID` |
+| 0x505e90 | a method of `WormholeGeneratorClass` | `drainRate`, `lifetime`, `wormholeID` |
+| 0x508d90 | — | `radius`, `timer` |
+| 0x508e40 | a method of `SelfDestructClass` | `radius`, `timer` |
+| 0x5149b0 | a method of `Ghost` | `ghostAmbient`, `ghostDiffuse`, `ghostSpecular`, `light_odf` |
+| 0x51a8d0 | called by `ConstructionRig` | `classLabel` |
+| 0x51ad50 | called by `ExplosionClass` | `explSound` |
+| 0x51b7e0 | called by `FireballExplosionClass` | `dbName`, `length`, `shockwave`, `shockwaveDelay`, `shockwaveMinimum` |
+| 0x51c0f0 | — | `topEdgeModifier`, `waveHeight` |
+| 0x51c1b0 | a method of `OmegaExplosionClass` | `topEdgeModifier`, `waveHeight` |
+| 0x51cb90 | called by `ShockwaveCannonClass` | `disableTime`, `repulsionForce`, `waveArc` |
+| 0x51d950 | called by `OmegaExplosionClass` | `color`, `damageBase`, `damageThreshold`, `damageVariance`, `fadeFactor`, `hullCrewModifier`, `radiusFactor`, `shieldCrewModifier`, `texture` |
+| 0x5abbc0 | — | `audio_odf`, `bitsPerSample`, `distanceFactor`, `dopplerFactor`, `maximumDistance3D`, `minimum3DSounds`, `minimumDistance3D`, `rolloffFactor`, `sampleRate`, `streamBufferLength`, `streamChunkLength` |
+<!-- odf-keys:end -->

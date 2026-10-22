@@ -146,4 +146,27 @@ public class SodModelDataTests
             Assert.ThrowsExactly<System.IO.InvalidDataException>(() => Sod.Read(whole[..cut]));
         }
     }
+
+    [TestMethod]
+    [DataRow((byte)0, false)]
+    [DataRow((byte)1, true)]
+    [DataRow((byte)2, false)]
+    public void OnlyCullByteOneCullsBackFaces(byte cull, bool culled)
+    {
+        // Armada.exe culls in software only for the value 1 (0x5a3de0); every other value draws both sides.
+        var sod = Sod.Read(
+            new SodBytes(1.8f)
+                .Lighting(("lit", 1f, 1))
+                .Nodes(
+                    new NodeSpec
+                    {
+                        Name = "m",
+                        Parent = "",
+                        Mesh = Triangle() with { Cull = cull },
+                    }
+                )
+                .End()
+        );
+        Assert.AreEqual(culled, sod.Nodes.Single().Mesh!.BackfaceCull);
+    }
 }

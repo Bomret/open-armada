@@ -150,7 +150,8 @@ public sealed class Sod
         public IReadOnlyList<Group> Groups = Array.Empty<Group>();
 
         /// <summary>
-        /// True when the stored cull byte is not 0; always false for a 1.2 mesh, which stores no cull byte.
+        /// True when the stored cull byte is 1, the only value the game culls back faces for; always false for a
+        /// 1.2 mesh, which stores no cull byte.
         /// </summary>
         public bool BackfaceCull;
     }
@@ -530,7 +531,8 @@ public sealed class Sod
         }
 
         mesh.Groups = groupList;
-        mesh.BackfaceCull = r.ReadByte() != 0;
+        // Armada.exe culls back faces only for the value 1 (README, "SOD format notes").
+        mesh.BackfaceCull = r.ReadByte() == 1;
         // Count + vertex indices, meaning unknown; the spec claims this is always 0 (Zentity.SOD disagrees).
         r.ReadBytes(r.ReadUInt16() * 2);
 

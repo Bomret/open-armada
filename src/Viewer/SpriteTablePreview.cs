@@ -17,7 +17,7 @@ public sealed class SpriteTablePreview : KindPreview
     public override string KindName => SpriteTableKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var table = (SpriteTable)kind.Load(files, name);
         var loaded = new Dictionary<string, (Image Image, ImageTexture Texture)?>(
@@ -97,6 +97,6 @@ public sealed class SpriteTablePreview : KindPreview
         };
         scroll.AddChild(box);
 
-        return scroll;
+        return new Preview { View = scroll };
     }
 }

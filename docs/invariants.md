@@ -72,6 +72,15 @@ Statement: The map sandbox plans a layout and a map through the same plan; no pl
 Breaks: silently
 Check: none — no cheap test tells a source-specific branch from a general one; reviewers check that the layout reader ends at the parsed map and that the plan and view take no layout type.
 
+### INV-0010
+
+Class: behavior
+Concepts: Asset browser, Preview, Log entry
+Statement: A preview returns the notes of the asset it shows beside the view it builds and never writes them to the log; the asset browser writes each note as one log entry, once per preview shown.
+Breaks: silently
+Check: a unit test that scans the preview sources for log calls on notes and for direct `Log.Warn`, `Log.Info`, and `Log.Error` calls, and a unit test that shows one asset through the asset browser and finds each of its notes logged once.
+Paths: src/Viewer/*Preview.cs, src/Assets/AssetBrowser.cs
+
 ### INV-0011
 
 Class: architecture

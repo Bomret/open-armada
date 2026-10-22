@@ -16,7 +16,7 @@ public sealed class MapPreview : KindPreview
     public override string KindName => MapKind.KindName;
 
     /// <inheritdoc/>
-    public override Control Create(GameFileSystem files, AssetKind kind, string name)
+    public override Preview Create(GameFileSystem files, AssetKind kind, string name)
     {
         var map = (MapAsset)kind.Load(files, name);
         var image = map.Overview == null ? null : GodotDecoders.Bmp(files.ReadAllBytes(map.Overview), map.Overview);
@@ -49,6 +49,6 @@ public sealed class MapPreview : KindPreview
         box.AddChild(legend);
         box.AddChild(pictures);
 
-        return box;
+        return new Preview { View = box };
     }
 }

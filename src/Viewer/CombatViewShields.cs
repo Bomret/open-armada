@@ -273,8 +273,18 @@ public partial class CombatView
             return;
         // white and centered; the overlay stays until the state says otherwise
         var node = (Node3D)template.Duplicate();
-        Colorize(node, Colors.White);
-        node.Basis = Basis.Identity.Scaled(Vector3.One * ShieldScale(template, state));
+        try
+        {
+            Colorize(node, Colors.White);
+            node.Basis = Basis.Identity.Scaled(Vector3.One * ShieldScale(template, state));
+        }
+        catch
+        {
+            // the duplicate is in no tree yet: free it here, or each frame's retry would leak one node
+            node.Free();
+            throw;
+        }
+
         unit.AddChild(node);
         _overlays[state.Unit] = node;
     }

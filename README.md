@@ -130,7 +130,7 @@ Each problem is one `ERROR` log entry that names the script and the line, and, f
 
 `play/destroy.play` is a checked-in play script. On `layouts/destroy.jsonc`, a Vor'cha-class warship destroys a sensor station; the script takes screenshots before the fight, while the station is dying, and across the explosion, dumps the state before, during, and after, expects the station dying and then destroyed. Run it with `--layout layouts/destroy.jsonc`; the layout's header comment has the whole command.
 
-`play/shield.play`, `play/shield-red.play`, and `play/shield-hull.play` show the shield hit effect, the shield-down overlay, and the hull hit sprite on a stock map (`kling4` for the first two, `kling1` for the third). `play/damage.play` and `play/emitters.play` show the damage nodes and the damage emitters on their layouts. Each script's first comment lines name its map or layout.
+`play/shield.play`, `play/shield-red.play`, and `play/shield-hull.play` show the shield hit effect, the shield-down overlay, and the hull hit sprite on a stock map (`kling4` for the first two, `kling1` for the third). `play/damage.play` and `play/emitters.play` show the damage nodes and the damage emitters on their layouts. In `play/drift.play` on `layouts/drift.jsonc`, two Borg spheres destroy a bird of prey that flies an arc around them, and the dying bird coasts on. Each script's first comment lines name its map or layout.
 
 ## Measure the sound of a play run
 

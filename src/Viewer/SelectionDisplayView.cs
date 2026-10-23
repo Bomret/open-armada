@@ -43,11 +43,11 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
     {
         // stand-in: the display scale of the screen the window is on stands for the game's pixel size
         var scale = DisplayServer.ScreenGetScale(DisplayServer.WindowGetCurrentScreen());
-        var units = selection.Units.ToDictionary(u => u.Object);
+        var units = selection.Units.Select(u => u.Object).ToList();
         var selected = selection.Selected.Select(u => u.Object);
-        foreach (var shown in SelectionDisplay.Shown(_hover, units.Keys, selected))
+        foreach (var shown in SelectionDisplay.Shown(_hover, units, selected))
         {
-            if (world.State(shown.Unit) is not { } state || selection.ScreenBoxOf(units[shown.Unit]) is not { } box)
+            if (world.State(shown.Unit) is not { } state || selection.ScreenBoxOf(shown.Unit) is not { } box)
                 continue;
             // stand-in: each part draws at alpha (opacity − 0.5) × 2 kept within 0 and 1 (SelectionDisplay.AlphaOf)
             var alpha = SelectionDisplay.AlphaOf(shown.Opacity);

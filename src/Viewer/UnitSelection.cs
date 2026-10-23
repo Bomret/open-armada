@@ -109,7 +109,7 @@ public partial class UnitSelection : Node3D
 
     /// <summary>
     /// Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected. Its world box
-    /// of the last frame its node showed a mesh in stays for <see cref="ScreenBoxOf(PlacedObject)"/>.
+    /// of the last frame its node showed a mesh in stays for <see cref="ScreenBoxOf"/>.
     /// </summary>
     public void Remove(PlacedObject unit)
     {
@@ -159,14 +159,9 @@ public partial class UnitSelection : Node3D
 
     /// <summary>
     /// The unit's screen box in viewport pixels (docs/rules/selection-display.md); null when the unit has no visible
-    /// mesh, has a corner behind the camera, or lies wholly off screen.
-    /// </summary>
-    public ScreenBox? ScreenBoxOf(SelectableUnit unit) => ScreenBoxOf(unit.Object);
-
-    /// <summary>
-    /// The screen box of the object's node as <see cref="ScreenBoxOf(SelectableUnit)"/> has it; a dying unit keeps its
-    /// node and so its box, and a dying unit that shows no mesh, or a destroyed unit, has the world box of the last frame it
-    /// showed a mesh in, seen through the current camera.
+    /// mesh, has a corner behind the camera, or lies wholly off screen. A dying unit keeps its node and so its box, and a
+    /// dying unit that shows no mesh, or a destroyed unit, has the world box of the last frame it showed a mesh in, seen
+    /// through the current camera.
     /// </summary>
     public ScreenBox? ScreenBoxOf(PlacedObject unit)
     {

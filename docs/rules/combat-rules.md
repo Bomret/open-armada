@@ -345,7 +345,11 @@ state). The unit stays in the world until its timer runs out.
 - **Further hits:** a hit with damage above 0 that lands on a dying unit deals no damage and cuts 0.5 s from
   the timer (check at 0x4651f3, 0x468990; damage gate 0x465132-0x465147). A hit with no damage does nothing.
   A timer cut below 0 ends the phase on the next tick. Shots in flight at the unit still land (0x4ee620).
-- **Coasting:** a dying ship coasts (see Coasting). A dying station stays where it is.
+- **Coasting:** a dying ship coasts (see Coasting). It keeps the velocity and the turn, roll, and pitch rates
+  it had; nothing in the dying routines (0x468990, 0x466090, 0x466320, 0x4663d0) gives it speed or spin. A
+  dying ship that was moving faster than 1.0 drifts for 5.0 s while it slows. A dying station stays where it
+  is. A dying ship takes no collision separation (0x471560), and some forces still move it
+  (`docs/rules/forced-motion.md`, "Dying ships").
 - **No targets:** no auto, red-alert, or player attack pick takes the unit (0x42faa0). A unit attacking it
   goes idle, as for a destroyed target.
 - **No fire:** the unit fires nothing and its weapons stop (0x506d70). Its beams in flight end without damage
@@ -363,7 +367,11 @@ state). The unit stays in the world until its timer runs out.
   any frame rate. **Stand-in**: the point is uniform in the box of the unit's radius around its center, and
   the explosion's size is fixed; 0x466180 is not recovered.
 - **End** (0x4663d0): the unit's `fireball` explosion plays at its transform, the unit leaves the world, and
-  `UnitDestroyed` is raised once. The `selfDestruct` variant of the explosion is not implemented.
+  `UnitDestroyed` is raised once. The `selfDestruct` variant of the explosion is not implemented. The game also
+  shatters the model into debris pieces (0x58cef0), which do not take the ship's velocity
+  (`docs/rules/forced-motion.md`, "What does not move a ship"); the engine draws no debris.
+- **Black-hole death:** a ship swallowed at a black hole's event horizon dies with a timer of 0 and no
+  `fireball` (0x450a40, 0x466090; `docs/rules/forced-motion.md`, "Event horizon").
 
 Every random draw goes through the combat world's seeded random source. A missing `systemexpl` sprite or
 `fireball` is reported once and skipped; the unit still leaves on time.
@@ -376,9 +384,18 @@ velocity vector (offset 0x140 of the physics object) against 0.01 (0x459c46). Be
 (0x158) is zeroed (0x459c59), so the ship keeps that residual speed. Otherwise the linear acceleration is the
 velocity normalized times the constant −2.0 at 0x5cc140 (0x459ca6-0x459cfe), with no heading term: the
 velocity slows against its own direction. The angular acceleration (0x164) is zeroed at 0x459c0a, so the
-current turn rate continues undamped and only turns the heading. A coasting ship therefore travels a straight
-line while its heading keeps turning. A turning derelict writes no velocity (0x466ca0), so the ship keeps
-what it had. A ship that stands still when it loses thrust stays still.
+pitch, yaw, and roll rates the ship had continue undamped. The yaw rate turns the heading. The roll angle wraps
+at ±π, so a ship that was rolling keeps rolling over. The pitch angle is held within ±1.5 rad (0x459ea8-0x459ed8)
+while its rate stays. The position moves by the world velocity at the middle of each step (0x459f2e-0x459f6a),
+and the orientation is built from the three angles (0x55d080). A coasting ship therefore travels a straight
+line while it turns. A turning derelict writes no velocity (0x466ca0), so the ship keeps what it had. A ship
+that stands still when it loses thrust stays still.
+
+The coast starts from whatever speed the ship had. The speed cap is `impulseSpeed` times the warp speed
+multiplier (0x450a80), and the stock physics definitions set `impulseSpeed` 20 and `warpSpeed` 50 to 100. That a
+ship at warp moves at up to `warpSpeed` is **inferred**. At the brake of 2.0, a ship stops after speed / 2
+seconds and speed² / 4 units: 10 s and 100 units from 20, 50 s and 2,500 units from 100. Black holes, beams, and
+waves can still change a coasting ship's velocity (`docs/rules/forced-motion.md`).
 
 No order, stop, face, or player move gives a coasting ship thrust. A ship whose engines are repaired and that
 is not derelict takes orders again. The coast starts at the combat world's tick that finds the unit without

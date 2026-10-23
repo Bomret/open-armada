@@ -55,6 +55,6 @@ of the run time.
 
 ## Gotchas
 
-- REA stops a provider request after 330 s, and the first full analysis of `Armada.exe` takes longer, so
-  REA cannot open the exe from scratch, and it does not read a Ghidra project. Run the analysis here instead.
+- REA opens `Armada.exe` itself and does not read this Ghidra project. The dump is the first source; REA
+  is a second one on the same exe.
 - Run one Ghidra analysis at a time on this machine; two at once overload it.

@@ -79,6 +79,9 @@ public sealed class UnitCombatState(
     /// <summary>The unit class's shield ellipsoid; null for a model that has none.</summary>
     public ShieldEllipsoid? Shield { get; init; }
 
+    /// <summary>The radius of the unit's model's bounding sphere, which sizes its repair sparks.</summary>
+    public float ModelRadius { get; init; }
+
     /// <summary>The placed object's team.</summary>
     public int Team => Unit.Team;
 

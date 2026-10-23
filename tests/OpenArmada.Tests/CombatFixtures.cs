@@ -114,13 +114,16 @@ static class CombatFixtures
             Race = race ?? Race,
         };
 
-    // A ship system: hit points, hit percent, crew loss percent, repair time (seconds for the whole system).
+    // A ship system: hit points, hit percent, crew loss percent, repair time (seconds for the whole system), spark time,
+    // and target hardpoints.
     public static SystemProfile Sys(
         string name,
         float hitPoints = 5,
         float percent = 10,
         float crewLoss = 0,
-        float repairTime = 10
+        float repairTime = 10,
+        float sparkTime = 0.5f,
+        params string[] targetHardpoints
     ) =>
         new()
         {
@@ -129,6 +132,8 @@ static class CombatFixtures
             HitPercent = percent,
             CrewLoss = crewLoss,
             RepairTime = repairTime,
+            SparkTime = sparkTime,
+            TargetHardpoints = targetHardpoints,
         };
 
     public static PlacedObject Placed(string label, int team, float x, float z = 0) =>

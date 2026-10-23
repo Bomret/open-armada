@@ -1,0 +1,20 @@
+# A Federation destroyer on layouts/emitters.jsonc, Venting, starts with its engines and life support destroyed. The
+# engines are whole again first: the plasma vent then stops spraying, and its last particles fly on and fade within
+# their lifespan, while the steam vent of life support still sprays. The dumps show when the engines are whole.
+# Run it with --layout layouts/emitters.jsonc; the layout's header comment has the whole command.
+scroll up 20
+wait 4
+shot fade-1
+dump d1
+wait 1
+shot fade-2
+dump d2
+wait 1
+shot fade-3
+dump d3
+wait 1.5
+shot fade-4
+dump d4
+wait 2
+shot fade-5
+dump d5

@@ -1,0 +1,12 @@
+// A Klingon destroyer on team 1 and a Federation destroyer on team 2, 100 units apart at the centre, for
+// play/hit-explosion.play: the Federation ship starts with its shields at 0, so every hit passes damage to its
+// systems and shows a system explosion at the hit's node.
+// Run it with: godot-mono --path . --write-movie play-out/hit-explosion/frame.png --fixed-fps 30 -- --game <install>
+// --layout layouts/hit-explosion.jsonc --play play/hit-explosion.play
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "kdestroy", "team": 1, "position": [2050, 0, 2000], "label": "Gunner" },
+    { "class": "fdestroy", "team": 2, "position": [1950, 0, 2000], "label": "Target", "shields": 0 },
+  ],
+}

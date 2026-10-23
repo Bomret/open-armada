@@ -13,11 +13,11 @@ namespace OpenArmada.Viewer;
 /// <summary>
 /// Draws and sounds the fight on the combat events of the orders node: a beam from the firing hardpoint to its
 /// target for its life, a torpedo along its flight, each with the sprite its ordnance names; the weapon's fire
-/// sound at the firing unit, once per weapon volley; the small explosions on a dying unit; the explosion of a
-/// destroyed unit where it was. A shot that
-/// missed is drawn too, aimed beside its target, for its ordnance's life. Everything the install may lack is
-/// read once when the node is built and reported through the CombatArt (INV-0002); a shot or a destruction
-/// without its art still resolves.
+/// sound at the firing unit, once per weapon volley; the explosions of hits and the repair sparks of repairing systems
+/// at their nodes; the small explosions on a dying unit; the explosion of a destroyed unit where it was. A shot that
+/// missed is drawn too, aimed beside its target, for its ordnance's life. Everything the install may lack is read once
+/// when the node is built and reported through the CombatArt (INV-0002); a shot or a destruction without its art still
+/// resolves.
 /// </summary>
 public partial class CombatView : Node3D
 {
@@ -177,6 +177,26 @@ public partial class CombatView : Node3D
                         Explode(unit);
 
                         break;
+                    case RepairSpark spark:
+                        ShowAtNode(
+                            RepairSpark.SpriteName,
+                            spark.Unit,
+                            spark.Hardpoint,
+                            spark.Size,
+                            RepairSpark.Seconds
+                        );
+
+                        break;
+                    case HitExplosion explosion:
+                        ShowAtNode(
+                            explosion.Name,
+                            explosion.Unit,
+                            explosion.Hardpoint,
+                            explosion.Size,
+                            HitExplosion.Seconds
+                        );
+
+                        break;
                     case SmallExplosion { Unit: var dying, Name: var name, Offset: var offset }:
                         if (At(dying) is { } center)
                         {
@@ -203,11 +223,15 @@ public partial class CombatView : Node3D
     Vector3? At(PlacedObject unit) =>
         _nodes.TryGetValue(unit, out var node) && IsInstanceValid(node) ? node.GlobalPosition : null;
 
+    // The unit's own node; null when it is gone.
+    Node3D? UnitNode(PlacedObject unit) =>
+        _nodes.TryGetValue(unit, out var node) && IsInstanceValid(node) ? node : null;
+
     // The node a shot leaves from: the hardpoint's node, or the unit's own node when the model lacks the hardpoint
     // (reported when built); null when the unit's node is gone.
     Node3D? Source(PlacedObject unit, string name)
     {
-        if (!_nodes.TryGetValue(unit, out var node) || !IsInstanceValid(node))
+        if (UnitNode(unit) is not { } node)
             return null;
 
         return _art.Hardpoint(unit, name) is { } exact && node.FindChild(exact, true, false) is Node3D hardpoint
@@ -362,6 +386,42 @@ public partial class CombatView : Node3D
             0.0,
             length,
             length
+        );
+        tween.TweenCallback(Callable.From(quad.QueueFree));
+    }
+
+    // A sprite effect at a node of a unit, a repair spark or a hit explosion (0x515d50): the sprite's flipbook plays on
+    // a billboard hung from the hardpoint's node, or the unit's own node for a null hardpoint, so it follows the unit,
+    // for `seconds`; it goes with the unit's node. A sprite the install lacks shows nothing (reported once,
+    // CombatArt.AddRepairSparks and CombatArt.AddSmallExplosions).
+    void ShowAtNode(string sprite, PlacedObject unit, string? hardpoint, float size, double seconds)
+    {
+        if (
+            _art.Sprite(sprite) is not { } art
+            || Texture(art.Sprite.Texture) is not { } tex
+            || (hardpoint == null ? UnitNode(unit) : Source(unit, hardpoint)) is not { } node
+        )
+            return;
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoTexture = tex,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        SpriteMaterial.Blend(material, art.Sprite.Material);
+        var width = size * 2; // the size reaches out from the center on each side (0x5975e0)
+        var quad = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = new Vector2(width, width), Material = material },
+        };
+        node.AddChild(quad);
+        var tween = quad.CreateTween();
+        tween.TweenMethod(
+            Callable.From<double>(age => SpriteMaterial.ShowFrame(material, art.Sprite, art.FrameAt(age), tex)),
+            0.0,
+            seconds,
+            seconds
         );
         tween.TweenCallback(Callable.From(quad.QueueFree));
     }

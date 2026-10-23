@@ -1,0 +1,13 @@
+# A Klingon destroyer fires on a Federation destroyer whose shields start at 0, on layouts/hit-explosion.jsonc. Each
+# hit that passes damage to the systems shows one of systemexpl1 to systemexpl7 for one second at the hit's node: a
+# hull hit at the model's root, inside the hull, and a system hit at the system's target hardpoint nearest the firing
+# hardpoint. With the play run's seed, the first system hit lands at 4.28 s at hp04, on top of the hull.
+# Run it with --layout layouts/hit-explosion.jsonc; the layout's header comment has the whole command.
+scroll up 20
+select Gunner
+attack Target
+wait 4.4
+shot system-hit-1
+wait 0.3
+shot system-hit-2
+dump after

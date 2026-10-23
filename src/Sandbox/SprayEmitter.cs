@@ -25,17 +25,17 @@ public sealed class SprayParticle
 }
 
 /// <summary>
-/// The spray of a damage emitter on simulated time (0x575400 spray, 0x5746d0 particle; no Godot, INV-0011): each
-/// tick the timer counts down by the tick's seconds, and when it is below 0 one particle spawns and the timer is set
-/// to the period (0x57549f; the overshoot is not carried). A tick spawns at most one particle, and a period of 0
-/// means one per tick. A particle starts at the node's frame, its direction the node's +Z turned by three angles
+/// The spray of a damage emitter on simulated time (0x575400 spray, 0x5746d0 particle; no Godot, INV-0011): the timer
+/// starts at the period (0x5753a0). Each tick it counts down by the tick's seconds, and when it is below 0 one particle
+/// spawns and the timer is set to the period (0x57549f; the overshoot is not carried). A tick spawns at most one
+/// particle, and a period of 0 means one per tick. The live particles move and age on every tick, also while the
+/// emitter's node is hidden (0x58b4f0); only the timer and the spawns wait for the node. A particle starts at the node's frame, its direction the node's +Z turned by three angles
 /// (roll about Z, then pitch about X, then yaw about Y, as <see cref="Quaternion.CreateFromYawPitchRoll"/> composes
 /// them), each uniform in plus or minus the spread angle (0x5746d0). It moves along that direction at the velocity
 /// and dies at the lifespan.
 /// stand-in: the tick is the fixed <see cref="CombatWorld.Tick"/> of simulated time (the game steps the timer by the
 /// frame's seconds; the fixed tick keeps the rate the same at any frame rate and step size, as the combat world's
-/// ticks do); the timer starts at 0, so the first tick spawns (the start value is set outside 0x575400); the order
-/// of the three turns; the game's source of randomness (the play run fixes this one, INV-0008).
+/// ticks do); the game's source of randomness (the play run fixes this one, INV-0008).
 /// </summary>
 /// <param name="definition">The <c>@emitter</c> block (a spray).</param>
 /// <param name="random">Gives numbers in 0 up to 1.</param>
@@ -49,22 +49,20 @@ public sealed class SprayEmitter(SpriteEmitter definition, Func<double> random)
     readonly List<SprayParticle> _particles = new();
 
     // The game's timer is a 32-bit float (0x575425), so a period that is a whole number of ticks lands on 0 or just below
-    // by float arithmetic.
-    float _timer;
+    // by float arithmetic. It starts at the period (0x5753a0).
+    float _timer = (float)definition.FiringPeriod;
     double _pending;
 
     /// <summary>The live particles, oldest first.</summary>
     public IReadOnlyList<SprayParticle> Particles => _particles;
 
     /// <summary>
-    /// Advances the spray by <paramref name="seconds"/> of simulated time. While <paramref name="showing"/> is false
-    /// (the emitter's damage node is hidden) nothing moves, ages, or spawns: live particles stay as they are.
-    /// <paramref name="frame"/> is the node's world frame now.
+    /// Advances the spray by <paramref name="seconds"/> of simulated time: the live particles move, age, and die at
+    /// their lifespan. While <paramref name="showing"/> is false (the emitter's damage node is hidden) the timer holds
+    /// and nothing spawns. <paramref name="frame"/> is the node's world frame now.
     /// </summary>
     public void Step(double seconds, bool showing, EmitterFrame frame)
     {
-        if (!showing)
-            return;
         _pending += Math.Max(0, seconds);
         while (_pending + Slack >= CombatWorld.Tick)
         {
@@ -76,6 +74,8 @@ public sealed class SprayEmitter(SpriteEmitter definition, Func<double> random)
             }
 
             _particles.RemoveAll(p => p.Age >= _definition.Lifespan - Slack);
+            if (!showing)
+                continue;
             _timer -= (float)CombatWorld.Tick;
             if (_timer < 0)
             {

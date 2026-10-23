@@ -191,6 +191,15 @@ public sealed record SystemProfile
     /// race factors. A repair time of zero means the system does not repair.
     /// </summary>
     public required float RepairTime { get; init; }
+
+    /// <summary>
+    /// The <c>&lt;system&gt;SparkTime</c> in seconds: while the system repairs, it throws a repair spark each time its
+    /// spark clock passes this (0x4683d0). 0.5 when the definition does not set it (0x45fbe0).
+    /// </summary>
+    public float SparkTime { get; init; } = 0.5f;
+
+    /// <summary>The <c>&lt;system&gt;TargetHardpoints</c>: the hardpoints a repair spark of the system shows at (0x460f30).</summary>
+    public IReadOnlyList<string> TargetHardpoints { get; init; } = [];
 }
 
 /// <summary>

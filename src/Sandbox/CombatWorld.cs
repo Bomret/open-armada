@@ -24,6 +24,12 @@ public sealed record CombatUnit
     /// <summary>The unit's radius in world units, for distances surface to surface; 0 for a model without meshes.</summary>
     public required float Radius { get; init; }
 
+    /// <summary>
+    /// The radius of the unit's model's bounding sphere (model +0x24, copied to the object's +0x60 by 0x4510a0), which
+    /// sizes its repair sparks; 0 for a unit without a model.
+    /// </summary>
+    public float ModelRadius { get; init; }
+
     /// <summary>Whether the unit can move at all.</summary>
     public required bool Mobile { get; init; }
 
@@ -68,6 +74,13 @@ public sealed class CombatWorld
     const double SmallExplosionEvery = 0.05;
     const int SmallExplosionNames = 7;
 
+    // A repair spark's size is this times the unit's model radius (0x600794).
+    const float SparkScale = 0.14f;
+
+    // A hit explosion's size is this times the unit's model radius (0x60076c), and at least the least (0x600770).
+    const float HitExplosionScale = 0.14f;
+    const float HitExplosionLeast = 4f;
+
     readonly UnitPoses _poses;
     readonly double _protection;
     readonly Func<double> _random;
@@ -111,6 +124,7 @@ public sealed class CombatWorld
             )
             {
                 Shield = u.Shield,
+                ModelRadius = u.ModelRadius,
             };
             if (u.Unit.Start is { } start)
             {
@@ -251,8 +265,81 @@ public sealed class CombatWorld
             Fire(u, events);
             CombatRules.RegainShields(u, Tick);
             CombatRules.Sustain(u, Tick);
+            Spark(u, events); // before the repair of the tick, as 0x4683d0 sparks before it adds hit points
             CombatRules.Repair(u, Tick);
         }
+    }
+
+    // The repair sparks of the unit's systems for one tick (0x4683d0). Each system below its maximum hit points runs its
+    // spark clock. Once the clock passes the spark time, it drops by the spark time until it no longer passes, and one
+    // spark shows at a target hardpoint picked at random (0x5018c0). A system without target hardpoints runs its
+    // clock and shows none. A derelict or dying unit repairs nothing, so it sparks nothing either (CombatRules.Repair).
+    // stand-in: the game's repair also waits out a disable timer and a held flag (system +0x2c, +0x30), which the
+    // sandbox does not have; a spark time of 0 or less sparks once per tick, where the game's drop loop never ends.
+    void Spark(UnitCombatState u, List<CombatEvent> events)
+    {
+        if (u.Derelict || u.Dying)
+            return;
+        foreach (var s in u.Systems.Values.Where(s => s.HitPoints < s.Max))
+        {
+            var every = s.Profile.SparkTime;
+            s.SparkClock += Tick;
+            if (s.SparkClock - every <= Epsilon)
+                continue;
+            s.SparkClock = every > 0 ? s.SparkClock - every * Math.Floor((s.SparkClock - Epsilon) / every) : 0;
+            var hardpoints = s.Profile.TargetHardpoints;
+            if (hardpoints.Count == 0)
+                continue;
+            var index = Math.Min(hardpoints.Count - 1, (int)(_random() * hardpoints.Count));
+            events.Add(
+                new RepairSpark
+                {
+                    Unit = u.Unit,
+                    System = s.Profile.Name,
+                    Hardpoint = hardpoints[index],
+                    Size = u.ModelRadius * SparkScale,
+                }
+            );
+        }
+    }
+
+    // The explosion of a hit that passed damage to the systems (0x465100): one of systemexpl1 to systemexpl7, picked at
+    // random (0x5018c0), at the hit's node. The node is the target hardpoint of the hit location nearest to the
+    // firing hardpoint, the first listed winning a tie (0x468a60); a hull or critical hit, or a location without
+    // target hardpoints, takes the model's root node (the class load never fills the hull and critical lists).
+    // stand-in: the game rolls the location and picks the node when the shot is made (0x50ae40, 0x4ee710); the
+    // sandbox does both when it lands, from where the firing hardpoint is then.
+    HitExplosion ExplosionOf(Shot shot, HitLocation location)
+    {
+        var target = shot.Target;
+        string? node = null;
+        if (
+            location is not (HitLocation.Hull or HitLocation.Critical)
+            && target.Systems.TryGetValue(SystemNames.All[(int)location], out var system)
+        )
+        {
+            var from = HardpointAt(shot.Shooter, shot.Hardpoint);
+            var nearest = float.MaxValue;
+            foreach (var name in system.Profile.TargetHardpoints)
+            {
+                var distance = Vector3.DistanceSquared(HardpointAt(target, name), from);
+                if (distance < nearest)
+                {
+                    nearest = distance;
+                    node = name;
+                }
+            }
+        }
+
+        var index = Math.Min(SmallExplosionNames - 1, (int)(_random() * SmallExplosionNames));
+
+        return new HitExplosion
+        {
+            Unit = target.Unit,
+            Name = "systemexpl" + (index + 1),
+            Hardpoint = node,
+            Size = Math.Max(target.ModelRadius * HitExplosionScale, HitExplosionLeast),
+        };
     }
 
     // One of the seven small explosions at a random point of the unit (table 0x600750, picked by 0x466320).
@@ -715,9 +802,15 @@ public sealed class CombatWorld
         var target = shot.Target;
         var damage = CombatRules.Damage(shot.Weapon.Ordnance, target.DefinitionName, _random());
         var location = CombatRules.Location(target, Math.Min(99, (int)(_random() * 100)));
+        var wasDying = target.Dying;
         var hit = CombatRules.Apply(target, shot.Weapon.Ordnance, damage, location, _protection);
         target.LastHit = _ticks;
         events.Add(new ShotLanded { Shot = shot, Hit = hit });
+        if (!wasDying && hit.Damage > 0 && hit.SystemsPart != 0 && !hit.Destroyed)
+        {
+            events.Add(ExplosionOf(shot, location));
+        }
+
         if (shieldHit is { } contact)
         {
             events.Add(ShieldEffect(shot, contact));

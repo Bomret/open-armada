@@ -118,7 +118,7 @@ and dying.
 |---|---|---|---|---|---|---|
 | 0x4617b0 | Craft_Init | Sets up a ship from its definition; copies `maximumCrew` | confirmed | game | 0x4618eb | [combat-rules](combat-rules.md#damage-nodes) |
 | 0x464dd0 | Craft_RollHitLocation | Rolls where a hit lands | confirmed | game | — | [combat-rules](combat-rules.md#hit-location) |
-| 0x465100 | Craft_ApplyHit | Applies a hit to shields, systems, and crew; queues a system explosion at the hit node | confirmed | game | `systemexpl1`–`7` | [combat-rules](combat-rules.md#applying-a-hit) |
+| 0x465100 | Craft_ApplyHit | Applies a hit to shields, systems, and crew; queues a system explosion at the hit node | confirmed | game | `systemexpl1`–`7` | [combat-rules](combat-rules.md#hit-explosion) |
 | 0x465e80 | Craft_UpdateLifeSupport | Takes crew each second while life support is destroyed | confirmed | game | 0x465f6f | [combat-rules](combat-rules.md#ship-systems) |
 | 0x466090 | Craft_DyingTimer | Sets the dying phase's length from the speed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
 | 0x466180 | Craft_RandomModelPoint | Picks a random point on the model | inferred | game | walks meshes through 0x4662b0 | [combat-rules](combat-rules.md#dying-units) |
@@ -134,8 +134,9 @@ and dying.
 | 0x467b70 | CraftSystem_TakeDamage | Takes hit points; at 0 the system stops working and the crew loses its share | confirmed | game | log `%s 0x%x : System Destroyed` | [combat-rules](combat-rules.md#ship-systems) |
 | 0x467d40 | CraftSystem_TryRestore | Works the system again once its timer ran out, it is not held, and it is at full hit points | confirmed | game | — | [combat-rules](combat-rules.md#repair) |
 | 0x468060 | CraftSystem_RepairRate | The time one hit point of repair takes | confirmed | game | race `repairRed`, `repairYellow` | [combat-rules](combat-rules.md#repair) |
-| 0x4683d0 | Craft_RepairSystems | Repairs every damaged system; emits repair sparks | confirmed | game | `xspark` | [combat-rules](combat-rules.md#repair) |
+| 0x4683d0 | Craft_RepairSystems | Repairs every damaged system; emits repair sparks | confirmed | game | `xspark` | [combat-rules](combat-rules.md#repair-sparks) |
 | 0x4685c0 | Craft_RepairAll | The full-repair path (0x468760) | unknown | game | — | [combat-rules](combat-rules.md#not-known) |
+| 0x468a60 | Craft_HitNode | The node a shot hits: the hit location's target hardpoint nearest the firing hardpoint, else the model root | confirmed | game | class +0x358–+0x3b8 | [combat-rules](combat-rules.md#hit-explosion) |
 | 0x468990 | Craft_BeginDying | Marks the unit as being destroyed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | Spawns the shield-down overlay | confirmed | game | 0x469368–0x4693a6 | [shield-effects](shield-effects.md#shield-down-overlay) |
 | 0x472120 | GameObject_FrameUpdate | A per-frame update that runs the damage nodes for each ship | inferred | game | calls 0x4677b0 | [combat-rules](combat-rules.md#damage-nodes) |
@@ -185,6 +186,7 @@ Weapon definitions 0x5030d0–0x505d00, weapons 0x506080–0x50c810 (`Weapon\`).
 | 0x50a520 | Weapon_InRange | Whether the target is in range | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
 | 0x50a7c0 | Weapon_AimHit | Aims a shot that hits | confirmed | game | — | [combat-rules](combat-rules.md#to-hit) |
 | 0x50aab0 | Weapon_AimMiss | Aims a missed shot: leads the target and offsets the aim | confirmed | game | — | [combat-rules](combat-rules.md#to-hit) |
+| 0x50ae40 | Weapon_MakeShot | Makes the shot: its damage and hit location (0x4ee710) and its hit node (0x468a60) | confirmed | game | — | [combat-rules](combat-rules.md#hit-explosion) |
 | 0x50b690 | Weapon_ReloadDelay | The reload delay, with `crewAffectsWeaponDelay` | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
 
 ### Ordnance: shots, beams, torpedoes, mines
@@ -193,6 +195,7 @@ Definitions 0x4e9410–0x4eab30, ordnance 0x4ebb10–0x4ef950 (`Ordnance\`).
 
 | Address | Name | Role | Status | Layer | Anchor | Rule note |
 |---|---|---|---|---|---|---|
+| 0x4d92e0 | Ordnance_SetHitNode | Sets the shot's hit node (ordnance +0x110, slot 0x64) | confirmed | game | — | [combat-rules](combat-rules.md#hit-explosion) |
 | 0x4e70f0 | Ordnance_RollDamage | `damageBase` plus a random part up to `damageVariance` either way | confirmed | game | 0x4e7158 | [combat-rules](combat-rules.md#damage) |
 | 0x4eb170 | Beam_Update | A beam deals its damage once, when its time ends | inferred | game | 0x4eb47e | [combat-rules](combat-rules.md#shots) |
 | 0x4ec100 | Ordnance_HitShields | Whether a hit meets the shields (`ignoreShield`) | inferred | game | 0x4ec27a | [combat-rules](combat-rules.md#shots) |
@@ -200,7 +203,8 @@ Definitions 0x4e9410–0x4eab30, ordnance 0x4ebb10–0x4ef950 (`Ordnance\`).
 | 0x4ed150 | Missile_Update | Steers a torpedo by `omegaTurn`, `seekTime`; ends at `lifeSpan` | confirmed | game | `Missile.cpp` | [combat-rules](combat-rules.md#shots) |
 | 0x4ee5f0 | Ordnance_ShooterDying | Ends ordnance whose shooter is dying | inferred | game | — | [combat-rules](combat-rules.md#shots) |
 | 0x4ee620 | Ordnance_TargetDying | Lets shots in flight at a dying unit land | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
-| 0x4ee7f0 | Ordnance_DropShooterBonus | A dying shooter's torpedoes fly on without its bonus | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x4ee710 | Ordnance_RollHit | Rolls the shot's damage and, on a ship, its hit location when the shot is made (slot 0x58) | confirmed | game | 0x464dd0 | [combat-rules](combat-rules.md#hit-explosion) |
+| 0x4ee7f0 | Ordnance_DropShooterBonus | A dying shooter's torpedoes fly on without its bonus; hands the hit and its node to the target (slot 0x90 → 0x465100) | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
 | 0x4ee860 | Ordnance_HitTest | Maps a shot's segment into the unit and tests the shield ellipsoid | confirmed | game | — | [shield-effects](shield-effects.md#contact) |
 
 ### Special weapons and timed effects
@@ -222,9 +226,9 @@ Range 0x514940–0x516200.
 
 | Address | Name | Role | Status | Layer | Anchor | Rule note |
 |---|---|---|---|---|---|---|
-| 0x515d50 | NodeEffect_Queue | Queues a sprite effect at a model node (queue 0x67f57c) | confirmed | game | `xspark`, `systemexpl1` | — |
-| 0x515f40 | NodeEffect_Age | Ages the queued effects; removes one whose age passed its duration | confirmed | game | — | — |
-| 0x515fb0 | NodeEffect_Draw | Draws the queued effects at their nodes' world positions | confirmed | game | — | — |
+| 0x515d50 | NodeEffect_Queue | Queues a sprite effect at a model node (queue 0x67f57c) | confirmed | game | `xspark`, `systemexpl1` | [combat-rules](combat-rules.md#repair-sparks) |
+| 0x515f40 | NodeEffect_Age | Ages the queued effects; removes one whose age passed its duration | confirmed | game | — | [combat-rules](combat-rules.md#repair-sparks) |
+| 0x515fb0 | NodeEffect_Draw | Draws the queued effects at their nodes' world positions | confirmed | game | — | [combat-rules](combat-rules.md#repair-sparks) |
 
 ### Shield effect
 
@@ -343,7 +347,7 @@ Offsets are from the start of the object. A ship is a `Craft`; its definition is
 
 | Offset | Field | Type | Evidence |
 |---|---|---|---|
-| +0x60 | Model size | float | spark and explosion size (0x4683d0, 0x465100) |
+| +0x60 | Model bounding radius, from model +0x24 (0x4510a0) | float | spark and explosion size (0x4683d0, 0x465100) |
 | +0xa0 | Current model | pointer | 0x4677b0 |
 | +0xe0 | Definition (`CraftClass`) | pointer | 0x4677b0 |
 | +0x1a4 | Race | pointer | 0x4677b0 |
@@ -474,6 +478,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4683d0 | Craft_RepairSystems | confirmed | Ships (Craft) |
 | 0x4685c0 | Craft_RepairAll | unknown | Ships (Craft) |
 | 0x468990 | Craft_BeginDying | confirmed | Ships (Craft) |
+| 0x468a60 | Craft_HitNode | confirmed | Ships (Craft) |
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | confirmed | Ships (Craft) |
 | 0x46a0d0 | GameObjectClass_Init | confirmed | Game object definitions |
 | 0x46a470 | GameObjectClass_Load | confirmed | Game object definitions |
@@ -495,6 +500,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x49b6a0 | SelectionDisplay_Fade | confirmed | Interface: selection display |
 | 0x4ab5d0 | OverView_Deselect | confirmed | Interface: selection display |
 | 0x4ab8c0 | OverView_CanSelect | confirmed | Interface: selection display |
+| 0x4d92e0 | Ordnance_SetHitNode | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4dc9c0 | EnergyShieldConverter_Apply | inferred | Special weapons and timed effects |
 | 0x4dfe00 | ManheimEffect_Apply | inferred | Special weapons and timed effects |
 | 0x4e5da0 | ShieldInversion_Apply | inferred | Special weapons and timed effects |
@@ -507,6 +513,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4ed150 | Missile_Update | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ee5f0 | Ordnance_ShooterDying | inferred | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ee620 | Ordnance_TargetDying | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ee710 | Ordnance_RollHit | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ee7f0 | Ordnance_DropShooterBonus | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ee860 | Ordnance_HitTest | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ffd70 | Name_Equals | confirmed | Object definitions (ODF) |
@@ -523,6 +530,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x50a520 | Weapon_InRange | confirmed | Weapons and firing |
 | 0x50a7c0 | Weapon_AimHit | confirmed | Weapons and firing |
 | 0x50aab0 | Weapon_AimMiss | confirmed | Weapons and firing |
+| 0x50ae40 | Weapon_MakeShot | confirmed | Weapons and firing |
 | 0x50b690 | Weapon_ReloadDelay | confirmed | Weapons and firing |
 | 0x515d50 | NodeEffect_Queue | confirmed | Effects at nodes: sparks and system explosions |
 | 0x515f40 | NodeEffect_Age | confirmed | Effects at nodes: sparks and system explosions |
@@ -623,7 +631,7 @@ table and narrow or remove its line here.
 | 0x5abbc0–0x5b7b10 | Audio, jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
 
 <!-- coverage:start -->
-Coverage: the index names 159 routines of the 8,123 functions in the game code band: 122 confirmed, 31 inferred, 6 unknown.
+Coverage: the index names 163 routines of the 8,123 functions in the game code band: 126 confirmed, 31 inferred, 6 unknown.
 <!-- coverage:end -->
 
 ## ODF keys

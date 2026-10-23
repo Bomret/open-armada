@@ -172,6 +172,9 @@ public sealed class CombatPlan
             (SystemNames.Sensors, "sensors"),
         };
 
+        // A system's spark time when its definition sets none: the class default (0x45fbe0, system +0x24).
+        const float DefaultSparkTime = 0.5f;
+
         // stand-in: a middling race for a race definition the install lacks: no delay and repair factors,
         // middling crew thresholds.
         static readonly RaceValues StandInRace = new()
@@ -222,6 +225,8 @@ public sealed class CombatPlan
                             HitPercent = r.Num(key + "HitPercent", 0),
                             CrewLoss = r.Num(key + "CrewLoss", 0),
                             RepairTime = r.Num(key + "RepairTime", 0),
+                            SparkTime = r.Num(key + "SparkTime", DefaultSparkTime),
+                            TargetHardpoints = r.List(key + "TargetHardpoints"),
                         }
                     );
                 }

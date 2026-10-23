@@ -271,6 +271,7 @@ public static class CombatRules
             Location = location,
             Damage = damage,
             ShieldLoss = shieldLoss,
+            SystemsPart = systemsPart,
             CrewLoss = crewLoss,
             Points = points,
             Destroyed = destroyed,

@@ -102,6 +102,7 @@ public sealed class CombatArt
     const string MissingExplosionSound = "explosion sound missing from the install, it is not played";
     const string NoExplosionModel = "explosion names no model that the install holds, it shows no model";
     const string MissingSmallExplosion = "small explosion sprite missing from the sprite tables, it is not drawn";
+    const string MissingRepairSpark = "repair spark sprite missing from the sprite tables, repair sparks are not drawn";
     const string MissingHardpoint = "hardpoint missing from the model, its shots leave from the unit's center";
 
     const string MissingShieldGeometry = "shield geometry missing from the install, its shield hit effect is not shown";
@@ -196,7 +197,7 @@ public sealed class CombatArt
     }
 
     /// <summary>
-    /// Resolves the seven small explosion sprites of a dying unit, <c>systemexpl1</c> to <c>systemexpl7</c>, from the
+    /// Resolves the seven small explosion sprites of a dying unit and of a hit, <c>systemexpl1</c> to <c>systemexpl7</c>, from the
     /// sprite tables into <see cref="Sprites"/>; <see cref="Sprite"/> gives each. The sprites the tables lack are one
     /// gap, logged here as one WARN entry, and are skipped (INV-0002). Call it after <see cref="Build"/>.
     /// </summary>
@@ -222,6 +223,25 @@ public sealed class CombatArt
         {
             Log.Warn(Area.Combat, _gaps.Entries.Single(r => r.Cause == MissingSmallExplosion).Text);
         }
+    }
+
+    /// <summary>
+    /// Resolves the repair spark sprite, <see cref="RepairSpark.SpriteName"/>, from the sprite tables into
+    /// <see cref="Sprites"/>; <see cref="Sprite"/> gives it. A sprite the tables lack is a gap, logged here as one WARN
+    /// entry, and no spark is drawn (INV-0002). Call it after <see cref="Build"/>.
+    /// </summary>
+    public void AddRepairSparks()
+    {
+        _rows ??= SpriteArt.Rows(_files);
+        if (_rows.TryGetValue(RepairSpark.SpriteName, out var row))
+        {
+            _sprites[RepairSpark.SpriteName] = SpriteArt.Of(row.Table, row.Sprite);
+
+            return;
+        }
+
+        _gaps.Add(MissingRepairSpark, RepairSpark.SpriteName);
+        Log.Warn(Area.Combat, _gaps.Entries.Single(r => r.Cause == MissingRepairSpark).Text);
     }
 
     /// <summary>Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.</summary>

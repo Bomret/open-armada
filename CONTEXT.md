@@ -225,6 +225,11 @@ An emitter node under a damage node that sprays short-lived sprites, such as ven
 by its sprite table's `@emitter` definition.
 _Avoid_: particle system, smoke emitter
 
+**Repair spark**
+The `xspark` sprite that shows for a second at one of a system's target hardpoints, every `<system>SparkTime`
+seconds while the system repairs.
+_Avoid_: damage spark, system spark
+
 **Crew status**
 The state of a unit's crew against its race's crew levels: green, yellow at or below `crewYellowStatus`,
 red at or below `crewRedStatus`. It slows weapons and repair, and it colors the crew dot.

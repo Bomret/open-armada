@@ -22,6 +22,7 @@ public class CombatWorldTests
         public required CombatProfile Profile { get; init; }
         public bool Mobile { get; init; } = true;
         public float Radius { get; init; } = 0;
+        public float ModelRadius { get; init; } = 0;
         public ShieldEllipsoid? Shield { get; init; }
     }
 
@@ -32,7 +33,15 @@ public class CombatWorldTests
             Profile = Profile(weapon == null ? null : new[] { weapon }, maxHealth: shields, hull: 100),
         };
 
-    static CombatWorld World(out UnitPoses poses, Func<double>? random = null, params Spec[] specs)
+    static CombatWorld World(out UnitPoses poses, Func<double>? random = null, params Spec[] specs) =>
+        World(out poses, (_, _, pose) => pose.Position, random, specs);
+
+    static CombatWorld World(
+        out UnitPoses poses,
+        Func<PlacedObject, string, ShipPose, Vector3> hardpoints,
+        Func<double>? random,
+        params Spec[] specs
+    )
     {
         poses = new UnitPoses(specs.Select(s => s.Object));
 
@@ -44,12 +53,13 @@ public class CombatWorldTests
                 Profile = s.Profile,
                 DefinitionName = s.Object.Label + ".odf",
                 Radius = s.Radius,
+                ModelRadius = s.ModelRadius,
                 Mobile = s.Mobile,
                 Shield = s.Shield,
             }),
             1,
             random ?? (() => 0),
-            (_, _, pose) => pose.Position
+            hardpoints
         );
     }
 
@@ -1773,5 +1783,193 @@ public class CombatWorldTests
         Assert.IsNotNull(world.State(b.Object));
         Assert.AreEqual(1, world.Step(CombatWorld.Tick).OfType<UnitDestroyed>().Count());
         Assert.IsNull(world.State(b.Object));
+    }
+
+    // A unit whose engines are damaged by one hit point and repair too slowly to be whole within the test.
+    static (CombatWorld World, Spec Unit) Sparking(
+        Func<double>? random = null,
+        float sparkTime = 0.5f,
+        params string[] hardpoints
+    )
+    {
+        var a = WithSystems(
+            "a",
+            1,
+            0,
+            null,
+            Sys("Engines", hitPoints: 5, repairTime: 1e6f, sparkTime: sparkTime, targetHardpoints: hardpoints)
+        ) with
+        {
+            ModelRadius = 50,
+        };
+        var world = World(random, a);
+        world.State(a.Object)!.Systems["Engines"].HitPoints = 4;
+
+        return (world, a);
+    }
+
+    static List<RepairSpark> SparksOver(CombatWorld world, double seconds, double frame)
+    {
+        var found = new List<RepairSpark>();
+        var steps = (int)Math.Round(seconds / frame);
+        for (var i = 0; i < steps; i++)
+        {
+            found.AddRange(world.Step(frame).OfType<RepairSpark>());
+        }
+
+        return found;
+    }
+
+    [TestMethod]
+    public void ADamagedSystemThrowsASparkOnceItsClockPassesTheSparkTimeAtAnyFrameRate()
+    {
+        // the clock must pass the spark time, not reach it (0x4683d0): the first spark comes at 0.52 s, then one
+        // every 0.5 s, so 2.02 s hold four
+        foreach (var frame in new[] { 0.02, 1.0 / 50, 0.101, 1.01 })
+        {
+            var (world, _) = Sparking(null, 0.5f, "hp1");
+            Assert.AreEqual(4, SparksOver(world, 2.02, frame).Count, $"frame {frame}");
+        }
+
+        var (exact, _) = Sparking(null, 0.5f, "hp1");
+        Assert.AreEqual(0, SparksOver(exact, 0.5, 0.02).Count);
+        Assert.AreEqual(1, SparksOver(exact, 0.02, 0.02).Count);
+    }
+
+    [TestMethod]
+    public void ASparkIsAtOneOfTheSystemsTargetHardpointsPickedAtRandomAndSizedByTheModelRadius()
+    {
+        var (low, a) = Sparking(() => 0, 0.5f, "hp1", "hp2");
+        var first = SparksOver(low, 0.52, 0.02).Single();
+        Assert.AreSame(a.Object, first.Unit);
+        Assert.AreEqual("Engines", first.System);
+        Assert.AreEqual("hp1", first.Hardpoint);
+        Assert.AreEqual(7f, first.Size, 1e-5f); // 0.14 of the model radius of 50 (0x600794)
+        var (high, _) = Sparking(() => 0.99, 0.5f, "hp1", "hp2");
+        Assert.AreEqual("hp2", SparksOver(high, 0.52, 0.02).Single().Hardpoint);
+    }
+
+    [TestMethod]
+    public void ASystemWithoutTargetHardpointsOrAtFullHitPointsThrowsNoSpark()
+    {
+        var (bare, _) = Sparking();
+        Assert.AreEqual(0, SparksOver(bare, 2, 0.02).Count);
+        var (whole, a) = Sparking(null, 0.5f, "hp1");
+        whole.State(a.Object)!.Systems["Engines"].HitPoints = 5;
+        Assert.AreEqual(0, SparksOver(whole, 2, 0.02).Count);
+    }
+
+    [TestMethod]
+    public void ADestroyedSystemSparksWhileItRepairs()
+    {
+        var (world, a) = Sparking(null, 0.5f, "hp1");
+        world.State(a.Object)!.Systems["Engines"].HitPoints = 0;
+        world.State(a.Object)!.DestroySystem("Engines");
+        Assert.AreEqual(4, SparksOver(world, 2.02, 0.02).Count);
+    }
+
+    [TestMethod]
+    public void ADerelictOrDyingUnitThrowsNoSpark()
+    {
+        var (derelict, a) = Sparking(null, 0.5f, "hp1");
+        MakeDerelict(derelict, a);
+        Assert.AreEqual(0, SparksOver(derelict, 2, 0.02).Count);
+        var (dying, b) = Sparking(null, 0.5f, "hp1");
+        dying.State(b.Object)!.Dying = true;
+        dying.State(b.Object)!.DyingRemaining = 100;
+        Assert.AreEqual(0, SparksOver(dying, 2, 0.02).Count);
+    }
+
+    [TestMethod]
+    public void ASparkTimeOfZeroSparksOncePerTick()
+    {
+        var (world, _) = Sparking(null, 0, "hp1");
+        Assert.AreEqual(10, SparksOver(world, 0.2, 0.02).Count);
+    }
+
+    // A beam of 10 from a at x 0 on b at x 100. b has no shields unless `shields` says so, and its engines take every
+    // roll unless `hull` gives the roll to the hull. b's engine target hardpoint t1 sits 30 units beyond its center,
+    // t2 30 units short of it, toward a.
+    static (CombatWorld World, Spec Target) Hitting(
+        Func<double>? random = null,
+        float shields = 0,
+        bool hull = false,
+        float modelRadius = 50
+    )
+    {
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 10, life: 0.1f), delay: 100, range: 300) }),
+        };
+        var engines = Sys("Engines", hitPoints: 50, percent: hull ? 0 : 100, targetHardpoints: ["t1", "t2"]);
+        var b = new Spec
+        {
+            Object = Placed("b", 2, 100),
+            Profile = Profile(maxHealth: shields, hull: hull ? 100 : 0, systems: [engines]),
+            ModelRadius = modelRadius,
+        };
+        var world = World(
+            out _,
+            (_, name, pose) =>
+                name switch
+                {
+                    "t1" => pose.Position + new Vector3(30, 0, 0),
+                    "t2" => pose.Position - new Vector3(30, 0, 0),
+                    _ => pose.Position,
+                },
+            random,
+            a,
+            b
+        );
+        world.Attack(a.Object, b.Object);
+
+        return (world, b);
+    }
+
+    static List<HitExplosion> ExplosionsOfFirstHit(CombatWorld world) =>
+        TickUntil(world, e => e.OfType<ShotLanded>().Any()).OfType<HitExplosion>().ToList();
+
+    [TestMethod]
+    public void AHitOnASystemShowsAnExplosionAtItsTargetHardpointNearestTheFiringHardpoint()
+    {
+        var (world, b) = Hitting();
+        var explosion = ExplosionsOfFirstHit(world).Single();
+        Assert.AreSame(b.Object, explosion.Unit);
+        Assert.AreEqual("systemexpl1", explosion.Name);
+        Assert.AreEqual("t2", explosion.Hardpoint);
+        Assert.AreEqual(7f, explosion.Size, 1e-5f); // 0.14 of the model radius of 50 (0x60076c)
+    }
+
+    [TestMethod]
+    public void AHitExplosionIsOneOfSevenPickedAtRandomAndAtLeastFourInSize()
+    {
+        // 0.99 rolls the engines too (a roll of 99 is still below their 100 percent)
+        var (world, _) = Hitting(() => 0.99, modelRadius: 10);
+        var explosion = ExplosionsOfFirstHit(world).Single();
+        Assert.AreEqual("systemexpl7", explosion.Name);
+        Assert.AreEqual(4f, explosion.Size, 1e-5f); // 1.4 is raised to the least size of 4 (0x600770)
+    }
+
+    [TestMethod]
+    public void AHullHitShowsItsExplosionAtTheModelRoot()
+    {
+        var (world, _) = Hitting(hull: true);
+        Assert.IsNull(ExplosionsOfFirstHit(world).Single().Hardpoint);
+    }
+
+    [TestMethod]
+    public void AHitTheShieldsTakeWholeShowsNoExplosion()
+    {
+        // the world's SHIELD_DAMAGE_PROTECTION is 1, so a hit on raised shields passes nothing to the systems
+        var (world, _) = Hitting(shields: 100);
+        Assert.AreEqual(0, ExplosionsOfFirstHit(world).Count);
+    }
+
+    [TestMethod]
+    public void ACriticalHitThatDoomsTheUnitShowsNoExplosion()
+    {
+        var (world, _, _) = CriticalHitWorld();
+        Assert.AreEqual(0, ExplosionsOfFirstHit(world).Count);
     }
 }

@@ -96,6 +96,24 @@ public partial class UnitOrders : Node3D
             return shield;
         }
 
+        // The class load leaves out each target hardpoint the model lacks (0x460f30); the gap names them once per model.
+        var reported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        CombatProfile Sparking(PlacedObject o)
+        {
+            var (profile, missing) = TargetHardpoints.Keep(combat.Profiles[o], model(o));
+            if (missing.Count > 0 && reported.Add(o.Model))
+            {
+                var text =
+                    $"{o.Model}: target hardpoints missing from the model, no repair spark shows there: {string.Join(", ", missing)}";
+
+                Log.Warn(Area.Combat, text);
+
+                gap(text);
+            }
+
+            return profile;
+        }
+
         var random = seed is { } fixedSeed ? new System.Random(fixedSeed) : new System.Random();
         _world = new CombatWorld(
             _poses,
@@ -104,7 +122,8 @@ public partial class UnitOrders : Node3D
                 .Select(u => new CombatUnit
                 {
                     Unit = u.Object,
-                    Profile = combat.Profiles[u.Object],
+                    Profile = Sparking(u.Object),
+                    ModelRadius = model(u.Object) is { } sod ? ShieldEllipsoid.BoundingRadius(sod, spriteNodes) : 0,
                     DefinitionName = // inferred: per-target values name a definition with its `.odf` suffix (docs/rules/combat-rules.md)
                         u.Object.Class + ".odf",
                     Radius = Radius(nodes[u.Object]),

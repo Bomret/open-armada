@@ -1,4 +1,5 @@
 using System.Numerics;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
@@ -45,6 +46,12 @@ public sealed record Hit
     /// The shield points lost: the shield part, at most the shields the unit had; zero when the shields were at zero.
     /// </summary>
     public required double ShieldLoss { get; init; }
+
+    /// <summary>
+    /// The systems part of this hit before the running total: the damage the shields did not take, with the damage
+    /// past zero shields; zero for a hit on a dying unit.
+    /// </summary>
+    public double SystemsPart { get; init; }
 
     /// <summary>
     /// The crew lost to the shield excess, a hull hit, and a destroyed system. The value is not clamped, so it can
@@ -241,6 +248,61 @@ public sealed record UnitDestroyed : CombatEvent
 {
     /// <summary>The map object of the destroyed unit.</summary>
     public required PlacedObject Unit { get; init; }
+}
+
+/// <summary>
+/// A repair spark: the <c>xspark</c> sprite shows for <see cref="Seconds"/> at a target hardpoint of a system that
+/// repairs, and follows that hardpoint as the unit moves (0x4683d0 raises it through 0x515d50; 0x515f40 ages it and
+/// 0x515fb0 draws it at the hardpoint's node).
+/// </summary>
+public sealed record RepairSpark : CombatEvent
+{
+    /// <summary>The sprite's name in the sprite tables.</summary>
+    public const string SpriteName = "xspark";
+
+    /// <summary>How long the spark shows: its queue entry ends after 1 second (0x4683d0 passes 1.0, 0x515f40).</summary>
+    public const double Seconds = 1.0;
+
+    /// <summary>The map object of the unit.</summary>
+    public required PlacedObject Unit { get; init; }
+
+    /// <summary>The system that repairs, one of <see cref="SystemNames"/>.</summary>
+    public required string System { get; init; }
+
+    /// <summary>The hardpoint the spark shows at, one of the system's target hardpoints.</summary>
+    public required string Hardpoint { get; init; }
+
+    /// <summary>
+    /// The sprite's size: 0.14 of the unit's model radius (0x600794). The sprite is drawn this far out from its
+    /// center on each side, so it is twice this wide (0x5975e0).
+    /// </summary>
+    public required float Size { get; init; }
+}
+
+/// <summary>
+/// A hit's explosion: one of <c>systemexpl1</c> to <c>systemexpl7</c> shows for <see cref="Seconds"/> at the hit's
+/// node of the target, and follows it as the unit moves (0x465100 raises it through 0x515d50; 0x515f40 ages it and
+/// 0x515fb0 draws it).
+/// </summary>
+public sealed record HitExplosion : CombatEvent
+{
+    /// <summary>How long the explosion shows: its queue entry ends after 1 second (0x465100 passes 1.0, 0x515f40).</summary>
+    public const double Seconds = 1.0;
+
+    /// <summary>The map object of the unit that was hit.</summary>
+    public required PlacedObject Unit { get; init; }
+
+    /// <summary>The sprite's name in the sprite tables: <c>systemexpl1</c> to <c>systemexpl7</c>.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The target hardpoint the explosion shows at; null for the model's root node.</summary>
+    public required string? Hardpoint { get; init; }
+
+    /// <summary>
+    /// The sprite's size: 0.14 of the unit's model radius, at least 4 (0x60076c, 0x600770). The sprite is drawn this
+    /// far out from its center on each side, so it is twice this wide (0x5975e0).
+    /// </summary>
+    public required float Size { get; init; }
 }
 
 /// <summary>

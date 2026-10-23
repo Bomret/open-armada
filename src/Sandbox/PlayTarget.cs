@@ -11,6 +11,8 @@ public readonly record struct CropRect(int X, int Y, int Width, int Height);
 /// <summary>The checks of a play step that sends input events at a unit or a point: where to aim and whether the click picks what the step names.</summary>
 public static class PlayTarget
 {
+    const long MaxImageSide = 16384;
+
     /// <summary>
     /// The screen point a step aimed at <c>name</c> sends its events to: <c>projected</c>, the point's viewport
     /// coordinates, when the point lies inside <c>viewport</c> and not behind the camera (a point behind the camera
@@ -51,11 +53,25 @@ public static class PlayTarget
     public static CropRect CropOf(ScreenBox box, Vector2 viewport)
     {
         var pad = Math.Max(box.Right - box.Left, box.Bottom - box.Top) / 2;
-        var left = Math.Max(0, (int)MathF.Floor(box.Left - pad));
-        var top = Math.Max(0, (int)MathF.Floor(box.Top - pad));
-        var right = Math.Min((int)viewport.X, (int)MathF.Floor(box.Right + pad) + 1);
-        var bottom = Math.Min((int)viewport.Y, (int)MathF.Floor(box.Bottom + pad) + 1);
+        // clipped before the cast: a corner just in front of the camera projects past what an int holds
+        var left = (int)MathF.Max(0, MathF.Floor(box.Left - pad));
+        var top = (int)MathF.Max(0, MathF.Floor(box.Top - pad));
+        var right = (int)MathF.Min(MathF.Floor(viewport.X), MathF.Floor(box.Right + pad) + 1);
+        var bottom = (int)MathF.Min(MathF.Floor(viewport.Y), MathF.Floor(box.Bottom + pad) + 1);
 
         return new CropRect(left, top, right - left, bottom - top);
+    }
+
+    /// <summary>
+    /// Null when the <c>crop</c> enlarged by <c>scale</c> fits an image, at most 16384 pixels on a side (Godot's
+    /// largest image, which also keeps it within the engine's pixel count); otherwise the problem naming both sizes.
+    /// </summary>
+    public static string? ScaleProblem(CropRect crop, int scale)
+    {
+        var (width, height) = ((long)crop.Width * scale, (long)crop.Height * scale);
+
+        return width <= MaxImageSide && height <= MaxImageSide
+            ? null
+            : $"the crop of {crop.Width}x{crop.Height} pixels at scale {scale} is {width}x{height}, more than {MaxImageSide} on a side";
     }
 }

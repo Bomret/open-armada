@@ -76,4 +76,29 @@ public class PlayTargetTests
     [TestMethod]
     public void ACropOfAOnePixelBoxIsOnePixel() =>
         Assert.AreEqual(new CropRect(5, 6, 1, 1), PlayTarget.CropOf(new ScreenBox(5, 6, 5, 6), Screen));
+
+    [TestMethod]
+    public void ACropOfABoxFarPastTheViewportIsTheWholeViewport() =>
+        // a corner just in front of the camera projects to a coordinate no int holds
+        Assert.AreEqual(new CropRect(0, 0, 1280, 720), PlayTarget.CropOf(new ScreenBox(0, 0, 1e12f, 10), Screen));
+
+    [TestMethod]
+    public void AScaledCropUpToTheImageLimitOnASideIsNoProblem()
+    {
+        Assert.IsNull(PlayTarget.ScaleProblem(new CropRect(0, 0, 500, 500), 32));
+        Assert.IsNull(PlayTarget.ScaleProblem(new CropRect(0, 0, 1, 16384), 1));
+    }
+
+    [TestMethod]
+    public void AScaledCropPastTheImageLimitOnASideIsAProblem()
+    {
+        Assert.AreEqual(
+            "the crop of 500x400 pixels at scale 33 is 16500x13200, more than 16384 on a side",
+            PlayTarget.ScaleProblem(new CropRect(0, 0, 500, 400), 33)
+        );
+        Assert.AreEqual(
+            "the crop of 2x2 pixels at scale 2147483647 is 4294967294x4294967294, more than 16384 on a side",
+            PlayTarget.ScaleProblem(new CropRect(0, 0, 2, 2), int.MaxValue)
+        );
+    }
 }

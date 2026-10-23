@@ -293,7 +293,13 @@ public sealed class PlayInput(
             if (image == null)
                 return $"cannot write '{file}': the viewport has no image";
             if (box is { } b)
-                image = Crop(image, b, shot.Scale);
+            {
+                var (crop, problem) = Crop(image, b, shot.Scale);
+                if (crop == null)
+                    return problem;
+                image = crop;
+            }
+
             // Opening the file first makes an unwritable target a throw here, not an engine ERROR on stderr.
             File.Open(file, FileMode.Create).Dispose();
             var saved = image.SavePng(file);
@@ -307,8 +313,8 @@ public sealed class PlayInput(
     }
 
     // The image holds the viewport's pixels, which are as many as its viewport coordinates unless a display scale
-    // applies; the box is scaled to the image first.
-    Image Crop(Image image, ScreenBox box, int scale)
+    // applies; the box is scaled to the image first. A crop too large for an image once scaled is a problem.
+    (Image? Image, string? Problem) Crop(Image image, ScreenBox box, int scale)
     {
         var size = image.GetSize();
         var (sx, sy) = (size.X / Size.X, size.Y / Size.Y);
@@ -316,11 +322,13 @@ public sealed class PlayInput(
             new ScreenBox(box.Left * sx, box.Top * sy, box.Right * sx, box.Bottom * sy),
             new System.Numerics.Vector2(size.X, size.Y)
         );
+        if (PlayTarget.ScaleProblem(crop, scale) is { } problem)
+            return (null, problem);
         var region = image.GetRegion(new Rect2I(crop.X, crop.Y, crop.Width, crop.Height));
         if (scale > 1)
             region.Resize(crop.Width * scale, crop.Height * scale, Image.Interpolation.Nearest);
 
-        return region;
+        return (region, null);
     }
 
     void Send(InputEvent e) => View.PushInput(e, true);

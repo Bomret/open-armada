@@ -14,8 +14,8 @@ rules themselves live in the rule notes it links to.
 | Format | PE, x86, MSVC C++ with RTTI |
 | Image base | 0x400000 |
 | Sections | `.text`, `.rdata`, `.data`, `.idata`, `.rsrc`, `.reloc` |
-| Game code band | 0x401000–0x5bb4c0: the game and its Storm3D engine, 8,123 functions |
-| Outside the band | 0x5bb4c2 onward: import thunks, the C runtime, `entry` (0x5bbdac), and exception unwind handlers, 3,395 functions |
+| Game code band | 0x401000–0x5bb4c0: the game and its Storm3D engine, 9,401 functions |
+| Outside the band | 0x5bb4c2 onward: import thunks, the C runtime, `entry` (0x5bbdac), and exception unwind handlers, 4,690 functions |
 
 Every routine in the band is game layer: the 1.2 release has no platform layer added after the fact. The
 `layer` column is there so the format matches the other projects that use it.
@@ -24,7 +24,8 @@ Every routine in the band is game layer: the 1.2 release has no platform layer a
 
 1. Search this index for the topic, the address, the ODF key, or the class.
 2. Read the local dump (`decomp/armada/dump/`, see `tools/GhidraDump/README.md`): `functions/<0xaddress>.c`
-   for one function, `functions.tsv` for callers, callees, and strings, `strings.tsv` to go from a string to
+   for one function, `functions.tsv` for callers, callees, and strings (a caller can be a switch case block of
+   a larger routine; see the dump README), `strings.tsv` to go from a string to
    the functions that use it, `vtables.tsv` to go from a class to its methods.
 3. Confirm unclear pseudocode against the instructions (Ghidra on `decomp/armada/project/`, or `objdump`). The pseudocode can be wrong: 0x501820
    returns the remainder of a division where the pseudocode shows the quotient.
@@ -631,7 +632,7 @@ table and narrow or remove its line here.
 | 0x5abbc0–0x5b7b10 | Audio, jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
 
 <!-- coverage:start -->
-Coverage: the index names 163 routines of the 8,123 functions in the game code band: 126 confirmed, 31 inferred, 6 unknown.
+Coverage: the index names 163 routines of the 9,401 functions in the game code band: 126 confirmed, 31 inferred, 6 unknown.
 <!-- coverage:end -->
 
 ## ODF keys

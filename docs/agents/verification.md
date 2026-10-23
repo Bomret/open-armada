@@ -32,6 +32,11 @@ the folder must exist before the run:
 rm -rf play-out/<stem> && mkdir -p play-out/<stem> && godot-mono --path . --write-movie play-out/<stem>/frame.png --fixed-fps <fps> -- --game "${ARMADA_DIR:?set ARMADA_DIR to an Armada install}" --layout layouts/<layout>.jsonc --play play/<stem>.play
 ```
 
+Movie Maker decouples simulated time from the wall clock. Each frame advances the game by exactly
+`1 / <fps>` seconds, and the next frame starts as soon as the last one is written. A run's wall-clock
+time is therefore its frame count times the cost of one frame: a cheap scene runs faster than real
+time, and an expensive one slower. The recorded frames and audio play at real speed either way.
+
 Verify each line with the smallest layout that shows it. A play run on a stock map is slow under
 Movie Maker, and a long fight there can take hours.
 

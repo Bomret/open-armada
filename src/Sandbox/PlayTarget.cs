@@ -1,8 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 
 namespace OpenArmada.Sandbox;
+
+/// <summary>A rectangle of whole pixels: its top-left pixel and its size, each at least one.</summary>
+public readonly record struct CropRect(int X, int Y, int Width, int Height);
 
 /// <summary>The checks of a play step that sends input events at a unit or a point: where to aim and whether the click picks what the step names.</summary>
 public static class PlayTarget
@@ -38,4 +42,20 @@ public static class PlayTarget
         hostile.Count == 0 ? $"no unit is selected to attack '{name}'"
         : hostile.All(h => h) ? null
         : $"'{name}' is not hostile to every selected unit";
+
+    /// <summary>
+    /// The pixels a <c>shot</c> step aimed at a unit keeps: the unit's screen <c>box</c> grown past each edge by half its
+    /// longer side, so effects around the hull such as a fireball or a shield flash stay in it, then every pixel the
+    /// grown box touches, clipped to <c>viewport</c>. The box lies at least partly inside the viewport.
+    /// </summary>
+    public static CropRect CropOf(ScreenBox box, Vector2 viewport)
+    {
+        var pad = Math.Max(box.Right - box.Left, box.Bottom - box.Top) / 2;
+        var left = Math.Max(0, (int)MathF.Floor(box.Left - pad));
+        var top = Math.Max(0, (int)MathF.Floor(box.Top - pad));
+        var right = Math.Min((int)viewport.X, (int)MathF.Floor(box.Right + pad) + 1);
+        var bottom = Math.Min((int)viewport.Y, (int)MathF.Floor(box.Bottom + pad) + 1);
+
+        return new CropRect(left, top, right - left, bottom - top);
+    }
 }

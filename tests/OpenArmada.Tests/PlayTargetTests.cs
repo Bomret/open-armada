@@ -55,4 +55,25 @@ public class PlayTargetTests
         Assert.AreEqual("no unit is selected to attack 'a'", PlayTarget.AttackProblem("a", []));
         Assert.AreEqual("'a' is not hostile to every selected unit", PlayTarget.AttackProblem("a", [true, false]));
     }
+
+    [TestMethod]
+    public void ACropReachesHalfTheBoxsLongerSidePastEachEdgeRoundedOutward()
+    {
+        // a box 40 wide and 20 high pads by 20 on each side
+        var crop = PlayTarget.CropOf(new ScreenBox(100.5f, 200.5f, 140.5f, 220.5f), Screen);
+
+        Assert.AreEqual(new CropRect(80, 180, 81, 61), crop);
+    }
+
+    [TestMethod]
+    public void ACropIsClippedToTheViewport()
+    {
+        var crop = PlayTarget.CropOf(new ScreenBox(-30, 700, 10, 740), Screen);
+
+        Assert.AreEqual(new CropRect(0, 680, 31, 40), crop);
+    }
+
+    [TestMethod]
+    public void ACropOfAOnePixelBoxIsOnePixel() =>
+        Assert.AreEqual(new CropRect(5, 6, 1, 1), PlayTarget.CropOf(new ScreenBox(5, 6, 5, 6), Screen));
 }

@@ -139,11 +139,20 @@ public sealed record TurnStep : PlayStep
     public required double Pixels { get; init; }
 }
 
-/// <summary><c>shot &lt;name&gt;</c>: writes a screenshot to <c>&lt;name&gt;.png</c> of the script's output folder.</summary>
+/// <summary>
+/// <c>shot &lt;name&gt; [unit [scale]]</c>: writes a screenshot to <c>&lt;name&gt;.png</c> of the script's output folder,
+/// the whole frame or, with a unit, the crop around it (<see cref="PlayTarget.CropOf"/>) enlarged by the scale.
+/// </summary>
 public sealed record ShotStep : PlayStep
 {
     /// <summary>The file stem; it holds no path separator.</summary>
     public required string Name { get; init; }
+
+    /// <summary>The unit's name as the script writes it, or null for the whole frame.</summary>
+    public string? Unit { get; init; }
+
+    /// <summary>The whole-number factor the crop is enlarged by; one or more.</summary>
+    public int Scale { get; init; } = 1;
 }
 
 /// <summary>
@@ -253,7 +262,7 @@ public sealed class PlayScript
     {
         switch (word)
         {
-            case "select" or "attack" or "press" or "shot" when args.Length != 1:
+            case "select" or "attack" or "press" when args.Length != 1:
                 return Wrong(word, 1, args.Length);
             case "select":
                 return (new SelectStep { Line = number, Unit = args[0] }, null);
@@ -262,9 +271,27 @@ public sealed class PlayScript
             case "press":
                 return (new PressStep { Line = number, Key = args[0] }, null);
             case "shot":
-                return NoFileName(args[0])
-                    ? (null, $"'{args[0]}' is no file name")
-                    : (new ShotStep { Line = number, Name = args[0] }, null);
+                if (args.Length is not (1 or 2 or 3))
+                    return (null, $"'shot' takes 1 to 3 arguments, found {args.Length}");
+                if (NoFileName(args[0]))
+                    return (null, $"'{args[0]}' is no file name");
+                var scale = 1;
+                if (
+                    args.Length == 3
+                    && (!int.TryParse(args[2], NumberStyles.None, CultureInfo.InvariantCulture, out scale) || scale < 1)
+                )
+                    return (null, $"'{args[2]}' is not a whole number of one or more");
+
+                return (
+                    new ShotStep
+                    {
+                        Line = number,
+                        Name = args[0],
+                        Unit = args.Length > 1 ? args[1] : null,
+                        Scale = scale,
+                    },
+                    null
+                );
             case "move":
                 if (args.Length != 2)
                     return Wrong(word, 2, args.Length);

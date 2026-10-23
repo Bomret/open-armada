@@ -18,6 +18,7 @@ public partial class UnitSelection : Node3D
     readonly Dictionary<PlacedObject, Node3D> _nodes;
     readonly Dictionary<PlacedObject, SelectableUnit> _units;
     readonly Dictionary<SelectableUnit, (MeshInstance3D Ring, Label Name)> _marks = new();
+    readonly Dictionary<PlacedObject, Aabb> _removed = new();
     readonly SelectionBox _box = new() { MouseFilter = Control.MouseFilterEnum.Ignore };
     readonly CanvasLayer _layer = new();
     Vector2? _from;
@@ -102,12 +103,17 @@ public partial class UnitSelection : Node3D
         }
     }
 
-    /// <summary>Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected.</summary>
+    /// <summary>
+    /// Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected. Its world box
+    /// of the last frame stays for <see cref="ScreenBoxOf(PlacedObject)"/>.
+    /// </summary>
     public void Remove(PlacedObject unit)
     {
         Dismiss(unit);
         if (_nodes.Remove(unit, out var node))
         {
+            if (Extent(node) is { } last)
+                _removed[unit] = last;
             node.QueueFree();
         }
     }
@@ -155,11 +161,21 @@ public partial class UnitSelection : Node3D
     /// The unit's screen box in viewport pixels (docs/rules/selection-display.md); null when the unit is gone, has no
     /// visible mesh, has a corner behind the camera, or lies wholly off screen.
     /// </summary>
-    public ScreenBox? ScreenBoxOf(SelectableUnit unit)
+    public ScreenBox? ScreenBoxOf(SelectableUnit unit) => ScreenBoxOf(unit.Object);
+
+    /// <summary>
+    /// The screen box of the object's node as <see cref="ScreenBoxOf(SelectableUnit)"/> has it; a dying unit keeps its
+    /// node and so its box, and a destroyed unit has the world box of its last frame, seen through the current camera.
+    /// </summary>
+    public ScreenBox? ScreenBoxOf(PlacedObject unit)
     {
         var camera = GetViewport().GetCamera3D();
         // stand-in: the box around the model's meshes in world axes; whether the game's box turns with the unit is unknown
-        if (camera == null || !_nodes.TryGetValue(unit.Object, out var node) || Extent(node) is not { } box)
+        var extent =
+            _nodes.TryGetValue(unit, out var node) ? Extent(node)
+            : _removed.TryGetValue(unit, out var last) ? last
+            : (Aabb?)null;
+        if (camera == null || extent is not { } box)
             return null;
         var corners = Enumerable
             .Range(0, 8)

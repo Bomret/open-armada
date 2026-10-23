@@ -48,6 +48,10 @@ Movie Maker, and a long fight there can take hours.
   `README.md`, "Open a layout", has the keys.
 - Pick the lowest fixed frame rate the line allows: 30 where the line needs the frames around a short
   visual event, lower, such as 10, for a line about unit state or a long fight.
+- Take a shot of a unit as a crop around it, `shot <name> <unit> [scale]`, whenever the line is about that unit:
+  a crop costs a fraction of a whole frame's image tokens. Enlarge it with a `scale` of 2 or more when the thing is a
+  few pixels wide, such as a spark. Take a whole frame only when the line is about the whole view or several units
+  apart.
 - Read the named screenshots and the frames around them, and report which files show the thing.
 - Measure a sound with the WAV level tool over its window and over a quiet window:
   `dotnet run --project tools/WavLevel -- play-out/<stem>/frame.wav --from <s> --to <s>`. A level clearly above the

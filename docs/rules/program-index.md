@@ -65,6 +65,10 @@ Range 0x43f2b0–0x4434d0 (`Game Logic\Program.cpp`). Not surveyed; see Unexplor
 |---|---|---|---|---|---|---|
 | 0x4404a0 | Program_GameOpenPreLoad | Loads the game before a mission; checks the CD | inferred | game | log text `GameOpenPreLoad() took %d seconds.` | — |
 | 0x4407b0 | Program_GameOpenLoad | Second loading step of a mission | inferred | game | log text `Program::GameOpenLoad() took %d seconds.` | — |
+| 0x43f1a0 | Program_Tick | One game tick: the area, simulate, and post-simulate passes | confirmed | game | calls 0x4713c0, 0x471410, 0x471560 | [forced-motion](forced-motion.md#tick-order) |
+| 0x4713c0 | GameObject_AreaPass | Calls slot 0x8c on every object | confirmed | game | — | [forced-motion](forced-motion.md#tick-order) |
+| 0x471410 | GameObject_SimulatePass | Calls slot 0x84 (simulate) on every object | confirmed | game | — | [forced-motion](forced-motion.md#tick-order) |
+| 0x471560 | GameObject_PostSimulatePass | Calls slot 0x88 on every object that is not dying | confirmed | game | — | [forced-motion](forced-motion.md#tick-order) |
 
 ### Object definitions (ODF)
 
@@ -120,11 +124,11 @@ and dying.
 | 0x4617b0 | Craft_Init | Sets up a ship from its definition; copies `maximumCrew` | confirmed | game | 0x4618eb | [combat-rules](combat-rules.md#damage-nodes) |
 | 0x464dd0 | Craft_RollHitLocation | Rolls where a hit lands | confirmed | game | — | [combat-rules](combat-rules.md#hit-location) |
 | 0x465100 | Craft_ApplyHit | Applies a hit to shields, systems, and crew; queues a system explosion at the hit node | confirmed | game | `systemexpl1`–`7` | [combat-rules](combat-rules.md#hit-explosion) |
-| 0x465e80 | Craft_UpdateLifeSupport | Takes crew each second while life support is destroyed | confirmed | game | 0x465f6f | [combat-rules](combat-rules.md#ship-systems) |
-| 0x466090 | Craft_DyingTimer | Sets the dying phase's length from the speed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x465e80 | Craft_UpdateLifeSupport | The ship's post-simulate tick (slot 0x88): takes crew each second while life support is destroyed, then runs the systems and the collision separation | confirmed | game | 0x465f6f | [combat-rules](combat-rules.md#ship-systems) |
+| 0x466090 | Craft_DyingTimer | Sets the dying phase's length from the speed; 0 for a black-hole death | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
 | 0x466180 | Craft_RandomModelPoint | Picks a random point on the model | inferred | game | walks meshes through 0x4662b0 | [combat-rules](combat-rules.md#dying-units) |
 | 0x466320 | Craft_PlayDyingExplosion | Plays a dying explosion at a random point | confirmed | game | table 0x600750 | [combat-rules](combat-rules.md#dying-units) |
-| 0x4663d0 | Craft_EndDying | Ends the dying phase with the `fireball` explosion | confirmed | game | key `fireball` | [combat-rules](combat-rules.md#dying-units) |
+| 0x4663d0 | Craft_EndDying | Ends the dying phase with the `fireball` explosion and shatters the model | confirmed | game | key `fireball` | [combat-rules](combat-rules.md#dying-units) |
 | 0x466b00 | Craft_RegenerateShields | Regains shield strength up to the maximum | confirmed | game | — | [combat-rules](combat-rules.md#shields) |
 | 0x466ca0 | Craft_OnCrewChanged | Re-evaluates a ship after a crew change | inferred | game | called after crew loss in 0x467b70 | [combat-rules](combat-rules.md#hit-location) |
 | 0x4675d0 | Craft_ShareSystemDamage | Gives a destroyed system's share to the working systems | inferred | game | 0x467600 | [combat-rules](combat-rules.md#hit-location) |
@@ -142,6 +146,15 @@ and dying.
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | Spawns the shield-down overlay | confirmed | game | 0x469368–0x4693a6 | [shield-effects](shield-effects.md#shield-down-overlay) |
 | 0x472120 | GameObject_FrameUpdate | A per-frame update that runs the damage nodes for each ship | inferred | game | calls 0x4677b0 | [combat-rules](combat-rules.md#damage-nodes) |
 | 0x459440 | HoverCraft_PhysicsStep | One physics step of a ship's motion | confirmed | game | `HoverCraft.cpp`; log `pitch:% .2f, roll:` | [combat-rules](combat-rules.md#coasting) |
+| 0x462dd0 | Craft_StopMotion | Zeroes velocity, rates, and both accelerations when a ship enters a queue | confirmed | game | called from 0x5550f0 | [forced-motion](forced-motion.md#not-known) |
+| 0x464000 | Craft_CollisionOverlap | Penetration depth and separation of two ships (slot 0x108) | confirmed | game | — | [forced-motion](forced-motion.md#collision-separation) |
+| 0x464620 | Craft_CollisionTurn | Turns a ship away from a contact after a separation | inferred | game | `MAX_PREVENTION_ROTATION` | [forced-motion](forced-motion.md#collision-separation) |
+| 0x4644b0 | Craft_PushOutOfObstacle | Moves a ship out of an asteroid field, a planet, or a black hole's ring | confirmed | game | — | [forced-motion](forced-motion.md#push-out) |
+| 0x464910 | Craft_ResolveCollisions | Separates overlapping ships by position (slot 0x110) | confirmed | game | grid box 3.0 × radius (0x5cb170) | [forced-motion](forced-motion.md#collision-separation) |
+| 0x4664e0 | Craft_TargetValid | Whether a weapon may take a target; the tractor beam takes only ships without thrust or slowed | inferred | game | `tractor_bm` | [forced-motion](forced-motion.md#tractor-beam) |
+| 0x4690c0 | Craft_CapSpeed | Caps the speed coefficient and limit (slot 0xfc) | inferred | game | nebula 0x44c520 | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+| 0x469120 | Craft_DisableEngines | Takes the engines offline for a time; ignored while +0x678 is set | confirmed | game | — | [forced-motion](forced-motion.md#motion-state) |
+| 0x471b30 | Craft_FindSlowEffect | Finds a slow effect on the ship | inferred | game | — | [forced-motion](forced-motion.md#tractor-beam) |
 
 ### Units in general (Entity, GameObject)
 
@@ -152,6 +165,12 @@ and dying.
 | 0x46e640 | GameObject_HitRecently | Whether a hit landed less than 1 s ago | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
 | 0x46e670 | GameObject_CloakState | Reads the cloak state (+0x40) | inferred | game | cast at 0x46e79b | [shield-effects](shield-effects.md#shield-down-overlay) |
 | 0x46eac0 | GameObject_UpdateTether | Moves the tether point of the alert stance | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
+| 0x40f4d0 | Entity_AsLivingShip | The entity as a ship, or none when it is no ship or is dying | confirmed | game | flag +0xbc & 8, +0x1bf | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
+| 0x450ea0 | Craft_SetVelocity | Writes the velocity, the speed, and its inverse | confirmed | game | — | [forced-motion](forced-motion.md#pull) |
+| 0x450f20 | Entity_AsShip | The entity as a ship, dying or not | confirmed | game | flag +0xbc & 8 | [forced-motion](forced-motion.md#pull) |
+| 0x471770 | GameObject_UpdateCenter | Computes the world center at +0x12c (slot 0x3c) | confirmed | game | — | [forced-motion](forced-motion.md#motion-state) |
+| 0x471850 | GameObject_SetPosition | Sets the position (slot 0xc) | confirmed | game | bounds check 0x471640 | [forced-motion](forced-motion.md#collision-separation) |
+| 0x55d080 | Math_MatrixFromAngles | Builds an orientation from pitch, yaw, and roll, plus a position | confirmed | game | called by 0x459440 | [combat-rules](combat-rules.md#coasting) |
 
 ### Unit AI: alert stance, targets, orders
 
@@ -207,6 +226,14 @@ Definitions 0x4e9410–0x4eab30, ordnance 0x4ebb10–0x4ef950 (`Ordnance\`).
 | 0x4ee710 | Ordnance_RollHit | Rolls the shot's damage and, on a ship, its hit location when the shot is made (slot 0x58) | confirmed | game | 0x464dd0 | [combat-rules](combat-rules.md#hit-explosion) |
 | 0x4ee7f0 | Ordnance_DropShooterBonus | A dying shooter's torpedoes fly on without its bonus; hands the hit and its node to the target (slot 0x90 → 0x465100) | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
 | 0x4ee860 | Ordnance_HitTest | Maps a shot's segment into the unit and tests the shield ellipsoid | confirmed | game | — | [shield-effects](shield-effects.md#contact) |
+| 0x4ddd30 | HoldingBeam_Hold | Freezes the target at the transform of the first hit | confirmed | game | — | [forced-motion](forced-motion.md#holding-beam) |
+| 0x4ddf80 | HoldingBeam_Update | Drains special energy and holds the target each tick | confirmed | game | — | [forced-motion](forced-motion.md#holding-beam) |
+| 0x4e42f0 | RepulsionFieldClass_Load | Reads `repulsionForce` | confirmed | game | — | [forced-motion](forced-motion.md#repulsion-field) |
+| 0x4e44a0 | RepulsionField_Hit | Disables the engines and replaces the target's velocity | confirmed | game | — | [forced-motion](forced-motion.md#repulsion-field) |
+| 0x4e7b00 | TractorBeamClass_Load | Reads `targetRange`, `targetSpeed`, `omegaType` | confirmed | game | — | [forced-motion](forced-motion.md#tractor-beam) |
+| 0x4e7df0 | TractorBeam_Pull | Replaces the target's velocity with a pull toward the shooter beyond `targetRange` | confirmed | game | 0x4e7e97–0x4e7f1a | [forced-motion](forced-motion.md#tractor-beam) |
+| 0x4e7fb0 | TractorBeam_Update | Checks the beam each tick and pulls | confirmed | game | — | [forced-motion](forced-motion.md#tractor-beam) |
+| 0x4ed9a0 | Ordnance_UpdatePass | Calls slot 0x44 on every ordnance after the tick | confirmed | game | — | [forced-motion](forced-motion.md#tick-order) |
 
 ### Special weapons and timed effects
 
@@ -220,6 +247,39 @@ Specials 0x4d9010–0x4e9350, one definition class and one class per special. Ti
 | 0x4dfe00 | ManheimEffect_Apply | The Manheim effect, 2.0 s | inferred | game | `wmanhiem`; 0x4dffd1 | [shield-effects](shield-effects.md#other-effects-of-the-same-object) |
 | 0x4e5da0 | ShieldInversion_Apply | The Shield Inversion's effect on shields | inferred | game | `wshldsub`; 0x4e5e68 | [shield-effects](shield-effects.md#other-effects-of-the-same-object) |
 | 0x5623f0 | ShieldRemodulationEffect_Apply | The Shield Remodulation effect | inferred | game | `wshldrmd`; 0x5624c0 | [shield-effects](shield-effects.md#other-effects-of-the-same-object) |
+| 0x4dd720 | GravityMine_Hit | Lowers the warp speed multiplier by `slowPercent` | confirmed | game | — | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+| 0x4e4a80 | RepulsionWave_Apply | Pushes a ship and disables its engines; no reference found | unknown | game | — | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
+| 0x4e5080 | RepulsionWave_Fire | Starts the shooter's dying phase and spawns the shockwave `wrwave` | confirmed | game | — | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
+| 0x508fc0 | SelfDestruct_Update | Counts down, sets the explosion size, and starts dying | confirmed | game | — | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+| 0x560a60 | SlowEffect_Init | The slow effect of a gravity mine | inferred | game | — | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+| 0x561290 | TimedDisable_Init | A timed disable; type 2 takes the engines offline (0x469120) | confirmed | game | — | [forced-motion](forced-motion.md#motion-state) |
+
+### Map objects
+
+Range 0x44afc0–0x4548d0. Only the black hole is surveyed; see Unexplored.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x44b7d0 | BlackHoleClass_Load | Reads `GravityRadius`, `EventRadius`, `GravityForce`, `Rotation`, `ScaleSize` | confirmed | game | — | [forced-motion](forced-motion.md#black-hole) |
+| 0x44c520 | Nebula_ApplyToShip | Caps a ship's speed and applies the nebula's damage and disables | inferred | game | — | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+| 0x44da40 | AreaEffectObject_AreaTick | Calls slot 0xc8 for every living ship within `EventRadius` (slot 0x8c) | confirmed | game | — | [forced-motion](forced-motion.md#event-horizon) |
+| 0x44db30 | AreaEffectObject_GatherShips | Collects the living ships within a plane radius | confirmed | game | +0x1bf test | [forced-motion](forced-motion.md#event-horizon) |
+| 0x450950 | BlackHole_Simulate | Turns the model and pulls ships (slot 0x84) | confirmed | game | — | [forced-motion](forced-motion.md#pull) |
+| 0x450a40 | BlackHole_Swallow | Sets the black-hole death and starts dying (slot 0xc8) | confirmed | game | — | [forced-motion](forced-motion.md#event-horizon) |
+| 0x450a80 | BlackHole_PullShips | Adds the pull to ships without thrust within `GravityRadius` | confirmed | game | 0x450bcc | [forced-motion](forced-motion.md#pull) |
+| 0x451870 | IonStorm_Touch | Damages units that touch the storm | inferred | game | — | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+
+### Explosions and shockwaves
+
+Range 0x51a400–0x51e000 (`Explosion`, `ShockwaveCannon`, `ShockwaveExplosion`).
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x51c4d0 | ShockwaveCannon_Update | Grows the wave front and finds the ships in its arc | confirmed | game | 0x51c51e | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
+| 0x51c8d0 | ShockwaveCannon_HitShip | Damages a ship, disables its engines, and replaces its velocity | confirmed | game | 0x51c987–0x51ca32 | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
+| 0x51cb90 | ShockwaveCannonClass_Load | Reads `waveArc`, `disableTime`, `repulsionForce` | confirmed | game | — | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
+| 0x51d2a0 | ShockwaveExplosion_Update | Damages units in the radius; pushes nothing | confirmed | game | — | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+| 0x51d570 | Shockwave_End | Fades the wave and ends it past its full radius | confirmed | game | — | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
 
 ### Effects at nodes: sparks and system explosions
 
@@ -295,6 +355,8 @@ Node +0x1c is the first child and +0x20 the next sibling.
 | 0x59b650 | Sod_ReadNode | Reads one SOD node | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
 | 0x59c130 | Sod_ReadModel | Reads a SOD model | confirmed | game | — | [combat-rules](combat-rules.md#model-scale) |
 | 0x580040 | Model_AllPoints | Collects every mesh vertex and sprite corner | confirmed | game | — | [shield-effects](shield-effects.md#shield-ellipsoid) |
+| 0x57cf90 | Debris_SpawnPieces | Makes one debris piece per mesh face; ignores its velocity argument | confirmed | game | no read of [ebp+0x20] | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+| 0x58cef0 | SceneObject_Shatter | Breaks a model into debris pieces | confirmed | game | called by 0x4663d0 | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
 
 ### Storm3D: particles and emitters
 
@@ -349,10 +411,22 @@ Offsets are from the start of the object. A ship is a `Craft`; its definition is
 | Offset | Field | Type | Evidence |
 |---|---|---|---|
 | +0x60 | Model bounding radius, from model +0x24 (0x4510a0) | float | spark and explosion size (0x4683d0, 0x465100) |
+| +0x8c | Position | vector | 0x459f2e, 0x471850 |
 | +0xa0 | Current model | pointer | 0x4677b0 |
 | +0xe0 | Definition (`CraftClass`) | pointer | 0x4677b0 |
+| +0x12c | World center: position plus the rotated local center | vector | 0x471770 |
+| +0x138 | Speed, the length of the velocity | float | 0x459440 |
+| +0x13c | 1 / speed, 1e30 at a speed of at most 1e-4 | float | 0x465cc0 |
+| +0x140 | World velocity | vector | 0x459440 |
+| +0x14c | Pitch, yaw, and roll rates | vector | 0x459440 |
+| +0x158 | Linear acceleration, rebuilt each physics step | vector | 0x459440 |
+| +0x164 | Angular acceleration, rebuilt each physics step | vector | 0x459440 |
 | +0x1a4 | Race | pointer | 0x4677b0 |
+| +0x1bf | Dying | byte | 0x468990 |
 | +0x1ac | Object checked before the shield-down overlay spawns; role unknown | pointer | 0x467b70 |
+| +0x494 | Control values; +0x10 is the dying timer | pointer | 0x466090, 0x466320 |
+| +0x4a8 | `impulseSpeed` | float | 0x450a80, save 0x462680 |
+| +0x4ac | Warp speed multiplier | float | 0x450a80, save 0x462680 |
 | +0x4c8 | `maximumCrew` | float | 0x4677b0, 0x4618eb |
 | +0x4d8 | Crew | float | 0x4677b0, 0x467b70 |
 | +0x4dc | Derelict | byte | 0x467b70 |
@@ -362,6 +436,10 @@ Offsets are from the start of the object. A ship is a `Craft`; its definition is
 | +0x588 | Life support system | system | 0x4677b0 |
 | +0x5c0 | Sensors system | system | 0x4677b0 |
 | +0x620 | Shield-down overlay handle, −1 for none | int | 0x467b70, 0x467d40 |
+| +0x624 | Black-hole death | byte | 0x450a40, save `m_blackHoleDeath` |
+| +0x628 | Center of the black hole that swallowed the ship | vector | 0x450a40, 0x4663d0 |
+| +0x67c | Queue stage; the physics step skips a ship in a queue | int | 0x459440, save `queueStage` |
+| +0x768 | Pitch, yaw, and roll angles | vector | 0x459440 |
 
 ### Ship system (5 per ship, 0x38 bytes)
 
@@ -439,6 +517,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 <!-- by-address:start -->
 | Address | Name | Status | Topic |
 |---|---|---|---|
+| 0x40f4d0 | Entity_AsLivingShip | confirmed | Units in general (Entity, GameObject) |
 | 0x425a20 | CraftProcess_Create | inferred | Unit AI: alert stance, targets, orders |
 | 0x4266a0 | CraftProcess_Reset | inferred | Unit AI: alert stance, targets, orders |
 | 0x4294e0 | CraftProcess_AttackOrder | confirmed | Unit AI: alert stance, targets, orders |
@@ -450,15 +529,31 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x42ff80 | Craft_SetWeaponTarget | confirmed | Unit AI: alert stance, targets, orders |
 | 0x4300a0 | Target_IsValidFor | confirmed | Unit AI: alert stance, targets, orders |
 | 0x436840 | Team_IsAITeam | confirmed | Unit AI: alert stance, targets, orders |
+| 0x43f1a0 | Program_Tick | confirmed | Program, startup, and frame loop |
 | 0x4404a0 | Program_GameOpenPreLoad | inferred | Program, startup, and frame loop |
 | 0x4407b0 | Program_GameOpenLoad | inferred | Program, startup, and frame loop |
 | 0x443df0 | RaceLoader_Load | inferred | Races |
 | 0x4440b0 | Race_FindByName | confirmed | Races |
 | 0x4442b0 | Race_Load | confirmed | Races |
+| 0x44b7d0 | BlackHoleClass_Load | confirmed | Map objects |
+| 0x44c520 | Nebula_ApplyToShip | inferred | Map objects |
+| 0x44da40 | AreaEffectObject_AreaTick | confirmed | Map objects |
+| 0x44db30 | AreaEffectObject_GatherShips | confirmed | Map objects |
+| 0x450950 | BlackHole_Simulate | confirmed | Map objects |
+| 0x450a40 | BlackHole_Swallow | confirmed | Map objects |
+| 0x450a80 | BlackHole_PullShips | confirmed | Map objects |
+| 0x450ea0 | Craft_SetVelocity | confirmed | Units in general (Entity, GameObject) |
+| 0x450f20 | Entity_AsShip | confirmed | Units in general (Entity, GameObject) |
+| 0x451870 | IonStorm_Touch | inferred | Map objects |
 | 0x459440 | HoverCraft_PhysicsStep | confirmed | Ships (Craft) |
 | 0x45fea0 | CraftClass_Load | confirmed | Game object definitions |
 | 0x460f30 | CraftClass_LoadSystem | confirmed | Game object definitions |
 | 0x4617b0 | Craft_Init | confirmed | Ships (Craft) |
+| 0x462dd0 | Craft_StopMotion | confirmed | Ships (Craft) |
+| 0x464000 | Craft_CollisionOverlap | confirmed | Ships (Craft) |
+| 0x4644b0 | Craft_PushOutOfObstacle | confirmed | Ships (Craft) |
+| 0x464620 | Craft_CollisionTurn | inferred | Ships (Craft) |
+| 0x464910 | Craft_ResolveCollisions | confirmed | Ships (Craft) |
 | 0x464dd0 | Craft_RollHitLocation | confirmed | Ships (Craft) |
 | 0x465100 | Craft_ApplyHit | confirmed | Ships (Craft) |
 | 0x465e80 | Craft_UpdateLifeSupport | confirmed | Ships (Craft) |
@@ -466,6 +561,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x466180 | Craft_RandomModelPoint | inferred | Ships (Craft) |
 | 0x466320 | Craft_PlayDyingExplosion | confirmed | Ships (Craft) |
 | 0x4663d0 | Craft_EndDying | confirmed | Ships (Craft) |
+| 0x4664e0 | Craft_TargetValid | inferred | Ships (Craft) |
 | 0x466b00 | Craft_RegenerateShields | confirmed | Ships (Craft) |
 | 0x466ca0 | Craft_OnCrewChanged | inferred | Ships (Craft) |
 | 0x4675d0 | Craft_ShareSystemDamage | inferred | Ships (Craft) |
@@ -480,6 +576,8 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4685c0 | Craft_RepairAll | unknown | Ships (Craft) |
 | 0x468990 | Craft_BeginDying | confirmed | Ships (Craft) |
 | 0x468a60 | Craft_HitNode | confirmed | Ships (Craft) |
+| 0x4690c0 | Craft_CapSpeed | inferred | Ships (Craft) |
+| 0x469120 | Craft_DisableEngines | confirmed | Ships (Craft) |
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | confirmed | Ships (Craft) |
 | 0x46a0d0 | GameObjectClass_Init | confirmed | Game object definitions |
 | 0x46a470 | GameObjectClass_Load | confirmed | Game object definitions |
@@ -490,6 +588,12 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x46e640 | GameObject_HitRecently | confirmed | Units in general (Entity, GameObject) |
 | 0x46e670 | GameObject_CloakState | inferred | Units in general (Entity, GameObject) |
 | 0x46eac0 | GameObject_UpdateTether | confirmed | Units in general (Entity, GameObject) |
+| 0x4713c0 | GameObject_AreaPass | confirmed | Program, startup, and frame loop |
+| 0x471410 | GameObject_SimulatePass | confirmed | Program, startup, and frame loop |
+| 0x471560 | GameObject_PostSimulatePass | confirmed | Program, startup, and frame loop |
+| 0x471770 | GameObject_UpdateCenter | confirmed | Units in general (Entity, GameObject) |
+| 0x471850 | GameObject_SetPosition | confirmed | Units in general (Entity, GameObject) |
+| 0x471b30 | Craft_FindSlowEffect | inferred | Ships (Craft) |
 | 0x472120 | GameObject_FrameUpdate | inferred | Ships (Craft) |
 | 0x499ac0 | SelectionDisplay_LoadSprites | confirmed | Interface: selection display |
 | 0x499f70 | SelectionDisplay_Update | confirmed | Interface: selection display |
@@ -503,15 +607,26 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4ab8c0 | OverView_CanSelect | confirmed | Interface: selection display |
 | 0x4d92e0 | Ordnance_SetHitNode | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4dc9c0 | EnergyShieldConverter_Apply | inferred | Special weapons and timed effects |
+| 0x4dd720 | GravityMine_Hit | confirmed | Special weapons and timed effects |
+| 0x4ddd30 | HoldingBeam_Hold | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ddf80 | HoldingBeam_Update | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4dfe00 | ManheimEffect_Apply | inferred | Special weapons and timed effects |
+| 0x4e42f0 | RepulsionFieldClass_Load | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4e44a0 | RepulsionField_Hit | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4e4a80 | RepulsionWave_Apply | unknown | Special weapons and timed effects |
+| 0x4e5080 | RepulsionWave_Fire | confirmed | Special weapons and timed effects |
 | 0x4e5da0 | ShieldInversion_Apply | inferred | Special weapons and timed effects |
 | 0x4e70f0 | Ordnance_RollDamage | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4e7b00 | TractorBeamClass_Load | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4e7df0 | TractorBeam_Pull | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4e7fb0 | TractorBeam_Update | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4e9ed0 | OrdnanceClass_Init | confirmed | Game object definitions |
 | 0x4ea1e0 | OrdnanceClass_Load | confirmed | Game object definitions |
 | 0x4eb170 | Beam_Update | inferred | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ec100 | Ordnance_HitShields | inferred | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ec880 | Mine_Update | inferred | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ed150 | Missile_Update | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4ed9a0 | Ordnance_UpdatePass | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ee5f0 | Ordnance_ShooterDying | inferred | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ee620 | Ordnance_TargetDying | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ee710 | Ordnance_RollHit | confirmed | Ordnance: shots, beams, torpedoes, mines |
@@ -524,6 +639,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x506120 | AreaEffectCannon_FireDelay | inferred | Weapons and firing |
 | 0x506d70 | Craft_StopWeapons | confirmed | Weapons and firing |
 | 0x508750 | ReflectWeapon_Apply | inferred | Weapons and firing |
+| 0x508fc0 | SelfDestruct_Update | confirmed | Special weapons and timed effects |
 | 0x509bd0 | Weapon_Update | confirmed | Weapons and firing |
 | 0x50a170 | Weapon_InFireArc | confirmed | Weapons and firing |
 | 0x50a290 | Weapon_DistanceToTarget | confirmed | Weapons and firing |
@@ -543,6 +659,11 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x516c40 | ShieldEffect_MoveContact | confirmed | Shield effect |
 | 0x516fa0 | ShieldEffect_Update | confirmed | Shield effect |
 | 0x5170e0 | ShieldEffect_Colour | confirmed | Shield effect |
+| 0x51c4d0 | ShockwaveCannon_Update | confirmed | Explosions and shockwaves |
+| 0x51c8d0 | ShockwaveCannon_HitShip | confirmed | Explosions and shockwaves |
+| 0x51cb90 | ShockwaveCannonClass_Load | confirmed | Explosions and shockwaves |
+| 0x51d2a0 | ShockwaveExplosion_Update | confirmed | Explosions and shockwaves |
+| 0x51d570 | Shockwave_End | confirmed | Explosions and shockwaves |
 | 0x5537a0 | Odf_GetText | unknown | Object definitions (ODF) |
 | 0x553ba0 | Odf_GetInt | inferred | Object definitions (ODF) |
 | 0x553c30 | Odf_GetFloat | confirmed | Object definitions (ODF) |
@@ -553,8 +674,11 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x554320 | Odf_GetVector3 | inferred | Object definitions (ODF) |
 | 0x554430 | Odf_GetVector2 | inferred | Object definitions (ODF) |
 | 0x554530 | Odf_GetList | unknown | Object definitions (ODF) |
+| 0x55d080 | Math_MatrixFromAngles | confirmed | Units in general (Entity, GameObject) |
 | 0x55d160 | Matrix_YawPitchRoll | confirmed | Shield effect |
 | 0x55d840 | Matrix_FromDirection | inferred | Shield effect |
+| 0x560a60 | SlowEffect_Init | inferred | Special weapons and timed effects |
+| 0x561290 | TimedDisable_Init | confirmed | Special weapons and timed effects |
 | 0x5623f0 | ShieldRemodulationEffect_Apply | inferred | Special weapons and timed effects |
 | 0x5746d0 | Particle_Init | confirmed | Storm3D: particles and emitters |
 | 0x5753a0 | SprayEmitter_Create | confirmed | Storm3D: particles and emitters |
@@ -569,6 +693,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x577350 | AnimationChannel_Copy | confirmed | Storm3D: textures, animation, and drawing |
 | 0x57b3f0 | Camera_FrustumTest | confirmed | Storm3D: models, nodes, and the scene walk |
 | 0x57cee0 | Node_MeshWalk | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x57cf90 | Debris_SpawnPieces | confirmed | Storm3D: models, nodes, and the scene walk |
 | 0x57ff30 | Model_FindNode | confirmed | Storm3D: models, nodes, and the scene walk |
 | 0x580040 | Model_AllPoints | confirmed | Storm3D: models, nodes, and the scene walk |
 | 0x580110 | Node_DrawWalk | confirmed | Storm3D: models, nodes, and the scene walk |
@@ -582,6 +707,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x58b4f0 | Instance_UpdateParticles | confirmed | Storm3D: models, nodes, and the scene walk |
 | 0x58b590 | Instance_DrawParticles | confirmed | Storm3D: models, nodes, and the scene walk |
 | 0x58cb60 | Instance_Draw | confirmed | Storm3D: models, nodes, and the scene walk |
+| 0x58cef0 | SceneObject_Shatter | confirmed | Storm3D: models, nodes, and the scene walk |
 | 0x58d0e0 | Instance_SetRadius | confirmed | Storm3D: models, nodes, and the scene walk |
 | 0x58fd80 | Mesh_SetLightingMaterial | confirmed | Storm3D: textures, animation, and drawing |
 | 0x5910a0 | Mesh_Scale | confirmed | Storm3D: models, nodes, and the scene walk |
@@ -615,7 +741,7 @@ table and narrow or remove its line here.
 | 0x430710–0x436000 | Salvage and starbase AI, `AI` | `SalvageProcess`, `StarbaseProcess`, `Ai\Ai.cpp` |
 | 0x43d160–0x4434d0 | Game events, localized strings, the program and its frame loop | `Game Logic\Program.cpp`, `GameEvent.cpp`, `Localized_Strings.cpp` |
 | 0x446d70–0x44a7e0 | Fog of war, shroud, cloak fog, scan grid, tech tree | `Fog`, `Shroud`, `ScanGrid`, `TechnologyTree`; key `techlvl_odf` |
-| 0x44afc0–0x4548d0 | Map objects: asteroid fields, nebulas, black holes, ion storms, planets, wormholes, scrap | `…Class` definitions; keys in ODF keys |
+| 0x44afc0–0x4548d0 | Map objects beyond the rows above: asteroid fields, nebulas, ion storms, planets, wormholes, scrap | `…Class` definitions; keys in ODF keys |
 | 0x454970–0x45fb80 | Buildings and support ships: construction rigs, freighters, mining, shipyards, starbases, research | `ConstructionRig`, `Freighter`, `MiningStation`, `Shipyard`, `Starbase`, `ResearchStation` |
 | 0x462d80–0x469a40 | Ship code beyond the rows above: movement orders, cloaking, boarding, officers | `Craft.cpp` |
 | 0x46be50–0x4725d0 | Entity and game object code beyond the rows above | `Entity.cpp`, `GameObject.cpp` |
@@ -624,7 +750,7 @@ table and narrow or remove its line here.
 | 0x4bb000–0x4d8fe0 | Network: transports, file transfer, round store, sync, replays | `Network\*.cpp` |
 | 0x4d9010–0x4e9350 | Special weapons beyond the rows above | one class per special |
 | 0x4f15d0–0x500300 | Utilities: cache, cineractive scripts, debug, parser, log, lookup tables | `Utilities\*.cpp` |
-| 0x50c950–0x51e000 | Building effects, ghosts, worker bees, explosions, shockwaves | `BuildingEffect`, `Explosion`, `ShockwaveCannon` |
+| 0x50c950–0x51e000 | Building effects, ghosts, worker bees, and explosions beyond the rows above | `BuildingEffect`, `Explosion`, `ShockwaveCannon` |
 | 0x51eca0–0x552000 | Shell: menus, multiplayer setup, load and save | `Shell\*.cpp`, `LoadSaveGame.cpp` |
 | 0x5547e0–0x55b830 | Parameter database internals, queue managers, user profile | `ParameterDB.cpp`, `QueueManager.cpp` |
 | 0x55ef00–0x5648b0 | Timed effects and special flags beyond the rows above | `Timed…` classes, `SpecialFlag.cpp` |
@@ -632,7 +758,7 @@ table and narrow or remove its line here.
 | 0x5abbc0–0x5b7b10 | Audio, jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
 
 <!-- coverage:start -->
-Coverage: the index names 163 routines of the 9,401 functions in the game code band: 126 confirmed, 31 inferred, 6 unknown.
+Coverage: the index names 211 routines of the 9,401 functions in the game code band: 166 confirmed, 38 inferred, 7 unknown.
 <!-- coverage:end -->
 
 ## ODF keys
@@ -652,7 +778,7 @@ can be missing (for example `crew`, `life`); search `strings.tsv` for it.
 | 0x44af20 | — | `effectRadius` |
 | 0x44afc0 | a method of `AreaEffectObjectClass` | `effectRadius` |
 | 0x44b200 | called by `AsteroidFieldClass` | `fieldRadius`, `maxAsteroids`, `minAsteroids`, `orbitingSpeed`, `repelIfWithin`, `rotationSpeed` |
-| 0x44b7d0 | called by `BlackHoleClass` | `EventRadius`, `GravityForce`, `GravityRadius`, `Rotation`, `ScaleSize` |
+| 0x44b7d0 | BlackHoleClass_Load | `EventRadius`, `GravityForce`, `GravityRadius`, `Rotation`, `ScaleSize` |
 | 0x44bc60 | called by `IonStormClass` | `damageValue`, `lifeTimer`, `Rotation`, `ScalingCount`, `ScalingStepSize` |
 | 0x44bfa0 | called by `NebulaClass` | `blue_glow`, `blue_glow_range`, `clearEffects`, `craft_speed_coefficient`, `craft_speed_limit`, `damageCrewModifier`, `damageHullModifier`, `damageThreshold`, `damageValue`, `damageVariance`, `disableCloak`, `disableCrew`, `disableSensors`, `disableShields`, `disableWeapons`, `glow_falloff_range`, `glow_falloff_start`, `green_glow`, `green_glow_range`, `hideContents`, `lifeTimer`, `min_speed_change`, `one_in_n_chance_of_light_source`, `pathing_cost`, `red_glow`, `red_glow_range`, `regenValue`, `repairValue`, `speed_change_period_divisor`, `speed_change_range` |
 | 0x44cad0 | — | `crewModifier`, `Rotation` |
@@ -720,13 +846,13 @@ can be missing (for example `crew`, `life`); search `strings.tsv` for it.
 | 0x4e33b0 | a method of `ProbeTorpedoClass` | `detectCloak`, `periodScan`, `rangeScan` |
 | 0x4e3a80 | — | `percentage` |
 | 0x4e3b10 | a method of `PsychonicBlastClass` | `percentage` |
-| 0x4e42f0 | — | `repulsionForce` |
+| 0x4e42f0 | RepulsionFieldClass_Load | `repulsionForce` |
 | 0x4e4380 | a method of `RepulsionFieldClass` | `repulsionForce` |
 | 0x4e4c60 | called by `RepulsionWaveClass` | `amplitude`, `explosionRadius`, `frequency`, `repulsionForce`, `segments`, `spreadSpeed`, `Sprite`, `waveArc`, `waveLength`, `waveSpeed` |
 | 0x4e5ef0 | — | `drainRate` |
 | 0x4e5f80 | a method of `ShieldInversionClass` | `drainRate` |
 | 0x4e69d0 | called by `TargetOverrideClass` | `segmentLength`, `segmentRadius`, `segmentTexture`, `segmentVariance` |
-| 0x4e7b00 | called by `TractorBeamClass` | `lengthScale`, `omegaType`, `radiusScale`, `targetRange`, `targetSpeed` |
+| 0x4e7b00 | TractorBeamClass_Load | `lengthScale`, `omegaType`, `radiusScale`, `targetRange`, `targetSpeed` |
 | 0x4e83c0 | — | `initialDistance`, `scaleSize` |
 | 0x4e8460 | a method of `TranswarpDriveClass` | `initialDistance`, `scaleSize` |
 | 0x4e8a90 | called by `UtritiumBeamClass` | `objectName`, `scaleCount`, `scaleValue` |
@@ -762,7 +888,7 @@ can be missing (for example `crew`, `life`); search `strings.tsv` for it.
 | 0x51b7e0 | called by `FireballExplosionClass` | `dbName`, `length`, `shockwave`, `shockwaveDelay`, `shockwaveMinimum` |
 | 0x51c0f0 | — | `topEdgeModifier`, `waveHeight` |
 | 0x51c1b0 | a method of `OmegaExplosionClass` | `topEdgeModifier`, `waveHeight` |
-| 0x51cb90 | called by `ShockwaveCannonClass` | `disableTime`, `repulsionForce`, `waveArc` |
+| 0x51cb90 | ShockwaveCannonClass_Load | `disableTime`, `repulsionForce`, `waveArc` |
 | 0x51d950 | called by `OmegaExplosionClass` | `color`, `damageBase`, `damageThreshold`, `damageVariance`, `fadeFactor`, `hullCrewModifier`, `radiusFactor`, `shieldCrewModifier`, `texture` |
 | 0x5abbc0 | — | `audio_odf`, `bitsPerSample`, `distanceFactor`, `dopplerFactor`, `maximumDistance3D`, `minimum3DSounds`, `minimumDistance3D`, `rolloffFactor`, `sampleRate`, `streamBufferLength`, `streamChunkLength` |
 <!-- odf-keys:end -->

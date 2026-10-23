@@ -152,7 +152,7 @@ public partial class UnitSelection : Node3D
     }
 
     /// <summary>
-    /// The unit's screen box in viewport pixels (docs/selection-display.md); null when the unit is gone, has no
+    /// The unit's screen box in viewport pixels (docs/rules/selection-display.md); null when the unit is gone, has no
     /// visible mesh, has a corner behind the camera, or lies wholly off screen.
     /// </summary>
     public ScreenBox? ScreenBoxOf(SelectableUnit unit)

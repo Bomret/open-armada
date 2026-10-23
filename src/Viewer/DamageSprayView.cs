@@ -15,9 +15,10 @@ namespace OpenArmada.Viewer;
 /// by the frame's seconds, from the emitter node's world frame and whether its damage node shows (the frame's
 /// <see cref="UnitOrders.ShowingNodes"/>, decided by <see cref="DamageNodes.ShowingNodes"/>), and draws each live
 /// particle as a billboard of its sprite at its size, with the sprite node's animation playing once from the particle's
-/// birth (stand-in). An emitter under a hidden damage node draws nothing. The simulation and the decisions are the
-/// sandbox's; this node only moves quads. It comes after the orders node in the scene, so a frame's damage nodes and
-/// unit poses are current when it runs. What the install lacks is reported once (INV-0002): the emitter gaps through
+/// birth (stand-in). An emitter under a hidden damage node sprays nothing, and the particles it sprayed before fly on
+/// and are drawn until they die (0x58cb60). The simulation and the decisions are the sandbox's; this node only moves
+/// quads. It comes after the orders node in the scene, so a frame's damage nodes and unit poses are current when it
+/// runs. What the install lacks is reported once (INV-0002): the emitter gaps through
 /// <c>gap</c>, a sprite texture as a log entry. A failure of one unit's sprays skips only that unit, and is logged
 /// once with a count of its repeats (INV-0002, INV-0004).
 /// </summary>
@@ -139,7 +140,7 @@ public partial class DamageSprayView : Node3D
 
             var on = showing.Contains(damage.Node);
             spray.Emitter.Step(delta, on, FrameOf(node.GlobalTransform));
-            Draw(spray, on);
+            Draw(spray);
         }
     }
 
@@ -205,7 +206,7 @@ public partial class DamageSprayView : Node3D
         };
     }
 
-    void Draw(Spray spray, bool showing)
+    void Draw(Spray spray)
     {
         var particles = spray.Emitter.Particles;
         var sprite = spray.Damage.Sprite;
@@ -223,7 +224,7 @@ public partial class DamageSprayView : Node3D
         for (var i = 0; i < spray.Quads.Count; i++)
         {
             var quad = spray.Quads[i];
-            if (!showing || spray.Texture == null || i >= particles.Count)
+            if (spray.Texture == null || i >= particles.Count)
             {
                 quad.Visible = false;
 

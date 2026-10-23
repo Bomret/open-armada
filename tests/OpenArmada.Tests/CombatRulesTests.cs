@@ -6,7 +6,7 @@ using static OpenArmada.Tests.CombatFixtures;
 
 namespace OpenArmada.Tests;
 
-// The pure combat rules of docs/combat-rules.md, with values built in code.
+// The pure combat rules of docs/rules/combat-rules.md, with values built in code.
 [TestClass]
 public class CombatRulesTests
 {

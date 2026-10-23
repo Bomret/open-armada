@@ -401,6 +401,25 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void ASystemReadsItsSparkTimeAndTargetHardpoints()
+    {
+        var r = OneShip(
+            "enginesHitPoints = 20\r\nenginesSparkTime = 0.25\r\nenginesTargetHardpoints = \"hp01\" \"hp02\"\r\n"
+        );
+        var s = ProfileOf(r).Systems.Single();
+        Assert.AreEqual(0.25f, s.SparkTime);
+        CollectionAssert.AreEqual(new[] { "hp01", "hp02" }, s.TargetHardpoints.ToArray());
+    }
+
+    [TestMethod]
+    public void ASystemWithoutSparkTimeSparksEveryHalfSecondAndWithoutTargetHardpointsAtNone()
+    {
+        var s = ProfileOf(OneShip("enginesHitPoints = 20\r\n")).Systems.Single();
+        Assert.AreEqual(0.5f, s.SparkTime);
+        Assert.AreEqual(0, s.TargetHardpoints.Count);
+    }
+
+    [TestMethod]
     public void AMissingRaceDefinitionIsReportedAndTakesStandInValues()
     {
         var (plan, units) = Plan(

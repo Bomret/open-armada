@@ -80,7 +80,7 @@ The shield bar sits above the screen box (0x49abf0):
 The energy bar sits at the bottom edge of the screen box, on crafts only (0x49ad50). It is 4 pixels
 high, as wide as the box, and has the same gray back. Its fill is yellow, and its width is the box width
 times the energy ratio. Energy belongs to special weapons, which the engine does not model yet
-(`docs/combat-rules.md`).
+(`docs/rules/combat-rules.md`).
 
 ## Crew dot
 

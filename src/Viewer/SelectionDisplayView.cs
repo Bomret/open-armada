@@ -6,7 +6,7 @@ using OpenArmada.Sandbox;
 namespace OpenArmada.Viewer;
 
 /// <summary>
-/// The game's in-world selection display over the map sandbox (docs/selection-display.md), through the unit under
+/// The game's in-world selection display over the map sandbox (docs/rules/selection-display.md), through the unit under
 /// <c>hoverPoint</c> (null: none): the shield bars of the hovered unit and its team, and the crew dots of the selected
 /// among them, redrawn every frame from the units' current combat state.
 /// </summary>

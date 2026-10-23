@@ -16,8 +16,8 @@ namespace OpenArmada.Viewer;
 // shield-effects.md states the rules.
 public partial class CombatView
 {
-    // stand-in: a hull hit sprite of size 1 is this many world units wide; the game's unit is not recovered.
-    const float HullSpriteUnit = 8f;
+    // A hull hit sprite reaches its size out from its center on each side, so it is twice the size wide (0x5975e0).
+    const float HullSpriteUnit = 2f;
 
     // A beam's hull hit sprite: it follows the beam's contact point until the beam ends.
     sealed class Following

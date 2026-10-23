@@ -6,7 +6,7 @@ using OpenArmada.Formats;
 namespace OpenArmada.Sandbox;
 
 /// <summary>
-/// The pure combat rules of docs/combat-rules.md (ADR 0004): hostility, to-hit, reload, damage, hit location, the
+/// The pure combat rules of docs/rules/combat-rules.md (ADR 0004): hostility, to-hit, reload, damage, hit location, the
 /// application of a hit, and the shield regain. Randomness comes in as arguments; nothing here reads a clock.
 /// </summary>
 public static class CombatRules
@@ -156,7 +156,7 @@ public static class CombatRules
         if (unit.Crew >= 1)
             return;
         unit.Crew = 0;
-        // stand-in: the game can destroy the unit instead, by a flag whose source is unknown (docs/combat-rules.md).
+        // stand-in: the game can destroy the unit instead, by a flag whose source is unknown (docs/rules/combat-rules.md).
         unit.Derelict = true;
         unit.Shields = 0;
     }
@@ -271,6 +271,7 @@ public static class CombatRules
             Location = location,
             Damage = damage,
             ShieldLoss = shieldLoss,
+            SystemsPart = systemsPart,
             CrewLoss = crewLoss,
             Points = points,
             Destroyed = destroyed,

@@ -214,6 +214,30 @@ For a hit on a unit (0x465100):
    - A **critical hit** of at least one whole point makes the unit a dying unit (see Dying units).
 6. When the shields reach zero, they go down for `shieldDelay` seconds (0x465719).
 
+### Hit explosion
+
+A hit shows an explosion at the node of the target it hits (0x465100, the end of its location switch):
+
+- **When:** the damage is above 0 and the hit's systems part is not 0. A hit that the raised shields take whole
+  shows none. A critical hit of at least one whole point dooms the unit and returns before the explosion, and a
+  hit on a dying unit shows none.
+- **Node:** when a weapon makes its shot (0x50ae40), it rolls the damage and the hit location (0x4ee710, ordnance
+  slot 0x58, through 0x464dd0) and stores the hit node (ordnance +0x110, slot 0x64, 0x4d92e0). For a system
+  location, the node is the system's `<system>TargetHardpoints` node nearest to the firing hardpoint, and the
+  first listed wins a tie (0x468a60; class +0x358 + 16 × k, k in the order shield generator, engines, weapons,
+  life support, sensors, read by 0x460f30). A hull or critical hit, or a system without target hardpoints, takes
+  the model's root node (model instance +0x38). The class load reads `hullTargetHardpoints` and
+  `criticalTargetHardpoints` into a scratch list only (0x46038c, 0x4603d3), and no code fills the hull and
+  critical lists at class +0x3a8 and +0x3b8. The hit hands the target its damage and the node (0x4ee7f0, slot
+  0x90).
+- **Look:** one of `systemexpl1` to `systemexpl7`, picked at random (0x5018c0), in white, at the node, which it
+  follows as the unit moves (0x515d50, 0x515fb0). Its size is 0.14 times the model's bounding radius (0x60076c),
+  and at least 4 (0x600770); the sprite is twice its size wide (0x5975e0). It shows for 1 second (0x515f40).
+
+**Stand-in**: the sandbox rolls the location and picks the node when the shot lands, from where the firing
+hardpoint is then; the game does both when the shot is made. Every unit counts as a ship for the node, which the
+game tests with object flag 8 (0x4690a0). The sprite's flipbook plays on the frame clock.
+
 ## Shields
 
 The shield maximum is the definition's `maxHealth`; a unit has no hull hit points (0x46d9ef). A unit
@@ -234,7 +258,8 @@ sprite at the hull instead, once a tenth of its lifetime has passed and its head
 scaled 2.0 times the weapon's size field (0x6173dc, 0x6173e0). It follows the beam's contact point until the
 beam ends. **Stand-in**: the head is in reach once the surfaces of shooter and target are within the
 weapon's `range`; the size field is read as the ordnance definition's `size` key (1 when missing), the
-sprite is `explosion1` of the `explosion1` family, and a size of 1 draws 8 world units wide.
+sprite is `explosion1` of the `explosion1` family. The sprite reaches its size out from its center on each side,
+so it is twice the size wide (0x515d50, 0x5975e0).
 
 A geometry or sprite the install lacks is reported once with its name and skipped; the fight goes on. The
 shield geometry of ordnance that sets `ignoreShield` is neither loaded nor reported, because that ordnance
@@ -267,6 +292,29 @@ the race's `repairRed` or `repairYellow` when the crew ratio is at or below `cre
 `crewYellowStatus` (0x468060). The game also divides by an officer factor; the engine uses 1
 (**stand-in**). A system whose repair time works out to zero does not repair (**stand-in**; the game's
 reading is not known). A destroyed system works again only once it is back at full hit points (0x467d40).
+
+### Repair sparks
+
+While a system repairs, it throws sparks (0x4683d0, which runs ahead of each repair step):
+
+- **Clock:** each system below its maximum hit points, destroyed or not, adds the step's seconds to its spark
+  clock (system +0x28, 0 at class load, 0x460f30). Nothing resets the clock when the system is whole.
+- **Cadence:** once the clock passes `<system>SparkTime` (system +0x24), the clock drops by the spark time until
+  it no longer passes it, and one spark shows. A clock that only reaches the spark time throws none. The spark
+  time is 0.5 when the definition does not set it (0x45fbe0); no stock definition sets it. On the world's tick
+  of 0.02 s the first spark comes at 0.52 s, then one every 0.5 s.
+- **Place:** the spark shows at one of the system's `<system>TargetHardpoints`, picked at random (0x5018c0). The
+  class load leaves out each name the model holds no node of and warns about it (0x460f30). A system without
+  target hardpoints throws no spark, and its clock still runs.
+- **Look:** the sprite `xspark`, in white (0x690b60), at the hardpoint's node, which it follows as the unit
+  moves (0x515fb0). Its size is 0.14 times the radius of the model's bounding sphere (0x600794; object +0x60,
+  copied from model +0x24 by 0x4510a0). The sprite reaches that far out from its center on each side, so it is
+  twice as wide (0x5975e0). It shows for 1 second (0x515f40) and goes with its unit.
+- A derelict or dying unit repairs nothing, so it throws no spark.
+
+**Stand-in**: the sandbox has no disable timer or held flag (system +0x2c, +0x30), which also stop the sparks
+in the game. A spark time of 0 or less throws one spark per tick; the game's drop loop does not end for it. The
+spark's flipbook plays on the frame clock, as the small explosions do.
 
 ## Crew, derelicts, and destruction
 
@@ -341,18 +389,26 @@ by the mean velocity of each tick (the half-step integration detail is medium co
 ## Damage nodes
 
 A ship model's `damage` group holds the nodes that show wear. The combat state decides each frame which show
-(0x472120 calls 0x4677b0 for each ship; no randomness), so a node turns off again on repair or recrew. The
-sandbox decides and the view only toggles nodes; the sprite nodes under a showing node play, and a node that
-does not show hides its subtree.
+(0x472120 calls 0x4677b0 for each ship it draws; no randomness), so a node turns off again on repair or recrew.
+The inputs are the crew, the maximum crew, the race's `crewYellowStatus`, whether each system works, and the
+ship's race; no hull or system hit points and no threshold enter. The sandbox decides and the view only toggles
+nodes; the sprite nodes under a showing node play, and a node that does not show hides its subtree.
+
+The game sets two flags on a node (node +0x58), which the scene walk reads (0x580110): bit 0 skips the node's own
+mesh, sprite, or emitter, and bit 1 skips its children.
 
 The class init (0x45fea0) finds seven nodes by whole name, ignoring case, with no prefix match (names at
-0x600518..0x600548): `crew`, `engines`, `life`, `sensors`, `shields`, `target`, and `borg`. The stock models
-name the shield-generator node `shield`, so that node never binds, as in the game. `borg` stays hidden;
-assimilation is not built.
+0x600518..0x600548, lookup 0x57ff30): `crew`, `engines`, `life`, `sensors`, `shields`, `target`, and `borg`. The
+stock models name the shield-generator node `shield`, so that node never binds, as in the game. The `borg` node
+shows on a ship whose race is the race named `borg` (0x601240, looked up once into 0x639fcc), and is hidden with
+its subtree on any other ship. Only the stock models of the other races hold art under it, for an assimilated
+ship. The sandbox keeps it hidden (**stand-in**: assimilation is not built, and the stock Borg models hold nothing
+under it).
 
 - **Crew chain:** the ratio r is crew over `maximumCrew` over the race's `crewYellowStatus` (0x444437,
-  0x4677b0). From the `crew` node the walk follows each node's first child. The node at depth k (the `crew`
-  node is depth 0) shows while r + 0.2k is below 1 (constants 0x5ca758 and 0x5ccf30). There is no depth limit
+  0x4677b0). From the `crew` node the walk follows each node's first child (node +0x1c). The node at depth k
+  (the `crew` node is depth 0) shows while r + 0.2k is below 1 (constants 0x5ca758 and 0x5ccf30). The chain
+  sets only bit 0, so a crew node that does not show still lets its other children draw. There is no depth limit
   in the code; r above 0 shows at most five nodes, and a ratio of 0 shows five. The game compares the
   ship's `maximumCrew` (ship +0x4c8) with 0 (constant 0x5ca16c) at 0x467803..0x46782a; when it is 0 the
   numerator is 1 (constant 0x5ca238) instead of crew over `maximumCrew`, and 0x467836 divides the result by
@@ -363,14 +419,19 @@ assimilation is not built.
   or less. The sandbox's crew pool and crew-status ratio use a stand-in of the `crewCost`, at least 1, for a
   maximum of 0; the damage nodes read the game's own maximum.
 - **System nodes:** the subtree of `engines`, `life`, `sensors`, `target`, or `shields` shows while the ship
-  system is destroyed (0x4679b0): engines, life support, sensors, weapons, and shield generator in turn (the
-  system structures at 0x518, 0x588, 0x5c0, 0x550, and 0x4e0 of the ship).
+  system does not work (its byte at system +0 is 0): engines, life support, sensors, weapons, and shield
+  generator in turn (the system structures at 0x518, 0x588, 0x5c0, 0x550, and 0x4e0 of the ship). The system
+  stops working when it is destroyed (0x467b70) and works again only at full hit points (0x467d40), so the
+  subtree shows until the repair is complete. The game sets only bit 1, so the system node's own mesh always
+  draws. All the stock damage emitters hang directly under `life` (steam) and `engines` (plasma).
 - A model without a `damage` group, without a `crew` node, or with a differently named system node shows
   nothing for it. A race whose `crewYellowStatus` is 0 or less shows no crew node. A chain that loops stops at
   the first repeat.
 
 **Stand-in**: the nodes are looked up among the direct children of the `damage` group, which holds for the stock
-models; the game's search is not known beyond them. The game also compares the ship's model with its normal
+models; the game's search is not known beyond them. A node that does not show hides its whole subtree, and a
+system node hides with its subtree; the stock crew chains have only first children and the stock system nodes
+have no mesh, so the stock models look as in the game. The game also compares the ship's model with its normal
 one before it shows anything (0x4677b0, first branch); the sandbox has only the normal model. A derelict has no
 crew, so its crew chain shows.
 
@@ -389,28 +450,41 @@ An emitter node (SOD node type 12) under a damage node names an `@emitter` block
 - `pixel`, `particle_count`, and `cloud_radius` are read and unused (the use of `pixel` is not recovered).
   Any other key is reported, and the rest of the block still parses.
 
-**Spray** (0x575400): each step the timer (a 32-bit float) counts down by the step's seconds (0x575425). While the
-emitter is active and the timer is below 0, one particle spawns and the timer is set to the period (0x57549f). The
+In the stock 1.2 install every emitter under a damage node is a spray: `plasmasml` to `plasmaxl` and `steamsml` to
+`steamxl`.
+
+**Spray** (0x575400): the timer (a 32-bit float) starts at the period (0x5753a0, and the copy 0x5754c0), so the
+first particle comes one period after the emitter is made. Each step the timer counts down by the step's seconds
+(0x575425). While the emitter is active and the timer is below 0, one particle spawns and the timer is set to the
+period (0x57549f). The emitter is active from its creation (0x575840), and no code found turns it off. The
 overshoot is not carried, so a step spawns at most one particle, a period of 0 means one per step, and a period of
 0.1 s gives one particle every 0.12 s (about 8.3 per second) when float arithmetic leaves the timer a hair above 0
 after 5 steps of 0.02 s. The game steps the timer by the frame's seconds. **Stand-in**: the sandbox steps it on the
 fixed 0.02 s tick of simulated time (`CombatWorld.Tick`), so the rate is the same at any frame rate and step size.
 
-**Particle** (0x5746d0): it starts at the emitter node's world transform, rotated by three angles, each uniform in
-plus or minus `spread_angle` (so the tilt from +Z reaches at most acos(cos² `spread_angle`), about `spread_angle`
-times the square root of two for small angles). It moves along the node's local +Z at `velocity`. It draws as a
+**Particle** (0x5746d0): it starts at the emitter node's world transform, rotated by three angles, each
+`spread_angle` times a draw uniform in −1 to 1 (0x501820: the remainder of the seed by 100001, less 50000, times
+0.00002). The parser turns `spread_angle` from degrees into radians (0x599ab0, 1/360 at 0x5d43e0 times 2π). The
+rotation (0x55d160) turns by the third angle about Z, then the first about X, then the second about Y, so the tilt
+from +Z reaches at most acos(cos² `spread_angle`), about `spread_angle` times the square root of two for small
+angles. It moves in the world along the node's local +Z at `velocity` (0x5757b0), so a moving ship leaves it
+behind. It draws as a
 billboard of its sprite node at the sprite node's size plus `expansion_rate` times its age. **Stand-in**: the sprite
 node's animation plays once from the particle's birth and holds its last keyframe. A size at or below 0 is not drawn
 (0x584040). It dies at `lifespan`.
 
-An emitter under a hidden damage node neither sprays nor draws (scene traversal skips it, 0x57cee0). An emitter
-whose definition or sprite node is missing is reported once and skipped; the model still loads.
+The particles live in the ship model's own list (model instance +0x2c), not in the emitter. Each frame the
+model draws (0x58cb60) moves and ages every particle by the frame's seconds and removes the dead ones (0x58b4f0),
+then draws them (0x58b590). Then the scene walk (0x580110) steps each emitter whose node shows (slot 11, 0x5758e0),
+which counts the timer down and spawns. An emitter under a hidden damage node therefore holds its timer and
+sprays nothing, and the particles it sprayed before fly on and fade at their lifespan. When the node shows again,
+the timer goes on from where it stopped. An emitter whose definition or sprite node is missing is reported once
+and skipped; the model still loads.
 
-**Stand-in**: the live particles of an emitter whose node turns hidden freeze (age and position) and are not drawn
-until the node shows again, since what the game does to them is not recovered. The timer starts at 0, so the first
-tick after the node shows spawns a particle (the start value is set outside 0x575400, not recovered). The three
-angles turn the direction as roll about Z, then pitch about X, then yaw about Y (the order is not recovered). The
-particles' random source is the play run's seed (INV-0008).
+**Stand-in**: the game steps neither the emitters nor the particles of a ship outside the view (0x58cb60 returns
+when the frustum test 0x57b3f0 gives 1); the sandbox steps them always. 0x5758e0 also draws the model's whole
+particle list after each spray step; what that adds on screen is not recovered, and the view draws each particle
+once. The particles' random source is the play run's seed (INV-0008).
 
 ## Model scale
 

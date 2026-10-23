@@ -24,4 +24,10 @@ public sealed class ShipSystemState(SystemProfile profile, double bonus)
 
     /// <summary>Whether the system is destroyed; set at zero hit points and cleared once repair reaches <see cref="Max"/>.</summary>
     public bool Destroyed { get; internal set; }
+
+    /// <summary>
+    /// The simulated seconds toward the next repair spark (system +0x28): it runs while the system repairs and starts
+    /// at 0 (0x460f30). Nothing resets it when the system is whole.
+    /// </summary>
+    public double SparkClock { get; internal set; }
 }

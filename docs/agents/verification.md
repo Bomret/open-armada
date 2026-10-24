@@ -5,7 +5,7 @@ dotnet tool restore && dotnet csharpier check . && dotnet test --project tests/O
 ```
 
 ```sh
-dotnet test --project tests/OpenArmada.Tests
+sh tools/focused-tests.sh {paths}
 ```
 
 The full command first checks formatting. It restores the local tools and runs CSharpier's check.
@@ -18,8 +18,11 @@ unsupported assets and `NOTE` lines (such as a texture whose mip chain ends at a
 size) are listed and do not fail it. It needs `ARMADA_DIR` to point at that install; without it the
 command fails with `set ARMADA_DIR to an Armada install`.
 
-The focused command runs the unit tests alone. They build their fixtures in code and need neither an
-install nor Godot.
+The focused command runs the unit tests the changed paths need. They build their fixtures in code and
+need neither an install nor Godot. A changed test file runs the test classes it holds, through
+`dotnet test --filter`. Any other changed path except Markdown runs every unit test, since nothing maps a
+source file to the tests that cover it. Markdown alone runs no test. A red-green step therefore passes only
+the test files it works on; the run over a slice's whole changed-path set runs the whole suite.
 
 ## Sandbox Definition-of-Done lines
 

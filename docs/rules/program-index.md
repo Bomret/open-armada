@@ -29,6 +29,9 @@ Every routine in the band is game layer: the 1.2 release has no platform layer a
    the functions that use it, `vtables.tsv` to go from a class to its methods.
 3. Confirm unclear pseudocode against the instructions (Ghidra on `decomp/armada/project/`, or `objdump`). The pseudocode can be wrong: 0x501820
    returns the remainder of a division where the pseudocode shows the quotient.
+4. Use REA only for a question steps 1 to 3 cannot answer. Apply its findings to the Ghidra project and add the
+   routines to this index. Re-run the dump only as `tools/GhidraDump/README.md`,
+   "When to re-run", says.
 
 Strong anchors in this program, strongest first:
 

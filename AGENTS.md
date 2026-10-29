@@ -25,11 +25,14 @@ the SHA-256 that `docs/rules/combat-rules.md` cites.
 Investigate the game's logic and rules in the `Armada.exe` of that install before you build a rule. Start
 with `docs/rules/program-index.md`, then read the local dump in `decomp/armada/dump/`. Confirm unclear
 pseudocode against the instructions, in Ghidra on the saved project `decomp/armada/project/` or with a
-disassembler such as `objdump`. REA (the `reverse-engineer-anything` skill and the `rea` MCP tools) also
-opens `Armada.exe` directly; use it after the dump, for example to check a routine or follow references. It
-does not read the Ghidra project. `tools/GhidraDump/README.md` builds the project and the dump when `decomp/` is missing. After an
-investigation, add or update its routines in the index's topic tables, narrow its Unexplored line, and run
-`tools/GhidraDump/program_index.py`, in the same commit as the rule note. Do not guess a
+disassembler such as `objdump`. Check the index and the dump first, every time. Use REA (the
+`reverse-engineer-anything` skill and the `rea` MCP tools) only for a question the dump cannot answer. REA
+opens `Armada.exe` directly and does not read the Ghidra project, so its findings reach the dump only
+through the project: apply each one there (a missing function, a name, a type, a comment). A dump run is
+costly: re-run it only under the conditions in `tools/GhidraDump/README.md`, "When to re-run", which include
+the user's yes. That README also builds the project and the dump when
+`decomp/` is missing. After an investigation, add or update its routines in the index's topic tables, narrow
+its Unexplored line, and run `tools/GhidraDump/program_index.py`, in the same commit as the rule note. Do not guess a
 rule or copy one from a fan source. Record each recovered rule in our own words with its address as evidence (ADR 0004,
 INV-0001). Mark a rule that the program does not confirm as **inferred** or **stand-in**.
 

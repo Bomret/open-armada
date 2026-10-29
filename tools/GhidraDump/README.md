@@ -59,8 +59,27 @@ Later runs reuse the saved project and skip the analysis:
 A second script argument `index-only` writes the three tables without the pseudocode files, which take most
 of the run time.
 
+## When to re-run
+
+A run is costly. Re-run the dump only when all of these hold:
+
+1. The scope's implementation is done. Never re-run during an investigation or a slice, and never because
+   the binary was opened or a finding was made.
+2. The project holds a change that alters what the dump says about code: a function created, a function's
+   boundaries fixed, or a type or signature that changes the pseudocode. Names and comments alone do not
+   count; the program index carries them.
+3. The dump is read again for later work. A change no later investigation will read can wait for the next
+   run that is due.
+4. The user agreed to this run. Ask once, name the changes from 2, and wait for a yes.
+
+When only `functions.tsv`, `strings.tsv`, or `vtables.tsv` must change, run with `index-only`. Re-run the
+first-run command (`-import -overwrite`) only when `decomp/` is missing: it replaces the project and loses
+every change applied to it.
+
 ## Gotchas
 
-- REA opens `Armada.exe` itself and does not read this Ghidra project. The dump is the first source; REA
-  is a second one on the same exe.
+- REA opens `Armada.exe` itself and does not read this Ghidra project. The dump is the first source; use
+  REA only for a question the dump cannot answer. Apply what REA finds (a missing function, a name, a type,
+  a comment) to the project as you go, and re-run the dump only as "When to re-run" says. Never edit the
+  dump by hand; the next run overwrites it.
 - Run one Ghidra analysis at a time on this machine; two at once overload it.

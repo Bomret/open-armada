@@ -21,6 +21,8 @@ files directly, so the tests run without Godot. A `using Godot` in these folders
 - When Godot-free code needs an engine service, pass it in as a delegate. For example,
   `AssetCheck.Run` takes `GodotDecoders.Check` from the viewer.
 - Only `src/Rendering/` and `src/Viewer/` reference Godot.
+- `src/Viewer/ImageFit.cs` is the one Godot-free file in `src/Viewer/`. The test project compiles it by name in
+  `OpenArmada.Tests.csproj`, so it holds no `using Godot`.
 
 ## Format readers
 

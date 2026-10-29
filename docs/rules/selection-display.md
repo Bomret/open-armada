@@ -29,8 +29,8 @@ two sprites is **unknown**.
 Each part of the display is placed relative to the unit's screen box. The screen box is the smallest
 screen rectangle that holds the eight corners of the unit's bounding box, projected to the screen
 (0x49a3f0). Whether that bounding box turns with the unit or stays aligned to the world axes is
-**unknown**: the routine that projects the corners (0x49a4a0) was not read. Below, `left`, `top`, `right`, and `bottom` are the edges of that box in pixels, and the box
-width is `right - left + 1`.
+**unknown**: the routine that projects the corners (0x49a4a0) was not read. Below, `left`, `top`, `right`,
+and `bottom` are the edges of that box in pixels, and the box width is `right - left + 1`.
 
 ## Which units show it
 
@@ -54,7 +54,7 @@ screen, gets nothing. Of the rest:
 
 - The hovered unit shows the shield bar at full opacity.
 - Every other unit of the hovered unit's team shows the shield bar at the display fade. A hovered unit of
-  team 0 shows only its own bar. A cloaked craft does not show it.
+  team 0 shows only its own bar. A cloaked ship does not show it.
 - A selected unit among those also shows the energy bar, the crew dot, and the system icons, at the
   display fade. A selected unit outside that group shows nothing.
 
@@ -77,9 +77,9 @@ The shield bar sits above the screen box (0x49abf0):
 
 ## Energy bar
 
-The energy bar sits at the bottom edge of the screen box, on crafts only (0x49ad50). It is 4 pixels
+The energy bar sits at the bottom edge of the screen box, on `Craft` objects only (0x49ad50). It is 4 pixels
 high, as wide as the box, and has the same gray back. Its fill is yellow, and its width is the box width
-times the energy ratio. Energy belongs to special weapons, which the engine does not model yet
+times the energy ratio. Energy belongs to special weapons, which the engine does not model
 (`docs/rules/combat-rules.md`).
 
 ## Crew dot

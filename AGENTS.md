@@ -7,7 +7,7 @@ format notes.
 ## Where to read
 
 - Domain terms: `CONTEXT.md`.
-- Combat rules and their recovered values: `docs/rules/combat-rules.md`; the rules of single mechanics in `docs/rules/` (the shield effects in `docs/rules/shield-effects.md`).
+- Combat rules and their recovered values: `docs/rules/combat-rules.md`; the rules of single mechanics in `docs/rules/`.
 - The built-in maps, their teams, and which ones start with warships on two teams: `docs/maps.md` for the stock 1.2 install. On any other install, pick a sandbox test map from the `--maps` run (`README.md`, "Summarize the maps of an install").
 - How the game draws a unit's status in the world: `docs/rules/selection-display.md`.
 - Where a function, rule, class, or ODF key lives in `Armada.exe`: `docs/rules/program-index.md`.
@@ -23,17 +23,14 @@ Read it there, and ask the user for the path when the file is missing. The 1.2 `
 the SHA-256 that `docs/rules/combat-rules.md` cites.
 
 Investigate the game's logic and rules in the `Armada.exe` of that install before you build a rule. Start
-with `docs/rules/program-index.md`, then read the local dump in `decomp/armada/dump/`. Confirm unclear
-pseudocode against the instructions, in Ghidra on the saved project `decomp/armada/project/` or with a
-disassembler such as `objdump`. Check the index and the dump first, every time. Use REA (the
-`reverse-engineer-anything` skill and the `rea` MCP tools) only for a question the dump cannot answer. REA
-opens `Armada.exe` directly and does not read the Ghidra project, so its findings reach the dump only
-through the project. Names and missing functions get there from the index through the project update; apply
-a type, a comment, or a function's boundaries in Ghidra on the project. A dump run is
-costly: re-run it only under the conditions in `tools/GhidraDump/README.md`, "When to re-run", which include
-the user's yes. That README also builds the project and the dump when
-`decomp/` is missing. After an investigation, add or update its routines in the index's topic tables, narrow
-its Unexplored line, and run `tools/GhidraDump/program_index.py`, in the same commit as the rule note. Do not guess a
+with `docs/rules/program-index.md`, then read the local dump in `decomp/armada/dump/`, every time. Confirm
+unclear pseudocode against the instructions, in Ghidra on the saved project `decomp/armada/project/` or with
+a disassembler such as `objdump`. `tools/GhidraDump/README.md` says when to use REA (the
+`reverse-engineer-anything` skill and the `rea` MCP tools), how findings reach the project, when a dump run
+is due (it needs the user's yes), and how to build the project and the dump when `decomp/` is missing. After
+an investigation, add or update its routines in the index's topic tables, narrow its Unexplored line, and
+rebuild the index's generated sections (`tools/GhidraDump/README.md`, "Rebuild the program index"), in the
+same commit as the rule note. Do not guess a
 rule or copy one from a fan source. Record each recovered rule in our own words with its address as evidence (ADR 0004,
 INV-0001). Mark a rule that the program does not confirm as **inferred** or **stand-in**.
 
@@ -43,6 +40,10 @@ header of `docs/rules/shield-effects.md`: a title, the source `Armada.exe` and i
 marking rules.
 
 ## Agent skills
+
+ADR and INV numbers in the superdev seed files of `docs/agents/` (`deployment.md`, `code-management.md`,
+`documentation.md`, `issue-tracker.md`, `knowledge-base.md`) refer to superdev's own records, not to
+`docs/adr/` or `docs/invariants.md`.
 
 ### Slice store
 Codeberg Issues on `bomret/open-armada`, through the `tea` login for `https://codeberg.org`. See `docs/agents/issue-tracker.md`.
@@ -66,4 +67,4 @@ C# style rules in `docs/agents/CODING.md`; the patterns this repo uses in `docs/
 Full: format check, unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: the unit tests the changed paths need. The first `dotnet tool restore` needs NuGet access. Sandbox Definition-of-Done lines about what a player sees or hears are verified with a play run, whose frames and WAV the agent judges itself. See `docs/agents/verification.md`, which also names the exception.
 
 ### Deployment
-Posture `manual`, no targets yet. See `docs/agents/deployment.md`.
+Posture `manual`, no targets. See `docs/agents/deployment.md`.

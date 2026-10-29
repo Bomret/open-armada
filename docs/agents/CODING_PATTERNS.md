@@ -13,7 +13,7 @@ or `OpenArmada.Viewer`. A type that both layers need lives in the lower one. For
 
 ## Godot boundary
 
-`src/Formats/`, `src/Assets/`, and `src/Sandbox/` are Godot-free. The test project compiles their source
+`src/Formats/`, `src/Assets/`, `src/Sandbox/`, and `src/Diagnostics/` are Godot-free. The test project compiles their source
 files directly, so the tests run without Godot. A `using Godot` in these folders breaks the test build.
 
 - Put logic that needs no engine in a Godot-free folder and test it there. For example, `ShipMotion`
@@ -102,10 +102,3 @@ The repository holds no bytes from an install (INV-0001). Build every fixture in
 
 - `TempInstall` builds an install in a temporary folder from path and content pairs.
 - `ZfsBuilder`, `BznBuilder`, and `SodBytes` build binary files in their formats.
-
-## Common pitfalls
-
-- Do not split a large class into `partial` files to manage its size. Extract cohesive
-  responsibilities into separate collaborator types instead. A class that derives from a Godot type
-  is `partial` because the Godot source generator requires it. That use is the only exception.
-- Do not hard-code a value that the install defines (INV-0003).

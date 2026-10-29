@@ -8,14 +8,14 @@ evidence (ADR 0004, INV-0001). A rule the code does not confirm is marked **infe
 ## The effect object
 
 The game draws both effects as a scene node of a shield geometry, spawned by 0x516540 with five inputs: the
-unit, an orientation, a geometry index, a duration, and a colour flag.
+unit, an orientation, a geometry index, a duration, and a color flag.
 
 - **Geometry.** The index picks one of seven models (names at 0x5d2a80, loaded at 0x516a70): 0 `xshldx01`,
   1 `xshlddie`, 2 `wshldadd`, 3 `wshldsub`, 4 `wcorbrfr`, 5 `wshldrmd`, 6 `wmanhiem`.
 - **Duration.** A duration above 0 counts down by each frame's time and removes the effect at 0 or below
   (0x516fa0). A duration of −1 keeps the effect until its owner removes it.
-- **Colour.** With the flag set, the colour is (1 − s, s, 0), with s the unit's shield fraction (shields over
-  `maxHealth`) when the effect spawns. Without it, the colour is white (0x5170e0, 0x690b60).
+- **Color.** With the flag set, the color is (1 − s, s, 0), with s the unit's shield fraction (shields over
+  `maxHealth`) when the effect spawns. Without it, the color is white (0x5170e0, 0x690b60).
 
 ## Shield hit effect
 
@@ -59,7 +59,7 @@ length. A segment that starts inside the shield misses.
   shield, or the shields are down, the shot hits when the target point lies within one step of the shot
   (0x4ec2b0, 0x4eca85, 0x4ed46b; strictly closer than the step). That hit shows no effect.
 - **Beams**: the segment runs from the beam's hardpoint to the target point.
-- **Stand-in**: the target point is the unit's centre. The game uses the target's hardpoint (+0x110).
+- **Stand-in**: the target point is the unit's center. The game uses the target's hardpoint (+0x110).
 
 ### Placement and size
 
@@ -69,9 +69,9 @@ The effect's transform is built from u (0x55d840) and the target's shield ellips
   0.02 (0x5cb178), a is the X axis instead and is not made square to u. The geometry's own +Z axis points
   along u.
 - **Size and position.** A point v of the geometry goes to (v.x·a + v.y·b + v.z·u) ⊙ (R / ρ) + c in the
-  unit's model coordinates. R and c are the ellipsoid's radii and centre. ρ is the geometry's bounding
+  unit's model coordinates. R and c are the ellipsoid's radii and center. ρ is the geometry's bounding
   radius (0x516659, node +0x60 set by 0x58d190 from the model's +0x24). The effect sits at the ellipsoid's
-  centre, not at the contact point.
+  center, not at the contact point.
 - **Inferred**: the draw applies the node's scale before its rows. 0x516540 stores the rows normalized and
   their lengths as the node's scale; how the draw recombines them is not traced.
 
@@ -90,7 +90,7 @@ Each unit class has an axis-aligned ellipsoid in its model's coordinates, built 
    model's X axis and ± its full height on Y. Any other sprite adds the corners of a quad of half its width
    and height in the node's own XY plane (0x599380). A sprite is a billboard when its line's mode word is
    exactly `billboard`; a `//billboard` is not. A node with no matching line adds nothing.
-3. **First radii.** The box's half extents times √3 (0x5cd0a4), around the box's centre c.
+3. **First radii.** The box's half extents times √3 (0x5cd0a4), around the box's center c.
 4. **Fit.** The radii are scaled by √S. S is the largest |p / r₀ − c / r₀|² over the mesh vertices, through
    the node transforms including the root's own (0x46bae0). The farthest mesh vertex then lies on the
    ellipsoid.
@@ -107,7 +107,7 @@ by zero there.
 
 Results for three stock models (with the sprite corners):
 
-| Model | Centre | R (x, y, z) | Scale R / 4.5088 |
+| Model | Center | R (x, y, z) | Scale R / 4.5088 |
 |---|---|---|---|
 | `Kdestroy` | (−0.02, −1.91, 3.77) | 16.46, 7.59, 15.42 | 3.65, 1.68, 3.42 |
 | `Bcruise1` | (0, 0.83, 0) | 17.75, 18.67, 17.75 | 3.94, 4.14, 3.94 |
@@ -135,8 +135,8 @@ Results for three stock models (with the sprite corners):
 
 ### Drawing
 
-- **Colour.** The effect draws through the game's "shield" lighting material (0x5169a0): lighting model 0,
-  unlit. Each vertex takes the colour (0x5a4200), and the texture multiplies it. Ambient and specular play
+- **Color.** The effect draws through the game's "shield" lighting material (0x5169a0): lighting model 0,
+  unlit. Each vertex takes the color (0x5a4200), and the texture multiplies it. Ambient and specular play
   no part.
 - **Blend.** The geometry's own `additive` texture material: source one, destination one, vertex alpha 1.0
   (0x5891ef). The texture and the blend stay; only the lighting material is replaced (0x58fd80).
@@ -146,7 +146,7 @@ Results for three stock models (with the sprite corners):
 - **Culling.** `Xshldx01.SOD`'s meshes have a cull byte of 0, so both sides of the cap draw.
 - **Texture.** A Direct3D device of 16 or 32 bits loads `Textures\RGB` (0x59fa90).
 - **Stand-in**: Godot sorts transparent objects by object, not by face.
-- **Not traced**: whether the texture takes the colour-key path (0x59f320), which can make black texels
+- **Not traced**: whether the texture takes the color-key path (0x59f320), which can make black texels
   transparent when the texture format has no alpha.
 
 ## Shield-down overlay

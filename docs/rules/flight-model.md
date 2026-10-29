@@ -5,7 +5,7 @@ The rules of a ship's powered flight in the 1.2 `Armada.exe`
 the steering that feeds it, and the coefficients the physics definition sets. Each rule names its address as
 evidence (ADR 0004, INV-0001). A rule the code does not confirm is marked **inferred** or **stand-in**.
 
-**The engine does not use this model yet.** It moves a ship by its own simpler motion (ADR 0009). This note
+**The engine does not use this model.** It moves a ship by the kinematic model (ADR 0009). This note
 records what the game does, for the work that replaces that motion. `docs/rules/combat-rules.md` ("Coasting")
 holds the no-thrust branch of the same physics step, which the engine does reproduce (ADR 0008).
 
@@ -15,7 +15,7 @@ definition with `impulseSpeed` 20.
 ## The physics step, alive branch
 
 The branch (0x459440) runs for a ship that is not dying, whose engines (+0x518) work, that is not derelict
-(+0x4dc), and whose class does not set `borgPhysics`. A ship in a queue (+0x67c) and a starbase skip the step.
+(+0x4dc), and whose class does not set `borgPhysics`. A ship in a queue (+0x67c) and a station skip the step.
 
 - **Control gain.** vc (+0x774) = 1 − 1 / (|v − (up · v) up| × c6a8 + c6ac), with v the velocity and up the ship's
   up axis.
@@ -30,7 +30,7 @@ The branch (0x459440) runs for a ship that is not dying, whose engines (+0x518) 
   is rebuilt from the pitch, yaw, and roll angles (0x55d080). Pitch clamps to ±1.5 rad. Roll wraps at ±π.
 
 The accelerations are built from scratch each step and added into the velocity found, which is why a velocity
-written by a mover carries into the next step (`docs/rules/forced-motion.md`, "Motion state").
+written by a mover carries into the next step.
 
 ## The steering routine
 

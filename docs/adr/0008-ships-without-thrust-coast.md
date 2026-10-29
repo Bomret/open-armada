@@ -1,6 +1,7 @@
 # 8. Ships without thrust coast inside the kinematic model
 
 **Status:** Accepted
+**Amends:** ADR 0003
 
 Amends ADR 0003. A ship that has no thrust coasts instead of stopping. This covers a dying unit, a
 derelict, and a ship whose engines are destroyed. The game sends all three through one no-thrust branch

@@ -69,6 +69,20 @@ Dump runs reuse the saved project and skip the analysis:
 A second script argument `index-only` writes the three tables without the pseudocode files, which take most
 of the run time.
 
+## Rebuild the program index
+
+`program_index.py` rebuilds the generated sections of `docs/rules/program-index.md` from its topic tables:
+the "By address" table, the coverage count, and, when a dump directory is given, the ODF keys each getter
+reads. Run it after editing the topic tables:
+
+```bash
+python3 -I tools/GhidraDump/program_index.py docs/rules/program-index.md decomp/armada/dump
+```
+
+Without the dump directory it leaves the ODF key section as it is, and the coverage count omits the number
+of functions in the game code band. The ODF key section reads the pseudocode files, so it needs a full dump,
+not an `index-only` one.
+
 ## When to re-run
 
 A run is costly. Re-run the dump only when all of these hold:

@@ -1,7 +1,7 @@
 # Program index of Armada.exe
 
 This index says where a function, rule, or topic lives in `Armada.exe`, so an investigation starts at the right
-address instead of searching the whole program. It holds addresses and our own words only (ADR 0004). The
+address instead of searching the whole program. It holds addresses and our own words only (INV-0001). The
 rules themselves live in the rule notes it links to.
 
 ## The program
@@ -149,7 +149,7 @@ and dying.
 | 0x468990 | Craft_BeginDying | Marks the unit as being destroyed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | Spawns the shield-down overlay | confirmed | game | 0x469368–0x4693a6 | [shield-effects](shield-effects.md#shield-down-overlay) |
 | 0x472120 | GameObject_FrameUpdate | A per-frame update that runs the damage nodes for each ship | inferred | game | calls 0x4677b0 | [combat-rules](combat-rules.md#damage-nodes) |
-| 0x459440 | HoverCraft_PhysicsStep | One physics step of a ship's motion | confirmed | game | `HoverCraft.cpp`; log `pitch:% .2f, roll:` | [combat-rules](combat-rules.md#coasting) |
+| 0x459440 | HoverCraft_PhysicsStep | One physics step of a ship's motion | confirmed | game | `HoverCraft.cpp`; log `pitch:% .2f, roll:` | [combat-rules](combat-rules.md#coasting), [flight-model](flight-model.md#the-physics-step-alive-branch) |
 | 0x455440 | HoverCraftClass_Load | Reads the physics definition's keys (`impulseSpeed`, the inertias, `borgPhysics`, `tooCloseToTurn`, and the rest) | confirmed | game | key `frontBackInertia` | [flight-model](flight-model.md#the-coefficient-map) |
 | 0x45fbe0 | HoverCraftClass_SetDefaults | The compiled defaults of a ship class's physics values: `tooCloseToTurn` 25, `tooCloseForWarp` 100, `tooSlowToTurn` 1, `pathLeadDistance` 30 | confirmed | game | — | [forced-motion](forced-motion.md#move-order-arrival-and-hold) |
 | 0x458750 | HoverCraft_CopyCoefficients | Derives the instance's physics coefficients from the class's keys | confirmed | game | — | [flight-model](flight-model.md#the-coefficient-map) |
@@ -183,7 +183,7 @@ and dying.
 | 0x471770 | GameObject_UpdateCenter | Computes the world center at +0x12c (slot 0x3c) | confirmed | game | — | [forced-motion](forced-motion.md#motion-state) |
 | 0x471640 | GameObject_ClampHeight | Clamps the height to a band around `SHIP_COMBAT_FLOOR` and `SHIP_COMBAT_CEILING` when the flag at +0x488 is set | inferred | game | called by 0x471850 | [forced-motion](forced-motion.md#collision-separation) |
 | 0x471850 | GameObject_SetPosition | Sets the position (slot 0xc) | confirmed | game | bounds check 0x471640 | [forced-motion](forced-motion.md#collision-separation) |
-| 0x55d080 | Math_MatrixFromAngles | Builds an orientation from pitch, yaw, and roll, plus a position | confirmed | game | called by 0x459440 | [combat-rules](combat-rules.md#coasting) |
+| 0x55d080 | Math_MatrixFromAngles | Builds an orientation from pitch, yaw, and roll, plus a position | confirmed | game | called by 0x459440 | [combat-rules](combat-rules.md#coasting), [flight-model](flight-model.md#the-physics-step-alive-branch) |
 
 ### Unit AI: alert stance, targets, orders
 
@@ -199,7 +199,7 @@ Range 0x4259d0–0x430400 (`Ai\Tactical\CraftProcess.cpp`). Strategic AI lies be
 | 0x428170 | CraftProcess_GoUpdate | The move order's update: posts the stop order once the ship is inside `tooCloseToTurn` of the path's end and slower than half its `impulseSpeed` | confirmed | game | `tooCloseToTurn`; the 0.5 at 0x5ca230 | [forced-motion](forced-motion.md#move-order-arrival-and-hold) |
 | 0x428560 | CraftProcess_FollowerGoPath | A group-move follower's GO order built from the leader's path: every point shifted by the follower's offset, the first point the follower's own position | confirmed | game | — | [forced-motion](forced-motion.md#group-move) |
 | 0x47fde0 | Selection_GroupHeading | The group move's heading: the plain mean of the selected ships' bearings to the click | confirmed | game | — | [forced-motion](forced-motion.md#group-move) |
-| 0x47fe90 | Selection_BuildGroups | Sorts the selected ships into groups by the distance to each group's running mean centre (under 800); starbases, derelicts, and ships with disabled engines are rejected | confirmed | game | the 800 at 0x5cd740 | [forced-motion](forced-motion.md#group-move) |
+| 0x47fe90 | Selection_BuildGroups | Sorts the selected ships into groups by the distance to each group's running mean center (under 800); stations, derelicts, and ships with disabled engines are rejected | confirmed | game | the 800 at 0x5cd740 | [forced-motion](forced-motion.md#group-move) |
 | 0x480080 | Group_BuildGrid | Builds a group's grid: its side (the root of the member count, rounded up), the empty cells, and the anchor at the members' smallest X and Z | confirmed | game | — | [forced-motion](forced-motion.md#group-move) |
 | 0x480400 | Group_AssignCells | Gives each cell of the grid in turn, row by row, the nearest remaining ship, the earliest on a tie | confirmed | game | — | [forced-motion](forced-motion.md#group-move) |
 | 0x4805d0 | Group_IssueOrders | Turns the cells into orders: the leader's move to its cell, a follow order for each other ship | confirmed | game | `FORMATION_SPACING`, `DEFAULT_TO_FORMATION_MOVE` | [forced-motion](forced-motion.md#group-move) |
@@ -335,7 +335,7 @@ Range 0x5169a0–0x517070 (`ShieldEffect`).
 | 0x516b90 | ShieldEffect_FindGeometry | Matches `shieldGeometryName` against the seven names | confirmed | game | — | [shield-effects](shield-effects.md#model-and-duration) |
 | 0x516c40 | ShieldEffect_MoveContact | Turns the effect to a new contact point | confirmed | game | — | [shield-effects](shield-effects.md#when-it-spawns) |
 | 0x516fa0 | ShieldEffect_Update | Ends the effect after its duration; −1 keeps it | confirmed | game | — | [shield-effects](shield-effects.md#the-effect-object) |
-| 0x5170e0 | ShieldEffect_Colour | The effect's colour, white without a team | confirmed | game | 0x690b60 | [shield-effects](shield-effects.md#the-effect-object) |
+| 0x5170e0 | ShieldEffect_Color | The effect's color, white without a team | confirmed | game | 0x690b60 | [shield-effects](shield-effects.md#the-effect-object) |
 | 0x55d160 | Matrix_YawPitchRoll | Rotation from pitch, yaw, roll: roll about Z, then pitch about X, then yaw about Y | confirmed | game | — | [combat-rules](combat-rules.md#damage-emitters) |
 | 0x55d840 | Matrix_FromDirection | Builds a transform from a direction | inferred | game | — | [shield-effects](shield-effects.md#placement-and-size) |
 
@@ -427,10 +427,10 @@ classes `SprayParticle`, `RandomParticle`, `StraightParticle`).
 | 0x59a5b0 | Texture_FlipbookCells | The cells of a flipbook texture | confirmed | game | — | [shield-effects](shield-effects.md#flipbook) |
 | 0x59c730 | Texture_Upload | Uploads a texture; reads the file's origin bit | confirmed | game | — | [shield-effects](shield-effects.md#flipbook) |
 | 0x59f050 | Tga_Origin | A TGA file's origin bit | confirmed | game | — | [shield-effects](shield-effects.md#flipbook) |
-| 0x59f320 | Texture_ColourKey | The colour-key path of a texture load | unknown | game | — | [shield-effects](shield-effects.md#drawing) |
+| 0x59f320 | Texture_ColorKey | The color-key path of a texture load | unknown | game | — | [shield-effects](shield-effects.md#drawing) |
 | 0x59fa90 | Texture_LoadForDevice | Loads `Textures\RGB` for a 16- or 32-bit device | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
 | 0x5a39a0 | Mesh_FlipbookUv | Adds a flipbook cell's UV offset | confirmed | game | 0x5a3a65 | [shield-effects](shield-effects.md#flipbook) |
-| 0x5a4200 | Mesh_VertexColour | Sets each vertex's colour | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
+| 0x5a4200 | Mesh_VertexColor | Sets each vertex's color | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
 | 0x5a62c0 | Workspace_CullFront | Face culling of a draw | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
 | 0x5a6360 | Workspace_CullBack | Face culling of a draw | confirmed | game | — | [shield-effects](shield-effects.md#drawing) |
 
@@ -560,7 +560,7 @@ Offsets are from the start of the object. A ship is a `Craft`; its definition is
 | 0x601240 | BorgRaceName | `borg` | 0x4677b0 |
 | 0x639fcc | BorgRace | The `borg` race, looked up once | 0x4677b0 |
 | 0x67f57c | NodeEffectQueue | Queued effects at model nodes | 0x515d50 |
-| 0x690b60 | White | Default effect colour | 0x5170e0 |
+| 0x690b60 | White | Default effect color | 0x5170e0 |
 | 0x6d4aa0 | CurrentScene | The scene being drawn; +0x118 the current instance | 0x575400, 0x580110 |
 
 ## By address
@@ -740,7 +740,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x516b90 | ShieldEffect_FindGeometry | confirmed | Shield effect |
 | 0x516c40 | ShieldEffect_MoveContact | confirmed | Shield effect |
 | 0x516fa0 | ShieldEffect_Update | confirmed | Shield effect |
-| 0x5170e0 | ShieldEffect_Colour | confirmed | Shield effect |
+| 0x5170e0 | ShieldEffect_Color | confirmed | Shield effect |
 | 0x51c4d0 | ShockwaveCannon_Update | confirmed | Explosions and shockwaves |
 | 0x51c8d0 | ShockwaveCannon_HitShip | confirmed | Explosions and shockwaves |
 | 0x51cb90 | ShockwaveCannonClass_Load | confirmed | Explosions and shockwaves |
@@ -808,10 +808,10 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x59c130 | Sod_ReadModel | confirmed | Storm3D: models, nodes, and the scene walk |
 | 0x59c730 | Texture_Upload | confirmed | Storm3D: textures, animation, and drawing |
 | 0x59f050 | Tga_Origin | confirmed | Storm3D: textures, animation, and drawing |
-| 0x59f320 | Texture_ColourKey | unknown | Storm3D: textures, animation, and drawing |
+| 0x59f320 | Texture_ColorKey | unknown | Storm3D: textures, animation, and drawing |
 | 0x59fa90 | Texture_LoadForDevice | confirmed | Storm3D: textures, animation, and drawing |
 | 0x5a39a0 | Mesh_FlipbookUv | confirmed | Storm3D: textures, animation, and drawing |
-| 0x5a4200 | Mesh_VertexColour | confirmed | Storm3D: textures, animation, and drawing |
+| 0x5a4200 | Mesh_VertexColor | confirmed | Storm3D: textures, animation, and drawing |
 | 0x5a62c0 | Workspace_CullFront | confirmed | Storm3D: textures, animation, and drawing |
 | 0x5a6360 | Workspace_CullBack | confirmed | Storm3D: textures, animation, and drawing |
 <!-- by-address:end -->

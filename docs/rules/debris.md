@@ -13,10 +13,10 @@ Offsets are of the unit object unless a class is named.
 
 The end of the dying phase (0x4663d0) shatters the unit's model when the unit's `decommissionID` (+0x690) is −1
 and the unit has a model. The call is 0x58cef0, and its `this` is the unit, not a scene object. Its arguments
-are the colour, the velocity, the chunk flag (1), the face cap (−1), and the black hole's center or 0.
+are the color, the velocity, the chunk flag (1), the face cap (−1), and the black hole's center or 0.
 
 - One chunk manager serves the whole scene (0x57cc40, update 0x57cd90, draw 0x57ceb0).
-- The velocity argument is never read, so a piece takes none of the ship's velocity (0x57cf90).
+- The velocity argument (the ship's velocity, or 2.5 times it for the `selfDestruct` explosion) is never read, so a piece takes none of the ship's velocity (0x57cf90).
 - The black hole's flag and center are stored in the piece (+0x84, +0x88) and never read. A ship swallowed by a
   black hole makes the same debris as any other ship. The engine's swallow ends the unit through the same
   shatter as the fireball end, and the hole's center is not carried into the piece.

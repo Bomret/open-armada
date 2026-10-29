@@ -8,10 +8,8 @@ dotnet tool restore && dotnet csharpier check . && dotnet test --project tests/O
 sh tools/focused-tests.sh {paths}
 ```
 
-The full command first checks formatting. It restores the local tools and runs CSharpier's check.
-The check exits non-zero and names each C# or project file that is not formatted.
-`dotnet csharpier format .` fixes them. The first `dotnet tool restore` on a machine needs NuGet
-access. The full command then runs the unit tests, builds the project, and runs the asset check: the
+The full command first checks formatting (`docs/agents/toolchain.md` has the formatter commands); a
+failed check names each unformatted file. It then runs the unit tests, builds the project, and runs the asset check: the
 engine started headless, loading every asset of the user's own Armada install; images and sounds are
 also decoded by Godot's own loaders. The asset check exits non-zero when any asset fails;
 unsupported assets and `NOTE` lines (such as a texture whose mip chain ends at a level of the wrong
@@ -70,7 +68,7 @@ Movie Maker, and a long fight there can take hours.
   drawn, its sound heard. The layout's header comment has its command.
 
 A play run cannot show the selection display: the display draws only through the hovered unit, and a
-play run has no hover point. A `hover` step is planned in triage #106.
+play run has no hover point. Issue #106 tracks a `hover` step.
 
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
 

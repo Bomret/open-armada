@@ -25,4 +25,4 @@
   reads `.gitignore`, so `.godot/`, `bin/`, `obj/`, and `.superdev/` are skipped.
   `// csharpier-ignore` keeps a hand-laid-out fixture, such as a pixel grid, as written.
 - Not wired: no linter or `.editorconfig`.
-- Style prose: none beyond `README.md`.
+- Style prose: `docs/agents/documentation.md`, "Writing standard".

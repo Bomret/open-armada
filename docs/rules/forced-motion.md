@@ -16,10 +16,10 @@ The game keeps a ship's motion in the unit, and its physics step (0x459440) inte
 - World velocity at +0x140, its length (the speed) at +0x138, and 1/speed at +0x13c, or 1e30 when the speed is at
   most 1e-4. Pitch, yaw, and roll rates at +0x14c, and the angles at +0x768. The world center at +0x12c is the
   position plus the rotated local center (0x471770). Every mover below measures from the world center.
-- The physics step builds its accelerations from scratch each step and adds them into the velocity it finds. A
-  velocity that a mover writes therefore carries into the next step: a ship without thrust brakes from it at
-  2.0 per second per second, and a ship with thrust steers out of it. The step skips a ship in a queue (+0x67c
-  not 0, for example docking or a wormhole) and a starbase (class +0x235, `is_starbase`).
+- A velocity that a mover writes carries into the next physics step (`docs/rules/flight-model.md`, "The
+  physics step, alive branch"): a ship without thrust brakes from it (`docs/rules/combat-rules.md`, "Coasting"),
+  and a ship with thrust steers out of it. The step skips a ship in a queue (+0x67c
+  not 0, for example docking or a wormhole) and a station (class +0x235, `is_starbase`).
 - A ship whose engines are out (+0x518 is 0) or that is derelict (+0x4dc) has no thrust and coasts. The movers
   that disable the engines (0x469120, the `SpecialObjectEffect` of type 2, built by 0x561290) make a ship coast
   and expose it to the black hole and the tractor beam. A unit with +0x678 set ignores the disable (meaning of
@@ -29,7 +29,7 @@ The game keeps a ship's motion in the unit, and its physics step (0x459440) inte
 
 One game tick (0x43f1a0) runs these passes over all objects, in this order:
 
-1. The area pass (0x4713c0, slot 0x8c): a black hole swallows the ships at its event horizon.
+1. The area pass (0x4713c0, slot 0x8c): a black hole swallows the units at its event horizon.
 2. The simulate pass (0x471410, slot 0x84): the ship physics step and the black hole's pull.
 3. The post-simulate pass (0x471560, slot 0x88), which skips dying units: for a ship (0x465e80), its systems and
    then the collision separation (0x464910, slot 0x110).
@@ -118,7 +118,7 @@ Ordnance class `tractor_bm` (keys at 0x4e7b00): `targetRange` (class +0x120, def
 - Each ordnance tick (0x4e7fb0, then 0x4e7df0): when the distance d between the world centers is above
   `targetRange`, the target's velocity is **replaced** by (direction to the shooter) × (d − `targetRange`). At
   `targetRange` or nearer, nothing is written.
-- The beam ends when the shooter is dying (0x4ee5f0), when the target is no ship or is a starbase, and when the
+- The beam ends when the shooter is dying (0x4ee5f0), when the target is no ship or is a station, and when the
   target's engines work, it is not derelict, and it carries no slow effect (0x471b30). No test looks at the
   target's dying flag, so that a held ship that dies is pulled on is **inferred**.
 
@@ -127,13 +127,13 @@ Ordnance class `tractor_bm` (keys at 0x4e7b00): `targetRange` (class +0x120, def
 Ordnance class `rfield` (keys at 0x4e42f0): `repulsionForce` (class +0x120, default 10), `specialValue`. Stock:
 `repulsionForce` 50, `specialValue` 20.
 
-On a hit (0x4e44a0, once), unless the target is a starbase:
+On a hit (0x4e44a0, once), unless the target is a station:
 
 - The engines are out for `specialValue` seconds (0x561290, type 2).
 - The velocity is **replaced** by (dx × f, 0, dz × f), with (dx, dy, dz) the 3D unit direction from the shooter's
   center to the target's center and f = `repulsionForce`. A height difference shortens the push.
 
-The ship then coasts, braking at 2.0 per second per second, while its engines are out. Whether a hit on a dying
+The ship then coasts (`docs/rules/combat-rules.md`, "Coasting") while its engines are out. Whether a hit on a dying
 ship reaches this handler is not recovered.
 
 ## Repulsion wave and shockwave cannon
@@ -150,8 +150,8 @@ The shockwave (`shockwavecannon`, keys at 0x51cb90): `rate` (class +0xfc), `wave
 - Each tick it acts on every ship that is not dying (0x40f4d0) and not phased, inside the front's radius and
   inside the arc in the plane (0x51c4d0), and does three things (0x51c8d0):
   - a hit of class +0x60 × step (that +0x60 is `damageBase` is **inferred**);
-  - unless the ship is a starbase: engines out for `disableTime`;
-  - unless the ship is a starbase: velocity **replaced** by (3D direction from the wave's origin to the ship's
+  - unless the unit is a station: engines out for `disableTime`;
+  - unless the unit is a station: velocity **replaced** by (3D direction from the wave's origin to the ship's
     center) × `repulsionForce`.
 - The wave keeps no list of ships it has hit, so it pushes a ship again on every tick while the ship is inside.
 
@@ -164,7 +164,7 @@ are not dying.
 
 ## Collision separation
 
-Each post-simulate tick, a ship A runs the pass (0x464910) when it is not a starbase (class +0x235), its +0xd8 is
+Each post-simulate tick, a ship A runs the pass (0x464910) when it is not a station (class +0x235, `is_starbase`), its +0xd8 is
 not 0, and it is not phased (+0x1b1 is 0). A dying ship never runs it (0x471560 skips it). The neighbors B are the
 ships in a grid box of ±3.0 × A's model radius (+0x60; 0x5cb170) that are not A, not dying (+0x1bf), not phased,
 and have +0xd8 not 0.
@@ -202,9 +202,9 @@ The speed is the velocity's length (+0x140), not a position change.
 - The sign σ is −1 when A's height (+0x90) is below B's (strict), else +1. Ships at equal heights push A up.
 - V = (N.x, N.y + σ × b, N.z). The 0.42 is world units. It is not scaled by pen, and the share below scales it.
 
-**Move.** A that is not a starbase: its position (slot 0xc) gains sA × V, and then the turn 0x464620 runs with
-(A, B, sA, V, pen). B that is not a starbase: its position loses sB × V, and then the turn runs with
-(B, A, sB, −V, pen). A starbase's share is lost. Velocity is never written. Each ship runs its own pass, so a pair
+**Move.** A that is not a station: its position (slot 0xc) gains sA × V, and then the turn 0x464620 runs with
+(A, B, sA, V, pen). B that is not a station: its position loses sB × V, and then the turn runs with
+(B, A, sB, −V, pen). A station's share is lost. Velocity is never written. Each ship runs its own pass, so a pair
 is **inferred** to be handled twice per tick.
 
 **The turn** (0x464620), for ship S and the other ship O:
@@ -218,9 +218,7 @@ is **inferred** to be handled twice per tick.
 - `MAX_PREVENTION_ROTATION` is read from `RTS_CFG.h` (0x4453f0). The stock value is 0.6 and the compiled default
   is 0.4.
 
-**No height servo.** The shipped game has none. An idle ship pushed vertically keeps its height: the idle hold
-(0x428081, then 0x42e4a0) zeroes the lift control, and the hover and height servos have no callers
-(`docs/rules/flight-model.md`, "The servos").
+**No height servo.** The shipped game has none (`docs/rules/flight-model.md`, "The servos").
 
 **The position clamp.** The position write (slot 0xc, 0x471640) clamps the height to a band around
 `SHIP_COMBAT_FLOOR` and `SHIP_COMBAT_CEILING` when the flag at +0x488 is set. That flag is not identified. The
@@ -247,8 +245,8 @@ engine does not reproduce the clamp.
   `<=`), for every unit of the world, ship or station. A swallowed unit becomes a dying unit with a timer of 0, so
   it leaves in the next tick through the dying phase, with no small explosions (the game's dying phase shows them
   every 0.05 s; a swallowed unit's timer runs out before the first) and a `UnitDestroyed` whose cause is
-  `BlackHole`, so the view plays no fireball and no sound. It shatters as any ending unit does
-  (`docs/rules/debris.md`); debris takes no pull from a hole, since the pull reads ships only.
+  `BlackHole`, so the view plays no fireball and no sound. Its debris takes no pull from a hole,
+  since the pull reads ships only.
 - **The hole's keys.** A key the definition lacks takes the game's default (`GravityRadius` 50, `EventRadius` 10,
   `GravityForce` 50, `Rotation` 0.02, `distanceBelowGrid` 0) and is reported once per cause with its
   `class: key`. The stock `mblkhole` lacks `GravityForce`, so each stock map with a hole shows that one gap. A
@@ -303,11 +301,11 @@ update ends it, and the idle handler holds the spot afterwards.
 - **Arrival by a push** (ADR 0009): the kinematic model has no brake, so a push that leaves a ship strictly under
   `tooCloseToTurn` from the order's point stands for "slow and near": the order ends where the ship stands, the
   motion's target ends with it, and that spot, its height included, becomes the tether point. A push that leaves it
-  at or beyond the radius leaves the order open. A ship that drives to its point ends the order on reaching it,
-  as before.
+  at or beyond the radius leaves the order open. A ship that drives to its point ends the order on reaching it.
 - **The hold** has no brake: a ship nearer than `tooCloseToTurn` to its tether point does not move at all, and a
   ship at or beyond it drives back and stops on reaching the point (or on a push that leaves it inside the
-  radius, which makes that spot the tether point). A change of stance does not end the return. Red's close-on-pick
+  radius, which makes that spot the tether point). A ship that regains thrust away from its tether point drives
+  back to it. A change of stance does not end the return. Red's close-on-pick
   within 300 units of the tether point keeps precedence, and red's return after closing is the same hold.
 - **`tooCloseToTurn` default:** a definition without the key, or whose value is not a positive number, takes 25
   and is reported once per class as a plan gap. The stock `destphys.odf` writes `tooCloseToTurn = 40;` with a
@@ -321,14 +319,14 @@ The player's command over the selection (0x480c30; callers 0x4ad3d0, 0x4ad5c0, a
 a group move when it is a move and the selection holds more than one unit. Any other command goes to each ship
 alone. The sandbox's right-click and a play script's `move` step aim the same click.
 
-- **Who takes part.** A ship joins unless it is a starbase, has disabled engines, or is a derelict (0x4848e0); such
+- **Who takes part.** A ship joins unless it is a station, has disabled engines, or is a derelict (0x4848e0); such
   a ship gets no order from the command. A ship diverted to an attack by a click on a hostile unit is no part of
   it. One ship that takes part goes to the click itself.
 - **Heading** (0x47fde0). The plain arithmetic mean of each ship's bearing to the click, atan2(click z − ship z,
   click x − ship x), with no correction where bearings straddle the ±π cut. It averages over every selected ship
-  the command was given (a ship diverted to an attack is no part of it), starbases, derelicts and ships with
+  the command was given (a ship diverted to an attack is no part of it), stations, derelicts and ships with
   disabled engines included; only the grouping leaves those out.
-- **Groups** (0x47fe90). In selection order, a ship joins the existing group whose running mean centre is nearest
+- **Groups** (0x47fe90). In selection order, a ship joins the existing group whose running mean center is nearest
   (3D) when that distance is under 800 (the first group wins a tie), else starts a new group. Nothing groups by
   class or size.
 - **Layout of the groups** (0x480890, 0x480790). The first group's origin is the click. Each next origin is the
@@ -342,7 +340,7 @@ alone. The sandbox's right-click and a play script's `move` step aim the same cl
   nearest unassigned ship (3D, to its current position); a tie goes to the earlier ship in selection order, and the
   trailing cells stay empty. A ship's destination is the group's origin shifted by (column − side div 2, row
   counted up from the bottom row − side div 2) × `FORMATION_SPACING`, integer division, so an even side is half a
-  cell off-centre.
+  cell off-center.
 - **Orders** (0x4805d0, 0x428560). The ship that fills the leader's cell gets a move order to its cell; every
   other ship a follow order on the leader with its cell's offset from the leader's. With the stock
   `DEFAULT_TO_FORMATION_MOVE` of 0 and the main right-click handler, each follower's order turns, once its
@@ -356,7 +354,7 @@ alone. The sandbox's right-click and a play script's `move` step aim the same cl
 
 - **Arrangement.** The taking ships' Z is the game's: the engine mirrors the sandbox world's Z into the game's frame
   for the layout and back, so "largest Z" and the heading's perpendicular are the game's.
-- **Taking part** is decided by the engine's states: a unit that is no mobile ship, a derelict, one with destroyed
+- **Taking part** is decided by the engine's states: a unit that is no ship, a derelict, one with destroyed
   engines, a dying one, or a coasting one. The game's cloak equality in the grouping test and its
   `|maxX − minX| × 999` bound are left out (the sandbox has no cloak, and the bound never binds beside 800).
 - **One move order per cell.** The leader's order and the followers' follow orders reduce to one move order per
@@ -364,7 +362,7 @@ alone. The sandbox's right-click and a play script's `move` step aim the same cl
   makes a follower a plain mover and the sandbox's targets are points. Followers start at once, not after the
   countdown of three updates. The tether point is the cell at the ship's own height.
 - **Height.** Each ship keeps its own height; the game's flight model steers it (ADR 0009), which the engine does
-  not yet.
+  not.
 - **Selection order** is the order the sandbox lists its selected units: a box takes them in the scene's unit
   order, which the layout's object order fixes, so every run of a script sees the same order.
 - **A cell outside the map** goes to the nearest point of the map's edge, as a single ship's click does; two
@@ -372,7 +370,7 @@ alone. The sandbox's right-click and a play script's `move` step aim the same cl
 - **`FORMATION_SPACING`** is read from `RTS_CFG.h` by the combat plan. A value missing, not a number, or no finite
   number above 0 takes the compiled default 40 and is reported once. `SHIP_COMBAT_FLOOR` and `SHIP_COMBAT_CEILING`
   are read as the camera reads them.
-- The empty group a rejected ship leaves in the game, and the group centre's initial value, do not arise: only the
+- The empty group a rejected ship leaves in the game, and the group center's initial value, do not arise: only the
   taking ships are grouped.
 
 ## What does not move a ship
@@ -381,9 +379,7 @@ alone. The sandbox's right-click and a play script's `move` step aim the same cl
   the shot carries no direction).
 - **Explosions.** The `fireball`, system explosions, the self-destruct explosion (0x508fc0, 0x4663d0), and the
   shockwave explosion (0x51d2a0, damage only) push nothing.
-- **Debris.** The pieces of a ship that ends do not take its velocity: 0x4663d0 passes the velocity (× 1.0, or ×
-  2.5 for the `selfDestruct` explosion) to 0x58cef0 (its `this` is the unit), and the piece spawner 0x57cf90
-  never reads that argument (`docs/rules/debris.md`).
+- **Debris.** The pieces of a ship that ends do not take its velocity (`docs/rules/debris.md`, "The shatter").
 - **Gravity mine.** `gravmine` lowers the warp speed multiplier, m → 1 + (m − 1) × `slowPercent` / 100 (0x4dd720;
   stock `slowPercent` 50). It moves nothing itself, but a slowed ship can be held by a tractor beam.
 - **Nebulas** cap the speed (0x44c520, 0x4690c0). **Ion storms** only damage (0x451870).

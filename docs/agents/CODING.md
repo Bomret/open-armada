@@ -49,10 +49,6 @@ if (condition) {
 
 Always use braces around loops and conditional branching. The one exception is a branch whose sole statement is a jump (`return`, `break`, `continue`, `throw`): it may go without braces. CSharpier puts that statement on its own line.
 
-### Member ordering
-
-Follow the language's established conventions and best practices for member ordering.
-
 ### Document
 
 Document public and protected/abstract/overridable facing types and members using appropriate code documentation. Be specific and concise but also mention side-effects, possible errors/exceptions and possibly unexpected behavior.
@@ -88,11 +84,15 @@ Default to `var`. Use explicit types only when it aids readability, e.g. `IReadO
 
 ### Modern C# features
 
-Use records, primary constructors, collection expressions, and other C# 12 features. Both projects target `net8.0` without a `<LangVersion>`, so C# 12 is the language version. Newer features, such as `field` or extension members, do not compile.
+Use records, primary constructors, collection expressions, and other C# 12 features. Every project targets `net8.0` without a `<LangVersion>`, so C# 12 is the language version. Newer features, such as `field` or extension members, do not compile.
 
 ### Classes
 
 Always use primary constructors with no class fields, if possible.
+
+Do not split a large class into `partial` files to manage its size. Extract cohesive responsibilities into
+separate collaborator types instead. A class that derives from a Godot type is `partial` because the Godot
+source generator requires it. That use is the only exception.
 
 ### Records
 

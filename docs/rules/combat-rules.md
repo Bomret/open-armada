@@ -72,14 +72,8 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
 - **Green:** the unit picks no target by itself. It fires only at a target an attack order gives it
   (0x42ffac).
 
-**The hold.** A mobile ship with thrust, no move order, and no attack order holds its tether point at every
-stance, with or without weapons: the idle handler (0x42a170) keeps calling the move maneuver on the point
-(0x42e4a0, `docs/rules/forced-motion.md` "Move-order arrival and hold"). A push that leaves the ship at or beyond
-its `tooCloseToTurn` from the point makes it drive back, and nearer it stays where it was moved. The return ends
-on reaching the point, or by a push inside the radius, which makes that spot the tether point. Red's close on a
-pick within 300 units of the tether point keeps precedence, and red's return after closing is the same hold. A
-ship that regains thrust away from its tether point drives back to it (**stand-in**: the engine's return has no
-brake, so a ship inside the radius does not move).
+**The hold.** An idle ship with thrust holds its tether point at every stance (`docs/rules/forced-motion.md`,
+"Move-order arrival and hold").
 
 The install binds the stances to keys in `Input.map` (`green`, `yellow`, `red`).
 
@@ -95,8 +89,8 @@ A unit with no weapons picks no target. Otherwise, at red or yellow (0x42ff80):
 
 A target is valid when it is a hostile unit, not being destroyed (a dying unit is being destroyed), and not
 derelict (0x42faa0). The game
-also requires that the target is visible to the unit's team; every unit is visible until fog of war
-exists (**stand-in**).
+also requires that the target is visible to the unit's team; the engine has no fog of war, so every
+unit is visible (**stand-in**).
 
 Selection makes no test of whether any weapon can reach the target: the validity check and the search
 (0x42faa0, 0x4300a0) test no hardpoint, arc, or line of fire, and the distances are surface to surface
@@ -292,8 +286,7 @@ percent of the crew, unless the unit is derelict. A destroyed system means:
   unit is derelict (0x465f6f).
 - **Weapons:** no weapon fires.
 - **Shield generator:** the shields stop regaining.
-- **Sensors:** sensor range falls to `damagedScan` (**inferred**). Nothing reads sensor range until fog
-  of war exists.
+- **Sensors:** sensor range falls to `damagedScan` (**inferred**). Nothing reads sensor range.
 
 ### Repair
 
@@ -379,13 +372,10 @@ state). The unit stays in the world until its timer runs out.
   any frame rate. **Stand-in**: the point is uniform in the box of the unit's radius around its center, and
   the explosion's size is fixed; 0x466180 is not recovered.
 - **End** (0x4663d0): the unit's `fireball` explosion plays at its transform, the unit leaves the world, and
-  `UnitDestroyed` is raised once. The `selfDestruct` variant of the explosion is not implemented. The game also
-  shatters the model into debris pieces (0x58cef0; `docs/rules/debris.md`), which do not take the ship's
-  velocity (`docs/rules/forced-motion.md`, "What does not move a ship").
+  `UnitDestroyed` is raised once. The `selfDestruct` variant of the explosion is not implemented. The model
+  shatters into debris pieces (0x58cef0; `docs/rules/debris.md`).
 - **Black-hole death:** a ship swallowed at a black hole's event horizon dies with a timer of 0 and no
-  `fireball` (0x450a40, 0x466090; `docs/rules/forced-motion.md`, "Event horizon"). Its debris is the same as for
-  any other ship. The engine raises `UnitDestroyed` with the cause `BlackHole`, which the view answers with no
-  fireball, no sound, and no small explosions.
+  `fireball` (0x450a40, 0x466090; `docs/rules/forced-motion.md`, "Event horizon").
 
 Every random draw goes through the combat world's seeded random source. A missing `systemexpl` sprite or
 `fireball` is reported once and skipped; the unit still leaves on time.
@@ -414,10 +404,11 @@ waves can still change a coasting ship's velocity (`docs/rules/forced-motion.md`
 No order, stop, face, or player move gives a coasting ship thrust. A ship whose engines are repaired and that
 is not derelict takes orders again. The coast starts at the combat world's tick that finds the unit without
 thrust and runs on the world's fixed tick, so positions do not depend on frame rate. The combat world owns
-every mobile ship's motion from the moment the sandbox opens, and the view draws each ship between its tick
+every ship's motion from the moment the sandbox opens, and the view draws each ship between its tick
 poses; the simulated pose stays on the tick. A unit that starts without thrust, its engines destroyed or derelict,
 coasts from the first tick along its layout's starting velocity. **Stand-in**: the position moves by the mean
-velocity of each tick (the half-step integration detail is medium confidence).
+velocity of each tick (the game's half-step integration is **inferred**). **Stand-in** (ADR 0009): the engine
+turns only the heading, so a coasting ship keeps its bank and pitch.
 
 ## Damage nodes
 
@@ -475,7 +466,7 @@ An emitter node (SOD node type 12) under a damage node names an `@emitter` block
 
 - `type`: `spray` (1), `cloud` (2), or `beam` (3). Only spray plays; the others are read and reported as not
   played (**stand-in**).
-- `sprite`: the name of a `@sprite_node` line, which gives the particle's sprite, size, colour, and node
+- `sprite`: the name of a `@sprite_node` line, which gives the particle's sprite, size, color, and node
   animation. A spray block with no `sprite` key is reported by the parser, and a name no table defines is reported; the
   emitter sprays nothing in either case.
 - `spread_angle`: degrees. `expansion_rate`: world units per second, added to the sprite node's size. `velocity`:
@@ -553,7 +544,7 @@ sets 1.5; the sandbox draws its rocks at their stored size.
 
 - The attack maneuver within range, and yellow alert's extra validity check.
 - Whether a player's attack order drops a target that turns derelict. The game's side check (0x42fb90,
-  `task+0x110`) suggests it may, but the writer of that field was not found; the rule above stays.
+  `task+0x110`) suggests it may, but the writer of that field was not found.
 - What the `targetEnemyCraft` and `targetEnemyBuildings` keys do.
 - The flight of pulse phaser shots and the class behind poleron torpedoes.
 - The officer factor in repair, and the full-repair path at 0x468760.

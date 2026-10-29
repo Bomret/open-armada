@@ -68,7 +68,7 @@ The picture of a map that the game's menus show, the map's `.bmp` file.
 _Avoid_: minimap, map thumbnail
 
 **Sprite node**
-A sprite that a sprite table attaches to a model node by name. It has a size, a colour, and an animation, and it faces the camera when the table says so. An explosion model holds only sprite nodes.
+A sprite that a sprite table attaches to a model node by name. It has a size, a color, and an animation, and it faces the camera when the table says so. An explosion model holds only sprite nodes.
 _Avoid_: node sprite, attached sprite
 
 **Sprite table**
@@ -171,12 +171,22 @@ clicked point, and each ship goes to its own cell, so no two share a point.
 _Avoid_: formation move (the game's optional mode in which followers trail a leader), group order
 
 **Tether point**
-The point an idle unit stays near. A unit at any alert stance that a forced motion leaves farther than its
+The point an idle unit stays near. A unit at any alert stance that a forced motion leaves at or beyond its
 `tooCloseToTurn` from the point moves back to it. An idle unit at red closes on its pick only while its center
 is within 300 units of the point, and moves back to it otherwise (see `docs/rules/combat-rules.md`, §Alert
 stance). A move order sets it to the destination, and to where the ship stands when the order ends short of
 it; a recent hit on the unit or a teammate nearby sets it to where the unit stands.
 _Avoid_: home, anchor, leash
+
+**Hold**
+What an idle ship with thrust does at every alert stance: it stays near its tether point and drives back to it
+when a forced motion leaves it at or beyond its `tooCloseToTurn` from the point.
+_Avoid_: guard, station-keeping
+
+**Pick**
+The hostile unit that a unit at red or yellow alert stance chooses by itself as its weapons' target. A pick is
+no order: the unit keeps it while it stays valid and within its search radius.
+_Avoid_: auto-target, target lock
 
 **AI team**
 A team the game's own computer player controls, marked by a per-team flag the game sets outside its

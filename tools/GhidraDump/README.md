@@ -30,10 +30,16 @@ In the output directory:
 
 ## Running it
 
-Ghidra 12.1 and Java 21 from Homebrew (`brew install ghidra`), the same install REA uses:
+- Ghidra 12.1.x, the release line REA accepts, so one install serves REA and the dump. Extract the
+  official release from `github.com/NationalSecurityAgency/ghidra`. The release ships no native
+  decompiler for macOS on Apple silicon: build it with `gradle buildNatives` in the release's
+  `support/gradle/` folder (`brew install gradle`).
+- A JDK 21 or newer (`brew install openjdk@25`).
 
 ```bash
-export JAVA_HOME=/opt/homebrew/opt/openjdk@21 PATH=/opt/homebrew/opt/openjdk@21/bin:$PATH
+export JAVA_HOME=/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home
+export PATH="$JAVA_HOME/bin:$PATH"
+export HEADLESS=<Ghidra 12.1.x folder>/support/analyzeHeadless
 ```
 
 The first run imports and analyses the program into a Ghidra project, creates the missing functions,
@@ -41,13 +47,13 @@ and dumps it. Every path must be
 absolute and contain no element that starts with a dot; Ghidra rejects such a project path.
 
 ```bash
-/opt/homebrew/opt/ghidra/libexec/support/analyzeHeadless "$PWD/decomp/armada/project" Armada -import "$ARMADA_DIR/Armada.exe" -overwrite -scriptPath "$PWD/tools/GhidraDump" -postScript CreateMissingFunctions.java -postScript DumpProgram.java "$PWD/decomp/armada/dump"
+"$HEADLESS" "$PWD/decomp/armada/project" Armada -import "$ARMADA_DIR/Armada.exe" -overwrite -scriptPath "$PWD/tools/GhidraDump" -postScript CreateMissingFunctions.java -postScript DumpProgram.java "$PWD/decomp/armada/dump"
 ```
 
 Later runs reuse the saved project and skip the analysis:
 
 ```bash
-/opt/homebrew/opt/ghidra/libexec/support/analyzeHeadless "$PWD/decomp/armada/project" Armada -process Armada.exe -noanalysis -readOnly -scriptPath "$PWD/tools/GhidraDump" -postScript DumpProgram.java "$PWD/decomp/armada/dump"
+"$HEADLESS" "$PWD/decomp/armada/project" Armada -process Armada.exe -noanalysis -readOnly -scriptPath "$PWD/tools/GhidraDump" -postScript DumpProgram.java "$PWD/decomp/armada/dump"
 ```
 
 A second script argument `index-only` writes the three tables without the pseudocode files, which take most

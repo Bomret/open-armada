@@ -29,8 +29,8 @@ Every routine in the band is game layer: the 1.2 release has no platform layer a
    the functions that use it, `vtables.tsv` to go from a class to its methods.
 3. Confirm unclear pseudocode against the instructions (Ghidra on `decomp/armada/project/`, or `objdump`). The pseudocode can be wrong: 0x501820
    returns the remainder of a division where the pseudocode shows the quotient.
-4. Use REA only for a question steps 1 to 3 cannot answer. Apply its findings to the Ghidra project and add the
-   routines to this index. Re-run the dump only as `tools/GhidraDump/README.md`,
+4. Use REA only for a question steps 1 to 3 cannot answer. Add the routines it finds to this index, and apply
+   its other findings to the Ghidra project. Re-run the dump only as `tools/GhidraDump/README.md`,
    "When to re-run", says.
 
 Strong anchors in this program, strongest first:
@@ -51,8 +51,8 @@ A routine row has the columns address, our name, role, status, layer, evidence a
 - **inferred**: from callers, strings, keys, or the class's vtable, not read.
 - **unknown**: the role is open; the row records the address and the anchor that led to it.
 
-Names are `Class_Method` for a method of an RTTI class and `Subsystem_Verb` otherwise. The same names can go into
-the Ghidra project, so its names can be rebuilt from this index.
+Names are `Class_Method` for a method of an RTTI class and `Subsystem_Verb` otherwise. The project update
+(`tools/GhidraDump/README.md`) applies the names of "By address" to the Ghidra project.
 
 ## By topic
 

@@ -3,7 +3,9 @@
 `DumpProgram.java` is a Ghidra script that writes a local, greppable dump of an analysed program.
 `CreateMissingFunctions.java` runs before it and creates the functions Ghidra's analysis leaves out: call
 targets without a function, and runs of instructions that belong to no function (code reached only through
-jumps or jump tables). On `Armada.exe` it creates 2,570 functions. Use it for
+jumps or jump tables). On `Armada.exe` it creates 2,570 functions. `ApplyIndexNames.java` applies the names
+of the "By address" table in `docs/rules/program-index.md` to the project: a function name at a code address,
+creating the function when there is none, and a label at a data address. Use them for
 `Armada.exe` (see `docs/rules/program-index.md`). The dump is decompiler output of the original game, so it
 stays in `decomp/`, which git ignores, and never enters the repository (ADR 0004).
 
@@ -43,14 +45,22 @@ export HEADLESS=<Ghidra 12.1.x folder>/support/analyzeHeadless
 ```
 
 The first run imports and analyses the program into a Ghidra project, creates the missing functions,
-and dumps it. Every path must be
+applies the index's names, and dumps it. Every path must be
 absolute and contain no element that starts with a dot; Ghidra rejects such a project path.
 
 ```bash
-"$HEADLESS" "$PWD/decomp/armada/project" Armada -import "$ARMADA_DIR/Armada.exe" -overwrite -scriptPath "$PWD/tools/GhidraDump" -postScript CreateMissingFunctions.java -postScript DumpProgram.java "$PWD/decomp/armada/dump"
+"$HEADLESS" "$PWD/decomp/armada/project" Armada -import "$ARMADA_DIR/Armada.exe" -overwrite -scriptPath "$PWD/tools/GhidraDump" -postScript CreateMissingFunctions.java -postScript ApplyIndexNames.java "$PWD/docs/rules/program-index.md" -postScript DumpProgram.java "$PWD/decomp/armada/dump"
 ```
 
-Later runs reuse the saved project and skip the analysis:
+The project update runs both scripts again on the saved project, without Ghidra's auto-analysis, and saves
+the project. It writes no dump and takes seconds. Without `-noanalysis` Ghidra first re-analyses the whole
+program, which takes about 6 minutes:
+
+```bash
+"$HEADLESS" "$PWD/decomp/armada/project" Armada -process Armada.exe -noanalysis -scriptPath "$PWD/tools/GhidraDump" -postScript CreateMissingFunctions.java -postScript ApplyIndexNames.java "$PWD/docs/rules/program-index.md"
+```
+
+Dump runs reuse the saved project and skip the analysis:
 
 ```bash
 "$HEADLESS" "$PWD/decomp/armada/project" Armada -process Armada.exe -noanalysis -readOnly -scriptPath "$PWD/tools/GhidraDump" -postScript DumpProgram.java "$PWD/decomp/armada/dump"
@@ -72,6 +82,10 @@ A run is costly. Re-run the dump only when all of these hold:
    run that is due.
 4. The user agreed to this run. Ask once, name the changes from 2, and wait for a yes.
 
+Run the project update at the end of the scope when the "By address" table changed, and before a dump run
+that is due. It needs no yes. The names it applies do not make a dump run due by themselves (condition 2),
+so the dump shows the index's names as of its last run.
+
 When only `functions.tsv`, `strings.tsv`, or `vtables.tsv` must change, run with `index-only`. Re-run the
 first-run command (`-import -overwrite`) only when `decomp/` is missing: it replaces the project and loses
 every change applied to it.
@@ -79,7 +93,8 @@ every change applied to it.
 ## Gotchas
 
 - REA opens `Armada.exe` itself and does not read this Ghidra project. The dump is the first source; use
-  REA only for a question the dump cannot answer. Apply what REA finds (a missing function, a name, a type,
-  a comment) to the project as you go, and re-run the dump only as "When to re-run" says. Never edit the
+  REA only for a question the dump cannot answer. Names and missing functions reach the project
+  through the index and the project update. Apply other findings (a type, a comment, a function's
+  boundaries) in Ghidra on the project as you go. Re-run the dump only as "When to re-run" says. Never edit the
   dump by hand; the next run overwrites it.
 - Run one Ghidra analysis at a time on this machine; two at once overload it.

@@ -192,7 +192,7 @@ The asset browser logs what it shows. Each category and each asset shown is one 
 - `play/` — the checked-in play scripts. The "Run a play script" section explains how to run one.
 - `tools/WavLevel/` — the WAV level tool ("Measure the sound of a play run"), plain C# with no Godot dependency.
 - `tools/focused-tests.sh` — the focused test command (`docs/agents/verification.md`): the test classes of the changed test files, or every unit test.
-- `tools/GhidraDump/` — the Ghidra script and Python tools that write the local dump of `Armada.exe` into the gitignored `decomp/` and rebuild the generated parts of `docs/rules/program-index.md`. Its `README.md` explains the runs.
+- `tools/GhidraDump/` — the Ghidra scripts and Python tools that build the local Ghidra project and dump of `Armada.exe` in the gitignored `decomp/`, apply the program index's names to the project, and rebuild the generated parts of `docs/rules/program-index.md`. Its `README.md` explains the runs.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.
 
 C# is formatted with CSharpier: run `dotnet tool restore` once, then `dotnet csharpier format .` to format and `dotnet csharpier check .` to check.

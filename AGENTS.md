@@ -28,7 +28,8 @@ pseudocode against the instructions, in Ghidra on the saved project `decomp/arma
 disassembler such as `objdump`. Check the index and the dump first, every time. Use REA (the
 `reverse-engineer-anything` skill and the `rea` MCP tools) only for a question the dump cannot answer. REA
 opens `Armada.exe` directly and does not read the Ghidra project, so its findings reach the dump only
-through the project: apply each one there (a missing function, a name, a type, a comment). A dump run is
+through the project. Names and missing functions get there from the index through the project update; apply
+a type, a comment, or a function's boundaries in Ghidra on the project. A dump run is
 costly: re-run it only under the conditions in `tools/GhidraDump/README.md`, "When to re-run", which include
 the user's yes. That README also builds the project and the dump when
 `decomp/` is missing. After an investigation, add or update its routines in the index's topic tables, narrow

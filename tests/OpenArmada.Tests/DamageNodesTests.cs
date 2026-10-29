@@ -285,4 +285,59 @@ public class DamageNodesTests
             DamageNodes.Showing(Ship(), Unit(5)).ToArray(),
             DamageNodes.Showing(Ship(), Unit(5)).ToArray()
         );
+
+    [TestMethod]
+    public void TheBorgSubtreeShowsOnlyForABorgShip()
+    {
+        CollectionAssert.AreEqual(
+            new[] { "borg", "borgfire" },
+            DamageNodes.ShowingNodes(Ship(), 1, _ => false, borg: true).Select(n => n.Name).ToArray()
+        );
+        Assert.AreEqual(0, DamageNodes.ShowingNodes(Ship(), 1, _ => false, borg: false).Count);
+    }
+
+    [TestMethod]
+    public void ACrewRatioOfInfinityShowsNoCrewNode() =>
+        Assert.AreEqual(0, DamageNodes.ShowingNodes(Ship(), double.PositiveInfinity, _ => false, false).Count);
+
+    [TestMethod]
+    public void EachCrewStageRatioShowsThatManyNodesBelowTheCrewNode()
+    {
+        Assert.AreEqual(0, DamageNodes.ShowingNodes(Ship(), DamageNodes.CrewRatioShowing(0), _ => false, false).Count);
+        for (var stages = 1; stages <= 4; stages++)
+        {
+            var shown = DamageNodes.ShowingNodes(Ship(), DamageNodes.CrewRatioShowing(stages), _ => false, false);
+
+            Assert.AreEqual(stages + 1, shown.Count, $"{stages}");
+        }
+    }
+
+    [TestMethod]
+    public void TheArtNamesTheCrewStagesAnyRatioShowsAndTheNodesThatHoldArt()
+    {
+        var art = DamageNodes.Art(Ship());
+
+        Assert.AreEqual(4, art.CrewStages);
+        CollectionAssert.AreEqual(new[] { SystemNames.Weapons }, art.Systems.ToArray());
+        Assert.IsTrue(art.Borg);
+    }
+
+    [TestMethod]
+    public void AShortCrewChainHasFewerStages() =>
+        Assert.AreEqual(
+            1,
+            DamageNodes
+                .Art(Model(Node("root", ""), Node("damage", "root"), Node("crew", "damage"), Node("crew1", "crew")))
+                .CrewStages
+        );
+
+    [TestMethod]
+    public void AModelWithoutADamageGroupHasNoArt()
+    {
+        var art = DamageNodes.Art(Model(Node("root", "")));
+
+        Assert.AreEqual(0, art.CrewStages);
+        Assert.AreEqual(0, art.Systems.Count);
+        Assert.IsFalse(art.Borg);
+    }
 }

@@ -9,6 +9,7 @@ namespace OpenArmada.Viewer;
 public partial class ModelPreviewPane : SubViewportContainer
 {
     readonly Node3D _model;
+    readonly Node3D? _world;
     readonly Camera3D _camera = new() { Far = 10000 };
     float _yaw = 0.6f,
         _pitch = -0.35f,
@@ -17,11 +18,13 @@ public partial class ModelPreviewPane : SubViewportContainer
 
     /// <summary>
     /// Keeps <c>model</c> for <see cref="_Ready"/>, which adds it to the pane's own SubViewport with a camera, a light,
-    /// and an environment, and moves it so the box of its visible meshes is centered on the origin.
+    /// and an environment, and moves it so the box of its visible meshes is centered on the origin. <c>world</c>, when
+    /// given, joins the viewport at its origin, for what draws in world space such as damage sprays.
     /// </summary>
-    public ModelPreviewPane(Node3D model)
+    public ModelPreviewPane(Node3D model, Node3D? world = null)
     {
         _model = model;
+        _world = world;
         Stretch = true;
         SizeFlagsHorizontal = SizeFlags.ExpandFill;
         SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -47,6 +50,10 @@ public partial class ModelPreviewPane : SubViewportContainer
         view.AddChild(new DirectionalLight3D { RotationDegrees = new Vector3(-40, -30, 0) });
         view.AddChild(_camera);
         view.AddChild(_model);
+        if (_world != null)
+        {
+            view.AddChild(_world);
+        }
         var bounds = Bounds(_model);
         _model.Position = -bounds.GetCenter();
         _distance = _framed = Math.Max(bounds.Size.Length() * 0.6f, 1f);

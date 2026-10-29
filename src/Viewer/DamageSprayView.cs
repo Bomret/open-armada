@@ -11,7 +11,7 @@ using OpenArmada.Sandbox;
 namespace OpenArmada.Viewer;
 
 /// <summary>
-/// Draws the damage emitters of the units in the fight: each frame it steps every emitter's <see cref="SprayEmitter"/>
+/// Draws the damage emitters of a set of units, the units in the fight or a previewed model: each frame it steps every emitter's <see cref="SprayEmitter"/>
 /// by the frame's seconds, from the emitter node's world frame and whether its damage node shows (the frame's
 /// <see cref="UnitOrders.ShowingNodes"/>, decided by <see cref="DamageNodes.ShowingNodes"/>), and draws each live
 /// particle as a billboard of its sprite at its size, with the sprite node's animation playing once from the particle's
@@ -35,36 +35,37 @@ public partial class DamageSprayView : Node3D
     }
 
     readonly GameFileSystem _files;
-    readonly CombatWorld _world;
-    readonly Dictionary<PlacedObject, Node3D> _nodes;
-    readonly Func<PlacedObject, Sod?> _model;
-    readonly Func<PlacedObject, IReadOnlySet<Sod.Node>> _showing;
+    readonly Func<IEnumerable<object>> _units;
+    readonly Func<object, Node3D?> _root;
+    readonly Func<object, Sod?> _model;
+    readonly Func<object, IReadOnlySet<Sod.Node>> _showing;
     readonly Action<string> _gap;
     readonly RepeatedFaults _faults = new(Area.Combat);
     readonly Random _random;
     readonly Dictionary<Sod, DamageEmitters> _emitters = new();
     readonly Dictionary<string, Texture2D?> _textures = new(StringComparer.OrdinalIgnoreCase);
-    readonly Dictionary<(PlacedObject, Sod.Node), Spray> _sprays = new();
+    readonly Dictionary<(object, Sod.Node), Spray> _sprays = new();
     readonly Dictionary<Node3D, Dictionary<int, Node3D>> _built = new();
 
     /// <summary>
-    /// <c>nodes</c> are the unit nodes of the scene; <c>model</c> reads a unit's model; <c>showing</c> reads the damage
+    /// <c>units</c> are this frame's units, each a key such as a <see cref="PlacedObject"/>; <c>root</c> reads a unit's
+    /// node in the scene; <c>model</c> reads a unit's model; <c>showing</c> reads the damage
     /// nodes that show on a unit this frame (<see cref="UnitOrders.ShowingNodes"/>); <c>seed</c> fixes the random source
     /// of the particles' start angles (null: seeded from the system).
     /// </summary>
     public DamageSprayView(
         GameFileSystem files,
-        CombatWorld world,
-        Dictionary<PlacedObject, Node3D> nodes,
-        Func<PlacedObject, Sod?> model,
-        Func<PlacedObject, IReadOnlySet<Sod.Node>> showing,
+        Func<IEnumerable<object>> units,
+        Func<object, Node3D?> root,
+        Func<object, Sod?> model,
+        Func<object, IReadOnlySet<Sod.Node>> showing,
         Action<string> gap,
         int? seed
     )
     {
         _files = files;
-        _world = world;
-        _nodes = nodes;
+        _units = units;
+        _root = root;
         _model = model;
         _showing = showing;
         _gap = gap;
@@ -74,8 +75,8 @@ public partial class DamageSprayView : Node3D
     /// <inheritdoc/>
     public override void _Process(double delta)
     {
-        var live = new HashSet<(PlacedObject, Sod.Node)>();
-        foreach (var unit in _world.Units)
+        var live = new HashSet<(object, Sod.Node)>();
+        foreach (var unit in _units())
         {
             try
             {
@@ -112,19 +113,19 @@ public partial class DamageSprayView : Node3D
 
     // Steps and draws the sprays of one unit, and adds each of its emitters to `live` before any of them runs, so a
     // failure part way keeps the unit's particles out of the cleanup.
-    void StepSprays(UnitCombatState unit, double delta, HashSet<(PlacedObject, Sod.Node)> live)
+    void StepSprays(object unit, double delta, HashSet<(object, Sod.Node)> live)
     {
-        if (!_nodes.TryGetValue(unit.Unit, out var root) || !IsInstanceValid(root) || _model(unit.Unit) is not { } sod)
+        if (_root(unit) is not { } root || !IsInstanceValid(root) || _model(unit) is not { } sod)
             return;
         var emitters = Emitters(sod);
         if (emitters.Emitters.Count == 0)
             return;
-        live.UnionWith(emitters.Emitters.Select(d => (unit.Unit, d.Node)));
-        var showing = _showing(unit.Unit);
+        live.UnionWith(emitters.Emitters.Select(d => (unit, d.Node)));
+        var showing = _showing(unit);
         var built = BuiltNodes(root);
         foreach (var damage in emitters.Emitters)
         {
-            var key = (unit.Unit, damage.Node);
+            var key = (unit, damage.Node);
             if (!built.TryGetValue(sod.IndexOf(damage.Node), out var node))
                 continue;
             if (!IsInstanceValid(node))

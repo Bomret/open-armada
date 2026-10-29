@@ -179,10 +179,10 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         AddChild(
             new DamageSprayView(
                 files,
-                orders.Combat,
-                nodes,
-                ModelOf,
-                orders.ShowingNodes,
+                () => orders.Combat.Units.Select(u => (object)u.Unit),
+                u => nodes.GetValueOrDefault((PlacedObject)u),
+                u => ModelOf((PlacedObject)u),
+                u => orders.ShowingNodes((PlacedObject)u),
                 gap => AddGap(gap),
                 play == null ? null : PlayScript.Seed
             )

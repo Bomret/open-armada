@@ -1,0 +1,11 @@
+// The stock planet mearth and a Federation destroyer on team 1 in an empty area, for play/push-out-planet.play: the
+// ship is ordered to the planet's center and is pushed out of it at the planet's edge.
+// Run it with: godot-mono --path . --write-movie play-out/push-out-planet/frame.png --fixed-fps 10 -- --game <install>
+// --layout layouts/push-out-planet.jsonc --play play/push-out-planet.play
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "mearth", "team": 0, "position": [2500, 0, 2000], "label": "Planet" },
+    { "class": "fdestroy", "team": 1, "position": [1500, 0, 2000], "label": "Probe" },
+  ],
+}

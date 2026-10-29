@@ -146,6 +146,13 @@ public sealed record StartingState
 
     /// <summary>The ship systems that start destroyed, by name, each once.</summary>
     public IReadOnlyList<string> DestroyedSystems { get; init; } = [];
+
+    /// <summary>
+    /// The world velocity the unit starts with, in units per second; null for none. A layout reads it in its own
+    /// frame (the frame of the object's position) and the sandbox plan hands it on in Godot's frame, as it does the
+    /// position. A unit without thrust coasts from it.
+    /// </summary>
+    public Vector3? Velocity { get; init; }
 }
 
 /// <summary>One of the 9 team records. Fields named Unknown are read but their meaning is not known.</summary>

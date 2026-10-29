@@ -192,7 +192,8 @@ public static class Layout
             "front",
             "crew",
             "shields",
-            "destroyedSystems"
+            "destroyedSystems",
+            "velocity"
         );
         var name = Text(Required(o, path, "class"), path + ".class");
         if (name.Length == 0)
@@ -232,13 +233,14 @@ public static class Layout
         };
     }
 
-    // The object's starting state; null when it gives none of the three keys.
+    // The object's starting state; null when it gives none of the four keys.
     static StartingState? Start(JsonElement o, string path)
     {
         var crew = o.TryGetProperty("crew", out var c) ? Fraction(c, path + ".crew") : (double?)null;
         var shields = o.TryGetProperty("shields", out var sh) ? Fraction(sh, path + ".shields") : (double?)null;
         var systems = o.TryGetProperty("destroyedSystems", out var d) ? Systems(d, path + ".destroyedSystems") : null;
-        if (crew == null && shields == null && systems == null)
+        var velocity = o.TryGetProperty("velocity", out var v) ? Vector(v, path + ".velocity") : (Vector3?)null;
+        if (crew == null && shields == null && systems == null && velocity == null)
             return null;
 
         return new StartingState
@@ -246,6 +248,7 @@ public static class Layout
             Crew = crew,
             Shields = shields,
             DestroyedSystems = systems ?? [],
+            Velocity = velocity,
         };
     }
 

@@ -13,8 +13,9 @@ namespace OpenArmada.Viewer;
 /// <summary>
 /// The orders of the map sandbox and the pose of every unit. A right-click on a unit hostile to a selected unit
 /// gives that unit an attack order on it (a unit without weapons ignores the click). Any other right-click sends
-/// the selected ships to where its ray meets the middle of the combat plane, clamped to the map's bounds; a ray
-/// that misses the plane is ignored. A new order of either kind replaces the old one.
+/// the selected ships to where its ray meets the middle of the combat plane, clamped to the map's bounds, as a group
+/// move (CombatWorld.GroupMove: one ship goes to the point, several to the cells of the game's group formation around
+/// it); a ray that misses the plane is ignored. A new order of either kind replaces the old one.
 /// Each ship moves at its own height by its ShipMotion, fed by its physics definition, and follows the movement
 /// its CombatWorld asks of it while it attacks. Stations and all other objects never move. Pose reads the
 /// current pose of any unit, from the moment the map opens: the placed pose until the unit moves. Each frame
@@ -37,6 +38,7 @@ public partial class UnitOrders : Node3D
     readonly CombatWorld _world;
     readonly HashSet<PlacedObject> _fighting; // the units the world was built with, to tell the destroyed ones
     readonly float _planeHeight;
+    readonly float _spacing; // FORMATION_SPACING, the cells of a group move
     readonly MapBounds _bounds;
     readonly Func<PlacedObject, Sod?> _model;
 
@@ -50,7 +52,7 @@ public partial class UnitOrders : Node3D
     /// <summary>
     /// <c>planeHeight</c> is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
     /// stand-ins), so orders aim at the plane the camera looks at; <c>bounds</c> are the ones the rig clamps its look-at
-    /// point to. <c>combat</c> holds every unit's combat values; the units fight in a CombatWorld that this node steps
+    /// point to. <c>move</c> holds the physics definitions of the ships that can move. <c>combat</c> holds every unit's combat values; the units fight in a CombatWorld that this node steps
     /// and whose state it shows through Combat. <c>model</c> reads a unit's model for its damage nodes. <c>seed</c> seeds the combat random source; null seeds it from the
     /// system, so every run differs.
     /// </summary>
@@ -62,6 +64,7 @@ public partial class UnitOrders : Node3D
         float planeHeight,
         MapBounds bounds,
         CombatPlan combat,
+        MovePlan move,
         Action<string> gap,
         Func<PlacedObject, string, ShipPose, System.Numerics.Vector3> hardpointPosition,
         Func<PlacedObject, Sod?> model,
@@ -72,13 +75,10 @@ public partial class UnitOrders : Node3D
         _selection = selection;
         _nodes = nodes;
         _planeHeight = planeHeight;
+        _spacing = combat.FormationSpacing;
         _bounds = bounds;
         _poses = new UnitPoses(selection.Units.Select(u => u.Object));
-        _plan = MovePlan.Build(plan, selection.Units, files);
-        foreach (var report in _plan.Reports)
-        {
-            gap(report.Text);
-        }
+        _plan = move;
 
         var spriteNodes = ShieldEllipsoid.SpriteNodeLines(files);
         ShieldEllipsoid? Shield(PlacedObject o, CombatProfile profile)
@@ -128,13 +128,22 @@ public partial class UnitOrders : Node3D
                         u.Object.Class + ".odf",
                     Radius = Radius(nodes[u.Object]),
                     Mobile = u.Movable && u.Unit is Ship && _plan.Physics.ContainsKey(u.Object),
+                    Motion = u.Movable && u.Unit is Ship ? Motion(u.Object) : null,
                     Shield = Shield(u.Object, combat.Profiles[u.Object]),
+                    Model = model(u.Object),
                 }),
             combat.ShieldDamageProtection,
             random.NextDouble,
             hardpointPosition,
-            combat.SystemHitpointsBonus
-        );
+            combat.SystemHitpointsBonus,
+            combat.Debris
+        )
+        {
+            MaxPreventionRotation = combat.MaxPreventionRotation,
+            // a planet's radius is its model's bounding radius (+0x60), the same value a ship's radius is
+            Obstacles = plan.Obstacles(o => model(o) is { } sod ? ShieldEllipsoid.BoundingRadius(sod, spriteNodes) : 0),
+            BlackHoles = plan.BlackHoles,
+        };
         _fighting = _world.Units.Select(u => u.Unit).ToHashSet();
     }
 
@@ -182,6 +191,9 @@ public partial class UnitOrders : Node3D
         // stand-in: an order outside the map goes to the nearest point of its edge; how the game handles such a click
         // is not known.
         var target = hit is { } point ? MoveGeometry.ClampToMap(point, _bounds) : (System.Numerics.Vector2?)null;
+        // The selection in the order the selection marks it: a box takes the units in the scene's unit order, which the
+        // layout's object order fixes, so one run's order is every run's.
+        var moving = new List<PlacedObject>();
         foreach (var unit in _selection.Selected)
         {
             if (clicked != null && CombatRules.Hostile(unit.Object.Team, clicked.Object.Team))
@@ -191,20 +203,16 @@ public partial class UnitOrders : Node3D
                 continue;
             }
 
-            // a ship with destroyed engines, a derelict one, or a dying one takes no move order
-            if (
-                target is not { } to
-                || !unit.Movable
-                || _world.State(unit.Object) is { Immobile: true }
-                || Motion(unit.Object) is not { } motion
-            )
-                continue;
-            _world.Move(unit.Object, to.X, to.Y);
-            motion.SetTarget(to.X, to.Y);
+            moving.Add(unit.Object);
         }
+
+        // The ships that take a move order go to the group formation around the click (the world drops the ones that
+        // cannot: a station, a ship with destroyed engines, a derelict one, or a dying one).
+        if (target is { } to)
+            _world.GroupMove(moving, new System.Numerics.Vector2(to.X, to.Y), _spacing, _planeHeight, _bounds);
     }
 
-    // The ShipMotion of a ship that can move, created on first use; null for a unit that never moves.
+    // The ShipMotion of a ship that can move, which the combat world steps; made once. Null for a unit that never moves.
     ShipMotion? Motion(PlacedObject o)
     {
         if (_moving.TryGetValue(o, out var state))
@@ -280,37 +288,22 @@ public partial class UnitOrders : Node3D
     /// <inheritdoc/>
     public override void _Process(double delta)
     {
-        foreach (var unit in _world.Units)
+        // A failure of one frame's combat never stops the sandbox (INV-0002); the next frame goes on.
+        IReadOnlyList<CombatEvent> events = [];
+        try
         {
-            if (unit.CoastOvershoot is { } overshoot && Motion(unit.Unit) is { } coaster)
-            {
-                coaster.Coast(overshoot);
-            }
-            else if (unit.Intent.Kind != MoveKind.None && Motion(unit.Unit) is { } motion)
-            {
-                motion.Thrust();
-                switch (unit.Intent.Kind)
-                {
-                    case MoveKind.MoveTo:
-                        motion.SetTarget(unit.Intent.X, unit.Intent.Z);
-
-                        break;
-                    case MoveKind.Face:
-                        motion.Face(unit.Intent.X, unit.Intent.Z);
-
-                        break;
-                    default:
-                        motion.Stop();
-
-                        break;
-                }
-            }
+            events = _world.Step(delta);
+        }
+        catch (Exception e)
+        {
+            _faults.Report($"combat step failed: {e.Message}");
         }
 
+        // The world moves the ships on its ticks; the view draws each between its tick poses (the simulated pose
+        // stays on the tick), before the step's events reach the nodes that read the drawn transforms.
         foreach (var (o, (motion, initial, start, scale)) in _moving)
         {
-            _poses.Advance(o, motion, delta);
-            var pose = motion.Drawn; // a coasting ship is drawn between its tick poses; the simulated pose stays on the tick
+            var pose = motion.Drawn(_world.Pending);
             var q = MoveGeometry.Orientation(initial, pose.Heading - start, pose.Bank);
             _nodes[o].Transform = new Transform3D(
                 new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)) * Basis.FromScale(scale),
@@ -318,10 +311,9 @@ public partial class UnitOrders : Node3D
             );
         }
 
-        // A failure of one frame's combat never stops the sandbox (INV-0002); the next frame goes on.
         try
         {
-            Stepped?.Invoke(_world.Step(delta));
+            Stepped?.Invoke(events);
         }
         catch (Exception e)
         {

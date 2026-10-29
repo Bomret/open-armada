@@ -20,7 +20,13 @@ public class CombatPlanTests
     public void CleanUp() => temp.CleanUp();
 
     const string Physics = "physicsFile = \"p.odf\"\r\n";
-    const string Constants = "float SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\n";
+    const string Constants =
+        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\n";
+    const string ConstantsWithoutPrevention =
+        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\n";
+    const string ArtConstants =
+        "int ST3D_CHUNK_MANAGER_MAX_CHUNKS = 1500;\r\nfloat ST3D_CHUNK_DENSITY = 0.8;\r\nfloat ST3D_CHUNK_MAX_LIFETIME = 2.75;\r\n"
+        + "float ST3D_CHUNK_MAX_ANGULAR_VELOCITY = 5.0;\r\nfloat ST3D_CHUNK_MAX_VELOCITY = 70.0;\r\n";
     const string Race =
         "name = \"federation\"\r\ncrewYellowStatus = 0.4\r\ncrewRedStatus = 0.2\r\nweaponYellow = 1.5\r\n"
         + "weaponRed = 2.5\r\nrepairYellow = 1.1\r\nrepairRed = 1.2\r\nrepairStrength = 1.5\r\n";
@@ -38,6 +44,9 @@ public class CombatPlanTests
     // A loose-file marker (an empty file in the install, no races.odf) for a test of an install with no races.odf.
     const string NoRaces = "no-races";
 
+    // A loose-file marker for a test of an install whose RTS_CFG.h names an ART_CFG.h the install lacks.
+    const string NoArt = "no-art";
+
     // Definitions are "class" -> odf text, in addon/. The map holds one object of each class in `classes`.
     (CombatPlan Plan, SelectableUnit[] Units) Plan(
         string[] classes,
@@ -49,6 +58,12 @@ public class CombatPlanTests
         if (!loose.Any(l => l.Path is "addon/races.odf" or "addon/races.zfs" or NoRaces))
         {
             loose = loose.Append(("addon/races.odf", "numberOfRaces = 1\r\nrace0 = \"fed.odf\"\r\n")).ToArray();
+        }
+
+        // the install's RTS_CFG.h includes an ART_CFG.h; tests that do not bring their own get a full one
+        if (loose.Any(l => l.Path == "RTS_CFG.h") && !loose.Any(l => l.Path is "ART_CFG.h" or NoArt))
+        {
+            loose = loose.Append(("ART_CFG.h", ArtConstants)).ToArray();
         }
 
         var install = new GameFileSystem(
@@ -79,7 +94,7 @@ public class CombatPlanTests
         var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
         var units = UnitPlan.Build(install, plan, _ => true).Units.ToArray();
 
-        return (CombatPlan.Build(install, plan, units), units);
+        return (CombatPlan.Build(install, plan, units, MovePlan.Build(plan, units, install)), units);
     }
 
     // One ship "s" with the given extra keys, and the definitions every ship of these tests shares.
@@ -384,6 +399,7 @@ public class CombatPlanTests
         Assert.AreEqual(1.5f, p.Race.RepairStrength);
         Assert.AreEqual(0.5f, r.Plan.ShieldDamageProtection);
         Assert.AreEqual(2f, r.Plan.SystemHitpointsBonus);
+        Assert.AreEqual(100f, r.Plan.FormationSpacing);
         Assert.AreEqual(0, r.Plan.Reports.Count);
     }
 
@@ -492,7 +508,53 @@ public class CombatPlanTests
         var r = Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) }, ("RTS_CFG.h", "int OTHER = 1;\r\n"));
         Assert.AreEqual(1f, r.Plan.ShieldDamageProtection);
         Assert.AreEqual(0f, r.Plan.SystemHitpointsBonus);
-        Assert.AreEqual(2, r.Plan.Reports.Count(g => g.Cause.Contains("game constant")));
+        Assert.AreEqual(4, r.Plan.Reports.Count(g => g.Cause.Contains("game constant")));
+        Assert.AreEqual(40f, r.Plan.FormationSpacing);
+    }
+
+    [TestMethod]
+    public void AFormationSpacingThatIsNoPositiveNumberTakesTheGamesDefaultAndIsReportedOnce()
+    {
+        foreach (var value in new[] { "0", "-5", "\"wide\"", "1e40" })
+        {
+            var r = Plan(
+                new[] { "s", "s" },
+                new[] { ("s", Ship), ("fed", Race) },
+                (
+                    "RTS_CFG.h",
+                    $"float SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = {value};\r\n"
+                )
+            );
+            Assert.AreEqual(40f, r.Plan.FormationSpacing, value);
+            Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("FORMATION_SPACING")), value);
+        }
+    }
+
+    [TestMethod]
+    public void AMissingGameConstantsFileTakesTheGamesFormationSpacing()
+    {
+        var r = Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) });
+        Assert.AreEqual(40f, r.Plan.FormationSpacing);
+    }
+
+    [TestMethod]
+    public void MaxPreventionRotationComesFromTheInstall()
+    {
+        var r = Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) }, ("RTS_CFG.h", Constants));
+        Assert.AreEqual(0.6f, r.Plan.MaxPreventionRotation);
+        Assert.AreEqual(0, r.Plan.Reports.Count(g => g.Cause.Contains("MAX_PREVENTION_ROTATION")));
+    }
+
+    [TestMethod]
+    public void AMissingMaxPreventionRotationTakesTheGamesDefaultAndIsReportedOnce()
+    {
+        var r = Plan(
+            new[] { "s", "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", ConstantsWithoutPrevention)
+        );
+        Assert.AreEqual(0.4f, r.Plan.MaxPreventionRotation);
+        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("game constant MAX_PREVENTION_ROTATION")));
     }
 
     [TestMethod]
@@ -574,5 +636,150 @@ public class CombatPlanTests
         Assert.AreNotSame(r.Units[0].Object, r.Units[1].Object);
         Assert.AreEqual(2, r.Plan.Profiles.Count);
         Assert.IsTrue(r.Units.All(u => r.Plan.Profiles.ContainsKey(u.Object)));
+    }
+
+    // The debris limits: ART_CFG.h reached through RTS_CFG.h's #include (the game's compiled defaults where it lacks one).
+    DebrisLimits DebrisOf(params (string Path, string Content)[] loose) =>
+        Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) }, loose).Plan.Debris;
+
+    [TestMethod]
+    public void TheDebrisLimitsComeFromTheArtConfigurationTheGameConstantsInclude()
+    {
+        var limits = DebrisOf(("RTS_CFG.h", Constants), ("ART_CFG.h", ArtConstants));
+        Assert.AreEqual(1500, limits.MaxChunks);
+        Assert.AreEqual(0.8f, limits.Density);
+        Assert.AreEqual(2.75f, limits.MaxLifetime);
+        Assert.AreEqual(5f, limits.MaxAngularVelocity);
+        Assert.AreEqual(70f, limits.MaxVelocity);
+    }
+
+    [TestMethod]
+    public void AMissingArtConfigurationTakesTheCompiledDefaultsAndIsReportedOnce()
+    {
+        using var log = new CapturedLog();
+        var r = Plan(new[] { "s", "s" }, new[] { ("s", Ship), ("fed", Race) }, ("RTS_CFG.h", Constants), (NoArt, ""));
+        Assert.AreEqual(DebrisLimits.Default, r.Plan.Debris);
+        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.StartsWith("ART_CFG.h missing")));
+        Assert.AreEqual(1, log.Lines.Count(l => l.Contains(" WARN combat: ") && l.Contains("ART_CFG.h")), log.Text);
+    }
+
+    [TestMethod]
+    public void GameConstantsThatIncludeNoArtConfigurationTakeTheCompiledDefaultsAndReportIt()
+    {
+        var r = Plan(
+            new[] { "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", "float SHIELD_DAMAGE_PROTECTION = 0.5;\r\n")
+        );
+        Assert.AreEqual(DebrisLimits.Default, r.Plan.Debris);
+        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.StartsWith("ART_CFG.h missing")));
+    }
+
+    [TestMethod]
+    public void AnUnreadableArtConfigurationIsOneErrorAndTakesTheCompiledDefaults()
+    {
+        using var log = new CapturedLog();
+        var r = Plan(
+            new[] { "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", Constants),
+            ("addon/a.zfs", Unreadable("ART_CFG.h", ArtConstants))
+        );
+        Assert.AreEqual(DebrisLimits.Default, r.Plan.Debris);
+        Assert.AreEqual(1, log.Lines.Count(l => l.Contains(" ERROR combat: ART_CFG.h: ")), log.Text);
+        Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.StartsWith("ART_CFG.h cannot be read")));
+    }
+
+    [TestMethod]
+    public void AMissingDebrisKeyAloneTakesItsDefaultAndTheRestAreRead()
+    {
+        var r = Plan(
+            new[] { "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", Constants),
+            ("ART_CFG.h", "float ST3D_CHUNK_DENSITY = 0.5;\r\n")
+        );
+        Assert.AreEqual(0.5f, r.Plan.Debris.Density);
+        Assert.AreEqual(3f, r.Plan.Debris.MaxLifetime);
+        Assert.AreEqual(3000, r.Plan.Debris.MaxChunks);
+        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("ST3D_CHUNK_MAX_LIFETIME")));
+        Assert.AreEqual(0, r.Plan.Reports.Count(g => g.Cause.Contains("ST3D_CHUNK_DENSITY")));
+    }
+
+    // The test's ART_CFG.h with one limit's value replaced.
+    static string ArtWith(string key, string value) =>
+        string.Concat(
+            ArtConstants
+                .Split("\r\n", StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => (l.Contains($" {key} = ") ? $"{l[..l.IndexOf('=')]}= {value};" : l) + "\r\n")
+        );
+
+    // A literal the header can hold that is infinite as the float a limit is read into: 1e39 and its 40-digit integer
+    // (a NaN or an infinity is no literal of the header, so it reads as no number).
+    [TestMethod]
+    [DataRow("ST3D_CHUNK_MANAGER_MAX_CHUNKS", "1000000000000000000000000000000000000000")]
+    [DataRow("ST3D_CHUNK_DENSITY", "1e39")]
+    [DataRow("ST3D_CHUNK_DENSITY", "-1e39")]
+    [DataRow("ST3D_CHUNK_MAX_LIFETIME", "1e39")]
+    [DataRow("ST3D_CHUNK_MAX_ANGULAR_VELOCITY", "-1e39")]
+    [DataRow("ST3D_CHUNK_MAX_VELOCITY", "1e39")]
+    public void ADebrisLimitThatIsNoFiniteNumberTakesItsDefaultAndIsReportedOnce(string key, string value)
+    {
+        var r = Plan(
+            new[] { "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", Constants),
+            ("ART_CFG.h", ArtWith(key, value))
+        );
+        var expected = DebrisLimits.Default with
+        {
+            MaxChunks = 1500,
+            Density = 0.8f,
+            MaxLifetime = 2.75f,
+            MaxAngularVelocity = 5f,
+            MaxVelocity = 70f,
+        };
+        expected = key switch
+        {
+            "ST3D_CHUNK_MANAGER_MAX_CHUNKS" => expected with { MaxChunks = DebrisLimits.Default.MaxChunks },
+            "ST3D_CHUNK_DENSITY" => expected with { Density = DebrisLimits.Default.Density },
+            "ST3D_CHUNK_MAX_LIFETIME" => expected with { MaxLifetime = DebrisLimits.Default.MaxLifetime },
+            "ST3D_CHUNK_MAX_ANGULAR_VELOCITY" => expected with
+            {
+                MaxAngularVelocity = DebrisLimits.Default.MaxAngularVelocity,
+            },
+            _ => expected with { MaxVelocity = DebrisLimits.Default.MaxVelocity },
+        };
+        Assert.AreEqual(expected, r.Plan.Debris);
+        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains(key)));
+    }
+
+    // 3000000000 is above int's range, which the cap is held in.
+    [TestMethod]
+    [DataRow("10001")]
+    [DataRow("3000000000")]
+    public void ADebrisCapAboveTheMostIsReportedOnceAndTakesTheMost(string value)
+    {
+        var r = Plan(
+            new[] { "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", Constants),
+            ("ART_CFG.h", ArtWith("ST3D_CHUNK_MANAGER_MAX_CHUNKS", value))
+        );
+        Assert.AreEqual(DebrisLimits.MostChunks, r.Plan.Debris.MaxChunks);
+        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("ST3D_CHUNK_MANAGER_MAX_CHUNKS")));
+    }
+
+    [TestMethod]
+    public void ADebrisDensityAboveTheMostIsReportedOnceAndTakesTheMost()
+    {
+        var r = Plan(
+            new[] { "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", Constants),
+            ("ART_CFG.h", ArtWith("ST3D_CHUNK_DENSITY", "16777216.0"))
+        );
+        Assert.AreEqual(DebrisLimits.MostDensity, r.Plan.Debris.Density);
+        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("ST3D_CHUNK_DENSITY")));
     }
 }

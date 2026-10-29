@@ -32,6 +32,8 @@ public class StartingStateTests
     // A world of the layout's objects: "s" a ship with all five systems and 100 crew, "nosensors" one without
     // sensors, "nocrew" one whose class has no crew, "rock" an object that is no unit. Returns the world, the
     // placed objects in layout order, and the reports of the unit and combat plans.
+    UnitPoses poses = null!; // the poses of the world the last World call built
+
     (CombatWorld World, PlacedObject[] Objects, string[] Reports) World(params string[] objects)
     {
         var install = new GameFileSystem(
@@ -39,11 +41,22 @@ public class StartingStateTests
                 ("addon/s.odf", Ship + Sensors + "crewCost = 100\r\n"),
                 ("addon/nosensors.odf", Ship + "crewCost = 100\r\n"),
                 ("addon/nocrew.odf", Ship + Sensors + "crewCost = 0\r\n"),
+                ("addon/station.odf", Ship + Sensors + "crewCost = 100\r\nis_starbase = 1\r\n"),
                 ("addon/rock.odf", "maxHealth = 1\r\n"),
-                ("addon/p.odf", ""),
+                ("addon/p.odf", "impulseSpeed = 10\r\nyawRotationRate = 1\r\ntooCloseToTurn = 40\r\n"),
+                ("addon/q.odf", "tooCloseToTurn = 40\r\n"), // a physics definition without impulseSpeed
+                ("addon/nophys.odf", Ship.Replace("p.odf", "q.odf") + Sensors + "crewCost = 100\r\n"),
                 ("addon/fed.odf", Race),
                 ("addon/races.odf", "numberOfRaces = 1\r\nrace0 = \"fed.odf\"\r\n"),
-                ("RTS_CFG.h", "float SHIELD_DAMAGE_PROTECTION = 1;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\n")
+                (
+                    "RTS_CFG.h",
+                    "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 1;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\n"
+                ),
+                (
+                    "ART_CFG.h",
+                    "int ST3D_CHUNK_MANAGER_MAX_CHUNKS = 3000;\r\nfloat ST3D_CHUNK_DENSITY = 1.0;\r\nfloat ST3D_CHUNK_MAX_LIFETIME = 3.0;\r\n"
+                        + "float ST3D_CHUNK_MAX_ANGULAR_VELOCITY = 4.0;\r\nfloat ST3D_CHUNK_MAX_VELOCITY = 200.0;\r\n"
+                )
             )
         );
         var read = Layout.Read(
@@ -55,9 +68,10 @@ public class StartingStateTests
         Assert.IsNull(read.Problem);
         var plan = SandboxPlan.Build(read.Asset!, SandboxPlan.Definitions(install, read.Asset!), _ => true);
         var units = UnitPlan.Build(install, plan, _ => true);
-        var combat = CombatPlan.Build(install, plan, units.Units);
+        var combat = CombatPlan.Build(install, plan, units.Units, MovePlan.Build(plan, units.Units, install));
+        poses = new UnitPoses(plan.Objects);
         var world = new CombatWorld(
-            new UnitPoses(plan.Objects),
+            poses,
             units.Units.Select(u => new CombatUnit
             {
                 Unit = u.Object,
@@ -65,6 +79,19 @@ public class StartingStateTests
                 DefinitionName = u.Object.Class + ".odf",
                 Radius = 0,
                 Mobile = true,
+                Motion =
+                    u.Unit is Ship
+                        ? new ShipMotion(
+                            new PhysicsValues
+                            {
+                                ImpulseSpeed = 10,
+                                YawRotationRate = 1,
+                                MaxRoll = null,
+                            },
+                            u.Object.Position,
+                            0
+                        )
+                        : null,
             }),
             combat.ShieldDamageProtection,
             () => 0.5,
@@ -208,6 +235,52 @@ public class StartingStateTests
         StringAssert.Contains(reports[0], "nosensors (nosensors)");
         Assert.IsTrue(world.State(objects[0])!.Systems["Engines"].Destroyed);
         Assert.IsNotNull(world.State(objects[1]));
+    }
+
+    [TestMethod]
+    [DataRow("\"destroyedSystems\": [\"Engines\"]")]
+    [DataRow("\"crew\": 0")]
+    public void AUnitWithoutThrustCoastsFromTheFirstTickAlongItsStartingVelocityInTheFrameOfItsPosition(string keys)
+    {
+        var (world, objects, reports) = World(Obj("s", keys + ", \"velocity\": [3, 0, 4]"));
+        Assert.AreEqual(0, reports.Length, string.Join("\n", reports));
+
+        world.Step(CombatWorld.Tick);
+
+        // the layout's Z is mirrored into Godot's frame, as the position's is
+        var v = world.State(objects[0])!.Velocity;
+        Assert.AreEqual(3 * 0.992f, v.X, 1e-3); // 5 units/s braked by 2.0 per second per second for one tick
+        Assert.AreEqual(-4 * 0.992f, v.Z, 1e-3);
+        Assert.IsTrue(poses.Pose(objects[0]).Position.Z < objects[0].Position.Z);
+    }
+
+    [TestMethod]
+    public void AStartingVelocityReachesThePlacedObjectInGodotsFrame()
+    {
+        var (_, objects, _) = World(Obj("s", "\"velocity\": [1, 2, 3]"));
+
+        Assert.AreEqual(new System.Numerics.Vector3(1, 2, -3), objects[0].Start!.Velocity);
+    }
+
+    [TestMethod]
+    [DataRow("s", "\"velocity\": [0, 0, 5]", "with thrust")]
+    [DataRow("s", "\"crew\": 0.5, \"velocity\": [0, 0, 5]", "with thrust")]
+    [DataRow("nophys", "\"crew\": 0, \"velocity\": [0, 0, 5]", "cannot move")]
+    [DataRow("station", "\"velocity\": [0, 0, 5]", "cannot move")]
+    [DataRow("station", "\"destroyedSystems\": [\"Engines\"], \"velocity\": [0, 0, 5]", "cannot move")]
+    [DataRow("rock", "\"velocity\": [0, 0, 5]", "without combat state")]
+    public void AVelocityThatCannotBeUsedIsOneGapNamingTheObjectAndTheRestOpens(string cls, string keys, string cause)
+    {
+        var (world, objects, reports) = World(Obj(cls, keys), Obj("s", x: 1100));
+
+        Assert.AreEqual(1, reports.Length, string.Join("\n", reports));
+        StringAssert.Contains(reports[0], $"{cls} ({cls})");
+        StringAssert.Contains(reports[0], cause);
+        Assert.IsNotNull(world.State(objects[1]));
+        world.Step(1);
+        Assert.AreEqual(0, world.State(objects[1])!.Speed);
+        if (cls == "s")
+            Assert.AreEqual(0, world.State(objects[0])!.Speed); // a ship with thrust stays at rest
     }
 
     [TestMethod]

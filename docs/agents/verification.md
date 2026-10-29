@@ -52,8 +52,8 @@ Movie Maker, and a long fight there can take hours.
   play script that uses it.
 - A layout for one very specific situation only may be a scratch file outside the repository. Never
   commit it.
-- A layout object can start damaged: `crew`, `shields`, and `destroyedSystems` set its starting state.
-  `README.md`, "Open a layout", has the keys.
+- A layout object can start damaged: `crew`, `shields`, and `destroyedSystems` set its starting state, and
+  `velocity` sets the velocity it starts with. `README.md`, "Open a layout", has the keys.
 - Pick the lowest fixed frame rate the line allows: 30 where the line needs the frames around a short
   visual event, lower, such as 10, for a line about unit state or a long fight.
 - Take a shot of a unit as a crop around it, `shot <name> <unit> [scale]`, whenever the line is about that unit:

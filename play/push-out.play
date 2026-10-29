@@ -1,0 +1,24 @@
+# On layouts/push-out.jsonc an asteroid field of radius 100 lies at (2000, 2000) between two destroyers. Near is ordered
+# to a point 5 inside the field's edge, Deep to a point 40 inside it. Each drives in until it meets the field and the
+# push-out moves it straight back out by position to the field's radius plus its own model radius. Near then stands
+# within tooCloseToTurn of its point, so the push ends its order and it stops where it stands (move=none). Deep
+# stands farther off and keeps its order open (move=<x>,<z>): it holds the ring at the same distance from the center,
+# without going back and forth, and slides slowly along the ring (a fraction of a unit in 10 s).
+# Dumps: "before" shows both 500 from the field's center; "driving" both on their way with move=<x>,<z>; "edge" and
+# "later" (10 s on) show both at the same distance from the center, Near with move=none and Deep with its order.
+# Run it with --layout layouts/push-out.jsonc; the layout's header comment has the whole command.
+# The points are in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 1
+dump before
+select Near
+wait 0.3
+move 1905 -2000
+select Deep
+wait 0.3
+move 2060 -2000
+wait 3
+dump driving
+wait 30
+dump edge
+wait 10
+dump later

@@ -47,7 +47,8 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   (0x46eac0). The point starts at the unit's placed position (**stand-in**; the game's point at creation was
   not found). When a player's attack order ends with its target destroyed, the point becomes where the unit
   stands then (**stand-in**). A move gives no height, so the point keeps the unit's own (**stand-in**). The
-  engine stops the closing and the return when the stance leaves red (**stand-in**). A player's attack order
+  engine stops the closing when the stance leaves red (**stand-in**); the return is the hold below, which no
+  stance ends. A player's attack order
   keeps a derelict target.
 
   A recent hit moves the tether point. When a shot landed less than one second ago (0x46e640 compares the
@@ -65,11 +66,20 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   sets. Only an AI team's idle unit walks toward the position of a unit that hit it less than a second ago
   (0x42a298) or takes the attack path behind the unit definition's flag at +0x237 (0x42a24c). No team in the
   map sandbox is an AI team, because the player orders the units of every team, so neither is built.
-- **Yellow:** the unit picks targets by itself and fires at them, and never moves on its own. The game
-  makes one more validity check on yellow candidates whose meaning is unknown; the engine skips it
-  (**stand-in**).
+- **Yellow:** the unit picks targets by itself and fires at them, and never moves on its own to a target (it
+  still holds its tether point, below). The game makes one more validity check on yellow candidates whose
+  meaning is unknown; the engine skips it (**stand-in**).
 - **Green:** the unit picks no target by itself. It fires only at a target an attack order gives it
   (0x42ffac).
+
+**The hold.** A mobile ship with thrust, no move order, and no attack order holds its tether point at every
+stance, with or without weapons: the idle handler (0x42a170) keeps calling the move maneuver on the point
+(0x42e4a0, `docs/rules/forced-motion.md` "Move-order arrival and hold"). A push that leaves the ship at or beyond
+its `tooCloseToTurn` from the point makes it drive back, and nearer it stays where it was moved. The return ends
+on reaching the point, or by a push inside the radius, which makes that spot the tether point. Red's close on a
+pick within 300 units of the tether point keeps precedence, and red's return after closing is the same hold. A
+ship that regains thrust away from its tether point drives back to it (**stand-in**: the engine's return has no
+brake, so a ship inside the radius does not move).
 
 The install binds the stances to keys in `Input.map` (`green`, `yellow`, `red`).
 
@@ -144,7 +154,8 @@ The to-hit roll happens when the weapon fires (0x50a3b0):
 - The shot always hits a target whose engines are destroyed or that is derelict.
 - Otherwise the chance is `hitChance`, plus `warpToHitModifier` when the firing unit is at warp, plus
   `toHitWarpModifier` when the target is at warp, plus `stopToHitModifier` when the firing unit is
-  stopped, plus `toHitStopModifier` when the target is stopped. The slow modifiers are not used.
+  stopped, plus `toHitStopModifier` when the target is stopped. The slow modifiers are not used. **Stand-in**: a unit is stopped
+  when its velocity is 0; the game's test was not traced.
 - The shot hits when a uniform random number from 0 to 1 is at most the chance.
 
 A missed shot is aimed by the miss path (0x50aab0), which leads the target and offsets the aim by the target's
@@ -340,14 +351,15 @@ A critical hit makes the unit a **dying unit** instead of removing it (0x468990 
 state). The unit stays in the world until its timer runs out.
 
 - **Timer** (0x466090): 3.0 s when the unit's speed is at most 1.0, 5.0 s when its speed is above 1.0 or its
-  class sets `isHero`. The speed is the unit's position change over the latest step (**stand-in**; the
-  engine has no velocity of its own). The timer counts from the tick after the critical hit.
+  class sets `isHero`. The speed is the length of the unit's velocity (+0x140): the thrust speed of a
+  ship under thrust, the coast velocity of a coasting ship, 0 for a unit that cannot move. A position push
+  changes no speed. The timer counts from the tick after the critical hit.
 - **Further hits:** a hit with damage above 0 that lands on a dying unit deals no damage and cuts 0.5 s from
   the timer (check at 0x4651f3, 0x468990; damage gate 0x465132-0x465147). A hit with no damage does nothing.
   A timer cut below 0 ends the phase on the next tick. Shots in flight at the unit still land (0x4ee620).
 - **Coasting:** a dying ship coasts (see Coasting). It keeps the velocity and the turn, roll, and pitch rates
   it had; nothing in the dying routines (0x468990, 0x466090, 0x466320, 0x4663d0) gives it speed or spin. A
-  dying ship that was moving faster than 1.0 drifts for 5.0 s while it slows. A dying station stays where it
+  dying ship that was moving faster than 1.0 coasts for 5.0 s while it slows. A dying station stays where it
   is. A dying ship takes no collision separation (0x471560), and some forces still move it
   (`docs/rules/forced-motion.md`, "Dying ships").
 - **No targets:** no auto, red-alert, or player attack pick takes the unit (0x42faa0). A unit attacking it
@@ -368,10 +380,12 @@ state). The unit stays in the world until its timer runs out.
   the explosion's size is fixed; 0x466180 is not recovered.
 - **End** (0x4663d0): the unit's `fireball` explosion plays at its transform, the unit leaves the world, and
   `UnitDestroyed` is raised once. The `selfDestruct` variant of the explosion is not implemented. The game also
-  shatters the model into debris pieces (0x58cef0), which do not take the ship's velocity
-  (`docs/rules/forced-motion.md`, "What does not move a ship"); the engine draws no debris.
+  shatters the model into debris pieces (0x58cef0; `docs/rules/debris.md`), which do not take the ship's
+  velocity (`docs/rules/forced-motion.md`, "What does not move a ship").
 - **Black-hole death:** a ship swallowed at a black hole's event horizon dies with a timer of 0 and no
-  `fireball` (0x450a40, 0x466090; `docs/rules/forced-motion.md`, "Event horizon").
+  `fireball` (0x450a40, 0x466090; `docs/rules/forced-motion.md`, "Event horizon"). Its debris is the same as for
+  any other ship. The engine raises `UnitDestroyed` with the cause `BlackHole`, which the view answers with no
+  fireball, no sound, and no small explosions.
 
 Every random draw goes through the combat world's seeded random source. A missing `systemexpl` sprite or
 `fireball` is reported once and skipped; the unit still leaves on time.
@@ -399,9 +413,11 @@ waves can still change a coasting ship's velocity (`docs/rules/forced-motion.md`
 
 No order, stop, face, or player move gives a coasting ship thrust. A ship whose engines are repaired and that
 is not derelict takes orders again. The coast starts at the combat world's tick that finds the unit without
-thrust and runs on the world's fixed tick, so positions do not depend on frame rate. The view draws a
-coasting ship between its tick poses; the simulated pose stays on the tick. **Stand-in**: the position moves
-by the mean velocity of each tick (the half-step integration detail is medium confidence).
+thrust and runs on the world's fixed tick, so positions do not depend on frame rate. The combat world owns
+every mobile ship's motion from the moment the sandbox opens, and the view draws each ship between its tick
+poses; the simulated pose stays on the tick. A unit that starts without thrust, its engines destroyed or derelict,
+coasts from the first tick along its layout's starting velocity. **Stand-in**: the position moves by the mean
+velocity of each tick (the half-step integration detail is medium confidence).
 
 ## Damage nodes
 

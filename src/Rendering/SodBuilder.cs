@@ -130,14 +130,14 @@ public sealed class SodBuilder
             }
         }
 
-        // A LOD control node holds one child per detail level; show only the most detailed.
-        foreach (var lod in sod.Nodes.Where(n => n.Type == Sod.NodeType.LodControl).Select(n => byName[n.Name]))
+        // A LOD control node holds one child per detail level; show only the most detailed (Sod.ShownLodLevel).
+        var built = nodes.ToDictionary(n => n.Data, n => n.Node);
+        foreach (var lod in sod.Nodes.Where(n => n.Type == Sod.NodeType.LodControl))
         {
-            var levels = lod.GetChildren().OfType<Node3D>().ToList();
-            var best = levels.OrderByDescending(VertexCount).FirstOrDefault();
-            foreach (var level in levels)
+            var best = sod.ShownLodLevel(lod);
+            foreach (var level in sod.ChildrenOf(lod))
             {
-                level.Visible = level == best;
+                built[level].Visible = level == best;
             }
         }
 
@@ -154,7 +154,6 @@ public sealed class SodBuilder
         var sprites = SpriteNodes.For(_files, sod);
         var unnamed = new Gaps();
         var gaps = new Gaps();
-        var built = nodes.ToDictionary(n => n.Data, n => n.Node);
         foreach (var sprite in sprites.Nodes)
         {
             var name = sprite.Sprite.Sprite.Texture;
@@ -181,9 +180,6 @@ public sealed class SodBuilder
 
         return root;
     }
-
-    static int VertexCount(Node node) =>
-        (node is MeshInstance3D m ? m.Mesh.GetFaces().Length : 0) + node.GetChildren().Sum(VertexCount);
 
     MeshInstance3D BuildMesh(Sod sod, Sod.Node data)
     {

@@ -177,11 +177,11 @@ public class AsteroidFieldTests
             Pointer = handle,
         };
 
-    static (IReadOnlyList<AsteroidField> Fields, IReadOnlyList<ReportEntry> Reports) Collect(
-        BznBuilder map,
-        string odf,
-        Func<string, bool>? hasModel = null
-    )
+    static (
+        IReadOnlyList<AsteroidField> Fields,
+        IReadOnlyList<ReportEntry> Reports,
+        IReadOnlyList<Obstacle> Obstacles
+    ) Collect(BznBuilder map, string odf, Func<string, bool>? hasModel = null)
     {
         var temp = new TempInstall();
         try
@@ -223,7 +223,7 @@ public class AsteroidFieldTests
     [TestMethod]
     public void AFieldTakesItsValuesFromTheDefinitionAndTheMirroredPosition()
     {
-        var (fields, reports) = Collect(MapOf("m", Obj("mafield", 1)), Good);
+        var (fields, reports, _) = Collect(MapOf("m", Obj("mafield", 1)), Good);
         var f = fields.Single();
         Assert.AreEqual((3, 8, 400f, 0.5f, 0.25f), (f.Min, f.Max, f.Radius, f.RotationSpeed, f.OrbitingSpeed));
         Assert.AreEqual(new Vector3(100, 0, -200), f.Center);
@@ -243,10 +243,10 @@ public class AsteroidFieldTests
     public void AFieldWithMinAboveMaxOrARadiusOfZeroIsReportedWithACountAndSkipped()
     {
         var map = MapOf("m", Obj("mafield", 1), Obj("mafield", 2));
-        var (fields, reports) = Collect(map, Good.Replace("minAsteroids = 3", "minAsteroids = 9"));
+        var (fields, reports, _) = Collect(map, Good.Replace("minAsteroids = 3", "minAsteroids = 9"));
         Assert.AreEqual(0, fields.Count);
         Assert.AreEqual(2, reports.Single().Count);
-        (fields, reports) = Collect(map, Good.Replace("fieldRadius = 400", "fieldRadius = 0"));
+        (fields, reports, _) = Collect(map, Good.Replace("fieldRadius = 400", "fieldRadius = 0"));
         Assert.AreEqual(0, fields.Count);
         Assert.AreEqual(2, reports.Single().Count);
     }
@@ -254,7 +254,7 @@ public class AsteroidFieldTests
     [TestMethod]
     public void AFieldWithAMissingKeyIsReportedOncePerKeyWithACountAndSkipped()
     {
-        var (fields, reports) = Collect(
+        var (fields, reports, _) = Collect(
             MapOf("m", Obj("mafield", 1), Obj("mafield", 2)),
             Good.Replace("orbitingSpeed = 0.25", "")
         );
@@ -266,7 +266,11 @@ public class AsteroidFieldTests
     [TestMethod]
     public void AMissingModelIsReportedAndTheOthersAreUsed()
     {
-        var (fields, reports) = Collect(MapOf("m", Obj("mafield", 1)), Good, m => Eight.Contains(m) && m != "master3");
+        var (fields, reports, _) = Collect(
+            MapOf("m", Obj("mafield", 1)),
+            Good,
+            m => Eight.Contains(m) && m != "master3"
+        );
         CollectionAssert.DoesNotContain(fields.Single().Models.ToList(), "master3");
         Assert.AreEqual(7, fields.Single().Models.Count);
         CollectionAssert.AreEqual(new[] { "master3" }, reports.Single().Names.ToArray());
@@ -275,7 +279,7 @@ public class AsteroidFieldTests
     [TestMethod]
     public void AMissingModelIsCountedOncePerFieldWhateverTheNumberOfMissingModels()
     {
-        var (_, reports) = Collect(
+        var (_, reports, _) = Collect(
             MapOf("m", Obj("mafield", 1), Obj("mafield", 2), Obj("mafield", 3)),
             Good,
             m => Eight.Contains(m) && m != "master3" && m != "master4"
@@ -287,10 +291,57 @@ public class AsteroidFieldTests
     [TestMethod]
     public void AFieldWithNoModelLeftIsReportedWithACountAndSkipped()
     {
-        var (fields, reports) = Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2)), Good, _ => false);
+        var (fields, reports, _) = Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2)), Good, _ => false);
         Assert.AreEqual(0, fields.Count);
         var noModel = reports.Single(r => r.Cause.StartsWith("no asteroid model left"));
         Assert.AreEqual(2, noModel.Count);
+    }
+
+    [TestMethod]
+    public void AFieldPushesByItsRadiusAroundItsMirroredCenter()
+    {
+        var (_, _, obstacles) = Collect(MapOf("m", Obj("mafield", 1)), Good);
+        Assert.AreEqual(new Obstacle(new Vector3(100, 0, -200), 400), obstacles.Single());
+    }
+
+    [TestMethod]
+    public void AFieldWhoseRocksCannotBeDrawnStillPushesByItsRadius()
+    {
+        var (fields, reports, obstacles) = Collect(MapOf("m", Obj("mafield", 1)), Good, _ => false);
+        Assert.AreEqual(0, fields.Count);
+        Assert.AreEqual(1, reports.Count(r => r.Cause.StartsWith("no asteroid model left")));
+        Assert.AreEqual(400f, obstacles.Single().Radius);
+    }
+
+    [DataTestMethod]
+    [DataRow("fieldRadius = 400", "fieldRadius = 0")]
+    [DataRow("fieldRadius = 400", "fieldRadius = -5")]
+    [DataRow("fieldRadius = 400", "fieldRadius = nan")]
+    [DataRow("fieldRadius = 400", "fieldRadius = 1e999")]
+    [DataRow("fieldRadius = 400", "fieldRadius = x")]
+    [DataRow("fieldRadius = 400", "")]
+    public void AFieldWithAnInvalidRadiusPushesNothingAndIsReportedOnceForTheClass(string from, string to)
+    {
+        var (fields, reports, obstacles) = Collect(
+            MapOf("m", Obj("mafield", 1), Obj("mafield", 2)),
+            Good.Replace(from, to)
+        );
+        Assert.AreEqual(0, fields.Count);
+        Assert.AreEqual(0, obstacles.Count);
+        Assert.AreEqual(1, reports.Count);
+        Assert.AreEqual(2, reports.Single().Count);
+    }
+
+    [TestMethod]
+    public void AFieldWithAnotherMissingValueButAValidRadiusStillPushes()
+    {
+        var (fields, reports, obstacles) = Collect(
+            MapOf("m", Obj("mafield", 1)),
+            Good.Replace("orbitingSpeed = 0.25", "")
+        );
+        Assert.AreEqual(0, fields.Count);
+        Assert.AreEqual(1, reports.Count);
+        Assert.AreEqual(400f, obstacles.Single().Radius);
     }
 
     [DataTestMethod]
@@ -300,7 +351,7 @@ public class AsteroidFieldTests
     [DataRow("maxAsteroids = 8", "maxAsteroids = 1000000")]
     public void AFieldWithANegativeOrHugeCountIsReportedWithACountAndSkipped(string from, string to)
     {
-        var (fields, reports) = Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2)), Good.Replace(from, to));
+        var (fields, reports, _) = Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2)), Good.Replace(from, to));
         Assert.AreEqual(0, fields.Count);
         Assert.AreEqual(2, reports.Single().Count);
         StringAssert.Contains(reports.Single().Cause, "count");

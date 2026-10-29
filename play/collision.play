@@ -1,0 +1,25 @@
+# On layouts/collision.jsonc the Mover is ordered to a point 15 short of the spot where the Holder stands (the click
+# refuses a point on the Holder itself). The Mover drives toward it and meets the Holder's shield surface before it is
+# within tooCloseToTurn of the point; the collision separation pushes it back out and up, which leaves it inside that
+# radius; the Mover rests with its order ended (move=none) at speed 0, 15.55 from its point, and both rest apart. The
+# dumps cannot tell the push ending the order from an arrival just before or after the push; the unit test
+# CollisionSeparationTests.AShipOrderedOntoTheSpotWhereAnotherHoldsIsSeparatedEndsItsOrderAndBothRestApart shows the
+# push route ending it.
+# Dumps: "before" shows them 100 apart at one height; "driving" the Mover on its way with move=<x>,<z>; "contact" the
+# state just after the contact, with move=none and the Mover 0.42 above the Holder, off its point and about 30 from
+# the Holder; "after" and "later" (10 s on) show both still at rest at the same positions.
+# Run it with --layout layouts/collision.jsonc; the layout's header comment has the whole command.
+# The point is in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 1
+dump before
+select Mover
+wait 0.3
+move 2000 -1915
+wait 5
+dump driving
+wait 3
+dump contact
+wait 25
+dump after
+wait 10
+dump later

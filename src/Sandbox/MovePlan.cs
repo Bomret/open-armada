@@ -93,11 +93,56 @@ public sealed class MovePlan
                 }
             }
 
+            // stand-in: the game's compiled default (0x45fbe0) for a missing key or a value that is no number above 0
+            double? tooClose = null;
+            if (definition.Has("tooCloseToTurn"))
+            {
+                // stand-in: the stock destphys.odf writes `tooCloseToTurn = 40;` with a closing ';', which the game
+                // reads as 40 (the read of the number's prefix is inferred); one trailing ';' is taken off the value
+                var tokens = definition.GetList("tooCloseToTurn");
+                if (
+                    tokens.Count == 1
+                    && ResolvedDefinition.TryNumber(
+                        tokens[0].EndsWith(';') ? tokens[0][..^1] : tokens[0],
+                        out var value
+                    )
+                    && value > 0
+                )
+                {
+                    tooClose = value;
+                }
+            }
+
+            if (tooClose == null)
+            {
+                gaps.Add(
+                    $"physics definition's tooCloseToTurn is missing or no number above 0, ships take the game's default {PhysicsValues.DefaultTooCloseToTurn}",
+                    o.Class
+                );
+            }
+
+            // the game reads borgPhysics as a byte (0x455440): a number other than 0 sets it; a missing key leaves it off
+            var borg = false;
+            if (definition.Has("borgPhysics"))
+            {
+                var tokens = definition.GetList("borgPhysics");
+                if (tokens.Count == 1 && ResolvedDefinition.TryNumber(tokens[0], out var flag))
+                {
+                    borg = flag != 0;
+                }
+                else
+                {
+                    gaps.Add("physics definition's borgPhysics is no number, ships take no borg physics", o.Class);
+                }
+            }
+
             physics[o] = new PhysicsValues
             {
+                BorgPhysics = borg,
                 ImpulseSpeed = speed.Value,
                 YawRotationRate = yaw.Value,
                 MaxRoll = roll,
+                TooCloseToTurn = tooClose ?? PhysicsValues.DefaultTooCloseToTurn,
             };
         }
 

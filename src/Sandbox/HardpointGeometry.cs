@@ -78,8 +78,11 @@ public static class HardpointGeometry
         return Vector3.Transform(at - pose.Position, Quaternion.Inverse(turned)) / scale;
     }
 
-    // The scale and the rotation of the unit's node transform at the pose.
-    static (Vector3 Scale, Quaternion Turned) Placement(PlacedObject unit, ShipPose pose)
+    /// <summary>
+    /// The scale and the rotation of the unit's node transform at the pose, in Godot's frame: a model offset <c>p</c>
+    /// stands at <c>pose.Position + Rotate(p * Scale, Turned)</c>.
+    /// </summary>
+    public static (Vector3 Scale, Quaternion Turned) Placement(PlacedObject unit, ShipPose pose)
     {
         // The basis splits into scale and rotation as Godot's Basis does: a negative determinant negates the scale.
         var sign = Vector3.Dot(unit.AxisX, Vector3.Cross(unit.AxisY, unit.AxisZ)) < 0 ? -1f : 1f;

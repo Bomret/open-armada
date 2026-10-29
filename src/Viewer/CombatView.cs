@@ -173,7 +173,7 @@ public partial class CombatView : Node3D
                         RaiseHullSprite(sprite);
 
                         break;
-                    case UnitDestroyed { Unit: var unit }:
+                    case UnitDestroyed { Unit: var unit, Cause: DestroyCause.Fireball }:
                         Explode(unit);
 
                         break;

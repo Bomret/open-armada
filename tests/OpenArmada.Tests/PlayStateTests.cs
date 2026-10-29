@@ -63,18 +63,51 @@ public class PlayStateTests
         var lines = scene.Play.Dump().Split('\n');
 
         Assert.AreEqual(
-            "a team=1 pos=1.50,0.00,2.00 shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
+            "a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
                 + "Weapons=5.00/5.00/intact Sensors=4.00/4.00/intact "
-                + "derelict=false immobile=false coasting=false destroyed=false dying=false alert=Red order=b target=none shieldDown=false damage=crew",
+                + "derelict=false immobile=false coasting=false destroyed=false dying=false alert=Red order=b target=none move=none shieldDown=false damage=crew",
             lines[0]
         );
-        Assert.AreEqual(4, lines.Length);
-        Assert.AreEqual("", lines[3]);
+        Assert.AreEqual(5, lines.Length); // three units, the debris line, and the empty rest after the last newline
+        Assert.AreEqual("", lines[4]);
+    }
+
+    [TestMethod]
+    public void TheDumpShowsAnOpenMoveOrderAsItsPointWithTwoDecimalsAfterTheTarget()
+    {
+        var scene = new Scene();
+        scene.StateA.PlayerMove = (12.345f, -7);
+
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[0], " target=none move=12.35,-7.00 shieldDown=");
+    }
+
+    [TestMethod]
+    public void TheDumpEndsWithTheLiveDebrisPieceCountAfterTheUnitLines()
+    {
+        var count = 0;
+        var a = Placed("a", 1, 1.5f, 2);
+        var play = new PlayState(new UnitNames([a]), new UnitPoses([a]).Pose, [], debris: () => count);
+        StringAssert.EndsWith(play.Dump(), "\ndebris=0\n");
+        count = 7;
+        Assert.AreEqual("a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 state=none\ndebris=7\n", play.Dump());
+    }
+
+    [TestMethod]
+    public void TheDumpShowsTheWorldVelocityOfAUnitWithTwoDecimalsAfterItsPosition()
+    {
+        var scene = new Scene();
+        scene.StateA.Velocity = new System.Numerics.Vector3(1.234f, -0.006f, 20);
+
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[0], "pos=1.50,0.00,2.00 vel=1.23,-0.01,20.00 shields=");
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[1], " vel=0.00,0.00,0.00 shields=");
     }
 
     [TestMethod]
     public void TheDumpListsAUnitWithoutCombatState() =>
-        Assert.AreEqual("rock team=0 pos=50.00,0.00,0.00 state=none", new Scene().Play.Dump().Split('\n')[2]);
+        Assert.AreEqual(
+            "rock team=0 pos=50.00,0.00,0.00 vel=0.00,0.00,0.00 state=none",
+            new Scene().Play.Dump().Split('\n')[2]
+        );
 
     [TestMethod]
     public void TheDumpListsADestroyedUnitWithItsDestroyedFlagSet()
@@ -148,11 +181,11 @@ public class PlayStateTests
         var play = new PlayState(new UnitNames([unit.Unit]), new UnitPoses([unit.Unit]).Pose, [unit]);
         unit.DestroySystem(SystemNames.ShieldGenerator);
 
-        StringAssert.EndsWith(play.Dump(), " shieldDown=true damage=none\n");
+        StringAssert.Contains(play.Dump(), " shieldDown=true damage=none\n");
 
         unit.Derelict = true;
 
-        StringAssert.EndsWith(play.Dump(), " shieldDown=false damage=none\n");
+        StringAssert.Contains(play.Dump(), " shieldDown=false damage=none\n");
     }
 
     [TestMethod]
@@ -163,7 +196,7 @@ public class PlayStateTests
         System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
         try
         {
-            StringAssert.Contains(scene.Play.Dump(), "pos=1.50,0.00,2.00 shields=100.00");
+            StringAssert.Contains(scene.Play.Dump(), "pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 shields=100.00");
         }
         finally
         {

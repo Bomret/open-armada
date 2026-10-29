@@ -159,11 +159,23 @@ mount point on the model (see `docs/rules/combat-rules.md`, §Firing). Keep-clos
 engine stand-in (see `docs/rules/combat-rules.md`, §Attack order). The order ends when the target is destroyed.
 _Avoid_: attack command, focus fire
 
+**Move order**
+An order that sends a ship to a point of the combat plane. The ship drives to the point and the order ends
+there. It also ends where the ship stands when a forced motion moves the ship while the ship is within its
+physics definition's `tooCloseToTurn` of the point.
+_Avoid_: move command, go order, waypoint
+
+**Group move**
+A move order given to several selected ships at once. The ships are laid on a grid of cells around the
+clicked point, and each ship goes to its own cell, so no two share a point.
+_Avoid_: formation move (the game's optional mode in which followers trail a leader), group order
+
 **Tether point**
-The point an idle unit at red alert stays near. The unit closes on its pick only while its center is within
-300 units of the point, and moves back to it otherwise (see `docs/rules/combat-rules.md`, §Alert stance). A move
-order sets it to the destination, and a recent hit on the unit or a teammate nearby sets it to where the unit
-stands.
+The point an idle unit stays near. A unit at any alert stance that a forced motion leaves farther than its
+`tooCloseToTurn` from the point moves back to it. An idle unit at red closes on its pick only while its center
+is within 300 units of the point, and moves back to it otherwise (see `docs/rules/combat-rules.md`, §Alert
+stance). A move order sets it to the destination, and to where the ship stands when the order ends short of
+it; a recent hit on the unit or a teammate nearby sets it to where the unit stands.
 _Avoid_: home, anchor, leash
 
 **AI team**
@@ -190,15 +202,46 @@ A hit that lands on no ship system and not on the hull. It makes the unit a dyin
 _Avoid_: core breach, instant kill
 
 **Dying unit**
-A unit that a critical hit has doomed and that has not yet exploded. It fires nothing and is no valid
-target, and a dying ship coasts; small explosions play on it until its timer runs out, then its fireball
-plays and it leaves the map.
+A unit that a critical hit has doomed, or that a black hole has swallowed, and that has not yet left the
+map. It fires nothing and is no valid target, and a dying ship coasts. A doomed unit shows small explosions
+until its timer runs out, then its fireball plays and it leaves the map; a swallowed unit's timer is 0, so it
+leaves on the next tick with no fireball and no small explosions.
 _Avoid_: dead unit, destroyed unit, wreck
 
 **Coasting**
 The motion of a ship that has no thrust: a dying unit, a derelict, or a ship whose engines are
 destroyed. It keeps its velocity and its turn rate and slows down at a fixed rate.
 _Avoid_: drifting, gliding, inertia
+
+**Forced motion**
+Motion that something other than a ship's own thrust gives it: a black hole's pull, a push-out, or a
+collision separation.
+_Avoid_: knockback, impulse, drift
+
+**Black hole**
+A map object that pulls a ship whose engines are destroyed or that is derelict (dying or not) toward its
+center, and swallows every living unit, ship or station, that reaches its event horizon. A dying ship whose
+engines work is not pulled, although it coasts.
+_Avoid_: gravity well, singularity
+
+**Event horizon**
+The circle of a black hole's `EventRadius` in the plane, around its center. A living unit, ship or station,
+whose center lies inside it is swallowed and ends without a fireball. A hole whose `EventRadius` is 0 has none.
+_Avoid_: core, kill radius
+
+**Push-out**
+The move that takes a ship out of an asteroid field or a planet (every ship that is not derelict and
+not dying), or a ship with thrust out of the ring around a black hole, by position alone.
+_Avoid_: bounce, repulsion
+
+**Collision separation**
+The move that takes two overlapping ships apart by position each tick, each by its share of their
+speeds.
+_Avoid_: collision response, bounce, avoidance (avoidance is the unit AI's steering)
+
+**Debris piece**
+One triangle of a unit's model that flies off and tumbles for a short, random time when the unit ends.
+_Avoid_: chunk, shard, wreckage
 
 **Shield hit effect**
 The shield geometry that flashes around a unit for a moment when a hit lands while its shields are up,

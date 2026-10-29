@@ -1,0 +1,10 @@
+# A Klingon bird of prey with destroyed engines coasts along its starting velocity on layouts/coast.jsonc: the dump
+# at the start shows its velocity, and the dump three seconds later shows it moved and slowed.
+# Run it with --layout layouts/coast.jsonc; the layout's header comment has the whole command.
+wait 0.2
+dump start
+expect Drifter Engines < 1
+shot start
+wait 3
+dump later
+shot later

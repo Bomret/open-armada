@@ -345,6 +345,153 @@ public class SandboxPlanTests
     }
 
     [TestMethod]
+    public void TheObstaclesAreTheFieldsByTheirRadiusAndThePlanetsByTheirModelRadius()
+    {
+        const string field =
+            "classLabel = AsteroidField\nminAsteroids = 1\nmaxAsteroids = 2\nfieldRadius = 50\nrotationSpeed = 1\norbitingSpeed = 1";
+        var plan = Plan(
+            MapOf(
+                Ship("mafield", at: new Vector3(1, 2, 3)),
+                Ship("mearth", at: new Vector3(10, 20, 30), label: "earth"),
+                Ship("fbattle", at: new Vector3(7, 7, 7), label: "ship")
+            ),
+            new[]
+            {
+                ("mafield", field),
+                ("mearth", "classLabel = planet_obj\nbaseName = mplanet"),
+                ("fbattle", "classLabel = ship\nbaseName = fdreadnought"),
+            },
+            "master",
+            "mplanet",
+            "fdreadnought"
+        );
+        var radii = new List<string>();
+        var obstacles = plan.Obstacles(o =>
+        {
+            radii.Add(o.Label);
+
+            return 33;
+        });
+        CollectionAssert.AreEquivalent(
+            new[] { new Obstacle(new Vector3(1, 2, -3), 50), new Obstacle(new Vector3(10, 20, -30), 33) },
+            obstacles.ToArray()
+        );
+        CollectionAssert.AreEqual(new[] { "earth" }, radii); // only the planet's model is asked for
+    }
+
+    const string HoleKeys =
+        "classLabel = blackhole_obj\nbaseName = hole\nGravityRadius = 450\nEventRadius = 70\nGravityForce = 60\nRotation = 0.5\ndistanceBelowGrid = 70";
+
+    [TestMethod]
+    public void ABlackHoleIsReadFromItsDefinitionAndItsCenterIsLoweredByDistanceBelowGrid()
+    {
+        var plan = Plan(
+            MapOf(Ship("mblk", at: new Vector3(10, 20, 30), label: "hole1")),
+            new[] { ("mblk", HoleKeys) },
+            "hole"
+        );
+        var hole = plan.BlackHoles.Single();
+        Assert.AreSame(plan.Objects.Single(), hole.Object);
+        Assert.AreEqual(new Vector3(10, -50, -30), hole.Center); // the placed position, Z mirrored, 70 lower
+        Assert.AreEqual(450f, hole.GravityRadius);
+        Assert.AreEqual(70f, hole.EventRadius);
+        Assert.AreEqual(60f, hole.GravityForce);
+        Assert.AreEqual(0.5f, hole.Rotation);
+        Assert.AreEqual(0, plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ABlackHoleDefinitionWithoutKeysTakesTheGamesDefaultsAndEachMissingKeyIsReportedOnce()
+    {
+        using var log = new CapturedLog();
+        var plan = Plan(
+            MapOf(Ship("mblk", label: "one"), Ship("mblk", label: "two")),
+            new[] { ("mblk", "classLabel = blackhole_obj\nbaseName = hole") },
+            "hole"
+        );
+        Assert.AreEqual(2, plan.BlackHoles.Count);
+        foreach (var hole in plan.BlackHoles)
+        {
+            Assert.AreEqual(50f, hole.GravityRadius);
+            Assert.AreEqual(10f, hole.EventRadius);
+            Assert.AreEqual(50f, hole.GravityForce);
+            Assert.AreEqual(0.02f, hole.Rotation);
+            Assert.AreEqual(38.5f, hole.Center.Y); // no lowering
+        }
+
+        var report = plan.Reports.Single(r => r.Cause.Contains("missing", StringComparison.Ordinal));
+        Assert.AreEqual(2, report.Count);
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "mblk: GravityRadius",
+                "mblk: EventRadius",
+                "mblk: GravityForce",
+                "mblk: Rotation",
+                "mblk: distanceBelowGrid",
+            },
+            report.Names.ToArray()
+        );
+        Assert.AreEqual(1, log.Lines.Count(l => l.Contains("GravityForce", StringComparison.Ordinal)), log.Text);
+    }
+
+    [TestMethod]
+    public void ABlackHoleDefinitionMissingOnlyGravityForceUsesFiftyAndReportsItOnce()
+    {
+        var plan = Plan(MapOf(Ship("mblk")), new[] { ("mblk", HoleKeys.Replace("GravityForce = 60\n", "")) }, "hole");
+        Assert.AreEqual(50f, plan.BlackHoles.Single().GravityForce);
+        Assert.AreEqual(450f, plan.BlackHoles.Single().GravityRadius);
+        CollectionAssert.AreEqual(new[] { "mblk: GravityForce" }, plan.Reports.Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void ABlackHoleKeyThatIsNoNumberOrANegativeRadiusIsReportedAndTheDefaultIsUsed()
+    {
+        var plan = Plan(
+            MapOf(Ship("mblk")),
+            new[]
+            {
+                (
+                    "mblk",
+                    "classLabel = blackhole_obj\nbaseName = hole\nGravityRadius = big\nEventRadius = -3\nGravityForce = 1 2\nRotation = 0.1\ndistanceBelowGrid = 0"
+                ),
+            },
+            "hole"
+        );
+        var hole = plan.BlackHoles.Single();
+        Assert.AreEqual(50f, hole.GravityRadius);
+        Assert.AreEqual(10f, hole.EventRadius);
+        Assert.AreEqual(50f, hole.GravityForce);
+        Assert.AreEqual(0.1f, hole.Rotation);
+        var report = plan.Reports.Single();
+        CollectionAssert.AreEquivalent(
+            new[] { "mblk: GravityRadius", "mblk: EventRadius", "mblk: GravityForce" },
+            report.Names.ToArray()
+        );
+    }
+
+    [TestMethod]
+    public void ABlackHoleWhoseModelIsMissingIsNotPlacedAndHasNoPull()
+    {
+        var plan = Plan(MapOf(Ship("mblk")), new[] { ("mblk", HoleKeys) });
+        Assert.AreEqual(0, plan.BlackHoles.Count);
+    }
+
+    [TestMethod]
+    public void APlanetWithoutAModelRadiusPushesNothingAndAPlanetWithoutAModelIsNotPlaced()
+    {
+        var plan = Plan(
+            MapOf(Ship("mearth", label: "bare"), Ship("mearth", label: "nomodel")),
+            new[] { ("mearth", "classLabel = planet_obj\nbaseName = mplanet") },
+            "mplanet"
+        );
+        Assert.AreEqual(0, plan.Obstacles(_ => 0).Count);
+        Assert.AreEqual(0, plan.Obstacles(_ => float.NaN).Count);
+        var missing = Plan(MapOf(Ship("mearth")), new[] { ("mearth", "classLabel = planet_obj\nbaseName = mplanet") });
+        Assert.AreEqual(0, missing.Obstacles(_ => 30).Count);
+    }
+
+    [TestMethod]
     public void AnAsteroidFieldIsPlannedWithItsRocksAndItsGapsAreReported()
     {
         const string odf =

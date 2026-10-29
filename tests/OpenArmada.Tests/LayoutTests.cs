@@ -169,6 +169,18 @@ public class LayoutTests
         """{ "class": "x", "team": 1, "position": [0, 0, 0], "destroyedSystems": ["Weapons", "Weapons"] }""",
         "objects[1].destroyedSystems[1]: 'Weapons' is given twice"
     )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, 2] }""",
+        "objects[1].velocity: must be an array of 3 numbers [x, y, z], not an array of 2"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, "2", 3] }""",
+        "objects[1].velocity[1]: must be a number"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, 2, 1e999] }""",
+        "objects[1].velocity[2]: 1e999 is not a finite number"
+    )]
     public void ABadObjectIsAProblemNamingItsJsonPath(string obj, string where)
     {
         var text =
@@ -323,6 +335,34 @@ public class LayoutTests
         Assert.AreEqual(6, map.Teams[2].Color);
         Assert.AreEqual(0, map.Teams[3].Color);
         Assert.AreEqual(new Vector3(0.1f, 0.2f, 0.3f), map.Ambient);
+    }
+
+    [TestMethod]
+    [DataRow("""{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, -2, 3.5] }""", null, null)]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, -2, 3.5], "crew": 0.5, "shields": 0.25, "destroyedSystems": ["Engines"] }""",
+        0.5,
+        0.25
+    )]
+    public void AVelocityAloneOrWithTheOtherStartingStateReachesTheMapInTheLayoutsFrame(
+        string obj,
+        double? crew,
+        double? shields
+    )
+    {
+        var start = Layout.Read("a.jsonc", WithObject(obj)).Asset!.Map.Objects.Single().Start!;
+        Assert.AreEqual(new Vector3(1, -2, 3.5f), start.Velocity);
+        Assert.AreEqual(crew, start.Crew);
+        Assert.AreEqual(shields, start.Shields);
+    }
+
+    [TestMethod]
+    public void AnObjectWithoutAVelocityHasNone()
+    {
+        var o = Layout
+            .Read("a.jsonc", WithObject("""{ "class": "x", "team": 1, "position": [0, 0, 0], "crew": 1 }"""))
+            .Asset!.Map.Objects.Single();
+        Assert.IsNull(o.Start!.Velocity);
     }
 
     [TestMethod]

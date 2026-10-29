@@ -120,8 +120,10 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         AddChild(selection);
         _gaps.AddRange(selection.Reports.Select(r => r.Text));
         // Every unit's combat inputs are read once, here; the orders node fights them.
-        var combat = CombatPlan.Build(files, plan, selection.Units);
+        var move = MovePlan.Build(plan, selection.Units, files);
+        var combat = CombatPlan.Build(files, plan, selection.Units, move);
         _gaps.AddRange(combat.Reports.Select(r => r.Text));
+        _gaps.AddRange(move.Reports.Select(r => r.Text));
 
         // The rig reads the game constants once per start; move orders aim at its combat plane.
         var bounds = plan.Bounds;
@@ -154,6 +156,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             (float)_rig.CombatPlaneHeight,
             bounds,
             combat,
+            move,
             gap => AddGap(gap),
             (unit, name, pose) => art!.HardpointPosition(unit, name, pose),
             ModelOf,
@@ -185,7 +188,9 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             )
         );
 
+        AddChild(new DebrisView(orders.Combat, nodes, ModelOf, orders));
         AddChild(new AsteroidFieldsView(files, plan, Note, gap => AddGap(gap), Unreadable));
+        AddChild(new BlackHolesView(orders.Combat, plan.BlackHoles, nodes));
 
         // The sandbox's reach: no camera is farther from an object than the rig's greatest eye distance from its
         // look-at point (which stays within the map) plus the map's diagonal.
@@ -211,7 +216,13 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             // The units a script can address are those at the start; a destroyed unit leaves the selection. The
             // driver comes after the orders node, so each frame's combat step runs before the script's steps.
             var names = new UnitNames(selection.Units.Select(u => u.Object));
-            var state = new PlayState(names, orders.Pose, orders.Combat.Units.ToList(), ModelOf);
+            var state = new PlayState(
+                names,
+                orders.Pose,
+                orders.Combat.Units.ToList(),
+                ModelOf,
+                () => orders.Combat.Debris.Count
+            );
             var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
             var input = new PlayInput(this, names, selection, nodes, (float)_rig.CombatPlaneHeight, folder);
             AddChild(new PlayKeys(input));

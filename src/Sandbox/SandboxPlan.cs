@@ -52,7 +52,10 @@ public sealed record PlacedObject
     /// <summary>The basis's Z axis, from the map object's Front axis in Godot's frame; <see cref="Vector3.UnitZ"/> for a degenerate orientation.</summary>
     public required Vector3 AxisZ { get; init; }
 
-    /// <summary>The map object's starting state; null for full strength (every object of a map).</summary>
+    /// <summary>
+    /// The map object's starting state; null for full strength (every object of a map). Its velocity is in Godot's
+    /// frame, like <see cref="Position"/>.
+    /// </summary>
     public StartingState? Start { get; init; }
 
     /// <summary>Whether <c>other</c> is this same object; two objects of equal values are not equal.</summary>
@@ -86,6 +89,7 @@ public sealed record ReportEntry
 public sealed class SandboxPlan
 {
     const string AsteroidFieldLabel = "asteroidfield"; // a definition's classLabel; the rocks are generated, not placed from a model
+    const string PlanetLabel = "planet_obj"; // a definition's classLabel: PlanetClass (0x44ca90) names itself so
     const string MissingDefinition = "object definition missing, objects left out";
     const string UnreadableDefinition = "object definition cannot be read, objects left out";
     const string MissingModel = "model missing, objects left out";
@@ -114,6 +118,40 @@ public sealed class SandboxPlan
     /// <summary>The resolved definitions the plan was built from, by class name without regard to case.</summary>
     public IReadOnlyDictionary<string, ResolvedDefinition> Resolved { get; }
 
+    /// <summary>The black holes of the map (placed objects whose definition's classLabel is <c>blackhole_obj</c>), read from their definitions.</summary>
+    public IReadOnlyList<BlackHole> BlackHoles { get; }
+
+    readonly IReadOnlyList<Obstacle> _fieldObstacles;
+
+    /// <summary>
+    /// The spheres that push ships out of them (0x4644b0): every asteroid field by its radius, drawn or
+    /// not, and every placed planet (a definition whose classLabel is <c>planet_obj</c>) by <c>modelRadius</c> of its
+    /// object, its model radius. A planet whose radius is no number above 0 pushes nothing; a planet whose model is
+    /// missing is not placed, so it pushes nothing either.
+    /// </summary>
+    public IReadOnlyList<Obstacle> Obstacles(Func<PlacedObject, float> modelRadius)
+    {
+        var obstacles = _fieldObstacles.ToList();
+        foreach (var o in Objects)
+        {
+            if (
+                Resolved.TryGetValue(o.Class, out var definition)
+                && definition
+                    .Find("classLabel")
+                    ?.Tokens.FirstOrDefault()
+                    ?.Equals(PlanetLabel, StringComparison.OrdinalIgnoreCase) == true
+                && modelRadius(o) is var radius
+                && radius > 0
+                && float.IsFinite(radius)
+            )
+            {
+                obstacles.Add(new Obstacle(o.Position, radius));
+            }
+        }
+
+        return obstacles;
+    }
+
     SandboxPlan(
         IReadOnlyList<PlacedObject> objects,
         IReadOnlyList<ReportEntry> reports,
@@ -121,9 +159,13 @@ public sealed class SandboxPlan
         string? background,
         MapBounds bounds,
         IReadOnlyList<AsteroidField> fields,
+        IReadOnlyList<Obstacle> fieldObstacles,
+        IReadOnlyList<BlackHole> blackHoles,
         IReadOnlyDictionary<string, ResolvedDefinition> resolved
     )
     {
+        _fieldObstacles = fieldObstacles;
+        BlackHoles = blackHoles;
         Fields = fields;
         Resolved = resolved;
         Objects = objects;
@@ -214,13 +256,20 @@ public sealed class SandboxPlan
                     AxisX = x,
                     AxisY = y,
                     AxisZ = z,
-                    Start = o.Start,
+                    // the velocity is in the frame of the position, so its Z is mirrored with it
+                    Start = o.Start is { Velocity: { } v } start
+                        ? start with
+                        {
+                            Velocity = new Vector3(v.X, v.Y, -v.Z),
+                        }
+                        : o.Start,
                 }
             );
         }
 
         var background = BackgroundOf(map, hasModel, gaps);
-        var (fields, fieldReports) = AsteroidField.Collect(map, definitions.Found, hasModel);
+        var (fields, fieldReports, fieldObstacles) = AsteroidField.Collect(map, definitions.Found, hasModel);
+        var blackHoles = BlackHole.Collect(placed, definitions.Found, gaps);
 
         return new SandboxPlan(
             placed,
@@ -229,6 +278,8 @@ public sealed class SandboxPlan
             background,
             map.Bounds,
             fields,
+            fieldObstacles,
+            blackHoles,
             definitions.Found
         );
     }

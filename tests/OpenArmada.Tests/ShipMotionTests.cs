@@ -387,37 +387,25 @@ public class ShipMotionTests
     }
 
     [TestMethod]
-    public void ACoastingShipIsDrawnBetweenItsTickPosesWhileItsSimulatedPoseStaysOnTheTick()
+    public void AShipIsDrawnAheadOfItsTickPoseAtItsVelocityWhileItsSimulatedPoseStaysOnTheTick()
     {
-        var ship = Cruising();
-        var tick = ship.Pose.Position;
-        ship.Step(0.01); // half a world tick
-        AssertAt(tick, ship.Pose.Position);
-        Assert.AreEqual(tick.Z + 0.1f, ship.Drawn.Position.Z, 0.01); // 10 units/s for 0.01 s
-        ship.Step(0.01);
-        Assert.IsTrue(ship.Pose.Position.Z > tick.Z + 0.19f);
-        Assert.AreEqual(ship.Pose.Position.Z, ship.Drawn.Position.Z, 1e-4);
+        var coasting = Cruising();
+        var tick = coasting.Pose.Position;
+        AssertAt(tick + new Vector3(0, 0, 0.1f), coasting.Drawn(0.01).Position); // 10 units/s for 0.01 s
+        AssertAt(tick, coasting.Pose.Position);
+        var driving = Ship();
+        driving.SetTarget(0, 100);
+        driving.Step(0.3);
+        AssertAt(driving.Pose.Position + new Vector3(0, 0, 0.1f), driving.Drawn(0.01).Position);
     }
 
     [TestMethod]
-    public void AShipThatDoesNotCoastIsDrawnAtItsPose()
+    public void AShipDrawnAheadByNothingIsDrawnAtItsPose()
     {
         var ship = Ship();
         ship.SetTarget(0, 100);
         ship.Step(0.3);
-        Assert.AreEqual(ship.Pose, ship.Drawn);
-    }
-
-    [TestMethod]
-    public void AShipThatLosesThrustInsideAStepFollowsItsOrdersUpToTheTickAndCoastsFromIt()
-    {
-        var ship = Ship();
-        ship.SetTarget(0, 1000);
-        ship.Step(0.5);
-        ship.Step(0.1); // the world's tick came 0.04 s before the end of this step
-        ship.Coast(0.04);
-        // 0.56 s of driving at 10 units/s, then two coast ticks: 10 -> 9.96 -> 9.92 units/s
-        Assert.AreEqual(5.6f + 0.02f * 9.98f + 0.02f * 9.94f, ship.Pose.Position.Z, 1e-3);
+        Assert.AreEqual(ship.Pose, ship.Drawn(0));
     }
 
     [TestMethod]
@@ -450,6 +438,80 @@ public class ShipMotionTests
         ship.SetTarget(0, 100);
         var (pose, _, _) = Run(ship, 30, 0.125);
         AssertAt(new Vector3(0, 5, 100), pose.Position);
+    }
+
+    [TestMethod]
+    public void AShipThatWasNeverOrderedCanBePushedAndKeepsItsHeadingBankAndNewHeight()
+    {
+        var ship = Ship(heading: 0.5f);
+        ship.Push(new Vector3(3, 2, -4));
+        AssertAt(new Vector3(3, 7, -4), ship.Pose.Position);
+        Assert.AreEqual(0.5f, ship.Pose.Heading);
+        Assert.AreEqual(0f, ship.Pose.Bank);
+        Assert.AreEqual(Vector3.Zero, ship.Velocity);
+    }
+
+    [TestMethod]
+    public void APushOnACoastingShipKeepsItsCoastVelocity()
+    {
+        var ship = Cruising();
+        var velocity = ship.Velocity;
+        ship.Push(new Vector3(0, 1, 5));
+        Assert.AreEqual(velocity, ship.Velocity);
+        Assert.IsTrue(ship.Coasting);
+    }
+
+    [TestMethod]
+    public void APushOnAShipWithThrustKeepsItsOrderAndItsSpeed()
+    {
+        var ship = Ship();
+        ship.SetTarget(0, 100);
+        ship.Step(1);
+        var velocity = ship.Velocity;
+        ship.Push(new Vector3(50, 0, 0));
+        Assert.AreEqual(velocity, ship.Velocity);
+        var (pose, _, _) = Run(ship, 30, 0.125);
+        AssertAt(new Vector3(0, 5, 100), pose.Position); // still drives to its target
+    }
+
+    [TestMethod]
+    public void AVelocityChangeTurnsACoastingShipsPathAndItBrakesAlongTheNewVelocity()
+    {
+        var ship = Cruising(); // 10 units/s along +Z
+        ship.SetVelocity(new Vector3(4, 0, 0));
+        Assert.AreEqual(new Vector3(4, 0, 0), ship.Velocity);
+        var start = ship.Pose.Position;
+        var pose = ship.Step(1); // 4 -> 2 over one second: mean 3
+        Assert.AreEqual(start.X + 3, pose.Position.X, 0.05);
+        Assert.AreEqual(start.Z, pose.Position.Z, 1e-4);
+        ship.AddVelocity(new Vector3(0, 0, 2));
+        Assert.AreEqual(2, ship.Velocity.X, 0.05);
+        Assert.AreEqual(2, ship.Velocity.Z, 1e-6);
+        ship.Step(0.02);
+        var braked = ship.Velocity.Length();
+        Assert.AreEqual(MathF.Sqrt(8) - 2 * 0.02f, braked, 1e-3); // 2.0 per second per second
+    }
+
+    [TestMethod]
+    public void AVelocityChangeOnAShipWithThrustChangesNothing()
+    {
+        var ship = Ship();
+        ship.SetTarget(0, 100);
+        ship.Step(1);
+        var velocity = ship.Velocity;
+        ship.SetVelocity(new Vector3(9, 9, 9));
+        ship.AddVelocity(new Vector3(9, 9, 9));
+        Assert.AreEqual(velocity, ship.Velocity);
+    }
+
+    [TestMethod]
+    public void ThrustSpeedIsTheLengthOfTheVelocityAlongTheHeading()
+    {
+        var ship = Ship();
+        Assert.AreEqual(Vector3.Zero, ship.Velocity);
+        ship.SetTarget(0, 100);
+        ship.Step(1);
+        AssertAt(new Vector3(0, 0, (float)Speed), ship.Velocity);
     }
 
     [TestMethod]

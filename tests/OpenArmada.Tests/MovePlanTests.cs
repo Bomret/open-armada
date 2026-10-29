@@ -69,7 +69,7 @@ public class MovePlanTests
         var plan = Plan(
             new[] { "ship" },
             new[] { ("ship", Ship) },
-            "impulseSpeed = 12.5\r\nyawRotationRate = 0.75\r\nmaxRoll = 30"
+            "impulseSpeed = 12.5\r\nyawRotationRate = 0.75\r\nmaxRoll = 30\r\ntooCloseToTurn = 40"
         );
         Assert.AreEqual(
             new PhysicsValues
@@ -77,6 +77,7 @@ public class MovePlanTests
                 ImpulseSpeed = 12.5,
                 YawRotationRate = 0.75,
                 MaxRoll = 30,
+                TooCloseToTurn = 40,
             },
             plan.Physics.Values.Single()
         );
@@ -84,9 +85,40 @@ public class MovePlanTests
     }
 
     [TestMethod]
+    [DataRow("\r\nborgPhysics = 1", true)]
+    [DataRow("\r\nborgPhysics = 0", false)]
+    [DataRow("", false)]
+    public void ABorgPhysicsFlagIsReadFromThePhysicsDefinitionAndNeedsNoReport(string key, bool borg)
+    {
+        var plan = Plan(
+            new[] { "ship" },
+            new[] { ("ship", Ship) },
+            "impulseSpeed = 12\r\nyawRotationRate = 1\r\ntooCloseToTurn = 40" + key
+        );
+        Assert.AreEqual(borg, plan.Physics.Values.Single().BorgPhysics);
+        Assert.AreEqual(0, plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ABorgPhysicsValueThatIsNoNumberIsReportedAndLeftOff()
+    {
+        var plan = Plan(
+            new[] { "ship" },
+            new[] { ("ship", Ship) },
+            "impulseSpeed = 12\r\nyawRotationRate = 1\r\ntooCloseToTurn = 40\r\nborgPhysics = yes"
+        );
+        Assert.IsFalse(plan.Physics.Values.Single().BorgPhysics);
+        StringAssert.Contains(plan.Reports.Single().Text, "borgPhysics");
+    }
+
+    [TestMethod]
     public void ADefinitionWithoutMaxRollGivesNoRollAndNoReport()
     {
-        var plan = Plan(new[] { "ship" }, new[] { ("ship", Ship) }, "impulseSpeed = 12\r\nyawRotationRate = 1");
+        var plan = Plan(
+            new[] { "ship" },
+            new[] { ("ship", Ship) },
+            "impulseSpeed = 12\r\nyawRotationRate = 1\r\ntooCloseToTurn = 40"
+        );
         Assert.IsNull(plan.Physics.Values.Single().MaxRoll);
         Assert.AreEqual(0, plan.Reports.Count);
     }
@@ -154,7 +186,7 @@ public class MovePlanTests
         var plan = Plan(
             new[] { "a", "b", "a" },
             new[] { ("a", Ship), ("b", Ship) },
-            "impulseSpeed = 1\r\nyawRotationRate = 1\r\nmaxRoll = -30"
+            "impulseSpeed = 1\r\nyawRotationRate = 1\r\nmaxRoll = -30\r\ntooCloseToTurn = 40"
         );
         Assert.IsTrue(plan.Physics.Count > 0);
         Assert.IsTrue(plan.Physics.Values.All(p => p.MaxRoll == null));
@@ -165,9 +197,71 @@ public class MovePlanTests
     }
 
     [TestMethod]
+    public void EachShipsTooCloseToTurnComesFromItsOwnPhysicsDefinition()
+    {
+        var install = new GameFileSystem(
+            temp.MakeInstall([
+                ("addon/a.odf", "physicsFile = \"pa.odf\"\r\n"),
+                ("addon/b.odf", "physicsFile = \"pb.odf\"\r\n"),
+                ("addon/pa.odf", "impulseSpeed = 1\r\nyawRotationRate = 1\r\ntooCloseToTurn = 40;"), // the stock destphys.odf closes the value with a semicolon
+                ("addon/pb.odf", "impulseSpeed = 1\r\nyawRotationRate = 1\r\ntooCloseToTurn = 50"),
+            ])
+        );
+        var map = new BznBuilder { Background = "" };
+        foreach (var c in new[] { "a", "b" })
+        {
+            map.Objects.Add(
+                new BznBuilder.Obj
+                {
+                    Class = c,
+                    Team = 1,
+                    Position = Vector3.Zero,
+                    Label = c,
+                }
+            );
+        }
+
+        var asset = new MapAsset
+        {
+            Name = "bzn/t.bzn",
+            Map = Bzn.Read(map.Build()),
+            Starts = Array.Empty<MapStart>(),
+            Overview = null,
+            ScriptedPaths = Array.Empty<MapPath>(),
+        };
+        var plan = SandboxPlan.Build(asset, SandboxPlan.Definitions(install, asset), _ => true);
+        var moves = MovePlan.Build(plan, UnitPlan.Build(install, plan, _ => true).Units, install);
+        CollectionAssert.AreEqual(new[] { 40.0, 50.0 }, moves.Physics.Values.Select(p => p.TooCloseToTurn).ToArray());
+        Assert.AreEqual(0, moves.Reports.Count);
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("\r\ntooCloseToTurn = 0")]
+    [DataRow("\r\ntooCloseToTurn = -5")]
+    [DataRow("\r\ntooCloseToTurn = near")]
+    public void ATooCloseToTurnThatIsMissingOrNoPositiveNumberTakesTheDefaultAndIsReportedOncePerClass(string key)
+    {
+        var plan = Plan(
+            new[] { "a", "b", "a" },
+            new[] { ("a", Ship), ("b", Ship) },
+            "impulseSpeed = 1\r\nyawRotationRate = 1" + key
+        );
+        Assert.IsTrue(plan.Physics.Values.All(p => p.TooCloseToTurn == 25));
+        var report = plan.Reports.Single();
+        CollectionAssert.AreEqual(new[] { "a", "b" }, report.Names.ToArray());
+        Assert.AreEqual(3, report.Count);
+        StringAssert.Contains(report.Text, "tooCloseToTurn");
+    }
+
+    [TestMethod]
     public void AMaxRollOf0IsNoBankWithoutAReport()
     {
-        var plan = Plan(new[] { "a" }, new[] { ("a", Ship) }, "impulseSpeed = 1\r\nyawRotationRate = 1\r\nmaxRoll = 0");
+        var plan = Plan(
+            new[] { "a" },
+            new[] { ("a", Ship) },
+            "impulseSpeed = 1\r\nyawRotationRate = 1\r\nmaxRoll = 0\r\ntooCloseToTurn = 40"
+        );
         Assert.AreEqual(0.0, plan.Physics.Values.Single().MaxRoll);
         Assert.AreEqual(0, plan.Reports.Count);
     }
@@ -223,7 +317,11 @@ public class MovePlanTests
     [TestMethod]
     public void TwoIdenticalShipsGetAPhysicsEntryEach()
     {
-        var plan = Plan(new[] { "ship", "ship" }, new[] { ("ship", Ship) }, "impulseSpeed = 12\r\nyawRotationRate = 1");
+        var plan = Plan(
+            new[] { "ship", "ship" },
+            new[] { ("ship", Ship) },
+            "impulseSpeed = 12\r\nyawRotationRate = 1\r\ntooCloseToTurn = 40"
+        );
         Assert.AreEqual(2, plan.Physics.Count);
         var keys = plan.Physics.Keys.ToArray();
         Assert.AreNotSame(keys[0], keys[1]);

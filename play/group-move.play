@@ -1,0 +1,13 @@
+# Five Federation destroyers on layouts/group-move.jsonc are selected together and ordered to one point: each gets its own
+# move order to a cell of the game's group formation around it, and the dump after they have arrived shows each at its
+# cell with move=none. The dump while they drive shows each ship's own move=<x>,<z>.
+# Run it with --layout layouts/group-move.jsonc; the layout's header comment has the whole command.
+# The point is in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 0.5
+box A B C D E
+wait 0.3
+move 2000 -2200
+wait 1
+dump driving
+wait 40
+dump arrived

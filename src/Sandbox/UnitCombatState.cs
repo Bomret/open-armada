@@ -210,15 +210,11 @@ public sealed class UnitCombatState(
     /// </summary>
     public bool ShieldDownOverlay => !Derelict && SystemDestroyed(SystemNames.ShieldGenerator);
 
-    /// <summary>The world tick that found the unit without thrust; null while the unit has thrust.</summary>
-    public long? CoastTick { get; set; }
-
     /// <summary>
-    /// How many seconds of the latest Step call lie after <see cref="CoastTick"/>; null while the unit has thrust
-    /// at the world's ticks. The view hands it to ShipMotion.Coast, so the coast starts at that tick and not at the
-    /// frame that follows it.
+    /// The unit's motion, which the combat world steps on its ticks and takes its orders into; null for a unit
+    /// whose pose something else drives (a station, or a ship without a physics definition).
     /// </summary>
-    public double? CoastOvershoot { get; set; }
+    public ShipMotion? Motion { get; init; }
 
     /// <summary>The state of each weapon of the profile, in profile order.</summary>
     public List<WeaponState> Weapons { get; } = profile.Weapons.Select(w => new WeaponState(w)).ToList();
@@ -242,10 +238,16 @@ public sealed class UnitCombatState(
     public UnitCombatState? Order { get; set; }
 
     /// <summary>
-    /// Whether the unit's move intent is red's (closing on its pick, or the return to its tether point) and not a
-    /// player's move order.
+    /// Whether the unit's move intent is red's closing on its pick and not a player's move order or the hold's return
+    /// to the tether point (<see cref="Returning"/>).
     /// </summary>
     public bool AutoMove { get; set; }
+
+    /// <summary>
+    /// Whether the unit drives back to its tether point after something moved it farther than its tooCloseToTurn
+    /// from it (the hold, at every alert stance). It ends on reaching the point, or by a push inside the radius.
+    /// </summary>
+    public bool Returning { get; set; }
 
     /// <summary>The point (X, Z) of the player's move order, until the unit arrives; null without one.</summary>
     public (float X, float Z)? PlayerMove { get; set; }
@@ -274,22 +276,34 @@ public sealed class UnitCombatState(
     /// </summary>
     public double DyingRemaining { get; set; }
 
+    /// <summary>
+    /// Whether a black hole swallowed the unit (0x450a40 sets its black-hole death flag). A swallowed unit is dying
+    /// with a timer of 0 and ends without a fireball and without small explosions.
+    /// </summary>
+    public bool Swallowed { get; set; }
+
     /// <summary>The simulated seconds since the last small explosion on the dying unit, kept on the world's ticks.</summary>
     public double ExplosionClock { get; set; }
 
     /// <summary>
-    /// The unit's speed in world units per second as of the latest Step call: its position change over that call.
-    /// The dying time depends on it (0x466090). stand-in: the world has no velocity of its own, so the speed is
-    /// read from the positions.
+    /// The unit's world velocity in units per second: its motion's velocity as of the latest tick, 0 for a unit
+    /// without motion that has not moved. For a unit whose pose something else drives, its position change over
+    /// the latest Step call (stand-in: the world has no motion of it to read).
     /// </summary>
-    public double Speed { get; set; }
+    public Vector3 Velocity { get; set; }
 
     /// <summary>
-    /// The position at the latest Step call, read once per call: the ticks of the call use it, and the next call
-    /// compares it with the new one to tell a stopped unit from a moving one. Null before the first call.
+    /// The unit's speed: the length of its <see cref="Velocity"/>, which the dying time (0x466090) and the
+    /// to-hit modifiers read. A push changes no speed; the game reads the velocity (+0x140).
+    /// </summary>
+    public double Speed => Velocity.Length();
+
+    /// <summary>
+    /// The unit's position as of the latest tick of its motion, or for a unit without motion the latest Step
+    /// call. Null before the first Step call.
     /// </summary>
     public Vector3? Position { get; set; }
 
-    /// <summary>Whether the unit did not move since the previous Step call (a unit the world has not yet seen is stopped).</summary>
+    /// <summary>Whether the unit has no velocity (a unit the world has not yet seen is stopped).</summary>
     public bool Stopped { get; set; } = true;
 }

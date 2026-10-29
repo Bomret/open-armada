@@ -330,16 +330,17 @@ public class CombatAlertTests
     }
 
     [TestMethod]
-    public void OnlyAnIdleRedShipThatCanAttackReturnsToItsTether()
+    public void EveryIdleMobileShipWithThrustReturnsToItsTetherAtEveryStance()
     {
         foreach (
-            var (name, spec, set) in new (string, Spec, Action<UnitCombatState>)[]
+            var (name, spec, set, returns) in new (string, Spec, Action<UnitCombatState>, bool)[]
             {
-                ("yellow", Ship("a", 1, 0), u => u.Alert = AlertStance.Yellow),
-                ("green", Ship("a", 1, 0), u => u.Alert = AlertStance.Green),
-                ("cannot attack", Ship("a", 1, 0, canAttack: false), _ => { }),
-                ("derelict", Ship("a", 1, 0), u => u.Derelict = true),
-                ("station", Ship("a", 1, 0) with { Mobile = false }, _ => { }),
+                ("red", Ship("a", 1, 0), _ => { }, true),
+                ("yellow", Ship("a", 1, 0), u => u.Alert = AlertStance.Yellow, true),
+                ("green", Ship("a", 1, 0), u => u.Alert = AlertStance.Green, true),
+                ("cannot attack", Ship("a", 1, 0, canAttack: false), _ => { }, true),
+                ("derelict", Ship("a", 1, 0), u => u.Derelict = true, false),
+                ("station", Ship("a", 1, 0) with { Mobile = false }, _ => { }, false),
             }
         )
         {
@@ -347,7 +348,7 @@ public class CombatAlertTests
             set(world.State(spec.Object)!);
             Place(poses, spec.Object, 400);
             world.Step(0.02);
-            Assert.AreNotEqual(MoveKind.MoveTo, world.State(spec.Object)!.Intent.Kind, name);
+            Assert.AreEqual(returns, world.State(spec.Object)!.Intent.Kind == MoveKind.MoveTo, name);
         }
     }
 
@@ -617,7 +618,7 @@ public class CombatAlertTests
     }
 
     [TestMethod]
-    public void ARedUnitSwitchedToYellowStopsItsReturnToTheTetherAndFiresOnlyWithinTheRadius()
+    public void ARedUnitSwitchedToYellowKeepsItsReturnToTheTetherAndFiresOnlyWithinTheRadius()
     {
         var a = Ship("a", 1, 0, range: 100);
         var hostile = Target("s", 2, 550);
@@ -627,7 +628,7 @@ public class CombatAlertTests
         Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
         world.State(a.Object)!.Alert = AlertStance.Yellow;
         var events = world.Step(0.02);
-        Assert.AreNotEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
         Assert.AreEqual(0, Fired(events, "a"));
     }
 

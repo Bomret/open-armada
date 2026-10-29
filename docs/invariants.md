@@ -84,8 +84,8 @@ Paths: src/Viewer/*Preview.cs, src/Assets/AssetBrowser.cs
 ### INV-0011
 
 Class: architecture
-Concepts: Map sandbox, Combat rules, Dying unit, Coasting, Damage node
-Statement: The map sandbox's combat state and rules live in code without a Godot dependency; which effects a unit shows, its dying phase, and its coasting are decided there, and the Godot view only draws what that state and its events say.
+Concepts: Map sandbox, Combat rules, Dying unit, Coasting, Forced motion, Debris piece, Damage node
+Statement: The map sandbox's combat state and rules live in code without a Godot dependency; which effects a unit shows, its dying phase, its coasting, its forced motion, and its debris pieces are decided there, and the Godot view only draws what that state and its events say.
 Breaks: loudly
 Check: the test project compiles `src/Sandbox` without Godot, so a Godot reference there fails the build of the tests.
 Paths: src/Sandbox/**

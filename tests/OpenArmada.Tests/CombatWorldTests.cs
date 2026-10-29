@@ -21,6 +21,7 @@ public class CombatWorldTests
         public required PlacedObject Object { get; init; }
         public required CombatProfile Profile { get; init; }
         public bool Mobile { get; init; } = true;
+        public ShipMotion? Motion { get; init; }
         public float Radius { get; init; } = 0;
         public float ModelRadius { get; init; } = 0;
         public ShieldEllipsoid? Shield { get; init; }
@@ -55,6 +56,7 @@ public class CombatWorldTests
                 Radius = s.Radius,
                 ModelRadius = s.ModelRadius,
                 Mobile = s.Mobile,
+                Motion = s.Motion,
                 Shield = s.Shield,
             }),
             1,
@@ -346,20 +348,16 @@ public class CombatWorldTests
         return motion;
     }
 
-    // A ship drives ahead at 10 units/s and loses its engines after 0.5667 s; the sandbox's frame at `fps` runs for 2 s:
-    // the world's decision drives the motion, the motion moves the unit, then combat steps.
+    // A ship drives ahead at 10 units/s under the world's own motion and loses its engines after 0.5667 s; the
+    // frames at `fps` run for 2 s.
     static float CoastingShipZ(int fps)
     {
-        var a = WithSystems("a", 1, 0, null, Sys("Engines"));
+        var a = WithSystems("a", 1, 0, null, Sys("Engines")) with { Motion = MovingTo(Placed("a", 1, 0), 0, 1000) };
         var world = World(out var poses, null, a);
-        var motion = MovingTo(a.Object, 0, 1000);
         for (var frame = 0; frame < 2 * fps; frame++)
         {
             if (frame == 17 * fps / 30) // at 0.5667 s: the world tick that takes the thrust (0.58 s) falls inside a frame
                 world.State(a.Object)!.DestroySystem("Engines");
-            if (world.State(a.Object)!.CoastOvershoot is { } overshoot)
-                motion.Coast(overshoot);
-            poses.Advance(a.Object, motion, 1.0 / fps);
             world.Step(1.0 / fps);
         }
 
@@ -1705,8 +1703,6 @@ public class CombatWorldTests
         var state = world.State(b.Object)!;
         Assert.IsTrue(state.Immobile);
         Assert.IsTrue(state.Coasting);
-        Assert.IsNotNull(state.CoastTick);
-        Assert.IsNotNull(state.CoastOvershoot);
         Assert.IsNull(state.PlayerMove);
         Assert.AreEqual(MoveKind.Stop, state.Intent.Kind);
     }
@@ -1971,5 +1967,209 @@ public class CombatWorldTests
     {
         var (world, _, _) = CriticalHitWorld();
         Assert.AreEqual(0, ExplosionsOfFirstHit(world).Count);
+    }
+
+    // The world's own motion: a ship facing +Z at 10 units/s, at the placed object's position. The placed pose
+    // starts the unit at heading pi; the motion's own heading (0) is the one it moves by.
+    static ShipMotion Owned(PlacedObject o) => MovingTo(o, o.Position.X, o.Position.Z);
+
+    static PlacedObject Starting(float x, StartingState start) => Placed("b", 2, x) with { Start = start };
+
+    // A ship with working engines owned by the world, with a shooter `a` that has an order on it.
+    static (CombatWorld World, UnitPoses Poses, Spec Ship, ShipMotion Motion) OwnedShip(float x = 0)
+    {
+        var ship = WithSystems("s", 1, x, null, Sys("Engines"));
+        var motion = Owned(ship.Object);
+        ship = ship with { Motion = motion };
+        var world = World(out var poses, null, ship);
+
+        return (world, poses, ship, motion);
+    }
+
+    [TestMethod]
+    public void AShipThatWasNeverOrderedHasMotionFromTheStartAndAPushMovesItKeepingHeightAndBankAndItsOrderTurnsIt()
+    {
+        var (world, poses, ship, motion) = OwnedShip();
+        var start = poses.Pose(ship.Object);
+        motion.Push(new Vector3(3, 2, 4));
+        world.Step(CombatWorld.Tick);
+        var pose = poses.Pose(ship.Object);
+        Assert.AreEqual(start.Position + new Vector3(3, 2, 4), pose.Position);
+        // the push itself writes no heading; the ship's order at its own spot, now 5 units off, turns it toward that
+        // spot from heading 0 by one tick of its yaw rate (1 radian per second)
+        Assert.AreEqual(-0.02f, pose.Heading, 1e-6);
+        Assert.AreEqual(0f, pose.Bank);
+        Assert.AreEqual(Vector3.Zero, world.State(ship.Object)!.Velocity);
+    }
+
+    [TestMethod]
+    public void APushOnACoastingShipKeepsItsCoastVelocityAndAVelocityChangeTurnsItsPath()
+    {
+        var ship = Starting(0, new StartingState { DestroyedSystems = ["Engines"], Velocity = new Vector3(0, 0, 20) });
+        var spec = new Spec
+        {
+            Object = ship,
+            Profile = Profile(null, systems: [Sys("Engines")]),
+            Motion = Owned(ship),
+        };
+        var world = World(out var poses, null, spec);
+        world.Step(1);
+        var state = world.State(ship)!;
+        Assert.AreEqual(18, state.Speed, 0.05); // braking at 2.0 per second per second
+        spec.Motion!.Push(new Vector3(100, 0, 0));
+        world.Step(CombatWorld.Tick);
+        Assert.AreEqual(18, state.Speed, 0.1); // 18 - 0.04, the push changed no speed
+        spec.Motion.SetVelocity(new Vector3(6, 0, 0));
+        world.Step(CombatWorld.Tick);
+        Assert.AreEqual(6 - 2 * CombatWorld.Tick, state.Velocity.X, 1e-3);
+        Assert.AreEqual(0, state.Velocity.Z, 1e-6);
+        Assert.IsTrue(poses.Pose(ship).Position.X > 100);
+    }
+
+    [TestMethod]
+    public void AMoveOrderEndsInTheStepThatReachesItsTargetAndALaterPushNeverReopensIt()
+    {
+        var (world, poses, ship, motion) = OwnedShip();
+        world.Move(ship.Object, 0, 0.1f);
+        world.Step(CombatWorld.Tick);
+        Assert.IsNull(world.State(ship.Object)!.PlayerMove);
+        Assert.AreEqual(0.1f, poses.Pose(ship.Object).Position.Z, 1e-4);
+        motion.Push(new Vector3(0, 0, 50));
+        world.Step(CombatWorld.Tick);
+        Assert.IsNull(world.State(ship.Object)!.PlayerMove);
+        Assert.AreEqual(50.1f, poses.Pose(ship.Object).Position.Z, 1e-3);
+        Assert.AreEqual(MoveKind.MoveTo, world.State(ship.Object)!.Intent.Kind); // the hold drives it back, no move order
+    }
+
+    [TestMethod]
+    public void AMoveOrderGivenToAnOwnedShipDrivesItWithoutAnyOtherCaller()
+    {
+        var (world, poses, ship, _) = OwnedShip();
+        world.Move(ship.Object, 0, 100);
+        world.Step(1);
+        Assert.AreEqual(10, poses.Pose(ship.Object).Position.Z, 0.5);
+        Assert.AreEqual(10, world.State(ship.Object)!.Speed, 0.5);
+        Assert.IsNotNull(world.State(ship.Object)!.PlayerMove);
+    }
+
+    [TestMethod]
+    public void ACoastingShipFasterThanOneThatIsCriticallyHitTakesTheFiveSecondTimer()
+    {
+        var (world, doomed) = CriticalHitWorldWithMotion(
+            new StartingState { DestroyedSystems = ["Engines"], Velocity = new Vector3(0, 0, 20) }
+        );
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        Assert.IsTrue(world.State(doomed)!.Dying);
+        Assert.AreEqual(5, world.State(doomed)!.DyingRemaining, 1e-9);
+    }
+
+    [TestMethod]
+    public void AShipPushedWhileStillKeepsTheThreeSecondTimerAndTheStopToHitModifier()
+    {
+        var (world, doomed) = CriticalHitWorldWithMotion(null);
+        var motion = world.State(doomed)!.Motion!;
+        // pushed 24 units over the ticks before the hit (the beam lands 0.1 s after it fires), always at rest and
+        // within the 25 units of its tether point that the hold lets it stay
+        for (var i = 0; i < 3; i++)
+        {
+            motion.Push(new Vector3(0, 0, 8));
+            world.Step(CombatWorld.Tick);
+            Assert.IsTrue(world.State(doomed)!.Stopped);
+            Assert.AreEqual(0, world.State(doomed)!.Speed);
+        }
+
+        TickUntil(world, e => e.OfType<ShotLanded>().Any());
+        Assert.AreEqual(3, world.State(doomed)!.DyingRemaining, 1e-9);
+    }
+
+    [TestMethod]
+    public void AShooterThatIsPushedWhileStillHasTheStopToHitModifier()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 200, hitChance: 0.5f, stopModifier: 0.2f));
+        a = a with { Motion = Owned(a.Object) };
+        var b = Fighter("b", 2, 100);
+        var world = World(() => 0.6, a, b);
+        world.Attack(a.Object, b.Object);
+        a.Motion!.Push(new Vector3(0, 0, 5));
+        Assert.IsTrue(world.Step(CombatWorld.Tick).OfType<ShotFired>().First().Shot.Hits);
+    }
+
+    [TestMethod]
+    public void ADerelictShipWithAStartingVelocityCoastsFromTheFirstTick()
+    {
+        var ship = Starting(0, new StartingState { Crew = 0, Velocity = new Vector3(0, 0, 10) });
+        var spec = new Spec
+        {
+            Object = ship,
+            Profile = Profile(null),
+            Motion = Owned(ship),
+        };
+        var world = World(out var poses, null, spec);
+        world.Step(CombatWorld.Tick);
+        Assert.AreEqual(10 - 2 * CombatWorld.Tick, world.State(ship)!.Velocity.Z, 1e-3);
+        Assert.IsTrue(poses.Pose(ship).Position.Z > 0.19f);
+    }
+
+    [TestMethod]
+    public void AStartingVelocityOnAShipWithThrustLeavesItAtRest()
+    {
+        var ship = Starting(0, new StartingState { Velocity = new Vector3(0, 0, 10) });
+        var spec = new Spec
+        {
+            Object = ship,
+            Profile = Profile(null, systems: [Sys("Engines")]),
+            Motion = Owned(ship),
+        };
+        var world = World(out var poses, null, spec);
+        world.Step(1);
+        Assert.AreEqual(Vector3.Zero, world.State(ship)!.Velocity);
+        Assert.AreEqual(ship.Position, poses.Pose(ship).Position);
+    }
+
+    [TestMethod]
+    public void TwoRunsOfACoastingShipAtOneFrameRateAreIdentical()
+    {
+        static (Vector3, Vector3) Run()
+        {
+            var ship = Starting(
+                0,
+                new StartingState { DestroyedSystems = ["Engines"], Velocity = new Vector3(1, 2, 3) }
+            );
+            var spec = new Spec
+            {
+                Object = ship,
+                Profile = Profile(null, systems: [Sys("Engines")]),
+                Motion = Owned(ship),
+            };
+            var world = World(out var poses, null, spec);
+            for (var i = 0; i < 120; i++)
+                world.Step(1.0 / 30);
+
+            return (poses.Pose(ship).Position, world.State(ship)!.Velocity);
+        }
+
+        Assert.AreEqual(Run(), Run());
+    }
+
+    // A critical hit on b, whose own motion the world owns; b starts as `start` says.
+    static (CombatWorld World, PlacedObject Doomed) CriticalHitWorldWithMotion(StartingState? start)
+    {
+        var a = new Spec
+        {
+            Object = Placed("a", 1, 0),
+            Profile = Profile(new[] { Weapon(Beam(damage: 200, life: 0.1f), delay: 100, range: 300) }),
+        };
+        var doomed = Placed("b", 2, 100) with { Start = start };
+        var b = new Spec
+        {
+            Object = doomed,
+            // the engines are a system only where the start destroys them: a system would share the hit locations
+            Profile = Profile(maxHealth: 0, hull: 0, systems: start == null ? [] : [Sys("Engines")]),
+            Motion = Owned(doomed),
+        };
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+
+        return (world, doomed);
     }
 }

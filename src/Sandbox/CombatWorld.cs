@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using OpenArmada.Diagnostics;
 using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
@@ -33,14 +34,27 @@ public sealed record CombatUnit
     /// <summary>Whether the unit can move at all.</summary>
     public required bool Mobile { get; init; }
 
+    /// <summary>
+    /// The unit's motion, which the world steps on its ticks and gives the unit's orders to; null for a unit whose
+    /// pose something else drives. A mobile unit has one from the moment the world opens.
+    /// </summary>
+    public ShipMotion? Motion { get; init; }
+
+    /// <summary>
+    /// The unit's model as the game loads it (at the class's scale), whose faces become debris pieces when the unit
+    /// ends; null for a unit without a readable model, which ends without debris.
+    /// </summary>
+    public Sod? Model { get; init; }
+
     /// <summary>The unit class's shield ellipsoid; null for a model that has none (it then shows no shield hit effect).</summary>
     public ShieldEllipsoid? Shield { get; init; }
 }
 
 /// <summary>
 /// The fight of a map in plain C#: every unit's combat state, the orders, and the shots in flight. Step advances
-/// it and returns what happened. Unit positions come from the pose source; randomness from the injected source, a
-/// number in [0, 1) per call.
+/// it and returns what happened. The world owns each mobile unit's motion (<see cref="CombatUnit.Motion"/>) and
+/// steps it on its fixed ticks, recording the pose in the pose source; a unit without motion keeps the pose the
+/// pose source gives it. Randomness comes from the injected source, a number in [0, 1) per call.
 /// </summary>
 public sealed class CombatWorld
 {
@@ -51,6 +65,12 @@ public sealed class CombatWorld
     public const double Tick = 0.02;
 
     const double Epsilon = 1e-9;
+
+    /// <summary>The game's compiled default of <c>MAX_PREVENTION_ROTATION</c> (0x4453f0), in radians.</summary>
+    public const float DefaultMaxPreventionRotation = 0.4f;
+
+    // A ship's separation pass looks at the ships within this times its model radius on X and on Z (0x464910).
+    const float NeighbourBox = 3f;
 
     // A beam shows its effect once this share of its lifetime has passed: 1 - 0.9 (0x6173e8).
     const double BeamEffectStart = 0.1;
@@ -87,8 +107,33 @@ public sealed class CombatWorld
     readonly Func<PlacedObject, string, ShipPose, Vector3> _hardpointPosition;
     readonly Dictionary<PlacedObject, UnitCombatState> _units = new(ReferenceEqualityComparer.Instance);
     readonly List<Shot> _shots = new();
+    readonly DebrisField _debris;
+    readonly Dictionary<PlacedObject, Sod?> _models = new(ReferenceEqualityComparer.Instance);
+    readonly HashSet<string> _faults = new();
+
+    // The units whose non-finite push is reported: by reference, since labels can repeat.
+    readonly HashSet<PlacedObject> _badPushes = new(ReferenceEqualityComparer.Instance);
     double _pending;
     long _ticks;
+
+    /// <summary>
+    /// <c>MAX_PREVENTION_ROTATION</c>, the largest angle of a collision turn in radians; the game's compiled default
+    /// unless the combat plan read the install's.
+    /// </summary>
+    public float MaxPreventionRotation { get; init; } = DefaultMaxPreventionRotation;
+
+    /// <summary>
+    /// The asteroid fields and planets that push a ship out of them in the post-simulate pass (0x4644b0), every ship
+    /// that is not derelict and not dying, coasting ones included; none unless the plan gives some.
+    /// </summary>
+    public IReadOnlyList<Obstacle> Obstacles { get; init; } = Array.Empty<Obstacle>();
+
+    /// <summary>
+    /// The black holes of the map: each swallows the units inside its event horizon before the motions of a tick,
+    /// pulls the ships without thrust after them, and pushes the ships with thrust out of its ring in the
+    /// post-simulate pass; none unless the plan gives some.
+    /// </summary>
+    public IReadOnlyList<BlackHole> BlackHoles { get; init; } = Array.Empty<BlackHole>();
 
     /// <summary>Seconds of fight the ticks that ran add up to.</summary>
     public double Time => _ticks * Tick;
@@ -105,9 +150,11 @@ public sealed class CombatWorld
         double shieldDamageProtection,
         Func<double> random,
         Func<PlacedObject, string, ShipPose, Vector3> hardpointPosition,
-        double systemHitpointsBonus = 0
+        double systemHitpointsBonus = 0,
+        DebrisLimits? debris = null
     )
     {
+        _debris = new DebrisField(debris ?? DebrisLimits.Default);
         _hardpointPosition = hardpointPosition;
         _poses = poses;
         _protection = shieldDamageProtection;
@@ -125,15 +172,33 @@ public sealed class CombatWorld
             {
                 Shield = u.Shield,
                 ModelRadius = u.ModelRadius,
+                Motion = u.Mobile ? u.Motion : null,
             };
             if (u.Unit.Start is { } start)
             {
                 state.Begin(start);
             }
 
+            if (state.Motion is { } motion && state.Coasting)
+            {
+                // a unit that starts without thrust coasts from the first tick, along its starting velocity
+                motion.Coast();
+                if (u.Unit.Start?.Velocity is { } velocity)
+                {
+                    motion.SetVelocity(velocity);
+                }
+
+                state.Velocity = motion.Velocity;
+                state.Stopped = state.Velocity == Vector3.Zero;
+            }
+
             _units[u.Unit] = state;
+            _models[u.Unit] = u.Model;
         }
     }
+
+    /// <summary>The live debris pieces, the oldest first.</summary>
+    public IReadOnlyList<DebrisPiece> Debris => _debris.Pieces;
 
     /// <summary>The shots in flight.</summary>
     public IReadOnlyList<Shot> Shots => _shots;
@@ -156,10 +221,64 @@ public sealed class CombatWorld
             return false;
         a.Order = t;
         a.AutoMove = false;
+        a.Returning = false;
         a.PlayerMove = null;
         a.Intent = default;
 
         return true;
+    }
+
+    /// <summary>
+    /// The one route of every forced push of a ship (collision separation, push-out): the ship's motion moves it by
+    /// <c>displacement</c> (<see cref="ShipMotion.Push"/>), its pose, position, and velocity follow at once, and the
+    /// arrival test runs. A move order, or the hold's return to the tether point, whose point lies strictly under the
+    /// ship's tooCloseToTurn away after the push ends where the ship stands: the order and the motion's target
+    /// end, and that spot, its height included, becomes the tether point (0x428170 posts STOP inside the radius, and
+    /// 0x46eac0 makes the stopping spot the path). A ship at or beyond the radius keeps its order. A ship without
+    /// thrust, a ship with an attack order, and a unit without motion end no order. A displacement with a component
+    /// that is no finite number skips the push and is reported as one ERROR entry, the first time for that unit.
+    /// </summary>
+    public void Push(PlacedObject unit, Vector3 displacement)
+    {
+        if (State(unit) is not { Destroyed: false, Motion: { } motion } u)
+            return;
+        if (!float.IsFinite(displacement.X) || !float.IsFinite(displacement.Y) || !float.IsFinite(displacement.Z))
+        {
+            // each unit's non-finite push is reported once, however often it recurs (INV-0002)
+            if (_badPushes.Add(unit))
+            {
+                Log.Error(
+                    Area.Combat,
+                    $"push of {unit.Label} skipped: displacement {displacement} is no finite vector"
+                );
+            }
+
+            return;
+        }
+
+        motion.Push(displacement);
+        u.Position = _poses.Advance(unit, motion, 0).Position;
+        u.Velocity = motion.Velocity;
+        if (u.Coasting || u.Order != null)
+            return;
+        var at = u.Position.Value;
+        var point =
+            u.PlayerMove is { } to ? new Vector3(to.X, u.Tether.Y, to.Z)
+            : u.Returning ? u.Tether
+            : (Vector3?)null;
+        // stand-in (ADR 0009): the game also asks the ship to be slower than half its impulseSpeed, which its brake
+        // brings about; the kinematic model has no brake, so a push inside the radius stands for slow and near.
+        if (point is { } p && Vector3.Distance(at, p) < motion.TooCloseToTurn)
+        {
+            u.PlayerMove = null;
+            u.Returning = false;
+            u.Intent = default;
+            motion.Stop();
+            _poses.Advance(unit, motion, 0); // the stop drops the bank
+            u.Tether = at;
+            u.Velocity = motion.Velocity;
+            u.Stopped = u.Velocity == Vector3.Zero;
+        }
     }
 
     /// <summary>
@@ -172,6 +291,7 @@ public sealed class CombatWorld
             return;
         state.Order = null;
         state.AutoMove = false;
+        state.Returning = false;
         state.PlayerMove = null;
         state.Intent = default;
         state.Tether = Position(state);
@@ -190,34 +310,88 @@ public sealed class CombatWorld
             state.PlayerMove = (x, z);
             // stand-in: a move names no height, so the tether point keeps the unit's own
             state.Tether = new Vector3(x, Position(state).Y, z);
+            if (state.Motion is { } motion && !state.Immobile)
+            {
+                motion.Thrust();
+                motion.SetTarget(x, z);
+            }
         }
     }
+
+    /// <summary>
+    /// The game's group move (<see cref="Formation"/>): the ships of <c>ships</c> (in selection order) that take a
+    /// move order are laid on the group formation around <c>click</c> (the world's X, Z, already inside the map), and
+    /// each gets its own move order to its cell (<see cref="Move"/>). A station, a ship that cannot move, a derelict,
+    /// dying or coasting ship takes none and leaves the grid as it was. One ship that takes it goes to the click.
+    /// <c>spacing</c> is FORMATION_SPACING and <c>midY</c> the middle of the combat band, which the cells are matched
+    /// at. A cell outside <c>bounds</c> goes to the nearest point of the map's edge, as a single click does.
+    /// </summary>
+    /// <remarks>
+    /// stand-in: the leader's move order and the followers' FOLLOW orders (cmd 9, 0x480c30's pipeline, 0x4805d0) reduce
+    /// to one move order per cell, which is what they come to with stock DEFAULT_TO_FORMATION_MOVE = 0 and the
+    /// sandbox's one-point targets; followers start at once, not two game ticks after the leader; each ship keeps its
+    /// own height (height steering belongs to the flight-model feature, ADR 0009); two clamped cells may coincide.
+    /// </remarks>
+    public void GroupMove(IReadOnlyList<PlacedObject> ships, Vector2 click, float spacing, float midY, MapBounds bounds)
+    {
+        var taking = ships.Where(s => State(s) is { Mobile: true, Immobile: false }).ToList();
+        if (taking.Count == 1)
+        {
+            Move(taking[0], click.X, click.Y);
+
+            return;
+        }
+
+        // the formation is the game's, in its frame: Z mirrored from the world's. Its heading is the mean over every
+        // ship handed to the move, those that take no order included (0x47fde0).
+        var gameClick = new Vector2(click.X, -click.Y);
+        var heading = Formation.Heading(
+            ships.Where(s => State(s) is not null).Select(s => InGameFrame(Position(State(s)!))).ToList(),
+            gameClick
+        );
+        var cells = Formation.Destinations(
+            taking.Select(s => InGameFrame(Position(State(s)!))).ToList(),
+            gameClick,
+            spacing,
+            midY,
+            heading
+        );
+        for (var i = 0; i < taking.Count; i++)
+        {
+            var cell = MoveGeometry.ClampToMap(new Vector2(cells[i].X, -cells[i].Y), bounds);
+            Move(taking[i], cell.X, cell.Y);
+        }
+    }
+
+    static Vector3 InGameFrame(Vector3 world) => world with { Z = -world.Z };
+
+    /// <summary>
+    /// The seconds of the latest Step call after its last tick: the part of a tick the motions have not run yet,
+    /// which the view draws ahead (<see cref="ShipMotion.Drawn"/>).
+    /// </summary>
+    public double Pending => _pending;
 
     /// <summary>Advances the fight by <c>seconds</c> and returns the events of the ticks that ran.</summary>
     public IReadOnlyList<CombatEvent> Step(double seconds)
     {
         var events = new List<CombatEvent>();
-        // Positions change once per Step call (a frame), so a unit is stopped when it did not move since the
-        // previous call; every tick of the call shares that, and the to-hit does not depend on the frame rate.
+        // A unit without motion has its pose driven from outside, which changes once per Step call (a frame): it is
+        // stopped when it did not move since the previous call, and its velocity is that change over the call. Every
+        // tick of the call shares that, so the to-hit does not depend on the frame rate.
         foreach (var u in _units.Values)
         {
             var at = _poses.Pose(u.Unit).Position;
-            u.Stopped = u.Position == null || u.Position == at;
-            if (seconds > 0 && u.Position is { } before)
+            if (u.Motion == null)
             {
-                u.Speed = Vector3.Distance(before, at) / seconds;
+                u.Stopped = u.Position == null || u.Position == at;
+                if (seconds > 0 && u.Position is { } before)
+                {
+                    u.Velocity = (at - before) / (float)seconds;
+                }
             }
 
             u.Position = at;
-            // a ship that arrives stands exactly on its target (ShipMotion), which ends the move order
-            if (
-                u.PlayerMove is { } to
-                && Math.Abs(at.X - to.X) < ArrivedWithin
-                && Math.Abs(at.Z - to.Z) < ArrivedWithin
-            )
-            {
-                u.PlayerMove = null;
-            }
+            EndArrivedMove(u);
         }
 
         _pending += Math.Max(0, seconds);
@@ -227,18 +401,261 @@ public sealed class CombatWorld
             RunTick(events);
         }
 
-        // the part of this call after the tick that found a unit without thrust, for the view's coast
-        foreach (var u in _units.Values)
+        return events;
+    }
+
+    // A ship that arrives stands exactly on its target (ShipMotion), which ends the move order.
+    static void EndArrivedMove(UnitCombatState u)
+    {
+        if (
+            u.PlayerMove is { } to
+            && u.Position is { } at
+            && Math.Abs(at.X - to.X) < ArrivedWithin
+            && Math.Abs(at.Z - to.Z) < ArrivedWithin
+        )
         {
-            u.CoastOvershoot = u.CoastTick is { } tick ? (_ticks - tick) * Tick + _pending : null;
+            u.PlayerMove = null;
+        }
+    }
+
+    // One tick of every unit's motion: it takes the thrust away or gives the unit's orders to it, runs for the tick,
+    // and the unit's pose, velocity, and move order follow. Done for all units before any of them thinks or fires,
+    // so each reads the same positions and velocities. A move order ends here, in the step that reaches its target.
+    void RunMotions()
+    {
+        foreach (var u in _units.Values.Where(u => u.Motion != null))
+        {
+            var motion = u.Motion!;
+            if (u.Coasting)
+            {
+                motion.Coast();
+            }
+            else
+            {
+                motion.Thrust();
+                switch (u.Intent.Kind)
+                {
+                    case MoveKind.MoveTo:
+                        motion.SetTarget(u.Intent.X, u.Intent.Z);
+
+                        break;
+                    case MoveKind.Face:
+                        motion.Face(u.Intent.X, u.Intent.Z);
+
+                        break;
+                    case MoveKind.Stop:
+                        motion.Stop();
+
+                        break;
+                }
+            }
+
+            u.Position = _poses.Advance(u.Unit, motion, Tick).Position;
+            u.Velocity = motion.Velocity;
+            u.Stopped = u.Velocity == Vector3.Zero; // stand-in: stopped is no velocity at all; the game's test was not traced
+            EndArrivedMove(u);
+        }
+    }
+
+    // The event horizon of the black holes (the game's area step, 0x44da40, before the simulate step): every unit that is
+    // not dying, ship or station, whose center lies within EventRadius of the hole's center in the plane (the edge
+    // included) is swallowed (0x450a40). It becomes a dying unit with a timer of 0 (0x466090), so it leaves in the next
+    // tick through RunDying, with no fireball and no small explosions. A hole whose EventRadius is 0 swallows nothing
+    // (0x44da40). A fault in one unit's test is reported once per cause and the run goes on.
+    void SwallowUnits()
+    {
+        foreach (var hole in BlackHoles)
+        {
+            if (hole.EventRadius == 0) // the game skips the horizon of such a hole (0x44da40)
+                continue;
+            var reach = hole.EventRadius * hole.EventRadius;
+            foreach (var u in _units.Values)
+            {
+                if (u.Dying || u.Destroyed)
+                    continue;
+                try
+                {
+                    var at = Position(u);
+                    var (dx, dz) = (at.X - hole.Center.X, at.Z - hole.Center.Z);
+                    if (dx * dx + dz * dz > reach)
+                        continue;
+                    u.Dying = true;
+                    u.DyingRemaining = 0;
+                    u.Swallowed = true;
+                }
+                catch (Exception e)
+                {
+                    if (_faults.Add(e.Message))
+                    {
+                        Log.Error(Area.Combat, $"black-hole event horizon on {u.Unit.Label} failed: {e.Message}");
+                    }
+                }
+            }
+        }
+    }
+
+    // The pull of the black holes (0x450a80), after the motions of the tick (the game's simulate step; the order of holes
+    // and ships inside it is not recovered, so holes run in the plan's order and ships in the unit order). A hole pulls
+    // every ship that moves and has no thrust (engines destroyed or derelict, dying or not; 0x450bcc) whose 3D distance d from its center is within
+    // the gravity radius R: the velocity changes by the unit direction to the center times F times the tick, with F
+    // = GravityForce x R^2 / d^2 (R^2 when d^2 < 1). The result is held to the ship's speed cap (0x450f40, 0x450ea0).
+    // stand-in: the cap is impulseSpeed alone (no warp multiplier). A ship at the exact center has no direction and
+    // keeps its velocity. A fault in one ship's pull is reported once per cause and the run goes on.
+    void PullShips()
+    {
+        foreach (var hole in BlackHoles)
+        {
+            var reach = hole.GravityRadius * hole.GravityRadius;
+            foreach (var s in _units.Values)
+            {
+                if (!s.Mobile || !(s.Derelict || s.SystemDestroyed(SystemNames.Engines)) || s.Motion is not { } motion)
+                    continue;
+                try
+                {
+                    var to = hole.Center - Position(s);
+                    var squared = to.LengthSquared();
+                    if (!(squared <= reach) || squared == 0)
+                        continue;
+                    // simplicity: the force is computed in double and the change held at 1e18, so a huge but finite force or
+                    // radius cannot overflow the float velocity to infinity; the cap below makes the result the same.
+                    var force =
+                        (double)hole.GravityForce * hole.GravityRadius * hole.GravityRadius / Math.Max(squared, 1);
+                    var change = (float)Math.Min(force * Tick, 1e18);
+                    motion.AddVelocity(to / MathF.Sqrt(squared) * change);
+                    var v = motion.Velocity;
+                    var cap = (float)motion.ImpulseSpeed;
+                    if (v.Length() is var speed && speed >= cap && speed > 0)
+                    {
+                        motion.SetVelocity(v / speed * cap);
+                    }
+
+                    s.Velocity = motion.Velocity;
+                    s.Stopped = s.Velocity == Vector3.Zero;
+                }
+                catch (Exception e)
+                {
+                    if (_faults.Add(e.Message))
+                    {
+                        Log.Error(Area.Combat, $"black-hole pull on {s.Unit.Label} failed: {e.Message}");
+                    }
+                }
+            }
+        }
+    }
+
+    // The collision separation of the post-simulate pass (0x464910): each ship that is not dying, not derelict, and has
+    // a motion (a station has none, so it runs no pass) separates from the ships in the box around it, in the plan's
+    // unit order. A neighbour is any other unit that is not dying; a station never moves. A fault in a pass is
+    // reported once per cause and the pass of the next ship runs (INV-0002).
+    void SeparateShips()
+    {
+        var all = _units.Values.ToList();
+        foreach (var a in all)
+        {
+            if (a.Destroyed || a.Dying || a.Derelict || a.Motion == null)
+                continue;
+            try
+            {
+                SeparateFrom(a, all);
+            }
+            catch (Exception e) // a fault of one ship's pass is reported, and the run goes on
+            {
+                if (_faults.Add(e.Message))
+                {
+                    Log.Error(Area.Combat, $"collision separation of {a.Unit.Label} failed: {e.Message}");
+                }
+            }
+        }
+    }
+
+    void SeparateFrom(UnitCombatState a, List<UnitCombatState> all)
+    {
+        // the neighbors are gathered once before the pass, as the game does; the contacts then read the live positions
+        var (start, reach) = (Position(a), NeighbourBox * a.ModelRadius);
+        var neighbours = all.Where(b =>
+                b != a
+                && !b.Destroyed
+                && !b.Dying
+                && Math.Abs(start.X - Position(b).X) <= reach
+                && Math.Abs(start.Z - Position(b).Z) <= reach
+            )
+            .ToList();
+        foreach (var b in neighbours)
+        {
+            var (at, other) = (Position(a), Position(b));
+            var contact = CollisionSeparation.Between(
+                new CollisionSeparation.Body(at, a.ModelRadius, a.Shield),
+                new CollisionSeparation.Body(other, b.ModelRadius, b.Shield)
+            );
+            if (contact is not { } c)
+                continue;
+            var (shareA, shareB) = CollisionSeparation.Shares(a.Velocity.Length(), b.Velocity.Length());
+            var aBorg = a.Motion!.BorgPhysics; // SeparateShips runs no pass for a unit without motion
+            var bBorg = b.Motion?.BorgPhysics ?? false;
+            var v = CollisionSeparation.Push(c.Normal, at.Y, other.Y, aBorg, bBorg);
+            Separate(a, b, shareA, v, c);
+            Separate(b, a, shareB, -v, c);
         }
 
-        return events;
+        // stand-in: every obstacle is tested, not only those in the neighbour box (how the game's grid holds a
+        // large non-ship object is not recovered), and after the ship contacts, not in the neighbours' order. The
+        // field and planet branch of 0x4644b0 has no engine test: a coasting ship (engines destroyed) is pushed out too.
+        foreach (var obstacle in Obstacles)
+        {
+            PushOut(a, obstacle.Center, obstacle.Radius);
+        }
+
+        // The black hole's ring of 1.5 x EventRadius takes a ship with thrust only: engines working and not derelict
+        // (0x4644b0's black-hole branch); a ship the pass runs for is never dying, so no thrust means engines destroyed.
+        if (!a.Coasting)
+        {
+            foreach (var hole in BlackHoles)
+            {
+                PushOut(a, hole.Center, hole.Ring);
+            }
+        }
+    }
+
+    // The push-out of a ship from the sphere of `radius` around `center` in the plane (0x4644b0), through the push
+    // route. The caller gates on engines: the black hole's ring of 1.5 x EventRadius takes ships with thrust only.
+    void PushOut(UnitCombatState s, Vector3 center, float radius)
+    {
+        if (s.Destroyed || CollisionSeparation.PushOut(Position(s), s.ModelRadius, center, radius) is not { } by)
+            return;
+        Push(s.Unit, by);
+    }
+
+    // One ship's part of a separation: it moves by its share of v through the push route, then takes the collision
+    // turn. A unit without motion (a station) moves in no way, and its share is lost.
+    void Separate(UnitCombatState s, UnitCombatState o, float share, Vector3 v, CollisionSeparation.Contact contact)
+    {
+        if (s.Motion is not { } motion)
+            return;
+        Push(s.Unit, v * share);
+        if (contact.Coincide || s.Destroyed)
+            return;
+        var turn = CollisionSeparation.Turn(
+            motion.Pose.Heading,
+            Position(s),
+            Position(o),
+            share,
+            motion.BorgPhysics,
+            v,
+            contact.Penetration,
+            MaxPreventionRotation
+        );
+        if (turn is { } delta)
+        {
+            motion.Yaw(delta);
+            _poses.Advance(s.Unit, motion, 0);
+            s.Velocity = motion.Velocity;
+        }
     }
 
     void RunTick(List<CombatEvent> events)
     {
         _ticks++;
+        _debris.Advance(Tick); // a piece made in this tick first moves in the next
         // the dying phase runs before the shots land, so a unit a hit dooms in this tick starts its timer in the next
         foreach (var u in _units.Values.Where(u => u.Dying).ToList())
         {
@@ -246,6 +663,10 @@ public sealed class CombatWorld
         }
 
         AdvanceShots(events);
+        SwallowUnits();
+        RunMotions();
+        PullShips();
+        SeparateShips();
         foreach (var u in _units.Values.ToList())
         {
             if (u.Destroyed)
@@ -255,11 +676,7 @@ public sealed class CombatWorld
             {
                 u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a ship without thrust
                 u.PlayerMove = null;
-                u.CoastTick ??= _ticks;
-            }
-            else
-            {
-                u.CoastTick = null;
+                u.Returning = false;
             }
 
             Fire(u, events);
@@ -364,7 +781,10 @@ public sealed class CombatWorld
         while (u.ExplosionClock + Epsilon >= SmallExplosionEvery)
         {
             u.ExplosionClock -= SmallExplosionEvery;
-            events.Add(SmallExplosionOn(u));
+            if (!u.Swallowed) // a swallowed unit shows no small explosions
+            {
+                events.Add(SmallExplosionOn(u));
+            }
         }
 
         u.DyingRemaining -= Tick;
@@ -373,10 +793,23 @@ public sealed class CombatWorld
         u.Dying = false; // the phase is over: the unit is destroyed
         u.Destroyed = true;
         _units.Remove(u.Unit);
-        events.Add(new UnitDestroyed { Unit = u.Unit });
+        Shatter(u);
+        events.Add(
+            new UnitDestroyed { Unit = u.Unit, Cause = u.Swallowed ? DestroyCause.BlackHole : DestroyCause.Fireball }
+        );
     }
 
-    // The unit's position as of the current Step call (positions change only between calls).
+    // The unit ends in pieces: its model's showing faces become debris pieces at the unit's pose (0x58cef0). Whatever ends
+    // a unit calls this, with the unit already removed from the world. A unit without a model leaves none.
+    void Shatter(UnitCombatState u)
+    {
+        if (_models.GetValueOrDefault(u.Unit) is { } model)
+        {
+            _debris.Shatter(u.Unit, model, u, _poses.Pose(u.Unit), _random);
+        }
+    }
+
+    // The unit's position as of its latest motion tick; for a unit without motion, as of the current Step call.
     Vector3 Position(UnitCombatState u) => u.Position ?? _poses.Pose(u.Unit).Position;
 
     // The distance between the units' surfaces.
@@ -391,7 +824,12 @@ public sealed class CombatWorld
         var held = u.Target; // the fallback target of the previous tick, if any
         u.Target = null;
         if (u.Weapons.Count == 0 || u.Dying)
-            return; // a dying unit picks and fires nothing (0x506d70)
+        {
+            Hold(u); // a dying unit picks and fires nothing (0x506d70), and holds nothing (it coasts)
+
+            return;
+        }
+
         if (u.Order is { Destroyed: true } or { Dying: true })
         {
             u.Order = null;
@@ -412,13 +850,22 @@ public sealed class CombatWorld
         if (u.Order == null)
         {
             if (u.Alert == AlertStance.Green)
+            {
+                Hold(u);
+
                 return; // green picks nothing by itself
+            }
+
             u.Target = Select(u, held, radius);
             // stand-in: a unit is idle when it has no order of the player (no attack order, no move order until it
             // arrives); the game's own idle test was not traced.
             var idle = u.PlayerMove == null;
             if (u.Alert != AlertStance.Red || !u.Profile.CanAttack || u.Derelict || !idle)
-                return; // yellow never moves on its own
+            {
+                Hold(u); // yellow never moves on its own to a target, but holds its tether point
+
+                return;
+            }
             // a recent hit on the unit or a teammate nearby moves the tether point to where the unit stands (0x42a370
             // posts an order without a position; inferred that it takes that order's path, 0x46eac0)
             if (HitNearby(u))
@@ -432,10 +879,11 @@ public sealed class CombatWorld
             if (u.Target != null && Vector3.DistanceSquared(Position(u), u.Tether) <= TetherSquared)
             {
                 u.AutoMove = true;
+                u.Returning = false; // closing on a pick keeps precedence over the hold
             }
             else
             {
-                ReturnToTether(u);
+                Hold(u);
 
                 return;
             }
@@ -489,29 +937,46 @@ public sealed class CombatWorld
         );
     }
 
-    // Moves the unit back to its tether point, and stops it once it is there.
-    void ReturnToTether(UnitCombatState u)
+    // The hold of an idle mobile ship (no attack order, no move order, with thrust) at every alert stance, with or
+    // without weapons: the idle handler runs every tick (0x42a170) and keeps the ship at its tether point by the
+    // near-target rule (0x42e4a0). A ship the tether point lies tooCloseToTurn or more away from drives back to it
+    // and stops on reaching it; nearer, it stays where it was moved. The return is its own state, so a change of
+    // stance does not end it. A push inside the radius ends it as well (<see cref="Push"/>).
+    // stand-in: the game's brake inside the radius is not modelled (ADR 0009), so a ship nearer than the radius
+    // does not move at all.
+    void Hold(UnitCombatState u)
     {
+        if (!u.Mobile || u.Coasting || u.PlayerMove != null || u.Order != null)
+            return;
         var at = Position(u);
-        if (!u.Mobile || (Math.Abs(at.X - u.Tether.X) < ArrivedWithin && Math.Abs(at.Z - u.Tether.Z) < ArrivedWithin))
+        var reached = Math.Abs(at.X - u.Tether.X) < ArrivedWithin && Math.Abs(at.Z - u.Tether.Z) < ArrivedWithin;
+        var tooClose = u.Motion?.TooCloseToTurn ?? PhysicsValues.DefaultTooCloseToTurn;
+        if (u.Returning ? !reached : Vector3.Distance(at, u.Tether) >= tooClose)
         {
-            if (u.AutoMove)
+            u.Intent = new MoveIntent
             {
-                u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
-            }
-
+                Kind = MoveKind.MoveTo,
+                X = u.Tether.X,
+                Z = u.Tether.Z,
+            };
+            u.Returning = true;
             u.AutoMove = false;
 
             return;
         }
 
-        u.Intent = new MoveIntent
+        if (u.Returning)
         {
-            Kind = MoveKind.MoveTo,
-            X = u.Tether.X,
-            Z = u.Tether.Z,
-        };
-        u.AutoMove = true;
+            u.Tether = at; // the return ended here, at the point's height too
+        }
+
+        if (u.Returning || u.AutoMove)
+        {
+            u.Intent = new MoveIntent { Kind = MoveKind.Stop };
+        }
+
+        u.Returning = false;
+        u.AutoMove = false;
     }
 
     // A valid target is hostile, not being destroyed (dying or gone), and not derelict (0x42faa0).

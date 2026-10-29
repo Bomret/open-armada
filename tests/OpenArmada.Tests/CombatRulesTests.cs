@@ -747,7 +747,7 @@ public class CombatRulesTests
         {
             var target = State(Profile() with { IsHero = hero });
             target.Shields = 0;
-            target.Speed = speed;
+            target.Velocity = new System.Numerics.Vector3(0, 0, (float)speed);
             CombatRules.Apply(target, Beam(), 1, HitLocation.Critical, 1);
             Assert.AreEqual(seconds, target.DyingRemaining, 1e-9, $"speed {speed}, hero {hero}");
         }

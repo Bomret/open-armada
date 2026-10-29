@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using OpenArmada.Formats;
 
@@ -19,6 +20,7 @@ public sealed class PlayState
     readonly UnitNames _names;
     readonly Func<PlacedObject, ShipPose> _pose;
     readonly Func<PlacedObject, Sod?> _model;
+    readonly Func<int> _debris;
     readonly Dictionary<PlacedObject, UnitCombatState> _states = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
@@ -30,9 +32,11 @@ public sealed class PlayState
         UnitNames names,
         Func<PlacedObject, ShipPose> pose,
         IEnumerable<UnitCombatState> states,
-        Func<PlacedObject, Sod?>? model = null
+        Func<PlacedObject, Sod?>? model = null,
+        Func<int>? debris = null
     )
     {
+        _debris = debris ?? (() => 0);
         _names = names;
         _pose = pose;
         _model = model ?? (_ => null);
@@ -48,12 +52,15 @@ public sealed class PlayState
     public (PlacedObject? Unit, string? Problem) Resolve(string name) => _names.Resolve(name);
 
     /// <summary>
-    /// The state dump: one line per addressable unit in plan order, <c>\n</c>-terminated, invariant culture, two
+    /// The state dump: one line per addressable unit in plan order, then a last line <c>debris=</c> with the number of
+    /// live debris pieces, <c>\n</c>-terminated, invariant culture, two
     /// decimals, the systems in a fixed order, and no time of day. A unit without combat state shows
-    /// <c>state=none</c> after its position. Fields, space-separated: name, team, pos (x,y,z), shields, crew, one
+    /// <c>state=none</c> after its position and velocity. Fields, space-separated: name, team, pos (x,y,z), vel
+    /// (x,y,z, the unit's world velocity in the frame of pos; 0,0,0 for a unit that stands still or has no combat
+    /// state), shields, crew, one
     /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, coasting,
     /// destroyed (true once the unit has left the world), dying, alert, order,
-    /// target, shieldDown (the state's shield-down overlay flag), damage (the names of the damage nodes the state
+    /// target, move (<c>x,z</c> of the player's open move order, or <c>none</c>), shieldDown (the state's shield-down overlay flag), damage (the names of the damage nodes the state
     /// selects, comma-separated, or <c>none</c>; see <see cref="DamageNodes"/>). A unit that has left the world keeps
     /// the values of its last state in every field.
     /// </summary>
@@ -63,9 +70,10 @@ public sealed class PlayState
         foreach (var unit in _names.Units)
         {
             var p = _pose(unit).Position;
+            var v = _states.TryGetValue(unit, out var moving) ? moving.Velocity : Vector3.Zero;
             text.Append(
                 CultureInfo.InvariantCulture,
-                $"{_names.Name(unit)} team={unit.Team} pos={p.X:F2},{p.Y:F2},{p.Z:F2}"
+                $"{_names.Name(unit)} team={unit.Team} pos={p.X:F2},{p.Y:F2},{p.Z:F2} vel={v.X:F2},{v.Y:F2},{v.Z:F2}"
             );
             if (_states.TryGetValue(unit, out var s))
             {
@@ -84,6 +92,7 @@ public sealed class PlayState
                     $" derelict={Flag(s.Derelict)} immobile={Flag(s.Immobile)} coasting={Flag(s.Coasting)} destroyed={Flag(s.Destroyed)}"
                         + $" dying={Flag(s.Dying)}"
                         + $" alert={s.Alert} order={Of(s.Order)} target={Of(s.Target)}"
+                        + $" move={(s.PlayerMove is { } move ? FormattableString.Invariant($"{move.X:F2},{move.Z:F2}") : "none")}"
                         + $" shieldDown={Flag(s.ShieldDownOverlay)}"
                 );
                 var damage = DamageNodes.Showing(_model(unit), s);
@@ -96,6 +105,8 @@ public sealed class PlayState
 
             text.Append('\n');
         }
+
+        text.Append(CultureInfo.InvariantCulture, $"debris={_debris()}\n");
 
         return text.ToString();
     }

@@ -470,6 +470,18 @@ public sealed class Sod
         }
     }
 
+    /// <summary>
+    /// The detail level of a LOD control node that shows: the child whose subtree has the most triangle corners, the
+    /// first of those on a tie; null for a node without children. Every other level is hidden. That the game shows one
+    /// level only is inferred (the view shows the most detailed one).
+    /// </summary>
+    public Node? ShownLodLevel(Node lod) =>
+        ChildrenOf(lod).Select(level => (Node?)level).MaxBy(level => CornerCount(level!));
+
+    int CornerCount(Node node) =>
+        (node.Mesh?.Groups.Sum(g => g.Corners.Length / 3 * 3) ?? 0)
+        + Descendants(node).Sum(n => n.Mesh?.Groups.Sum(g => g.Corners.Length / 3 * 3) ?? 0);
+
     static bool InParentCycle(IReadOnlyList<Node> nodes, Node node)
     {
         var seen = new HashSet<Node>();

@@ -1,0 +1,11 @@
+// Two Federation destroyers on team 1 in an empty area, for play/collision.play: the Mover is ordered to a point just
+// short of the Holder, so the two meet before the Mover arrives and the collision separation moves them apart.
+// Run it with: godot-mono --path . --write-movie play-out/collision/frame.png --fixed-fps 10 -- --game <install>
+// --layout layouts/collision.jsonc --play play/collision.play
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "fdestroy", "team": 1, "position": [2000, 0, 2000], "label": "Mover" },
+    { "class": "fdestroy", "team": 1, "position": [2000, 0, 1900], "label": "Holder" },
+  ],
+}

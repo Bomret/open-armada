@@ -240,6 +240,16 @@ public sealed record HullHitSprite : CombatEvent
     public required float Scale { get; init; }
 }
 
+/// <summary>What ended a unit.</summary>
+public enum DestroyCause
+{
+    /// <summary>Its dying time ran out after a hit doomed it: its fireball plays (0x4663d0).</summary>
+    Fireball,
+
+    /// <summary>A black hole swallowed it: no fireball, no sound, no small explosions (0x450a40).</summary>
+    BlackHole,
+}
+
 /// <summary>
 /// A dying unit's time ran out and the unit left the world. The world raises it in the tick the unit leaves, not with
 /// the hit that doomed it; the shots still at the unit are dropped later, as the world advances its shots.
@@ -248,6 +258,9 @@ public sealed record UnitDestroyed : CombatEvent
 {
     /// <summary>The map object of the destroyed unit.</summary>
     public required PlacedObject Unit { get; init; }
+
+    /// <summary>What ended the unit; the view plays the fireball for <see cref="DestroyCause.Fireball"/> only.</summary>
+    public DestroyCause Cause { get; init; } = DestroyCause.Fireball;
 }
 
 /// <summary>

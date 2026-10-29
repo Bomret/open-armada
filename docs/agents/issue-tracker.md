@@ -80,7 +80,8 @@ where none does.
 - **Read every label write back.** After an issue create and after every label add or remove, run `tea
   issues <index> -o json` and compare its label names with the requested set. A mismatch is reported to
   the operator and stops that write: `tea` drops an unknown label name silently, and an issue without
-  `ready` or its feature label is invisible to `/superdev:implement`.
+  `ready` or its feature label is invisible to `/superdev:implement`. **Close an issue** below
+  reports a mismatch and still closes.
 - **Create a label** only after the paged listing above lacks the name: `tea labels create --name
   "<name>" --color "<color>"`. `tea labels create` makes a second label of an existing name without an
   error.
@@ -124,7 +125,19 @@ where none does.
   edit in this document goes through this rule. Stdin from a pipe is never an edit's body source: a pipe
   drops the producer's exit status, and `tea` takes empty input as a new, empty body (ADR 0115). A
   create keeps its heredoc stdin, because nothing upstream of it can fail.
-- **Set labels and status:** labels by id (above), and `tea issues close <index>` to close.
+- **Set labels and status:** labels by id (above), and **Close an issue** (below) to close.
+- **Close an issue** (a slice at its merge, a scope anchor at wrap-up): strip its status labels, then
+  close it. Read it with `tea issues <index> -o json`. Remove each of `ready`, `in-progress`, `in-review`,
+  and `blocked` its `labels` carry, by the id the paged label listing resolves, with `tea api -i -X DELETE
+  '/repos/{owner}/{repo}/issues/<index>/labels/<id>'`, judging the HTTP status from stderr. When it removed
+  one or more, read the labels back with `tea issues <index> -o json`: they carry no status label, and every
+  other label the first read showed (the feature label, `epic`, the test-applicability label, `released`).
+  Then close it with `tea issues close <index>`. An issue carrying no status label closes with nothing
+  removed and nothing reported, so a rerun after a failed close converges. A first read that fails, a
+  removal that fails, or a read-back that still shows a status label or lacks another label, is reported
+  once, naming the issue, and the issue still closes: the close is the one label write that **Read every label write back** does
+  not stop. A close that itself fails stays a failed store call for its caller. A bare `tea issues close
+  <index>` leaves the status label on the closed issue, and contradicts this rule.
 
 ## Degrade when no tea login
 
@@ -358,7 +371,7 @@ not this store carries a snapshot.
 | `in-progress` | open + label `in-progress` | swap `ready`→`in-progress` on dispatch |
 | `in-review` | open + label `in-review` | swap label when per-slice review starts (behavior only) |
 | `blocked` | open + label `blocked` | swap label while stuck |
-| `merged` (done) | **closed** | `tea issues close <index>` after merge |
+| `merged` (done) | **closed**, no status label | **Close an issue** (*tea conventions*) after merge: strip the status labels, then `tea issues close <index>` |
 
 The **epic** issue: label `in-progress` when the run starts, **closed** once every slice issue is closed.
 A **single-slice feature has no epic**: its lone issue is the scope anchor, so the anchor rule wins. It

@@ -315,7 +315,7 @@ public class DamageNodesTests
     [TestMethod]
     public void TheArtNamesTheCrewStagesAnyRatioShowsAndTheNodesThatHoldArt()
     {
-        var art = DamageNodes.Art(Ship());
+        var art = DamageNodes.Art(Ship(), n => n.Parent != "damage");
 
         Assert.AreEqual(4, art.CrewStages);
         CollectionAssert.AreEqual(new[] { SystemNames.Weapons }, art.Systems.ToArray());
@@ -327,17 +327,35 @@ public class DamageNodesTests
         Assert.AreEqual(
             1,
             DamageNodes
-                .Art(Model(Node("root", ""), Node("damage", "root"), Node("crew", "damage"), Node("crew1", "crew")))
+                .Art(
+                    Model(Node("root", ""), Node("damage", "root"), Node("crew", "damage"), Node("crew1", "crew")),
+                    _ => true
+                )
                 .CrewStages
         );
 
     [TestMethod]
     public void AModelWithoutADamageGroupHasNoArt()
     {
-        var art = DamageNodes.Art(Model(Node("root", "")));
+        var art = DamageNodes.Art(Model(Node("root", "")), _ => true);
 
         Assert.AreEqual(0, art.CrewStages);
         Assert.AreEqual(0, art.Systems.Count);
         Assert.IsFalse(art.Borg);
     }
+
+    [TestMethod]
+    public void OnlyPartsThatDrawCount()
+    {
+        // Only crew2 and fire draw: two crew stages reach it, the weapons node holds it, and the borg subtree draws none.
+        var art = DamageNodes.Art(Ship(), n => n.Name is "crew2" or "fire");
+
+        Assert.AreEqual(2, art.CrewStages);
+        CollectionAssert.AreEqual(new[] { SystemNames.Weapons }, art.Systems.ToArray());
+        Assert.IsFalse(art.Borg);
+    }
+
+    [TestMethod]
+    public void ACrewNodeBeyondTheShownStagesDoesNotCount() =>
+        Assert.AreEqual(0, DamageNodes.Art(Ship(), n => n.Name == "crew5").CrewStages);
 }

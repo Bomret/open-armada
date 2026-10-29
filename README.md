@@ -34,7 +34,7 @@ godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 
 A model preview also draws the model's sprite nodes. A sprite node is a sprite that the install's sprite tables attach to a model node by name. Examples are a running light and an explosion's fireball. Its node animation loops. The preview frames a model made only of sprite nodes, such as the explosion model `xplode`, by its sprites.
 
-A model with damage art gets a damage bar above the view. The crew loss slider shows the crew damage sprites one step at a time, up to the four that the game shows. A checkbox per system shows that system's damage art, and "Assimilated" shows the model's `borg` art. Each control appears only for art the model has. The shown parts follow the game's damage node rules (`docs/rules/combat-rules.md`, "Damage nodes"). The steam and plasma sprays under a shown part play as in the sandbox.
+A model with damage art gets a damage bar above the view. The crew loss slider shows the crew damage sprites one step at a time, up to the four that the game shows. A checkbox per system shows that system's damage art, and "Assimilated" shows the model's `borg` art. Each control appears only for art the model can draw: a mesh, a spray, or a sprite the sprite tables define. The shown parts follow the game's damage node rules (`docs/rules/combat-rules.md`, "Damage nodes"). The steam and plasma sprays under a shown part play as in the sandbox.
 
 ## Run the map sandbox
 

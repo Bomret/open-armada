@@ -54,7 +54,8 @@ public sealed class ModelPreview : KindPreview
         // The builder logged each texture that failed (ViewerLog.TextureFailed); its lines are shown, never returned as notes.
         var notes = builder.Problems.Concat(team.Notes).ToList();
         // What the damage emitters lack is a note; the spray view below reports the same gaps, which it drops.
-        notes.AddRange(DamageEmitters.For(files, sod).Reports.Select(r => r.Text));
+        var emitters = DamageEmitters.For(files, sod);
+        notes.AddRange(emitters.Reports.Select(r => r.Text));
         var problems = notes.Concat(builder.TextureFailures).ToList();
         if (problems.Count > 0)
         {
@@ -64,7 +65,13 @@ public sealed class ModelPreview : KindPreview
         var box = new VBoxContainer();
         box.AddChild(bar);
         var showing = new HashSet<Sod.Node>();
-        if (DamageBar(sod, model, showing) is { } damage)
+        // A node draws something of its own when it has a mesh, a sprite the sprite tables define, or an emitter.
+        var drawing = SpriteNodes
+            .For(files, sod)
+            .Nodes.Select(n => n.Node)
+            .Concat(emitters.Emitters.Select(e => e.Node))
+            .ToHashSet();
+        if (DamageBar(sod, model, showing, n => n.Mesh != null || drawing.Contains(n)) is { } damage)
         {
             box.AddChild(damage);
         }
@@ -95,9 +102,9 @@ public sealed class ModelPreview : KindPreview
 
     // The damage controls for the model's art (DamageNodes.Art), or null when its damage group holds none. Each change
     // shows exactly the nodes DamageNodes decides and hides the rest of the group, as UnitOrders does in the sandbox.
-    static Control? DamageBar(Sod sod, Node3D model, HashSet<Sod.Node> showing)
+    static Control? DamageBar(Sod sod, Node3D model, HashSet<Sod.Node> showing, System.Func<Sod.Node, bool> draws)
     {
-        var art = DamageNodes.Art(sod);
+        var art = DamageNodes.Art(sod, draws);
         var group = model
             .FindChildren("*", "", true, false)
             .OfType<Node3D>()

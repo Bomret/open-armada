@@ -97,25 +97,37 @@ public static class DamageNodes
     }
 
     /// <summary>
-    /// What of <c>model</c>'s damage group can show art: the most crew chain nodes below the <c>crew</c> node that any
-    /// crew ratio shows, the systems whose node has nodes below it, and whether the <c>borg</c> node has nodes below
-    /// it. Nothing for a model without a damage group.
+    /// What of <c>model</c>'s damage group can show art, by <c>draws</c>, which tells whether a node draws something of its
+    /// own (a mesh, a sprite the sprite tables define, an emitter): the deepest crew chain node below the <c>crew</c> node
+    /// that any crew ratio shows and that draws, the systems whose node has a drawing node in its subtree, and whether the
+    /// <c>borg</c> node has one. Nothing for a model without a damage group.
     /// </summary>
-    public static DamageArt Art(Sod? model)
+    public static DamageArt Art(Sod? model, Func<Sod.Node, bool> draws)
     {
         if (model == null || Group(model) is not { } damage)
             return new DamageArt(0, [], false);
 
-        var shown = Named(model, damage, "crew") is { } crew
-            ? ShowingNodes(model, 0, _ => false, false).Count(n => Chain(model, crew).Skip(1).Contains(n))
-            : 0;
+        var stages = 0;
+        if (Named(model, damage, "crew") is { } crew)
+        {
+            var shown = ShowingNodes(model, 0, _ => false, false).ToHashSet();
+            var k = 0;
+            foreach (var node in Chain(model, crew).Skip(1).TakeWhile(shown.Contains))
+            {
+                k++;
+                if (draws(node))
+                    stages = k;
+            }
+        }
+
+        bool Drawn(Sod.Node node) => draws(node) || model.Descendants(node).Any(draws);
         var systems = SystemNodes
-            .Where(s => Named(model, damage, s.Node) is { } node && model.ChildrenOf(node).Any())
+            .Where(s => Named(model, damage, s.Node) is { } node && Drawn(node))
             .Select(s => s.System)
             .ToList();
-        var borg = Named(model, damage, "borg") is { } b && model.ChildrenOf(b).Any();
+        var borg = Named(model, damage, "borg") is { } b && Drawn(b);
 
-        return new DamageArt(shown, systems, borg);
+        return new DamageArt(stages, systems, borg);
     }
 
     /// <summary>

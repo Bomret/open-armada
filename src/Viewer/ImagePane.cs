@@ -10,7 +10,7 @@ namespace OpenArmada.Viewer;
 public partial class ImagePane : ScrollContainer
 {
     readonly VBoxContainer _box = new() { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-    readonly List<(Label Caption, TextureRect Picture, Vector2 Size)> _images = new();
+    readonly List<(Label Caption, AspectRatioContainer Fit)> _images = new();
     readonly Label _summary;
 
     /// <summary>Adds a VBoxContainer child with <c>summary</c> as the first label, then each image under its caption, with nearest filtering.</summary>
@@ -31,26 +31,30 @@ public partial class ImagePane : ScrollContainer
                 ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
                 StretchMode = TextureRect.StretchModeEnum.Scale,
                 TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
-                SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
             };
+            var fit = new AspectRatioContainer
+            {
+                Ratio = image.GetHeight() > 0 ? (float)image.GetWidth() / image.GetHeight() : 0,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            };
+            fit.AddChild(picture);
             _box.AddChild(label);
-            _box.AddChild(picture);
-            _images.Add((label, picture, image.GetSize()));
+            _box.AddChild(fit);
+            _images.Add((label, fit));
         }
 
         Resized += Fit;
     }
 
-    // Scales each image to the largest size that fits the pane's width, less the scrollbar when several images can
-    // overflow it, and the height left beside the labels and the two gaps between them.
+    // Gives each image the height left beside the labels and the two gaps between them; its AspectRatioContainer
+    // fits the image into that height and the pane's width, which already excludes a shown scrollbar.
     void Fit()
     {
-        var width = Size.X - (_images.Count > 1 ? GetVScrollBar().GetCombinedMinimumSize().X : 0);
         var gaps = 2 * _box.GetThemeConstant("separation");
-        foreach (var (caption, picture, size) in _images)
+        foreach (var (caption, fit) in _images)
         {
             var height = Size.Y - _summary.GetCombinedMinimumSize().Y - caption.GetCombinedMinimumSize().Y - gaps;
-            picture.CustomMinimumSize = (size * ImageFit.Scale(size.X, size.Y, width, height)).Floor();
+            fit.CustomMinimumSize = new Vector2(0, Mathf.Floor(Mathf.Max(height, 0)));
         }
     }
 }

@@ -20,9 +20,7 @@ files directly, so the tests run without Godot. A `using Godot` in these folders
   computes a pose, and `MoveOrders` in the viewer only applies the pose to a node.
 - When Godot-free code needs an engine service, pass it in as a delegate. For example,
   `AssetCheck.Run` takes `GodotDecoders.Check` from the viewer.
-- Only `src/Rendering/` and `src/Viewer/` reference Godot, except the one Godot-free file `src/Viewer/ImageFit.cs` (below).
-- `src/Viewer/ImageFit.cs` is the one Godot-free file in `src/Viewer/`. The test project compiles it by name in
-  `tests/OpenArmada.Tests/OpenArmada.Tests.csproj`, so it holds no `using Godot`.
+- Only `src/Rendering/` and `src/Viewer/` reference Godot.
 
 ## Format readers
 

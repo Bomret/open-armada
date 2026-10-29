@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -42,14 +41,16 @@ public partial class ImagePane : ScrollContainer
         Resized += Fit;
     }
 
-    // Scales each image to the largest size that fits the pane's width and the height left beside the labels.
+    // Scales each image to the largest size that fits the pane's width, less the scrollbar when several images can
+    // overflow it, and the height left beside the labels and the two gaps between them.
     void Fit()
     {
+        var width = Size.X - (_images.Count > 1 ? GetVScrollBar().GetCombinedMinimumSize().X : 0);
+        var gaps = 2 * _box.GetThemeConstant("separation");
         foreach (var (caption, picture, size) in _images)
         {
-            var height = Size.Y - _summary.GetCombinedMinimumSize().Y - caption.GetCombinedMinimumSize().Y - 8;
-            var scale = Math.Max(Math.Min(Size.X / size.X, height / size.Y), 0);
-            picture.CustomMinimumSize = (size * scale).Floor();
+            var height = Size.Y - _summary.GetCombinedMinimumSize().Y - caption.GetCombinedMinimumSize().Y - gaps;
+            picture.CustomMinimumSize = (size * ImageFit.Scale(size.X, size.Y, width, height)).Floor();
         }
     }
 }

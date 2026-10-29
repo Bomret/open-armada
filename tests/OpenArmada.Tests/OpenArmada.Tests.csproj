@@ -10,6 +10,8 @@
     <Compile Include="../../src/Formats/**/*.cs" />
     <Compile Include="../../src/Assets/**/*.cs" />
     <Compile Include="../../src/Sandbox/**/*.cs" />
+    <!-- The viewer's image fit arithmetic, which is Godot-free. -->
+    <Compile Include="../../src/Viewer/ImageFit.cs" />
     <!-- The WAV level tool's computation; the tool is a separate project, outside the game build. -->
     <Compile Include="../../tools/WavLevel/WavLevelMeter.cs" />
   </ItemGroup>

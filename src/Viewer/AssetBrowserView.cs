@@ -144,9 +144,13 @@ public partial class AssetBrowserView : Control
             return;
         }
 
-        // The browser's text and lists grow with the window: the UI is laid out for 1152x648 and scaled from there.
+        // The browser's text and lists grow with the window: the UI is laid out for the project's window size and
+        // scaled from there.
         var window = GetWindow();
-        window.ContentScaleSize = new Vector2I(1152, 648);
+        window.ContentScaleSize = new Vector2I(
+            (int)ProjectSettings.GetSetting("display/window/size/viewport_width"),
+            (int)ProjectSettings.GetSetting("display/window/size/viewport_height")
+        );
         window.ContentScaleMode = Window.ContentScaleModeEnum.CanvasItems;
         window.ContentScaleAspect = Window.ContentScaleAspectEnum.Expand;
 

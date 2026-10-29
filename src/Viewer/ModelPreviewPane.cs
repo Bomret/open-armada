@@ -12,7 +12,8 @@ public partial class ModelPreviewPane : SubViewportContainer
     readonly Camera3D _camera = new() { Far = 10000 };
     float _yaw = 0.6f,
         _pitch = -0.35f,
-        _distance;
+        _distance,
+        _framed;
 
     /// <summary>
     /// Keeps <c>model</c> for <see cref="_Ready"/>, which adds it to the pane's own SubViewport with a camera, a light,
@@ -48,7 +49,7 @@ public partial class ModelPreviewPane : SubViewportContainer
         view.AddChild(_model);
         var bounds = Bounds(_model);
         _model.Position = -bounds.GetCenter();
-        _distance = Math.Max(bounds.Size.Length() * 0.6f, 1f);
+        _distance = _framed = Math.Max(bounds.Size.Length() * 0.6f, 1f);
         UpdateCamera();
     }
 
@@ -77,6 +78,8 @@ public partial class ModelPreviewPane : SubViewportContainer
             -Mathf.Sin(_pitch),
             Mathf.Cos(_yaw) * Mathf.Cos(_pitch)
         );
+        // Zoom stays between a tenth and ten times the distance that frames the model.
+        _distance = Math.Clamp(_distance, _framed * 0.1f, _framed * 10f);
         _camera.Position = dir * _distance;
         _camera.LookAt(Vector3.Zero);
     }

@@ -30,7 +30,7 @@ dotnet build OpenArmada.csproj
 godot-mono --path . -- --game "/path/to/Star Trek - Armada" --model Fente
 ```
 
-`ARMADA_DIR` can replace `--game`. The preview shows the asset selected in the category and asset lists. In a model preview, drag to orbit and use the mouse wheel to zoom. `--model <name>` opens the named model. `--screenshot out.png` renders one frame to a file and quits.
+`ARMADA_DIR` can replace `--game`. The preview shows the asset selected in the category and asset lists. The browser scales its text and lists with the window. Images are scaled to fit the preview with their aspect ratio kept. In a model preview, drag or swipe with two fingers to orbit, and use the mouse wheel or pinch to zoom. `--model <name>` opens the named model. `--screenshot out.png` renders one frame to a file and quits.
 
 A model preview also draws the model's sprite nodes. A sprite node is a sprite that the install's sprite tables attach to a model node by name. Examples are a running light and an explosion's fireball. Its node animation loops. The preview frames a model made only of sprite nodes, such as the explosion model `xplode`, by its sprites.
 

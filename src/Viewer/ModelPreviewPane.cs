@@ -5,7 +5,7 @@ using OpenArmada.Rendering;
 
 namespace OpenArmada.Viewer;
 
-/// <summary>A model in its own 3D viewport. Drag to orbit, wheel to zoom.</summary>
+/// <summary>A model in its own 3D viewport. Drag or two-finger swipe to orbit, wheel or pinch to zoom.</summary>
 public partial class ModelPreviewPane : SubViewportContainer
 {
     readonly Node3D _model;
@@ -99,6 +99,17 @@ public partial class ModelPreviewPane : SubViewportContainer
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelDown }:
                 _distance *= 1.1f;
+                UpdateCamera();
+
+                break;
+            case InputEventPanGesture p:
+                _yaw -= p.Delta.X * 0.05f;
+                _pitch = Math.Clamp(_pitch - p.Delta.Y * 0.05f, -1.5f, 1.5f);
+                UpdateCamera();
+
+                break;
+            case InputEventMagnifyGesture g when g.Factor > 0:
+                _distance /= g.Factor;
                 UpdateCamera();
 
                 break;

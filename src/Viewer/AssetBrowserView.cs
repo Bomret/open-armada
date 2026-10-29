@@ -144,6 +144,12 @@ public partial class AssetBrowserView : Control
             return;
         }
 
+        // The browser's text and lists grow with the window: the UI is laid out for 1152x648 and scaled from there.
+        var window = GetWindow();
+        window.ContentScaleSize = new Vector2I(1152, 648);
+        window.ContentScaleMode = Window.ContentScaleModeEnum.CanvasItems;
+        window.ContentScaleAspect = Window.ContentScaleAspectEnum.Expand;
+
         var registered = AssetKind.Discover();
         var previews = KindPreview.Discover(registered.Select(k => k.Name), out var previewProblems);
         _browser = AssetBrowser.Open(
@@ -152,15 +158,15 @@ public partial class AssetBrowserView : Control
             previews.ToDictionary(p => p.Key, p => AssetBrowser.Showing<Control>(p.Value.Create))
         );
 
-        var split = new HSplitContainer();
+        var split = new HBoxContainer();
         split.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(split);
-        var left = new VBoxContainer { CustomMinimumSize = new Vector2(280, 0) };
+        var left = new VBoxContainer { CustomMinimumSize = new Vector2(160, 0) };
         split.AddChild(left);
-        _kinds = new ItemList { CustomMinimumSize = new Vector2(0, 90) };
-        _assets = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
+        _kinds = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
+        _assets = new ItemList { CustomMinimumSize = new Vector2(220, 0) };
         left.AddChild(_kinds);
-        left.AddChild(_assets);
+        split.AddChild(_assets);
         var startProblems = previewProblems.Concat(args.Problems).ToList();
         if (startProblems.Count > 0)
         {

@@ -19,6 +19,7 @@
   - Unit tests — `dotnet test --project tests/OpenArmada.Tests` (MSTest on Microsoft.Testing.Platform,
     selected in `global.json`)
   - Asset check of an install — `godot-mono --headless --path . -- --check --game "$ARMADA_DIR"`
+  - Measure a sound's level in a play run's WAV — `dotnet run --project tools/WavLevel -- <wav> --from <s> --to <s>`
 - Formatter: CSharpier `1.3.0`, a local dotnet tool pinned in `dotnet-tools.json`;
   `.csharpierrc.json` sets `printWidth: 120` and leaves every other option at its default. CSharpier
   reads `.gitignore`, so `.godot/`, `bin/`, `obj/`, and `.superdev/` are skipped.

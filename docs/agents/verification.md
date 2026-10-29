@@ -76,6 +76,12 @@ play run has no hover point. A `hover` step is planned in triage #106.
 
 No timing command: the test runner's per-test durations are not wired in.
 
+## Complete selector
+
+The focused command selects every test a changed path can affect.
+
+- `tools/focused-tests.sh`
+
 ## Test paths
 
 - `tests/`

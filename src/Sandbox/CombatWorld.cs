@@ -1283,7 +1283,7 @@ public sealed class CombatWorld
     // Whether a shot landed less than HitWindow ago on the unit or on a unit of its team within TeammateBox.
     // stand-in: a dying teammate is still in _units, so its hit counts like any other until it leaves (the window ends
     // long before a gone unit would matter); whether the game counts it is not known.
-    // ponytail: every idle red unit scans every unit each tick (O(n²)); skip the scan while no hit is newer than
+    // simplicity: every idle red unit scans every unit each tick (O(n²)); skip the scan while no hit is newer than
     // HitWindow, or a spatial index, when maps grow large.
     bool HitNearby(UnitCombatState u)
     {
@@ -1353,7 +1353,7 @@ public sealed class CombatWorld
         held != null && Valid(u, held) && Surface(u, held) <= radius ? held : NearestHostile(u, radius);
 
     // The nearest valid target whose surface is within `range`; null when none is.
-    // ponytail: every unit scans every other unit each tick (O(n²)); a spatial index when maps grow large.
+    // simplicity: every unit scans every other unit each tick (O(n²)); a spatial index when maps grow large.
     UnitCombatState? NearestHostile(UnitCombatState u, float range) =>
         _units
             .Values.Where(t => Valid(u, t))

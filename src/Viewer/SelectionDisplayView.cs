@@ -31,7 +31,7 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
     public override void _Process(double delta)
     {
         // The hover steps here, once per frame: the draw callback can run zero or several times a frame.
-        // ponytail: the hover pick walks every placed object's meshes each frame (O(objects × meshes)); skip
+        // simplicity: the hover pick walks every placed object's meshes each frame (O(objects × meshes)); skip
         // it while neither the mouse nor the camera moved, or cache the pick, when maps grow large.
         var pick = hoverPoint() is { } point ? selection.UnitAt(point)?.Object : null;
         _hover = _hover.Step(pick, selection.Units.Select(u => u.Object), delta);

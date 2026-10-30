@@ -129,7 +129,7 @@ public partial class UnitSelection : Node3D
             return null;
         var origin = camera.ProjectRayOrigin(at);
         var direction = camera.ProjectRayNormal(at);
-        // ponytail: the box around the model's meshes is the hit shape (a non-unit object holding the camera
+        // simplicity: the box around the model's meshes is the hit shape (a non-unit object holding the camera
         // in its box uses the entry of its bounding sphere, and blocks nothing when the camera is inside the
         // sphere); a mesh-exact pick if overlaps matter
         var hit = BoxSelect.Nearest(

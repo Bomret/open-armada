@@ -1,8 +1,7 @@
 // Five Federation destroyers on team 1 in an empty area, scattered a little around the centre, for play/group-move.play:
 // ordered to one point together they take the cells of the game's group formation (a 3 x 3 block, five cells filled),
 // each nearest the place it started, and the dump shows each at its cell with move=none.
-// Run it with: godot-mono --path . --write-movie play-out/group-move/frame.png --fixed-fps 10 -- --game <install>
-// --layout layouts/group-move.jsonc --play play/group-move.play
+// Run it with: sh tools/play-run.sh group-move --layout layouts/group-move.jsonc --fps 10
 {
   "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
   "objects": [

@@ -13,7 +13,7 @@ namespace OpenArmada.Viewer;
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; [--model Fente] [--screenshot out.png]
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]   (the map sandbox)
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --layout &lt;file&gt; [--screenshot out.png]   (the map sandbox, from a layout)
-///   mkdir -p play-out/&lt;stem&gt;; godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; (--map &lt;name&gt; | --layout &lt;file&gt;) --play &lt;file&gt;   (a play run)
+///   sh tools/play-run.sh &lt;stem&gt; (--layout &lt;file&gt; | --map &lt;name&gt;) --fps &lt;n&gt;   (a play run of play/&lt;stem&gt;.play, from the repository root)
 ///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
 ///   godot-mono --headless --path . -- --maps --game &lt;Armada dir&gt;   (the map summary of every map)
 /// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--maps</c>,

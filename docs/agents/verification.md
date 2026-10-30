@@ -26,12 +26,39 @@ the test files it works on; the run over a slice's whole changed-path set runs t
 
 Verify a Definition-of-Done line about what a player sees or hears in the map sandbox with a play
 run, and judge the result yourself. Do not ask the operator to play. Write a play script in `play/`
-that sets up the situation and takes named screenshots, then run it on a layout under Movie Maker;
-the folder must exist before the run:
+that sets up the situation and takes named screenshots, then run it on a layout under Movie Maker
+through the play-run wrapper, from the repository root:
 
 ```sh
-rm -rf play-out/<stem> && mkdir -p play-out/<stem> && godot-mono --path . --write-movie play-out/<stem>/frame.png --fixed-fps <fps> -- --game "${ARMADA_DIR:?set ARMADA_DIR to an Armada install}" --layout layouts/<layout>.jsonc --play play/<stem>.play
+sh tools/play-run.sh <stem> --layout layouts/<layout>.jsonc --fps <fps>
 ```
+
+The wrapper clears `play-out/<stem>/` and runs the Godot command `README.md`'s "Run a play script"
+gives, with `ARMADA_DIR` as `--game` (`--map <map>` in place of `--layout` for a stock map). It stores
+the result under a hash of the run's inputs in `play-out/.cache/<hash>/` and reuses it on the next call
+whose inputs hash the same: no Godot run, the stored dumps, named screenshots and WAV copied back into
+`play-out/<stem>/`, the stored `WARN`/`ERROR` lines printed under a `reused` line, and the stored exit
+status. Only a run that exits 0 or 1 is stored. `--fresh` always runs Godot and replaces the stored
+result.
+
+- The hash covers every tracked or untracked, not ignored file under `src/` and `scenes/` (content and
+  path), `project.godot`, `OpenArmada.csproj`, `global.json`, the play script, the layout's content,
+  the map name, the frame rate, the Godot version, and the `ARMADA_DIR` path.
+- It leaves out the install's content, `.godot/`, and the display. After a change to the install, run
+  with `--fresh`.
+- A fix cycle runs only the play scripts its findings map to. The scope review runs every script the
+  scope's Definition of Done needs once, at the tip.
+- Each call appends one tab-separated line to `play-out/runs.log`: UTC time, input hash, `HEAD`,
+  `clean` or `dirty` (an untracked file counts), stem, `layout=<file>` or `map=<map>`, `fps=<n>`,
+  `exit=<status>`, and `run` or `reused`. A line proves a run at a tip when its `HEAD` equals the tip
+  and it reads `clean`.
+- Bad arguments exit 2 with a message, and run, store, and log nothing.
+- Calls for one stem run one at a time: a second call waits on the lock directory
+  `play-out/.lock-<stem>`, says so once on stderr, then hashes its inputs and reuses what the first
+  stored. The lock holds its owner's pid, and a call takes over the lock of a dead owner. Remove a lock
+  by hand only when no run is live. Only the call holding the takeover mutex
+  `play-out/.lock-<stem>.takeover` removes a lock, after reading its pid again; a mutex left by a killed
+  call is removed by hand too. An unwritable `play-out/` exits 2 with a message.
 
 Movie Maker decouples simulated time from the wall clock. Each frame advances the game by exactly
 `1 / <fps>` seconds, and the next frame starts as soon as the last one is written. A run's wall-clock
@@ -62,13 +89,40 @@ Movie Maker, and a long fight there can take hours.
 - Measure a sound with the WAV level tool over its window and over a quiet window:
   `dotnet run --project tools/WavLevel -- play-out/<stem>/frame.wav --from <s> --to <s>`. A level clearly above the
   quiet window is the sound.
-- Run the script twice and `cmp` the state dumps when the line needs a stable outcome. State dumps
-  compare only between runs at one frame rate.
+- Run the script twice and `cmp` the state dumps when the line needs a stable outcome: copy the first
+  run's dumps out of `play-out/<stem>/`, then run again with `--fresh`, since a plain second call
+  reuses the first result. State dumps compare only between runs at one frame rate.
 - `play/destroy.play` on `layouts/destroy.jsonc` is the worked example: a unit destroyed, its explosion
   drawn, its sound heard. The layout's header comment has its command.
 
 A play run cannot show the selection display: the display draws only through the hovered unit, and a
 play run has no hover point. Issue #106 tracks a `hover` step.
+
+The checked-in play scripts, the layout or map each runs on, and the mechanics each shows:
+
+| Script | Layout or map | Shows |
+|---|---|---|
+| `black-hole.play` | `layouts/black-hole.jsonc` | A derelict ship pulled in and swallowed; a ship with thrust held at the ring; the hole's model turning |
+| `coast.play` | `layouts/coast.jsonc` | A ship with destroyed engines coasting from its starting velocity |
+| `collision.play` | `layouts/collision.jsonc` | Collision separation ending a move order; both ships at rest apart |
+| `damage.play` | `layouts/damage.jsonc` | Damage nodes of a ship with a tenth of its crew |
+| `destroy.play` | `layouts/destroy.jsonc` | A unit destroyed: dying, its explosions and fireball, its sound |
+| `drift.play` | `layouts/drift.jsonc` | A dying bird of prey coasting on |
+| `emitters.play` | `layouts/emitters.jsonc` | Damage emitters spraying plasma and steam |
+| `forced-motion.play` | `layouts/forced-motion.jsonc` | Black hole pull and swallow and collision separation in one run |
+| `group-move.play` | `layouts/group-move.jsonc` | A group move: each ship's own cell |
+| `hit-explosion.play` | `layouts/hit-explosion.jsonc` | System hit explosions at a hit's node |
+| `map-black-hole.play` | `--map borg4` | A stock map with a black hole and asteroid fields |
+| `move.play` | `layouts/move.jsonc` | A move order while driving and after arrival |
+| `push-out.play` | `layouts/push-out.jsonc` | Push-out from an asteroid field |
+| `push-out-planet.play` | `layouts/push-out-planet.jsonc` | Push-out from a planet |
+| `scale.play` | `layouts/scale.jsonc` | A model drawn at its `scaleSOD` |
+| `shield.play` | `--map kling4` | Shield hit effects and the hull hit sprite |
+| `shield-hit.play` | `layouts/shield-hit.jsonc` | Shield hit effects of beams and torpedoes on both sides |
+| `shield-hull.play` | `--map kling1` | The hull hit sprite on a unit without shields |
+| `shield-red.play` | `--map kling4` | Shield hit colors as shields fall; the shield-down overlay |
+| `sparks.play` | `layouts/emitters.jsonc` | Repair sparks of repairing systems |
+| `vent-fade.play` | `layouts/emitters.jsonc` | A damage emitter stopping once its system is whole |
 
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
 

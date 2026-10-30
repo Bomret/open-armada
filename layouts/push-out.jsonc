@@ -1,7 +1,6 @@
 // An asteroid field (the install's mafield, radius 100) between two Federation destroyers on team 1 in an empty area,
 // for play/push-out.play: each ship is ordered to a point inside the field and is pushed out of it at the field's edge.
-// Run it with: godot-mono --path . --write-movie play-out/push-out/frame.png --fixed-fps 10 -- --game <install>
-// --layout layouts/push-out.jsonc --play play/push-out.play
+// Run it with: sh tools/play-run.sh push-out --layout layouts/push-out.jsonc --fps 10
 {
   "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
   "objects": [

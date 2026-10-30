@@ -4,8 +4,7 @@
 // its gravity radius, with a starting velocity along +X that is 50 degrees off the direction to the hole; it coasts into
 // the radius at about 1.7 s, is pulled, curves toward the hole, and is swallowed at about 20.8 s; Driver has thrust and
 // is ordered across the hole and stops at the ring of 1.5 x the event radius.
-// Run it with: godot-mono --path . --write-movie play-out/black-hole/frame.png --fixed-fps 10 -- --game <install>
-// --layout layouts/black-hole.jsonc --play play/black-hole.play
+// Run it with: sh tools/play-run.sh black-hole --layout layouts/black-hole.jsonc --fps 10
 {
   "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
   "objects": [

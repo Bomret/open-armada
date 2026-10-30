@@ -1,7 +1,6 @@
 // One Klingon bird of prey on team 1 with its engines destroyed and a starting velocity, for play/coast.play: it
 // coasts from the first tick along that velocity and brakes at 2.0 units per second per second.
-// Run it with: godot-mono --path . --write-movie play-out/coast/frame.png --fixed-fps 30 -- --game <install>
-// --layout layouts/coast.jsonc --play play/coast.play
+// Run it with: sh tools/play-run.sh coast --layout layouts/coast.jsonc --fps 30
 {
   "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
   "objects": [

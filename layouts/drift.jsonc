@@ -1,8 +1,7 @@
 // Two Borg spheres on team 2 at the centre and one Klingon bird of prey on team 1, 250 units from them, in the
 // spheres' range, for play/drift.play: the bird flies circles around the spheres until they destroy it, so it dies
 // at speed and coasts.
-// Run it with: godot-mono --path . --write-movie play-out/drift/frame.png --fixed-fps 30 -- --game <install>
-// --layout layouts/drift.jsonc --play play/drift.play
+// Run it with: sh tools/play-run.sh drift --layout layouts/drift.jsonc --fps 30
 {
   "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
   "objects": [

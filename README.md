@@ -97,6 +97,8 @@ rm -rf play-out/duel && mkdir -p play-out/duel
 godot-mono --path . --write-movie play-out/duel/frame.png --fixed-fps 30 -- --game "/path/to/Star Trek - Armada" --layout layouts/two-ships.jsonc --play duel.play
 ```
 
+`sh tools/play-run.sh <stem> (--layout <file> | --map <map>) --fps <n> [--fresh]` runs the same command with `ARMADA_DIR` as `--game`, stores the result under a hash of the run's inputs, reuses it while they are unchanged, and logs each call to `play-out/runs.log`. `docs/agents/verification.md` describes it.
+
 A play run on a stock map is slow under Movie Maker. `docs/agents/verification.md` says how to keep a run short.
 
 `play-out/<script name>/` holds the frames, the WAV, and the state dumps of the run; the script name is the script's file name without its extension. Git ignores `play-out/`. The run creates the folder for a dump or a screenshot when it is missing.
@@ -220,6 +222,7 @@ The asset browser logs what it shows. Each category and each asset shown is one 
 - `layouts/` — the checked-in layouts ("Open a layout"). Its `.gdignore` keeps Godot from importing the folder.
 - `play/` — the checked-in play scripts. The "Run a play script" section explains how to run one.
 - `tools/WavLevel/` — the WAV level tool ("Measure the sound of a play run"), plain C# with no Godot dependency.
+- `tools/play-run.sh` — the play-run wrapper ("Run a play script"): runs a play script under Movie Maker and reuses the stored result while its inputs are unchanged.
 - `tools/focused-tests.sh` — the focused test command (`docs/agents/verification.md`): the test classes of the changed test files, or every unit test.
 - `tools/GhidraDump/` — the Ghidra scripts and Python tools that build the local Ghidra project and dump of `Armada.exe` in the gitignored `decomp/`, apply the program index's names to the project, and rebuild the generated parts of `docs/rules/program-index.md`. Its `README.md` explains the runs.
 - `tests/OpenArmada.Tests/` — unit tests, run with `dotnet test --project tests/OpenArmada.Tests`. Fixtures are built in code.

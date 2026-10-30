@@ -24,6 +24,12 @@ public sealed class PlayRun(
     int _next;
 
     /// <summary>
+    /// The exit code of a play run whose window was closed before its last step. It is neither 0 nor 1, the codes
+    /// of a run that ended, so the play-run wrapper never stores it as a result.
+    /// </summary>
+    public const int ClosedExitCode = 4;
+
+    /// <summary>
     /// The problem with a <c>--play</c> launch, or null when it can start: it needs Movie Maker (which forces a
     /// fixed time step), a <c>--map</c> or a <c>--layout</c>, and no <c>--screenshot</c>. Both a map and a layout
     /// are the launch arguments' own <c>--layout</c>/<c>--map</c> problem, so this rule adds none for them.

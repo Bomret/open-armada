@@ -31,6 +31,7 @@ public partial class AssetBrowserView : Control
     string? _screenshot;
     int _frames;
     int? _checkCode;
+    bool _playRun;
 
     /// <inheritdoc/>
     public override void _Ready()
@@ -126,6 +127,7 @@ public partial class AssetBrowserView : Control
 
         if (mode == "play")
         {
+            _playRun = true;
             StartPlayRun(args, game);
 
             return;
@@ -316,6 +318,17 @@ public partial class AssetBrowserView : Control
             Log.Error(Area.Sandbox, $"{script.Path}: play run cannot start, the map sandbox failed to build its scene");
             GetTree().Quit(1);
         }
+    }
+
+    /// <inheritdoc/>
+    public override void _Notification(int what)
+    {
+        // Closing the window quits with exit code 0, which reads as a run that finished. The tree quits after
+        // this notification and keeps the exit code set here.
+        if (what != NotificationWMCloseRequest || !_playRun)
+            return;
+        Log.Error(Area.Sandbox, "play run closed before its last step");
+        GetTree().Quit(PlayRun.ClosedExitCode);
     }
 
     /// <inheritdoc/>

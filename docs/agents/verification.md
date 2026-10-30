@@ -40,8 +40,9 @@ place of `--layout` for a stock map). It stores the result under a hash of the r
 stored dumps, named screenshots and WAV copied back into `play-out/<stem>/`, the stored `WARN`/`ERROR`
 lines printed under a `reused` line, and the stored exit status. Only a run that exits 0 or 1 is stored.
 `--fresh` always builds, runs Godot, and replaces the stored result. A failed build prints the build
-output, starts no Godot, stores nothing, and exits 3. Godot does not build C# itself, so without the
-build step it runs stale code, or none.
+output, starts no Godot, stores nothing, and exits 3. A run whose window is closed before its last step
+exits 4 and is not stored. Godot does not build C# itself, so without the build step it runs stale code,
+or none.
 
 - The hash covers every tracked or untracked, not ignored file under `src/` and `scenes/` (content and
   path), `project.godot`, `OpenArmada.csproj`, `global.json`, the play script, the layout's content,

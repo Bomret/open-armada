@@ -44,13 +44,20 @@ public class StartingStateTests
                 ("addon/station.odf", Ship + Sensors + "crewCost = 100\r\nis_starbase = 1\r\n"),
                 ("addon/rock.odf", "maxHealth = 1\r\n"),
                 ("addon/p.odf", "impulseSpeed = 10\r\nyawRotationRate = 1\r\ntooCloseToTurn = 40\r\n"),
-                ("addon/q.odf", "tooCloseToTurn = 40\r\n"), // a physics definition without impulseSpeed
+                // a physics definition that cannot be read: a compressed archive entry, which the reader refuses
+                (
+                    "addon/x.zfs",
+                    System.Text.Encoding.Latin1.GetString(
+                        ZfsBuilder.Build(0, ZfsBuilder.M("q.odf", "impulseSpeed = 10", 2))
+                    )
+                ),
+                ("addon/fastphys.odf", "impulseSpeed = 20\r\n"),
                 ("addon/nophys.odf", Ship.Replace("p.odf", "q.odf") + Sensors + "crewCost = 100\r\n"),
                 ("addon/fed.odf", Race),
                 ("addon/races.odf", "numberOfRaces = 1\r\nrace0 = \"fed.odf\"\r\n"),
                 (
                     "RTS_CFG.h",
-                    "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 1;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\n"
+                    "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 1;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\nint OBSTACLE_AVOIDANCE = 0;\r\nfloat COLLISION_LOOK_AHEAD_TIME = 1.4;\r\nfloat COLLISION_SAFETY_MARGIN = 1.2;\r\n"
                 ),
                 (
                     "ART_CFG.h",
@@ -79,19 +86,7 @@ public class StartingStateTests
                 DefinitionName = u.Object.Class + ".odf",
                 Radius = 0,
                 Mobile = true,
-                Motion =
-                    u.Unit is Ship
-                        ? new ShipMotion(
-                            new PhysicsValues
-                            {
-                                ImpulseSpeed = 10,
-                                YawRotationRate = 1,
-                                MaxRoll = null,
-                            },
-                            u.Object.Position,
-                            0
-                        )
-                        : null,
+                Motion = u.Unit is Ship ? FlightFixtures.Cruiser(u.Object.Position) : null,
             }),
             combat.ShieldDamageProtection,
             () => 0.5,

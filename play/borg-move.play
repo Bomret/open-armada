@@ -1,0 +1,13 @@
+# A Borg sphere on layouts/borg-move.jsonc gets a move order: the dumps show its 3D velocity (vel=, the height included),
+# pitch= and roll= at 0.00 throughout, and its yaw turning toward the order's bearing plus a random quarter turn. Two runs
+# at one frame rate write identical dumps.
+# Run it with --layout layouts/borg-move.jsonc; the layout's header comment has the whole command.
+# The point is in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 1
+select Sphere
+wait 0.3
+move 2300 -2300
+wait 2
+dump driving
+wait 25
+dump arrived

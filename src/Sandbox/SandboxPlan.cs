@@ -121,6 +121,25 @@ public sealed class SandboxPlan
     /// <summary>The black holes of the map (placed objects whose definition's classLabel is <c>blackhole_obj</c>), read from their definitions.</summary>
     public IReadOnlyList<BlackHole> BlackHoles { get; }
 
+    /// <summary>
+    /// The nebulae of the map (placed objects whose definition's classLabel is <c>nebula_obj</c>), planned for the path
+    /// costs and the slowdown, never drawn by the plan. A nebula whose <c>effectRadius</c> cannot be read is a gap and
+    /// absent.
+    /// </summary>
+    public IReadOnlyList<Nebula> Nebulae { get; }
+
+    /// <summary>The speed values of each nebula kind some nebula of the map has (the classes <c>mnebula1</c> to <c>mnebula5</c>).</summary>
+    public IReadOnlyList<NebulaKind> NebulaKinds { get; }
+
+    /// <summary>The nebula grid over the map's bounds, which gives a ship's position the nebula kinds that apply to it.</summary>
+    public NebulaGrid NebulaGrid { get; }
+
+    /// <summary>
+    /// Every asteroid field object of the map with the position the path costs read, a belt's path when it has one,
+    /// whether or not its rocks can be drawn.
+    /// </summary>
+    public IReadOnlyList<AsteroidSite> AsteroidSites { get; }
+
     readonly IReadOnlyList<Obstacle> _fieldObstacles;
 
     /// <summary>
@@ -161,11 +180,18 @@ public sealed class SandboxPlan
         IReadOnlyList<AsteroidField> fields,
         IReadOnlyList<Obstacle> fieldObstacles,
         IReadOnlyList<BlackHole> blackHoles,
-        IReadOnlyDictionary<string, ResolvedDefinition> resolved
+        IReadOnlyDictionary<string, ResolvedDefinition> resolved,
+        IReadOnlyList<Nebula> nebulae,
+        IReadOnlyList<NebulaKind> nebulaKinds,
+        IReadOnlyList<AsteroidSite> asteroidSites
     )
     {
         _fieldObstacles = fieldObstacles;
         BlackHoles = blackHoles;
+        Nebulae = nebulae;
+        NebulaKinds = nebulaKinds;
+        NebulaGrid = new NebulaGrid(nebulae, nebulaKinds, bounds);
+        AsteroidSites = asteroidSites;
         Fields = fields;
         Resolved = resolved;
         Objects = objects;
@@ -178,16 +204,20 @@ public sealed class SandboxPlan
     /// <summary>
     /// The resolved definition of each object class of the map, by class name without regard to case, and the
     /// classes whose definition the install holds but that cannot be read, whatever the reason, each logged as one
-    /// ERROR with its reason. A class the install has no definition for is in neither.
+    /// ERROR with its reason. A class the install has no definition for is in neither. Where the map places a nebula,
+    /// the kind classes of the placed nebulae are resolved too, and <c>CannotPathIntoCost</c> is
+    /// <c>CANNOT_PATH_INTO_COST</c> of RTS_CFG.h, null where the header or the constant cannot be read (the header's
+    /// own failure is logged where the combat plan reads it).
     /// </summary>
-    public static (IReadOnlyDictionary<string, ResolvedDefinition> Found, IReadOnlySet<string> Unreadable) Definitions(
-        GameFileSystem files,
-        MapAsset map
-    )
+    public static (
+        IReadOnlyDictionary<string, ResolvedDefinition> Found,
+        IReadOnlySet<string> Unreadable,
+        float? CannotPathIntoCost
+    ) Definitions(GameFileSystem files, MapAsset map)
     {
         var found = new Dictionary<string, ResolvedDefinition>(StringComparer.OrdinalIgnoreCase);
         var unreadable = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var cls in map.Map.Objects.Select(o => o.Class).Distinct(StringComparer.OrdinalIgnoreCase))
+        void Resolve(string cls)
         {
             try
             {
@@ -203,13 +233,45 @@ public sealed class SandboxPlan
             }
         }
 
-        return (found, unreadable);
+        foreach (var cls in map.Map.Objects.Select(o => o.Class).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            Resolve(cls);
+        }
+
+        // a nebula takes its speed values from the class of its kind, which the map need not place (0x44bf20)
+        float? cost = null;
+        var nebulaKinds = map
+            .Map.Objects.Where(o => found.TryGetValue(o.Class, out var d) && Nebula.IsNebula(d))
+            .Select(o => Nebula.KindOf(o.Class))
+            .Distinct()
+            .ToList();
+        if (nebulaKinds.Count > 0)
+        {
+            foreach (var cls in nebulaKinds.Select(kind => Nebula.KindClasses[kind - 1]))
+            {
+                if (!found.ContainsKey(cls) && !unreadable.Contains(cls))
+                    Resolve(cls);
+            }
+
+            try
+            {
+                if (GameConstantsKind.Of(files).TryNumber("CANNOT_PATH_INTO_COST", out var v, out _))
+                    cost = (float)v;
+            }
+            catch (Exception) { } // simplicity: any failure reading RTS_CFG.h leaves the static value, reported as a gap
+        }
+
+        return (found, unreadable, cost);
     }
 
     /// <summary><c>hasModel</c> tells whether the install holds a model of the name (given without ".sod").</summary>
     public static SandboxPlan Build(
         MapAsset asset,
-        (IReadOnlyDictionary<string, ResolvedDefinition> Found, IReadOnlySet<string> Unreadable) definitions,
+        (
+            IReadOnlyDictionary<string, ResolvedDefinition> Found,
+            IReadOnlySet<string> Unreadable,
+            float? CannotPathIntoCost
+        ) definitions,
         Func<string, bool> hasModel
     )
     {
@@ -270,17 +332,22 @@ public sealed class SandboxPlan
         var background = BackgroundOf(map, hasModel, gaps);
         var (fields, fieldReports, fieldObstacles) = AsteroidField.Collect(map, definitions.Found, hasModel);
         var blackHoles = BlackHole.Collect(placed, definitions.Found, gaps);
+        var (nebulae, nebulaKinds) = Nebula.Collect(map, definitions, gaps);
+        var sites = AsteroidSite.Collect(map, definitions.Found, gaps);
 
         return new SandboxPlan(
             placed,
-            Gaps.Logged(gaps.Entries.Concat(fieldReports).ToList(), UnreadableDefinition),
+            Gaps.Logged(gaps.Entries.Concat(fieldReports).ToList(), UnreadableDefinition, Nebula.UnreadableKind),
             map.Ambient,
             background,
             map.Bounds,
             fields,
             fieldObstacles,
             blackHoles,
-            definitions.Found
+            definitions.Found,
+            nebulae,
+            nebulaKinds,
+            sites
         );
     }
 

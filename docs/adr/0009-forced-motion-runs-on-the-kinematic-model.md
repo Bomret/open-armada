@@ -1,6 +1,7 @@
 # 9. Forced motion runs on the kinematic model until the flight model replaces it
 
-**Status:** Accepted
+**Status:** Superseded
+**Superseded by:** ADR 0011
 
 Black holes, push-outs, and collision separation move ships by the game's rules (0x450a80, 0x4644b0,
 0x464910) inside the kinematic model of ADR 0003. Each rule keeps what the game writes: a velocity for the

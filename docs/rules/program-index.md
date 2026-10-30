@@ -69,6 +69,7 @@ Range 0x43f2b0–0x4434d0 (`Game Logic\Program.cpp`). Not surveyed; see Unexplor
 | 0x4404a0 | Program_GameOpenPreLoad | Loads the game before a mission; checks the CD | inferred | game | log text `GameOpenPreLoad() took %d seconds.` | — |
 | 0x4407b0 | Program_GameOpenLoad | Second loading step of a mission | inferred | game | log text `Program::GameOpenLoad() took %d seconds.` | — |
 | 0x43f1a0 | Program_Tick | One game tick: the area, simulate, and post-simulate passes | confirmed | game | calls 0x4713c0, 0x471410, 0x471560 | [forced-motion](forced-motion.md#tick-order) |
+| 0x43f2b0 | Program_Frame | One frame: the AI update (0x433b30), then the world tick (0x43f1a0), then the weapon and effect updates | confirmed | game | calls 0x433b30, 0x43f1a0 | [flight-model](flight-model.md#the-tick) |
 | 0x4453f0 | RtsCfg_Load | Reads `RTS_CFG.h` and `ART_CFG.h`: `MAX_PREVENTION_ROTATION`, the `ST3D_CHUNK_*` values | confirmed | game | strings `MAX_PREVENTION_ROTATION`, `ST3D_CHUNK_DENSITY` | [forced-motion](forced-motion.md#collision-separation) |
 | 0x4713c0 | GameObject_AreaPass | Calls slot 0x8c on every object | confirmed | game | — | [forced-motion](forced-motion.md#tick-order) |
 | 0x471410 | GameObject_SimulatePass | Calls slot 0x84 (simulate) on every object | confirmed | game | — | [forced-motion](forced-motion.md#tick-order) |
@@ -149,20 +150,22 @@ and dying.
 | 0x468990 | Craft_BeginDying | Marks the unit as being destroyed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | Spawns the shield-down overlay | confirmed | game | 0x469368–0x4693a6 | [shield-effects](shield-effects.md#shield-down-overlay) |
 | 0x472120 | GameObject_FrameUpdate | A per-frame update that runs the damage nodes for each ship | inferred | game | calls 0x4677b0 | [combat-rules](combat-rules.md#damage-nodes) |
-| 0x459440 | HoverCraft_PhysicsStep | One physics step of a ship's motion | confirmed | game | `HoverCraft.cpp`; log `pitch:% .2f, roll:` | [combat-rules](combat-rules.md#coasting), [flight-model](flight-model.md#the-physics-step-alive-branch) |
+| 0x459440 | HoverCraft_PhysicsStep | One physics step of a ship's motion | confirmed | game | `HoverCraft.cpp`; log `pitch:% .2f, roll:` | [combat-rules](combat-rules.md#coasting), [flight-model](flight-model.md#the-physics-step) |
+| 0x459a99 | HoverCraft_PhysicsStep_BorgBranch | The Borg branch inside 0x459440: on sub-step 0 the yaw spring toward +0x4b0 and the linear law c6fc × command − c6f0 × v | confirmed | game | `test ebx, ebx` at 0x459a99 | [flight-model](flight-model.md#the-borg-branch) |
 | 0x455440 | HoverCraftClass_Load | Reads the physics definition's keys (`impulseSpeed`, the inertias, `borgPhysics`, `tooCloseToTurn`, and the rest) | confirmed | game | key `frontBackInertia` | [flight-model](flight-model.md#the-coefficient-map) |
 | 0x45fbe0 | HoverCraftClass_SetDefaults | The compiled defaults of a ship class's physics values: `tooCloseToTurn` 25, `tooCloseForWarp` 100, `tooSlowToTurn` 1, `pathLeadDistance` 30 | confirmed | game | — | [forced-motion](forced-motion.md#move-order-arrival-and-hold) |
 | 0x458750 | HoverCraft_CopyCoefficients | Derives the instance's physics coefficients from the class's keys | confirmed | game | — | [flight-model](flight-model.md#the-coefficient-map) |
 | 0x458b80 | HoverCraft_ServoYaw | The yaw servo | confirmed | game | `HoverCraft.cpp`; log `Servo_Yaw` | [flight-model](flight-model.md#the-servos) |
 | 0x458ca0 | HoverCraft_ServoPitch | The pitch servo | confirmed | game | — | [flight-model](flight-model.md#the-servos) |
+| 0x458ea0 | HoverCraft_MatrixToAngles | Reads a ship's pitch (+0x768), yaw (+0x76c), and roll (+0x770) from its orientation matrix, and sets the heading target (+0x4b0) to the yaw; vtable slot 0x48 | confirmed | game | vtable slot 0x48 of the `HoverCraft` vtable at 0x5cbfec; called by 0x4718e0 | [flight-model](flight-model.md#the-decomposition) |
 | 0x463f60 | Craft_HullSurfacePoint | The point of a unit's shield ellipsoid along a probe point's world direction | confirmed | game | called by 0x464000 | [forced-motion](forced-motion.md#collision-separation) |
 | 0x462dd0 | Craft_StopMotion | Zeroes velocity, rates, and both accelerations when a ship enters a queue | confirmed | game | called from 0x5550f0 | [forced-motion](forced-motion.md#not-known) |
 | 0x464000 | Craft_CollisionOverlap | Penetration depth and separation of two ships (slot 0x108) | confirmed | game | — | [forced-motion](forced-motion.md#collision-separation) |
-| 0x464620 | Craft_CollisionTurn | Turns a ship away from a contact after a separation | confirmed | game | `MAX_PREVENTION_ROTATION` | [forced-motion](forced-motion.md#collision-separation) |
+| 0x464620 | Craft_CollisionTurn | Turns a ship's whole orientation away from a contact after a separation: a rotation about the axis of its nose and the push, multiplied into the orientation and written through the setter (0x4718e0, which decomposes it by 0x458ea0), so pitch, yaw, and roll change and the rates stay | confirmed | game | `MAX_PREVENTION_ROTATION` | [forced-motion](forced-motion.md#collision-separation), [flight-model](flight-model.md#the-decomposition) |
 | 0x4644b0 | Craft_PushOutOfObstacle | Moves a ship out of an asteroid field, a planet, or a black hole's ring | confirmed | game | — | [forced-motion](forced-motion.md#push-out) |
 | 0x464910 | Craft_ResolveCollisions | Separates overlapping ships by position (slot 0x110) | confirmed | game | grid box 3.0 × radius (0x5cb170) | [forced-motion](forced-motion.md#collision-separation) |
-| 0x4664e0 | Craft_TargetValid | Whether a weapon may take a target; the tractor beam takes only ships without thrust or slowed | inferred | game | `tractor_bm` | [forced-motion](forced-motion.md#tractor-beam) |
-| 0x4690c0 | Craft_CapSpeed | Caps the speed coefficient and limit (slot 0xfc) | inferred | game | nebula 0x44c520 | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+| 0x4664e0 | Craft_TargetValid | Whether a weapon may take a target, and the cursor command for a unit under the pointer (slot 0x7c): 5 for a hostile craft when the attacker holds a non-special weapon; the tractor beam takes only ships without thrust or slowed | inferred | game | `tractor_bm` | [forced-motion](forced-motion.md#tractor-beam), [combat-rules](combat-rules.md#attack-order) |
+| 0x4690c0 | Craft_CapSpeed | Caps the speed coefficient and limit by minimum (slot 0xfc) | confirmed | game | nebula 0x44c520 | [nebulae](nebulae.md#what-a-nebula-does-to-a-ship) |
 | 0x469120 | Craft_DisableEngines | Takes the engines offline for a time; ignored while +0x678 is set | confirmed | game | — | [forced-motion](forced-motion.md#motion-state) |
 | 0x471b30 | Craft_FindSlowEffect | Finds a slow effect on the ship | inferred | game | — | [forced-motion](forced-motion.md#tractor-beam) |
 
@@ -174,16 +177,17 @@ and dying.
 | 0x46e340 | GameObject_RecordHit | Records the time of the last hit | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
 | 0x46e640 | GameObject_HitRecently | Whether a hit landed less than 1 s ago | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
 | 0x46e670 | GameObject_CloakState | Reads the cloak state (+0x40) | inferred | game | cast at 0x46e79b | [shield-effects](shield-effects.md#shield-down-overlay) |
-| 0x46eac0 | GameObject_UpdateTether | Moves the tether point of the alert stance; the stop order it makes is a one-point path at the ship's own position | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance), [forced-motion](forced-motion.md#move-order-arrival-and-hold) |
+| 0x46eac0 | GameObject_UpdateTether | Moves the tether point of the alert stance; the stop order it makes is a pending command 2 with a one-point list at the ship's own position (ship+0x10c), which 0x4267a0 hands to 0x426ad0 `case 2` on the next tick and so ends an attack | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance), [forced-motion](forced-motion.md#move-order-arrival-and-hold) |
 | 0x40f4d0 | Entity_AsLivingShip | The entity as a ship, or none when it is no ship or is dying | confirmed | game | flag +0xbc & 8, +0x1bf | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
 | 0x450ea0 | Craft_SetVelocity | Writes the velocity, the speed, and its inverse | confirmed | game | — | [forced-motion](forced-motion.md#pull) |
 | 0x450f40 | Vector_Normalize | Writes a vector scaled to length 1 | inferred | game | one square root of the squared length | [forced-motion](forced-motion.md#pull) |
-| 0x46d5c0 | GameObject_PlaceHeight | Sets a placed object's height; lowers a black hole by `distanceBelowGrid` | inferred | game | — | [forced-motion](forced-motion.md#pull) |
+| 0x46d5c0 | GameObject_PlaceHeight | Sets a placed object's height; lowers a black hole by `distanceBelowGrid`; a craft whose class has `is_starbase` (+0x235) writes its box into the path planner at 198 | inferred | game | class +0x235 | [forced-motion](forced-motion.md#pull), [path-planning](path-planning.md#obstacles) |
 | 0x450f20 | Entity_AsShip | The entity as a ship, dying or not | confirmed | game | flag +0xbc & 8 | [forced-motion](forced-motion.md#pull) |
 | 0x471770 | GameObject_UpdateCenter | Computes the world center at +0x12c (slot 0x3c) | confirmed | game | — | [forced-motion](forced-motion.md#motion-state) |
 | 0x471640 | GameObject_ClampHeight | Clamps the height to a band around `SHIP_COMBAT_FLOOR` and `SHIP_COMBAT_CEILING` when the flag at +0x488 is set | inferred | game | called by 0x471850 | [forced-motion](forced-motion.md#collision-separation) |
 | 0x471850 | GameObject_SetPosition | Sets the position (slot 0xc) | confirmed | game | bounds check 0x471640 | [forced-motion](forced-motion.md#collision-separation) |
-| 0x55d080 | Math_MatrixFromAngles | Builds an orientation from pitch, yaw, and roll, plus a position | confirmed | game | called by 0x459440 | [combat-rules](combat-rules.md#coasting), [flight-model](flight-model.md#the-physics-step-alive-branch) |
+| 0x55d080 | Math_MatrixFromAngles | Builds an orientation from pitch, yaw, and roll, plus a position: yaw about the world's up axis after pitch about the side axis after roll about the forward axis | confirmed | game | called by 0x459440 after each integration step, argument order read at the call | [combat-rules](combat-rules.md#coasting), [flight-model](flight-model.md#the-angle-convention) |
+| 0x4718e0 | GameObject_SetMatrix | Stores a placed or computed orientation (slot 0x14): copies the matrix, decomposes it into the angles (slot 0x48, 0x458ea0), then updates the world center (slot 0x3c, 0x471770) | confirmed | game | vtable slot 0x14 of the `HoverCraft` vtable at 0x5cbfec | [flight-model](flight-model.md#the-decomposition) |
 
 ### Unit AI: alert stance, targets, orders
 
@@ -193,7 +197,10 @@ Range 0x4259d0–0x430400 (`Ai\Tactical\CraftProcess.cpp`). Strategic AI lies be
 |---|---|---|---|---|---|---|
 | 0x425a20 | CraftProcess_Create | Starts a unit's process; sets the start stance | inferred | game | 0x425bcf, key `defaultGreenAlert` | [combat-rules](combat-rules.md#alert-stance) |
 | 0x4266a0 | CraftProcess_Reset | Resets the stance | inferred | game | 0x4266bd | [combat-rules](combat-rules.md#alert-stance) |
-| 0x4294e0 | CraftProcess_AttackOrder | An order to attack one unit | confirmed | game | — | [combat-rules](combat-rules.md#attack-order) |
+| 0x4267a0 | CraftProcess_Tick | The process's per-tick method (slot 0x24): clears a borg ship's acceleration, runs the pending order, and the order dispatch 0x427ff0 unless the ship is derelict | confirmed | game | calls 0x427ff0 through slot 0x38 | [flight-model](flight-model.md#the-tick) |
+| 0x428e90 | CraftProcess_AttackState | The player's attack order (state 5): sets the weapon target, then the path move beyond the gap R − 50, the dogfight inside it, the pivot for a target-location weapon | confirmed | game | the 50 at 0x5ca798 | [combat-rules](combat-rules.md#attack-order) |
+| 0x4294e0 | CraftProcess_AttackOrder | The AI's attack order (state 7): the same band test on the centre distance, a retreat check first | confirmed | game | — | [combat-rules](combat-rules.md#attack-order) |
+| 0x42c8b0 | CraftProcess_SetAttackTarget | Stores the attack maneuver's target (+0x6c) and its circle point | confirmed | game | caller 0x42c400 | [combat-rules](combat-rules.md#attack-order) |
 | 0x42a000 | CraftProcess_EnemyNear | Whether an enemy is within 400 units on X and Z | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
 | 0x42a170 | CraftProcess_Update | Picks a target each tick and hands it to the weapons; its idle handler holds the tether point at every stance | confirmed | game | calls 0x42e4a0 | [combat-rules](combat-rules.md#alert-stance) |
 | 0x428170 | CraftProcess_GoUpdate | The move order's update: posts the stop order once the ship is inside `tooCloseToTurn` of the path's end and slower than half its `impulseSpeed` | confirmed | game | `tooCloseToTurn`; the 0.5 at 0x5ca230 | [forced-motion](forced-motion.md#move-order-arrival-and-hold) |
@@ -206,21 +213,84 @@ Range 0x4259d0–0x430400 (`Ai\Tactical\CraftProcess.cpp`). Strategic AI lies be
 | 0x480790 | Group_Layout | Lays one group on its origin: builds its grid (0x480080), assigns the cells (0x480400), and issues the orders (0x4805d0) | confirmed | game | — | [forced-motion](forced-motion.md#group-move) |
 | 0x480890 | Selection_LayOutGroups | Lays the groups side by side along the perpendicular to the heading, each origin one side × `FORMATION_SPACING` after the last | confirmed | game | — | [forced-motion](forced-motion.md#group-move) |
 | 0x480c30 | Selection_GroupCommand | The player's command over the selection: a move of several ships becomes a group move, any other command goes to each ship alone | confirmed | game | callers 0x4ad3d0, 0x4ad5c0, 0x485a10 | [forced-motion](forced-motion.md#group-move) |
-| 0x42c400 | CraftProcess_AttackManeuver | The attack maneuver | unknown | game | — | [combat-rules](combat-rules.md#alert-stance) |
+| 0x42c400 | CraftProcess_AttackManeuver | The attack maneuver: with the game setting off every call takes the dogfight (mode 8) | confirmed | game | `MORASS_SHIP_LIMIT`, calls 0x42c9d0 | [combat-rules](combat-rules.md#attack-order) |
 | 0x42faa0 | Target_IsValid | Whether a unit is a valid target; a derelict is not | confirmed | game | — | [combat-rules](combat-rules.md#target-selection) |
 | 0x42fb90 | Target_FindNearest | The nearest valid target in range | confirmed | game | 0x42fd6f | [combat-rules](combat-rules.md#attack-order) |
 | 0x42ff80 | Craft_SetWeaponTarget | Hands a target to a unit's weapons | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
 | 0x4300a0 | Target_IsValidFor | The target test of target selection | confirmed | game | — | [combat-rules](combat-rules.md#target-selection) |
 | 0x436840 | Team_IsAITeam | Whether a team is played by the AI | confirmed | game | getter name `IsAITeam` | [combat-rules](combat-rules.md#alert-stance) |
-| 0x40a310 | Path_Plan | Plans the path of a move; the height of its points is not recovered | inferred | game | called by 0x42ded0 | [flight-model](flight-model.md#not-known) |
-| 0x428081 | CraftProcess_IdleHold | The idle hold; a short routine that calls the move maneuver | inferred | game | calls 0x42e4a0 | [flight-model](flight-model.md#the-servos) |
-| 0x42c9d0 | CraftProcess_DogfightManeuver | The dogfight forces; calls the steering routine | inferred | game | log text `DogFight_Forces` | [flight-model](flight-model.md#the-steering-routine) |
-| 0x42ded0 | CraftProcess_PathPoints | Builds the path points of a move | inferred | game | calls 0x40a310 | [flight-model](flight-model.md#not-known) |
-| 0x42e4a0 | CraftProcess_MoveManeuver | The move maneuver; steers toward a point through 0x42f9b0, and holds the point within `tooCloseToTurn` of it (control vector zeroed, the forward brake 0x4657b0) | inferred | game | calls 0x42f9b0, 0x42ebb0 | [flight-model](flight-model.md#the-steering-routine), [forced-motion](forced-motion.md#move-order-arrival-and-hold) |
-| 0x42ebb0 | CraftProcess_Avoidance | The avoidance term of a move | inferred | game | calls 0x42ef70 | [flight-model](flight-model.md#the-steering-routine) |
-| 0x42ef70 | CraftProcess_AvoidanceForce | The avoidance force; its vertical part is not recovered | inferred | game | — | [flight-model](flight-model.md#not-known) |
+| 0x40a310 | Path_Plan | Plans the path of a move: the goal clamp, the no-path and same-leaf cases, the search, the rubber banding, and the points at the middle of the combat band with the ship first and the goal last | confirmed | game | called by 0x42ded0 | [path-planning](path-planning.md#a-plan-0x40a310), [flight-model](flight-model.md#the-move-order) |
+| 0x428081 | CraftProcess_IdleHold | The idle hold: the move maneuver with the ship's own position as point, goal, and carrot and a velocity of 0 | confirmed | game | calls 0x42e4a0 | [flight-model](flight-model.md#the-hold) |
+| 0x42c9d0 | CraftProcess_DogfightManeuver | The dogfight: the aim d × (\|d\| − R) beyond R, steering with scale 1, a second yaw servo call toward the target; a target-location ship turns in place at scale 0 | confirmed | game | log text `DogFight_Forces` | [combat-rules](combat-rules.md#attack-order), [flight-model](flight-model.md#the-steering-routine) |
+| 0x42ded0 | CraftProcess_PathPoints | The order list's index and plans (a new order, a passed point, the stuck test of 12 seconds), then walks the carrot along the planned path 10 units a pass until it lies the lead distance ahead, and hands it and its velocity to the move maneuver | confirmed | game | calls 0x40a310, 0x434a50, 0x42e4a0 | [flight-model](flight-model.md#the-move-order), [path-planning](path-planning.md#the-order-list-and-the-replans-0x42ded0) |
+| 0x434a50 | Path_PointAt | The point at an arc length along a path, moving the carrot's segment forward; the cumulative lengths are built on the first call | confirmed | game | caller 0x42ded0 | [flight-model](flight-model.md#the-move-order) |
+| 0x42e4a0 | CraftProcess_MoveManeuver | The move maneuver: swaps in `fastphys.odf`, holds the goal within `tooCloseToTurn` by the brake spring, skips steering for a point inside the turning circle on its side, else steers (0x42f9b0) and lets the spring replace the throttle within 45 degrees | confirmed | game | calls 0x42f9b0, 0x42ebb0, 0x458750, 0x4657b0 | [flight-model](flight-model.md#the-move-maneuver), [forced-motion](forced-motion.md#move-order-arrival-and-hold) |
+| 0x4657b0 | Craft_BrakeSpring | The critically damped spring along the forward axis, handed to 0x458990 (slot 0xe0) | confirmed | game | vtable slot 0xe0 | [flight-model](flight-model.md#the-move-maneuver) |
+| 0x458990 | Craft_ThrottleFromForce | Turns a wanted force into a throttle by the forward or reverse thrust term, clamped (slot 0xdc) | confirmed | game | vtable slot 0xdc | [flight-model](flight-model.md#the-move-maneuver) |
+| 0x458080 | Craft_TurnRadius | The turning radius of the ship's active physics class (slot 0xb0) | confirmed | game | reads class +0x488 through +0x77c | [flight-model](flight-model.md#the-move-maneuver) |
+| 0x455230 | HoverClass_SetDefaults | The hover class's defaults of the physics keys (`velocCoeffStill` 0.1, `maxRoll` 30, `turnRadius` 25, and the servo coefficients) | confirmed | game | called by 0x425a20 | [flight-model](flight-model.md#the-coefficient-map) |
+| 0x433b30 | Ai_Update | The AI update the frame function calls before the world tick (slot 0x1c of the object at 0x633218) | inferred | game | caller 0x43f2b0 | [flight-model](flight-model.md#the-tick) |
+| 0x42ebb0 | CraftProcess_Avoidance | The steering direction of a move: the offset over at least 20, the avoidance, and the height clamp | confirmed | game | calls 0x42ef70 | [flight-model](flight-model.md#the-steering-routine) |
+| 0x42ef70 | CraftProcess_AvoidanceForce | The obstacle-avoidance scorer: with `OBSTACLE_AVOIDANCE` on, the neighbour query and filter, the threat test, the ten candidate directions scored against every threat, the hysteresis, and the pick; with it off only the height clamp | confirmed | game | calls 0x40e990, 0x424860, 0x424ba0, 0x4250e0, 0x424b50, 0x425200, 0x42ed20 | [obstacle-avoidance](obstacle-avoidance.md#the-scorer) |
+| 0x424860 | CraftProcess_ClosestApproach | The closest approach of the ship's movement to a neighbour: time and squared distance over the relative path | confirmed | game | caller 0x42ef70 | [obstacle-avoidance](obstacle-avoidance.md#the-closest-approach) |
+| 0x424ba0 | CraftProcess_AvoidanceCandidates | Builds the ten candidate directions of the wanted one, each with its starting score | confirmed | game | caller 0x42ef70 | [obstacle-avoidance](obstacle-avoidance.md#the-candidates) |
+| 0x4250e0 | CraftProcess_AvoidanceScore | Scores the ten candidates against one threat: the penalty where a candidate passes inside the keep-away distance, and the vertical veto against a station | confirmed | game | caller 0x42ef70 | [obstacle-avoidance](obstacle-avoidance.md#the-scoring) |
+| 0x424b50 | CraftProcess_AvoidanceHysteresis | Adds 50 times the alignment with the last pick to each candidate that points the same way | confirmed | game | caller 0x42ef70 | [obstacle-avoidance](obstacle-avoidance.md#the-pick) |
+| 0x425200 | CraftProcess_AvoidancePick | The best-scoring candidate, the lowest index on a tie, starting from -1e30 | confirmed | game | caller 0x42ef70 | [obstacle-avoidance](obstacle-avoidance.md#the-pick) |
+| 0x42ed20 | CraftProcess_FieldHitPrediction | Whether the ship, at its impulse speed along the wanted direction, hits an asteroid field in the look-ahead time with the field ahead and the goal beyond it; sets process byte +0x104 | confirmed | game | calls 0x4353b0 | [obstacle-avoidance](obstacle-avoidance.md#the-asteroid-field-hit-prediction) |
+| 0x4353b0 | Collision_SweptSphereHit | The swept-sphere test of two moving spheres over a time, by the quadratic of their relative motion | confirmed | game | callers 0x42ed20, 0x4355b0 | [obstacle-avoidance](obstacle-avoidance.md#the-asteroid-field-hit-prediction) |
+| 0x42e3f0 | CraftProcess_FieldHitStop | Consumes the predicted field hit (+0x104): zeroes roll, pitch, and lift, calls the brake spring (slot 0xe0, 0x4657b0) toward the ship's position at velocity 0, sets +0x688 to 2 | confirmed | game | no caller or table entry found, reads +0x104 | [obstacle-avoidance](obstacle-avoidance.md#the-asteroid-field-hit-prediction) |
+| 0x40e990 | Grid_Query | The neighbour grid's box query: cell indices of a box widened on each side by the largest radius of the registered objects | confirmed | game | caller 0x42ef70 | [obstacle-avoidance](obstacle-avoidance.md#the-neighbour-query) |
+| 0x470940 | Grid_Rebuild | Rebuilds the neighbour grid each frame: every object in one cell by its center, and the largest radius | confirmed | game | caller 0x43f1a0 | [obstacle-avoidance](obstacle-avoidance.md#the-neighbour-query) |
 | 0x42f740 | CraftProcess_Steer | Steering: sets the throttle and drives the pitch and yaw servos toward a direction | confirmed | game | — | [flight-model](flight-model.md#the-steering-routine) |
 | 0x42f9b0 | CraftProcess_SteerToPoint | Called by the move maneuver; calls 0x42f740 | inferred | game | caller 0x42e4a0 | [flight-model](flight-model.md#the-steering-routine) |
+| 0x426ad0 | CraftProcess_AcceptOrder | The order handler: on accepting a move or follow order it draws the process's facing offset (+0x114) once; the attack orders draw none | confirmed | game | `fild` of the draw times π and 0.5 | [flight-model](flight-model.md#the-borg-branch) |
+| 0x42e7c0 | CraftProcess_MoveManeuver_Borg | The Borg path of 0x42e4a0 (0x42e7c0–0x42e8cb): inside `tooCloseToTurn` of the goal the 3D spring command, else the steering direction through 0x42f9b0 | confirmed | game | class +0x1ec test | [flight-model](flight-model.md#the-borg-branch) |
+| 0x42f7a6 | CraftProcess_Steer_Borg | The Borg path of 0x42f740 (0x42f7a6–0x42f940): the 3D velocity command toward the direction; no servos | confirmed | game | class +0x1ec test | [flight-model](flight-model.md#the-borg-branch) |
+
+### Path planning
+
+Range 0x406c50–0x40e470 (`Ai\Path Planning\a_star_graph_node.cpp`; classes `A_Star_Search`, `A_Star_Graph_Map`, `A_Star_Node`, `A_Star_Graph_Node`), the planner's obstacle writers, and the goal clamp. The rule note is [path-planning](path-planning.md); the planner's 0x40a310 and its caller 0x42ded0 are in "Unit AI" above, the belt's and the nebula's writers in "Map objects".
+
+| Address | Name | Role | Status | Layer | Evidence anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x408e30 | PathQuadtree_Create | Builds the planner: the quadtree over the map plus 500 each side, the finest cell, the four impassable border strips, the graph object | confirmed | game | `HIGHEST_QUADTREE_GRID_RESOLUTION`; callers 0x54ca90, 0x54d1e0 | [path-planning](path-planning.md#the-grid) |
+| 0x4093b0 | PathPlanner_Rebuild | Rebuilds the region graph while the dirty flag is set: clear, merge, nodes, edges | confirmed | game | callers 0x431f20, 0x54ca90, 0x54d1e0 | [path-planning](path-planning.md#the-region-graph) |
+| 0x409900 | PathPlanner_WriteObstacle | Writes a rectangle grown by a pad into the quadtree in grid coordinates | confirmed | game | callers: the obstacle writers | [path-planning](path-planning.md#the-grid) |
+| 0x409a80 | PathPlanner_RemoveObstacle | Writes the default over a rectangle with the same rule; destructors of starbases, wormholes, and construction objects call it | confirmed | game | callers 0x461e70, 0x4542c0, 0x451150 | [path-planning](path-planning.md#obstacles) |
+| 0x40c700 | PathQuadtree_WriteRect | Writes a value into the cells a rectangle touches, splitting the cells it covers in part; values only grow, impassable wins | confirmed | game | — | [path-planning](path-planning.md#the-grid) |
+| 0x40cee0 | PathQuadtree_PushToChild | Gives a split cell's child the cell's value on the write rule | confirmed | game | caller 0x40c700 | [path-planning](path-planning.md#the-grid) |
+| 0x40c5e0 | PathQuadtree_Lookup | The leaf cell that holds a grid point, by descending on the cells' centers | confirmed | game | — | [path-planning](path-planning.md#the-grid) |
+| 0x40d280 | PathQuadtree_MergeLeaves | Turns a split cell whose children are leaves of one value into a leaf | confirmed | game | — | [path-planning](path-planning.md#the-region-graph) |
+| 0x40cd30 | PathGraph_CreateNodes | The top of the node and edge build, from the root cell | confirmed | game | caller 0x40a310 | [path-planning](path-planning.md#the-region-graph) |
+| 0x40dd70 | PathGraph_MakeLeafNode | A node at a leaf's center, and the leaf on the four border lists | confirmed | game | — | [path-planning](path-planning.md#the-region-graph) |
+| 0x40d450 | PathGraph_BuildSplit | Builds a split cell's four children, passes up the border lists, and links the facing sides in four walks | confirmed | game | — | [path-planning](path-planning.md#the-region-graph) |
+| 0x40dfd0 | PathGraph_LinkSides | The walk along two facing border lists, with its own edge build when the flag is set | confirmed | game | caller 0x40d450 | [path-planning](path-planning.md#the-region-graph) |
+| 0x40e320 | PathGraph_LinkLeaves | The edges between two leaves: both ways, only out of an impassable leaf, or both ways at the default × 10000 | confirmed | game | — | [path-planning](path-planning.md#the-region-graph) |
+| 0x40e470 | PathGraph_LeafCost | The edge cost between two leaves: the values blended by width times the distance of the centers | confirmed | game | caller 0x40dfd0 | [path-planning](path-planning.md#the-region-graph) |
+| 0x4070c0 | PathNode_Create | A graph node at (x, z) with its edge lists | confirmed | game | RTTI `A_Star_Graph_Node` | [path-planning](path-planning.md#the-search) |
+| 0x407b10 | PathNode_AddEdge | Appends a directed edge and its cost to a node | confirmed | game | — | [path-planning](path-planning.md#the-region-graph) |
+| 0x407990 | PathNode_Expand | Relaxes each neighbour of a node whose mask the search takes | confirmed | game | vtable slot 0x34 | [path-planning](path-planning.md#the-search) |
+| 0x408500 | AStar_Run | The search loop: pop the least f, close, expand, until the goal; the route is the parents back | confirmed | game | callers 0x40a310, 0x40ac80 | [path-planning](path-planning.md#the-search) |
+| 0x408940 | AStar_Init | A new search id; the start is relaxed from itself, closed, and expanded | confirmed | game | — | [path-planning](path-planning.md#the-search) |
+| 0x408660 | AStar_Relax | First visit, reopening a closed node, and the rule that an open node is never improved | confirmed | game | — | [path-planning](path-planning.md#the-search) |
+| 0x408d50 | AStar_AdjustHeap | The heap's pop: the hole down the smaller child, the value back up on the live f | confirmed | game | caller 0x408500 | [path-planning](path-planning.md#the-search) |
+| 0x40a950 | Path_GridCheck | Converts a world point to grid coordinates, puts it into the grid, and says whether it lay inside | confirmed | game | caller 0x40a310 | [path-planning](path-planning.md#a-plan-0x40a310) |
+| 0x40ac80 | Path_PortalGraph | The rubber banding's graph through the route's cells, searched for one end per border | confirmed | game | `PERFORM_RUBBER_BANDING` | [path-planning](path-planning.md#a-plan-0x40a310) |
+| 0x40aa20 | Path_Portal | The two ends of the border between two cells, ordered by the direction of travel, and the direction case | confirmed | game | — | [path-planning](path-planning.md#a-plan-0x40a310) |
+| 0x40b8c0 | Path_Funnel | The funnel that pulls the portal route straight | confirmed | game | — | [path-planning](path-planning.md#a-plan-0x40a310) |
+| 0x40b490 | Path_SideTest | The side of a ray a point lies on | confirmed | game | caller 0x40b8c0 | [path-planning](path-planning.md#a-plan-0x40a310) |
+| 0x40b4f0 | Path_OrderPortalEnds | Orders a border's two ends into the funnel's side A and side B as seen from the anchor | confirmed | game | caller 0x40b8c0 | [path-planning](path-planning.md#a-plan-0x40a310) |
+| 0x40b680 | Path_NarrowFunnel | Narrows the funnel's two sides to a border; fails where they would cross | confirmed | game | caller 0x40b8c0 | [path-planning](path-planning.md#a-plan-0x40a310) |
+| 0x44ab30 | Map_ClampGoal | Puts a goal's X and Z at least `MAP_EDGE_BUFFER` inside the map, and the high side `MAP_EDGE_EPSILON` further | confirmed | game | `MAP_EDGE_BUFFER`, `MAP_EDGE_EPSILON` | [path-planning](path-planning.md#a-plan-0x40a310) |
+| 0x44a810 | Map_DefaultBounds | The default of the map's six bounds floats | confirmed | game | — | [path-planning](path-planning.md#the-grid) |
+| 0x450810 | BlackHole_WritePathCost | Writes the black hole's square, padded by the safety coefficient times the class's +0x1ec (its `EventRadius`) | confirmed | game | `BLACKHOLE_PATHING_COST`, `BLACKHOLE_PATHING_SAFETY_COEFFICIENT` | [path-planning](path-planning.md#obstacles) |
+| 0x4af590 | Path_PointAtParameter | The point of a map path at a parameter: the Hermite curve between the integer part's two points | confirmed | game | caller 0x434c30 | [path-planning](path-planning.md#obstacles) |
+| 0x4af2c0 | Path_Hermite | The cubic Hermite blend between two path points with chord tangents of the segment's length | confirmed | game | caller 0x4af590 | [path-planning](path-planning.md#obstacles) |
+| 0x428d20 | CraftProcess_DirectTarget | A direct target farther than the replan distance becomes a path move; the order list is rebuilt only when the target moved far | confirmed | game | calls 0x42ded0; setting 0x632ec4 | [path-planning](path-planning.md#the-order-list-and-the-replans-0x42ded0) |
+| 0x4f82f0 | Config_Primary | The expression evaluator's primary: a number, an int, or an identifier looked up among the earlier declarations (0x4fc2e0, 0x4fc1d0, 0x4fc0d0) | confirmed | game | log text `Config or AIP float parameter` | [path-planning](path-planning.md#the-keys) |
+| 0x4fc1d0 | Config_FloatParam | A float key by name; only a `float` or `double` declaration is read | confirmed | game | callers 0x4453f0 | [path-planning](path-planning.md#the-keys) |
+| 0x4fc0d0 | Config_IntParam | An int key by name; only an `int` declaration is read | confirmed | game | callers 0x4453f0 | [path-planning](path-planning.md#the-keys) |
 
 ### Weapons and firing
 
@@ -230,6 +300,7 @@ Weapon definitions 0x5030d0–0x505d00, weapons 0x506080–0x50c810 (`Weapon\`).
 |---|---|---|---|---|---|---|
 | 0x506120 | AreaEffectCannon_FireDelay | Reads `crewAffectsWeaponDelay` in a reload delay | inferred | game | 0x506452 | [combat-rules](combat-rules.md#firing) |
 | 0x506d70 | Craft_StopWeapons | Stops every weapon of a dying unit | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x506e30 | WeaponCarrier_Add | Adds a weapon to the carrier: the range limits of the non-special weapons (+0x1c, +0x20) and of all (+0x24, +0x28), their counts, and the `targetLocation` and `restrictFireArc` flags (+0x34, +0x35) | confirmed | game | caller 0x506ef0 | [combat-rules](combat-rules.md#attack-order) |
 | 0x508750 | ReflectWeapon_Apply | The reflector special | inferred | game | 0x50883c | [shield-effects](shield-effects.md#other-effects-of-the-same-object) |
 | 0x509bd0 | Weapon_Update | Fires when the reload delay passed and the unit holds a target | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
 | 0x50a170 | Weapon_InFireArc | The `restrictFireArc` test | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
@@ -288,12 +359,25 @@ Specials 0x4d9010–0x4e9350, one definition class and one class per special. Ti
 
 ### Map objects
 
-Range 0x44afc0–0x4548d0. Only the black hole is surveyed; see Unexplored.
+Range 0x44afc0–0x4548d0, with the nebula grid (0x43e880–0x43eef3) and the map's path lookup (0x4348d0, 0x434c30) that
+belong to it. The black hole, the nebula, and the asteroid field's belt are surveyed; see Unexplored.
 
 | Address | Name | Role | Status | Layer | Anchor | Rule note |
 |---|---|---|---|---|---|---|
+| 0x434c30 | AsteroidBelt_WritePathCost | Writes the path-cost squares along a belt's path (type 3), sampled in steps of 0.01 of the path parameter | confirmed | game | `ASTEROID_BELT_PATHING_DISTANCE` | [nebulae](nebulae.md#asteroid-belts), [path-planning](path-planning.md#obstacles) |
+| 0x4348d0 | AiPath_FindByLabel | Finds the map's path with a label | confirmed | game | — | [nebulae](nebulae.md#asteroid-belts) |
+| 0x43e880 | NebulaGrid_Create | Builds the nebula grid over the map bounds, 50-unit cells | confirmed | game | 0x6343f0–0x634404 | [nebulae](nebulae.md#the-grid) |
+| 0x43ea20 | NebulaGrid_Mark | Adds or removes one nebula's count in the cells whose center lies in its sphere | confirmed | game | — | [nebulae](nebulae.md#marking-the-cells) |
+| 0x43edc0 | NebulaGrid_ShipPass | Gives each craft the effect of every nebula kind its cell holds, before the area pass | confirmed | game | calls 0x44c520 | [nebulae](nebulae.md#the-nebula-pass) |
+| 0x44abb0 | MapBounds_Load | Reads the six bounds floats of a map and its rescale flag | confirmed | game | — | [nebulae](nebulae.md#the-grid) |
 | 0x44b7d0 | BlackHoleClass_Load | Reads `GravityRadius`, `EventRadius`, `GravityForce`, `Rotation`, `ScaleSize` | confirmed | game | — | [forced-motion](forced-motion.md#black-hole) |
-| 0x44c520 | Nebula_ApplyToShip | Caps a ship's speed and applies the nebula's damage and disables | inferred | game | — | [forced-motion](forced-motion.md#what-does-not-move-a-ship) |
+| 0x44bf20 | NebulaKind_ClassOf | The class named `mnebula<kind>` whose values a kind uses (cached) | confirmed | game | string table 0x5fd908 | [nebulae](nebulae.md#kinds-and-their-classes) |
+| 0x44bfa0 | NebulaClass_Load | Reads the nebula keys, sets the kind from the class name (compared by case), and defaults `pathing_cost` to `CANNOT_PATH_INTO_COST` less 1 (0x44c2f4, 0x44c301) | confirmed | game | `craft_speed_coefficient` | [nebulae](nebulae.md#kinds-and-their-classes) |
+| 0x44c520 | Nebula_ApplyToShip | Caps a ship's speed and applies the nebula's damage and disables | confirmed | game | +0x1b1 and +0xbc tests | [nebulae](nebulae.md#what-a-nebula-does-to-a-ship) |
+| 0x44e7b0 | AsteroidField_WritePathCost | A field without a belt path writes its path-cost squares; a path not of type 3 is dropped | confirmed | game | — | [nebulae](nebulae.md#asteroid-belts) |
+| 0x44f8e0 | AsteroidField_LoadBelt | Reads the field's belt record: `have_belt`, offsets, and the path label | confirmed | game | — | [nebulae](nebulae.md#asteroid-belts) |
+| 0x44f9b0 | AsteroidField_PostLoad | Looks the stored path label up and writes the field's path costs | confirmed | game | calls 0x4348d0 | [nebulae](nebulae.md#asteroid-belts) |
+| 0x451e00 | Nebula_Place | Marks the nebula's cells with 0x43ea20 at placement | confirmed | game | calls 0x43ea20 | [nebulae](nebulae.md#marking-the-cells) |
 | 0x44da40 | AreaEffectObject_AreaTick | Calls slot 0xc8 for every living ship within `EventRadius` (slot 0x8c) | confirmed | game | — | [forced-motion](forced-motion.md#event-horizon) |
 | 0x44db30 | AreaEffectObject_GatherShips | Collects the living ships within a plane radius | confirmed | game | +0x1bf test | [forced-motion](forced-motion.md#event-horizon) |
 | 0x450950 | BlackHole_Simulate | Turns the model and pulls ships (slot 0x84) | confirmed | game | — | [forced-motion](forced-motion.md#pull) |
@@ -554,6 +638,7 @@ Offsets are from the start of the object. A ship is a `Craft`; its definition is
 | 0x5ccddc | SeparationLift | float 0.42, the vertical push of a collision separation | 0x464bb7 |
 | 0x5ccf18 | TurnMaxAngle | float 1.57, the widest angle that turns a ship | 0x464620 |
 | 0x5ccf20 | MinDirectionLength | float 0.1, the shortest direction a debris piece accepts | 0x57d270 |
+| 0x67dc98 | OrderRandomState | The random state of the order draws (the facing offset), shared with to-hit rolls and hit locations; `s × 2273 + 31` modulo 429397397 | 0x5014d0 |
 | 0x67dca4 | DebrisRandomState | The one random state of the debris draws | 0x57d270 |
 | 0x600518–0x600548 | DamageNodeNames | `crew`, `engines`, `life`, `sensors`, `shields`, `target`, `borg` | 0x45fea0 |
 | 0x600750 | DyingExplosionTable | Dying explosion sprites | 0x466320 |
@@ -570,40 +655,100 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 <!-- by-address:start -->
 | Address | Name | Status | Topic |
 |---|---|---|---|
-| 0x40a310 | Path_Plan | inferred | Unit AI: alert stance, targets, orders |
+| 0x4070c0 | PathNode_Create | confirmed | Path planning |
+| 0x407990 | PathNode_Expand | confirmed | Path planning |
+| 0x407b10 | PathNode_AddEdge | confirmed | Path planning |
+| 0x408500 | AStar_Run | confirmed | Path planning |
+| 0x408660 | AStar_Relax | confirmed | Path planning |
+| 0x408940 | AStar_Init | confirmed | Path planning |
+| 0x408d50 | AStar_AdjustHeap | confirmed | Path planning |
+| 0x408e30 | PathQuadtree_Create | confirmed | Path planning |
+| 0x4093b0 | PathPlanner_Rebuild | confirmed | Path planning |
+| 0x409900 | PathPlanner_WriteObstacle | confirmed | Path planning |
+| 0x409a80 | PathPlanner_RemoveObstacle | confirmed | Path planning |
+| 0x40a310 | Path_Plan | confirmed | Unit AI: alert stance, targets, orders |
+| 0x40a950 | Path_GridCheck | confirmed | Path planning |
+| 0x40aa20 | Path_Portal | confirmed | Path planning |
+| 0x40ac80 | Path_PortalGraph | confirmed | Path planning |
+| 0x40b490 | Path_SideTest | confirmed | Path planning |
+| 0x40b4f0 | Path_OrderPortalEnds | confirmed | Path planning |
+| 0x40b680 | Path_NarrowFunnel | confirmed | Path planning |
+| 0x40b8c0 | Path_Funnel | confirmed | Path planning |
+| 0x40c5e0 | PathQuadtree_Lookup | confirmed | Path planning |
+| 0x40c700 | PathQuadtree_WriteRect | confirmed | Path planning |
+| 0x40cd30 | PathGraph_CreateNodes | confirmed | Path planning |
+| 0x40cee0 | PathQuadtree_PushToChild | confirmed | Path planning |
+| 0x40d280 | PathQuadtree_MergeLeaves | confirmed | Path planning |
+| 0x40d450 | PathGraph_BuildSplit | confirmed | Path planning |
+| 0x40dd70 | PathGraph_MakeLeafNode | confirmed | Path planning |
+| 0x40dfd0 | PathGraph_LinkSides | confirmed | Path planning |
+| 0x40e320 | PathGraph_LinkLeaves | confirmed | Path planning |
+| 0x40e470 | PathGraph_LeafCost | confirmed | Path planning |
+| 0x40e990 | Grid_Query | confirmed | Unit AI: alert stance, targets, orders |
 | 0x40f4d0 | Entity_AsLivingShip | confirmed | Units in general (Entity, GameObject) |
+| 0x424860 | CraftProcess_ClosestApproach | confirmed | Unit AI: alert stance, targets, orders |
+| 0x424b50 | CraftProcess_AvoidanceHysteresis | confirmed | Unit AI: alert stance, targets, orders |
+| 0x424ba0 | CraftProcess_AvoidanceCandidates | confirmed | Unit AI: alert stance, targets, orders |
+| 0x4250e0 | CraftProcess_AvoidanceScore | confirmed | Unit AI: alert stance, targets, orders |
+| 0x425200 | CraftProcess_AvoidancePick | confirmed | Unit AI: alert stance, targets, orders |
 | 0x425a20 | CraftProcess_Create | inferred | Unit AI: alert stance, targets, orders |
 | 0x4266a0 | CraftProcess_Reset | inferred | Unit AI: alert stance, targets, orders |
-| 0x428081 | CraftProcess_IdleHold | inferred | Unit AI: alert stance, targets, orders |
+| 0x4267a0 | CraftProcess_Tick | confirmed | Unit AI: alert stance, targets, orders |
+| 0x426ad0 | CraftProcess_AcceptOrder | confirmed | Unit AI: alert stance, targets, orders |
+| 0x428081 | CraftProcess_IdleHold | confirmed | Unit AI: alert stance, targets, orders |
 | 0x428170 | CraftProcess_GoUpdate | confirmed | Unit AI: alert stance, targets, orders |
 | 0x428560 | CraftProcess_FollowerGoPath | confirmed | Unit AI: alert stance, targets, orders |
+| 0x428d20 | CraftProcess_DirectTarget | confirmed | Path planning |
+| 0x428e90 | CraftProcess_AttackState | confirmed | Unit AI: alert stance, targets, orders |
 | 0x4294e0 | CraftProcess_AttackOrder | confirmed | Unit AI: alert stance, targets, orders |
 | 0x42a000 | CraftProcess_EnemyNear | confirmed | Unit AI: alert stance, targets, orders |
 | 0x42a170 | CraftProcess_Update | confirmed | Unit AI: alert stance, targets, orders |
-| 0x42c400 | CraftProcess_AttackManeuver | unknown | Unit AI: alert stance, targets, orders |
-| 0x42c9d0 | CraftProcess_DogfightManeuver | inferred | Unit AI: alert stance, targets, orders |
-| 0x42ded0 | CraftProcess_PathPoints | inferred | Unit AI: alert stance, targets, orders |
-| 0x42e4a0 | CraftProcess_MoveManeuver | inferred | Unit AI: alert stance, targets, orders |
-| 0x42ebb0 | CraftProcess_Avoidance | inferred | Unit AI: alert stance, targets, orders |
-| 0x42ef70 | CraftProcess_AvoidanceForce | inferred | Unit AI: alert stance, targets, orders |
+| 0x42c400 | CraftProcess_AttackManeuver | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42c8b0 | CraftProcess_SetAttackTarget | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42ded0 | CraftProcess_PathPoints | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42e3f0 | CraftProcess_FieldHitStop | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42e4a0 | CraftProcess_MoveManeuver | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42e7c0 | CraftProcess_MoveManeuver_Borg | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42ebb0 | CraftProcess_Avoidance | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42ed20 | CraftProcess_FieldHitPrediction | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42ef70 | CraftProcess_AvoidanceForce | confirmed | Unit AI: alert stance, targets, orders |
 | 0x42f740 | CraftProcess_Steer | confirmed | Unit AI: alert stance, targets, orders |
+| 0x42f7a6 | CraftProcess_Steer_Borg | confirmed | Unit AI: alert stance, targets, orders |
 | 0x42f9b0 | CraftProcess_SteerToPoint | inferred | Unit AI: alert stance, targets, orders |
 | 0x42faa0 | Target_IsValid | confirmed | Unit AI: alert stance, targets, orders |
 | 0x42fb90 | Target_FindNearest | confirmed | Unit AI: alert stance, targets, orders |
 | 0x42ff80 | Craft_SetWeaponTarget | confirmed | Unit AI: alert stance, targets, orders |
 | 0x4300a0 | Target_IsValidFor | confirmed | Unit AI: alert stance, targets, orders |
+| 0x433b30 | Ai_Update | inferred | Unit AI: alert stance, targets, orders |
+| 0x4348d0 | AiPath_FindByLabel | confirmed | Map objects |
+| 0x434a50 | Path_PointAt | confirmed | Unit AI: alert stance, targets, orders |
+| 0x434c30 | AsteroidBelt_WritePathCost | confirmed | Map objects |
+| 0x4353b0 | Collision_SweptSphereHit | confirmed | Unit AI: alert stance, targets, orders |
 | 0x436840 | Team_IsAITeam | confirmed | Unit AI: alert stance, targets, orders |
+| 0x43e880 | NebulaGrid_Create | confirmed | Map objects |
+| 0x43ea20 | NebulaGrid_Mark | confirmed | Map objects |
+| 0x43edc0 | NebulaGrid_ShipPass | confirmed | Map objects |
 | 0x43f1a0 | Program_Tick | confirmed | Program, startup, and frame loop |
+| 0x43f2b0 | Program_Frame | confirmed | Program, startup, and frame loop |
 | 0x4404a0 | Program_GameOpenPreLoad | inferred | Program, startup, and frame loop |
 | 0x4407b0 | Program_GameOpenLoad | inferred | Program, startup, and frame loop |
 | 0x443df0 | RaceLoader_Load | inferred | Races |
 | 0x4440b0 | Race_FindByName | confirmed | Races |
 | 0x4442b0 | Race_Load | confirmed | Races |
 | 0x4453f0 | RtsCfg_Load | confirmed | Program, startup, and frame loop |
+| 0x44a810 | Map_DefaultBounds | confirmed | Path planning |
+| 0x44ab30 | Map_ClampGoal | confirmed | Path planning |
+| 0x44abb0 | MapBounds_Load | confirmed | Map objects |
 | 0x44b7d0 | BlackHoleClass_Load | confirmed | Map objects |
-| 0x44c520 | Nebula_ApplyToShip | inferred | Map objects |
+| 0x44bf20 | NebulaKind_ClassOf | confirmed | Map objects |
+| 0x44bfa0 | NebulaClass_Load | confirmed | Map objects |
+| 0x44c520 | Nebula_ApplyToShip | confirmed | Map objects |
 | 0x44da40 | AreaEffectObject_AreaTick | confirmed | Map objects |
 | 0x44db30 | AreaEffectObject_GatherShips | confirmed | Map objects |
+| 0x44e7b0 | AsteroidField_WritePathCost | confirmed | Map objects |
+| 0x44f8e0 | AsteroidField_LoadBelt | confirmed | Map objects |
+| 0x44f9b0 | AsteroidField_PostLoad | confirmed | Map objects |
+| 0x450810 | BlackHole_WritePathCost | confirmed | Path planning |
 | 0x450950 | BlackHole_Simulate | confirmed | Map objects |
 | 0x450a40 | BlackHole_Swallow | confirmed | Map objects |
 | 0x450a80 | BlackHole_PullShips | confirmed | Map objects |
@@ -611,11 +756,17 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x450f20 | Entity_AsShip | confirmed | Units in general (Entity, GameObject) |
 | 0x450f40 | Vector_Normalize | inferred | Units in general (Entity, GameObject) |
 | 0x451870 | IonStorm_Touch | inferred | Map objects |
+| 0x451e00 | Nebula_Place | confirmed | Map objects |
+| 0x455230 | HoverClass_SetDefaults | confirmed | Unit AI: alert stance, targets, orders |
 | 0x455440 | HoverCraftClass_Load | confirmed | Ships (Craft) |
+| 0x458080 | Craft_TurnRadius | confirmed | Unit AI: alert stance, targets, orders |
 | 0x458750 | HoverCraft_CopyCoefficients | confirmed | Ships (Craft) |
+| 0x458990 | Craft_ThrottleFromForce | confirmed | Unit AI: alert stance, targets, orders |
 | 0x458b80 | HoverCraft_ServoYaw | confirmed | Ships (Craft) |
 | 0x458ca0 | HoverCraft_ServoPitch | confirmed | Ships (Craft) |
+| 0x458ea0 | HoverCraft_MatrixToAngles | confirmed | Ships (Craft) |
 | 0x459440 | HoverCraft_PhysicsStep | confirmed | Ships (Craft) |
+| 0x459a99 | HoverCraft_PhysicsStep_BorgBranch | confirmed | Ships (Craft) |
 | 0x45fbe0 | HoverCraftClass_SetDefaults | confirmed | Ships (Craft) |
 | 0x45fea0 | CraftClass_Load | confirmed | Game object definitions |
 | 0x460f30 | CraftClass_LoadSystem | confirmed | Game object definitions |
@@ -628,6 +779,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x464910 | Craft_ResolveCollisions | confirmed | Ships (Craft) |
 | 0x464dd0 | Craft_RollHitLocation | confirmed | Ships (Craft) |
 | 0x465100 | Craft_ApplyHit | confirmed | Ships (Craft) |
+| 0x4657b0 | Craft_BrakeSpring | confirmed | Unit AI: alert stance, targets, orders |
 | 0x465e80 | Craft_UpdateLifeSupport | confirmed | Ships (Craft) |
 | 0x466090 | Craft_DyingTimer | confirmed | Ships (Craft) |
 | 0x466180 | Craft_RandomModelPoint | inferred | Ships (Craft) |
@@ -648,7 +800,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4685c0 | Craft_RepairAll | unknown | Ships (Craft) |
 | 0x468990 | Craft_BeginDying | confirmed | Ships (Craft) |
 | 0x468a60 | Craft_HitNode | confirmed | Ships (Craft) |
-| 0x4690c0 | Craft_CapSpeed | inferred | Ships (Craft) |
+| 0x4690c0 | Craft_CapSpeed | confirmed | Ships (Craft) |
 | 0x469120 | Craft_DisableEngines | confirmed | Ships (Craft) |
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | confirmed | Ships (Craft) |
 | 0x46a0d0 | GameObjectClass_Init | confirmed | Game object definitions |
@@ -661,12 +813,14 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x46e640 | GameObject_HitRecently | confirmed | Units in general (Entity, GameObject) |
 | 0x46e670 | GameObject_CloakState | inferred | Units in general (Entity, GameObject) |
 | 0x46eac0 | GameObject_UpdateTether | confirmed | Units in general (Entity, GameObject) |
+| 0x470940 | Grid_Rebuild | confirmed | Unit AI: alert stance, targets, orders |
 | 0x4713c0 | GameObject_AreaPass | confirmed | Program, startup, and frame loop |
 | 0x471410 | GameObject_SimulatePass | confirmed | Program, startup, and frame loop |
 | 0x471560 | GameObject_PostSimulatePass | confirmed | Program, startup, and frame loop |
 | 0x471640 | GameObject_ClampHeight | inferred | Units in general (Entity, GameObject) |
 | 0x471770 | GameObject_UpdateCenter | confirmed | Units in general (Entity, GameObject) |
 | 0x471850 | GameObject_SetPosition | confirmed | Units in general (Entity, GameObject) |
+| 0x4718e0 | GameObject_SetMatrix | confirmed | Units in general (Entity, GameObject) |
 | 0x471b30 | Craft_FindSlowEffect | inferred | Ships (Craft) |
 | 0x472120 | GameObject_FrameUpdate | inferred | Ships (Craft) |
 | 0x47fde0 | Selection_GroupHeading | confirmed | Unit AI: alert stance, targets, orders |
@@ -687,6 +841,8 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x49b6a0 | SelectionDisplay_Fade | confirmed | Interface: selection display |
 | 0x4ab5d0 | OverView_Deselect | confirmed | Interface: selection display |
 | 0x4ab8c0 | OverView_CanSelect | confirmed | Interface: selection display |
+| 0x4af2c0 | Path_Hermite | confirmed | Path planning |
+| 0x4af590 | Path_PointAtParameter | confirmed | Path planning |
 | 0x4d92e0 | Ordnance_SetHitNode | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4dc9c0 | EnergyShieldConverter_Apply | inferred | Special weapons and timed effects |
 | 0x4dd720 | GravityMine_Hit | confirmed | Special weapons and timed effects |
@@ -714,12 +870,16 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4ee710 | Ordnance_RollHit | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ee7f0 | Ordnance_DropShooterBonus | confirmed | Ordnance: shots, beams, torpedoes, mines |
 | 0x4ee860 | Ordnance_HitTest | confirmed | Ordnance: shots, beams, torpedoes, mines |
+| 0x4f82f0 | Config_Primary | confirmed | Path planning |
+| 0x4fc0d0 | Config_IntParam | confirmed | Path planning |
+| 0x4fc1d0 | Config_FloatParam | confirmed | Path planning |
 | 0x4ffd70 | Name_Equals | confirmed | Object definitions (ODF) |
 | 0x501820 | Random_Signed | confirmed | Storm3D: particles and emitters |
 | 0x501870 | Random_Scaled | confirmed | Storm3D: particles and emitters |
 | 0x5053a0 | WeaponClass_Load | inferred | Game object definitions |
 | 0x506120 | AreaEffectCannon_FireDelay | inferred | Weapons and firing |
 | 0x506d70 | Craft_StopWeapons | confirmed | Weapons and firing |
+| 0x506e30 | WeaponCarrier_Add | confirmed | Weapons and firing |
 | 0x508750 | ReflectWeapon_Apply | inferred | Weapons and firing |
 | 0x508fc0 | SelfDestruct_Update | confirmed | Special weapons and timed effects |
 | 0x509bd0 | Weapon_Update | confirmed | Weapons and firing |
@@ -823,13 +983,13 @@ table and narrow or remove its line here.
 
 | Range | Contents | Anchors |
 |---|---|---|
-| 0x401570–0x4233b0 | Strategic AI: missions, goals, agents, squads, the scheduler, path planning (only 0x40a310 is named) | `Ai\Strategic AI\*.cpp`; classes `AiMission`, `Goal`, `STAgent`, `Scheduler`, `A_Star_*` |
-| 0x430710–0x436000 | Salvage and starbase AI, `AI` | `SalvageProcess`, `StarbaseProcess`, `Ai\Ai.cpp` |
-| 0x43d160–0x4434d0 | Game events, localized strings, the program and its frame loop | `Game Logic\Program.cpp`, `GameEvent.cpp`, `Localized_Strings.cpp` |
+| 0x401570–0x4233b0 | Strategic AI: missions, goals, agents, squads, the scheduler, and the path planning's wormhole-pair code 0x40bd40–0x40c570 (the rest of the planner is named in "Path planning") | `Ai\Strategic AI\*.cpp`; classes `AiMission`, `Goal`, `STAgent`, `Scheduler`, `A_Star_*` |
+| 0x430710–0x436000 | Salvage and starbase AI, `AI` (only the AI update 0x433b30 and the swept-sphere test 0x4353b0 are named) | `SalvageProcess`, `StarbaseProcess`, `Ai\Ai.cpp` |
+| 0x43d160–0x4434d0 | Game events, localized strings, the program and its frame loop beyond 0x43f1a0 and 0x43f2b0 | `Game Logic\Program.cpp`, `GameEvent.cpp`, `Localized_Strings.cpp` |
 | 0x446d70–0x44a7e0 | Fog of war, shroud, cloak fog, scan grid, tech tree | `Fog`, `Shroud`, `ScanGrid`, `TechnologyTree`; key `techlvl_odf` |
-| 0x44afc0–0x4548d0 | Map objects beyond the rows above: asteroid fields, nebulas, ion storms, planets, wormholes, scrap | `…Class` definitions; keys in ODF keys |
+| 0x44afc0–0x4548d0 | Map objects beyond the rows above: asteroid fields beyond the belt record and path cost, nebulas beyond the speed cap and the grid (damage, disables, regeneration, the pulsing), ion storms, planets, wormholes, scrap | `…Class` definitions; keys in ODF keys |
 | 0x454970–0x45fb80 | Buildings and support ships: construction rigs, freighters, mining, shipyards, starbases, research | `ConstructionRig`, `Freighter`, `MiningStation`, `Shipyard`, `Starbase`, `ResearchStation` |
-| 0x462d80–0x469a40 | Ship code beyond the rows above: movement orders, cloaking, boarding, officers | `Craft.cpp` |
+| 0x462d80–0x469a40 | Ship code beyond the rows above: other movement orders, cloaking, boarding, officers (the brake spring 0x4657b0, the throttle 0x458990, and the turn radius 0x458080 are named) | `Craft.cpp` |
 | 0x46be50–0x4725d0 | Entity and game object code beyond the rows above | `Entity.cpp`, `GameObject.cpp` |
 | 0x477a20–0x47ea10 | Cameras, cinematics, video | `CinematicCamera`, `GameCamera`, `ShotDirector`, `PlayVideo` |
 | 0x47ea90–0x4b0280 | The interface beyond the selection display: control panel, radar, ship display, comm bar, overview | `ControlPanel`, `MapRadar`, `ShipDisplay`, `CommDisplay`, `OverView` |
@@ -844,7 +1004,7 @@ table and narrow or remove its line here.
 | 0x5abbc0–0x5b7b10 | Audio, jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
 
 <!-- coverage:start -->
-Coverage: the index names 244 routines of the 9,401 functions in the game code band: 187 confirmed, 50 inferred, 7 unknown.
+Coverage: the index names 319 routines of the 9,401 functions in the game code band: 271 confirmed, 42 inferred, 6 unknown.
 <!-- coverage:end -->
 
 ## ODF keys
@@ -866,7 +1026,7 @@ can be missing (for example `crew`, `life`); search `strings.tsv` for it.
 | 0x44b200 | called by `AsteroidFieldClass` | `fieldRadius`, `maxAsteroids`, `minAsteroids`, `orbitingSpeed`, `repelIfWithin`, `rotationSpeed` |
 | 0x44b7d0 | BlackHoleClass_Load | `EventRadius`, `GravityForce`, `GravityRadius`, `Rotation`, `ScaleSize` |
 | 0x44bc60 | called by `IonStormClass` | `damageValue`, `lifeTimer`, `Rotation`, `ScalingCount`, `ScalingStepSize` |
-| 0x44bfa0 | called by `NebulaClass` | `blue_glow`, `blue_glow_range`, `clearEffects`, `craft_speed_coefficient`, `craft_speed_limit`, `damageCrewModifier`, `damageHullModifier`, `damageThreshold`, `damageValue`, `damageVariance`, `disableCloak`, `disableCrew`, `disableSensors`, `disableShields`, `disableWeapons`, `glow_falloff_range`, `glow_falloff_start`, `green_glow`, `green_glow_range`, `hideContents`, `lifeTimer`, `min_speed_change`, `one_in_n_chance_of_light_source`, `pathing_cost`, `red_glow`, `red_glow_range`, `regenValue`, `repairValue`, `speed_change_period_divisor`, `speed_change_range` |
+| 0x44bfa0 | NebulaClass_Load | `blue_glow`, `blue_glow_range`, `clearEffects`, `craft_speed_coefficient`, `craft_speed_limit`, `damageCrewModifier`, `damageHullModifier`, `damageThreshold`, `damageValue`, `damageVariance`, `disableCloak`, `disableCrew`, `disableSensors`, `disableShields`, `disableWeapons`, `glow_falloff_range`, `glow_falloff_start`, `green_glow`, `green_glow_range`, `hideContents`, `lifeTimer`, `min_speed_change`, `one_in_n_chance_of_light_source`, `pathing_cost`, `red_glow`, `red_glow_range`, `regenValue`, `repairValue`, `speed_change_period_divisor`, `speed_change_range` |
 | 0x44cad0 | — | `crewModifier`, `Rotation` |
 | 0x44cba0 | a method of `PlanetClass` | `crewModifier`, `Rotation` |
 | 0x44cde0 | — | `infinite`, `rotationSpeed` |

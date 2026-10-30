@@ -102,7 +102,8 @@ The checked-in play scripts, the layout or map each runs on, and the mechanics e
 
 | Script | Layout or map | Shows |
 |---|---|---|
-| `black-hole.play` | `layouts/black-hole.jsonc` | A derelict ship pulled in and swallowed; a ship with thrust held at the ring; the hole's model turning |
+| `black-hole.play` | `layouts/black-hole.jsonc` | A derelict ship pulled in and swallowed; a ship with thrust ordered into the hole's impassable square, holding at its start; the hole's model turning |
+| `borg-move.play` | `layouts/borg-move.jsonc` | A Borg ship's move order: its 3D velocity, no pitch or roll, its yaw toward the bearing plus a quarter turn |
 | `coast.play` | `layouts/coast.jsonc` | A ship with destroyed engines coasting from its starting velocity |
 | `collision.play` | `layouts/collision.jsonc` | Collision separation ending a move order; both ships at rest apart |
 | `damage.play` | `layouts/damage.jsonc` | Damage nodes of a ship with a tenth of its crew |
@@ -114,6 +115,8 @@ The checked-in play scripts, the layout or map each runs on, and the mechanics e
 | `hit-explosion.play` | `layouts/hit-explosion.jsonc` | System hit explosions at a hit's node |
 | `map-black-hole.play` | `--map borg4` | A stock map with a black hole and asteroid fields |
 | `move.play` | `layouts/move.jsonc` | A move order while driving and after arrival |
+| `nebula.play` | `layouts/nebula.jsonc` | A ship slowed in a row of nebulae and its path bending out of the row |
+| `path-field.play` | `layouts/path-field.jsonc` | A move order's path around an asteroid field |
 | `push-out.play` | `layouts/push-out.jsonc` | Push-out from an asteroid field |
 | `push-out-planet.play` | `layouts/push-out-planet.jsonc` | Push-out from a planet |
 | `scale.play` | `layouts/scale.jsonc` | A model drawn at its `scaleSOD` |

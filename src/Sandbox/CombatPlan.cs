@@ -59,6 +59,13 @@ public sealed class CombatPlan
     /// </summary>
     public float MaxPreventionRotation { get; private init; } = CombatWorld.DefaultMaxPreventionRotation;
 
+    /// <summary>
+    /// <c>OBSTACLE_AVOIDANCE</c>, <c>COLLISION_LOOK_AHEAD_TIME</c>, and <c>COLLISION_SAFETY_MARGIN</c> of RTS_CFG.h. A
+    /// missing or non-numeric key takes the game's compiled default (<see cref="AvoidanceKeys.Game"/>) and is reported;
+    /// a missing RTS_CFG.h takes all three without a report of their own (the header's is).
+    /// </summary>
+    public AvoidanceKeys Avoidance { get; private init; } = AvoidanceKeys.Stock;
+
     CombatPlan(
         IReadOnlyDictionary<PlacedObject, CombatProfile> profiles,
         IReadOnlyList<ReportEntry> reports,
@@ -88,6 +95,7 @@ public sealed class CombatPlan
         var gaps = new Gaps();
         var (protection, bonus, spacing, prevention, rts) = ReadConstants(files, gaps);
         var debris = ReadDebris(files, rts, gaps);
+        var avoidance = ReadAvoidance(rts, gaps);
         var reader = new ProfileReader(files);
         var byClass = new Dictionary<string, (CombatProfile Profile, List<(string Cause, string Name)> Gaps)>(
             StringComparer.OrdinalIgnoreCase
@@ -135,7 +143,33 @@ public sealed class CombatPlan
             Debris = debris,
             FormationSpacing = spacing,
             MaxPreventionRotation = prevention,
+            Avoidance = avoidance,
         };
+    }
+
+    // The avoidance keys of the parsed RTS_CFG.h: a key it lacks, or gives as no finite number, takes the game's compiled
+    // default and is reported once. A null header (reported by ReadConstants) gives the defaults.
+    static AvoidanceKeys ReadAvoidance(GameConstants? constants, Gaps gaps)
+    {
+        var game = AvoidanceKeys.Game;
+        if (constants == null)
+            return game;
+        float Key(string name, float fallback)
+        {
+            if (constants.TryNumber(name, out var v, out _) && float.IsFinite((float)v))
+                return (float)v;
+            gaps.Add($"game constant {name} missing or no number, the game's default {Text(fallback)} used", name);
+
+            return fallback;
+        }
+
+        var enabled = Key("OBSTACLE_AVOIDANCE", 1) != 0;
+
+        return new AvoidanceKeys(
+            enabled,
+            Key("COLLISION_LOOK_AHEAD_TIME", game.LookAheadTime),
+            Key("COLLISION_SAFETY_MARGIN", game.SafetyMargin)
+        );
     }
 
     // The parts of a unit's starting state the unit cannot take, each a gap naming the object.
@@ -476,6 +510,8 @@ public sealed class CombatPlan
                         ToHitStopModifier = w.Num("toHitStopModifier", 0),
                         CrewAffectsWeaponDelay = w.Flag("crewAffectsWeaponDelay", false),
                         FireSound = w.Str("fireSound"),
+                        Special = w.Flag("special", false),
+                        TargetLocation = w.Flag("targetLocation", false),
                         Ordnance = new OrdnanceProfile
                         {
                             ClassLabel = o.Str("classLabel"),

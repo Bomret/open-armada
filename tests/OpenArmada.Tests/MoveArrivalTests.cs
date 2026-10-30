@@ -7,7 +7,8 @@ using static OpenArmada.Tests.CombatFixtures;
 namespace OpenArmada.Tests;
 
 // A move order's arrival and the hold of an idle ship, with ships pushed through the world's push route. The ship
-// drives at 10 units/s and faces +Z, its tether point is where it starts (the origin).
+// flies at an impulse speed of 10 and faces +Z, its tether point is where it starts (the origin). A move order's goal
+// lies at the middle of the combat band, 38.5 above the ship.
 [TestClass]
 public class MoveArrivalTests
 {
@@ -26,17 +27,7 @@ public class MoveArrivalTests
     )
     {
         var unit = Placed("s", 1, 0);
-        var motion = new ShipMotion(
-            new PhysicsValues
-            {
-                ImpulseSpeed = 10,
-                YawRotationRate = 1,
-                MaxRoll = null,
-                TooCloseToTurn = tooClose,
-            },
-            unit.Position,
-            0
-        );
+        var motion = FlightFixtures.Cruiser(unit.Position, 0, tooClose: tooClose);
         var poses = new UnitPoses(new[] { unit }.Concat(others.Select(o => o.Unit)));
         var units = new[]
         {
@@ -70,45 +61,46 @@ public class MoveArrivalTests
     static void Run(Rig rig, double seconds) => rig.World.Step(seconds);
 
     [TestMethod]
-    public void AnUnpushedShipDrivesToItsPointAndEndsTheOrderThere()
+    public void AnUnpushedShipFliesToItsPointAndEndsTheOrderThereNearAndSlow()
     {
         var rig = Build();
         rig.World.Move(rig.Unit, 0, 100);
         Run(rig, 1);
         Assert.AreEqual((0f, 100f), rig.State.PlayerMove);
-        Run(rig, 10.5);
+        Run(rig, 59);
         Assert.IsNull(rig.State.PlayerMove);
-        Assert.AreEqual(100, rig.Position.Z, 1e-3);
+        Assert.IsTrue(Vector3.Distance(rig.Position, new Vector3(0, 38.5f, 100)) < 25, $"at {rig.Position}");
+        Assert.IsTrue(rig.State.Speed < 5, "slower than half the impulse speed");
     }
 
     [TestMethod]
-    public void APushThatLeavesTheShipUnderTooCloseToTurnFromItsPointEndsTheOrderAndTheShipStopsThere()
+    public void APushThatLeavesTheShipUnderTooCloseToTurnFromItsPointEndsTheOrderAndTheShipBrakesThere()
     {
         var rig = Build();
         rig.World.Move(rig.Unit, 0, 100);
         Run(rig, 0.02);
-        rig.World.Push(rig.Unit, new Vector3(0, 7, 80)); // 21 from the point, 3D
+        rig.World.Push(rig.Unit, new Vector3(0, 38.5f, 80)); // 20 from the point, 3D
         var stoppedAt = rig.Position;
         Assert.IsNull(rig.State.PlayerMove);
         Assert.AreEqual(stoppedAt, rig.State.Tether); // its height included
-        Assert.AreEqual(7f, rig.State.Tether.Y);
-        Assert.AreEqual(Vector3.Zero, rig.State.Velocity);
-        Run(rig, 5);
-        Assert.AreEqual(stoppedAt, rig.Position);
+        Assert.AreEqual(38.5f, rig.State.Tether.Y, 0.1);
+        Run(rig, 10);
+        Assert.IsTrue(rig.State.Speed < 0.1, "it brakes to rest");
+        Assert.IsTrue(Vector3.Distance(stoppedAt, rig.Position) < 3, "within a few units of where it was pushed");
         Assert.IsNull(rig.State.PlayerMove);
     }
 
     [TestMethod]
-    public void APushThatLeavesTheShipExactlyAtTooCloseToTurnOrBeyondLeavesTheOrderOpenAndTheShipDrivesOn()
+    public void APushThatLeavesTheShipExactlyAtTooCloseToTurnOrBeyondLeavesTheOrderOpenAndTheShipFliesOn()
     {
-        foreach (var z in new[] { 75f, 60f })
+        foreach (var z in new[] { 70f, 60f })
         {
             var rig = Build();
             rig.World.Move(rig.Unit, 0, 100);
-            rig.World.Push(rig.Unit, new Vector3(0, 0, z));
+            rig.World.Push(rig.Unit, new Vector3(0, 38.5f, z));
             Assert.IsNotNull(rig.State.PlayerMove, $"push to {z}");
             Run(rig, 1);
-            Assert.AreEqual(z + 10, rig.Position.Z, 0.5);
+            Assert.IsTrue(rig.Position.Z > z + 1, $"it flies on from {z}: {rig.Position.Z}");
             Assert.IsNotNull(rig.State.PlayerMove);
         }
     }
@@ -120,9 +112,21 @@ public class MoveArrivalTests
         {
             var rig = Build(tooClose);
             rig.World.Move(rig.Unit, 0, 100);
-            rig.World.Push(rig.Unit, new Vector3(0, 0, 55)); // 45 from the point
+            rig.World.Push(rig.Unit, new Vector3(0, 38.5f, 55)); // 45 from the point
             Assert.AreEqual(ends, rig.State.PlayerMove == null, $"tooCloseToTurn {tooClose}");
         }
+    }
+
+    [TestMethod]
+    public void AFastShipPushedNearItsPointKeepsItsOrderUntilItIsBelowHalfItsImpulseSpeed()
+    {
+        var rig = Build();
+        rig.World.Move(rig.Unit, 0, 1000);
+        Run(rig, 5);
+        Assert.IsTrue(rig.State.Speed > 5, "the ship flies faster than half its impulse speed");
+        var goal = new Vector3(0, 38.5f, 1000);
+        rig.World.Push(rig.Unit, goal - new Vector3(0, 0, 10) - rig.Position); // 10 from the point
+        Assert.IsNotNull(rig.State.PlayerMove, "near but fast: the order stays open (0x428170)");
     }
 
     [TestMethod]
@@ -134,7 +138,7 @@ public class MoveArrivalTests
         rig.World.Push(rig.Unit, new Vector3(0, 0, 100));
         Assert.AreEqual(rig.Position, rig.State.Position);
         Assert.AreEqual(rig.Position.Z, rig.State.Position!.Value.Z);
-        Assert.IsTrue(rig.State.Velocity.Z > 9);
+        Assert.IsTrue(rig.State.Velocity.Z > 5);
     }
 
     [TestMethod]
@@ -153,11 +157,12 @@ public class MoveArrivalTests
             var rig = Build(weapon: weapon);
             rig.State.Alert = alert;
             rig.World.Push(rig.Unit, new Vector3(0, 0, 60));
-            Run(rig, 20);
-            Assert.AreEqual(0, rig.Position.Z, 1e-3, name);
+            Run(rig, 40);
+            Assert.IsTrue(Vector3.Distance(rig.Position, Vector3.Zero) < 25, $"{name}: at {rig.Position}");
             Assert.IsFalse(rig.State.Returning, name);
-            Run(rig, 5);
-            Assert.AreEqual(0, rig.Position.Z, 1e-3, name);
+            Run(rig, 20);
+            Assert.IsTrue(rig.State.Speed < 0.1, name);
+            Assert.IsTrue(Vector3.Distance(rig.Position, Vector3.Zero) < 25, $"{name}: at {rig.Position}");
         }
     }
 
@@ -187,14 +192,17 @@ public class MoveArrivalTests
     {
         var rig = Build();
         rig.World.Push(rig.Unit, new Vector3(0, 0, 60));
-        Run(rig, 5); // turns around, then drives back
+        Run(rig, 0.5); // starts to turn around
         Assert.IsTrue(rig.State.Returning);
+        Assert.IsTrue(rig.State.Speed < 5);
         var z = rig.Position.Z;
         rig.World.Push(rig.Unit, new Vector3(0, 3, 12 - z)); // 12 from the tether point, 3 above it
         Assert.IsFalse(rig.State.Returning);
         Assert.AreEqual(rig.Position, rig.State.Tether);
-        Run(rig, 10);
-        Assert.AreEqual(12, rig.Position.Z, 1e-3);
+        var tether = rig.State.Tether;
+        Run(rig, 20);
+        Assert.IsTrue(rig.State.Speed < 0.1);
+        Assert.IsTrue(Vector3.Distance(rig.Position, tether) < 5, $"at {rig.Position}, tether {tether}");
     }
 
     [TestMethod]
@@ -206,8 +214,9 @@ public class MoveArrivalTests
         rig.State.Alert = AlertStance.Yellow;
         Run(rig, 1);
         rig.State.Alert = AlertStance.Green;
-        Run(rig, 20);
-        Assert.AreEqual(0, rig.Position.Z, 1e-3);
+        Run(rig, 40);
+        Assert.IsTrue(Vector3.Distance(rig.Position, Vector3.Zero) < 25, $"at {rig.Position}");
+        Assert.IsFalse(rig.State.Returning);
     }
 
     [TestMethod]
@@ -220,8 +229,9 @@ public class MoveArrivalTests
         Assert.AreEqual(
             new MoveIntent
             {
-                Kind = MoveKind.MoveTo,
+                Kind = MoveKind.Dogfight,
                 X = 100,
+                Y = 0,
                 Z = 0,
             },
             rig.State.Intent
@@ -257,7 +267,7 @@ public class MoveArrivalTests
         rig.World.Push(rig.Unit, new Vector3(0, 0, 80));
         Assert.AreEqual((0f, 100f), rig.State.PlayerMove);
         Assert.IsFalse(rig.State.Returning);
-        Assert.AreEqual(new Vector3(0, 0, 100), rig.State.Tether); // the move order's point, as the order set it
+        Assert.AreEqual(new Vector3(0, rig.World.Band.Middle, 100), rig.State.Tether); // the move order's goal, as the order set it
     }
 
     [TestMethod]
@@ -308,16 +318,7 @@ public class MoveArrivalTests
                 DefinitionName = "s.odf",
                 Radius = 0,
                 Mobile = true,
-                Motion = new ShipMotion(
-                    new PhysicsValues
-                    {
-                        ImpulseSpeed = 10,
-                        YawRotationRate = 1,
-                        MaxRoll = null,
-                    },
-                    unit.Position,
-                    0
-                ),
+                Motion = FlightFixtures.Cruiser(unit.Position),
             };
         var world = new CombatWorld(
             new UnitPoses(new[] { first, second }),
@@ -348,8 +349,8 @@ public class MoveArrivalTests
         Assert.IsTrue(rig.Position.Z > 50);
         rig.State.Systems["Engines"].HitPoints = rig.State.Systems["Engines"].Max;
         rig.State.RestoreSystem("Engines");
-        Run(rig, 30);
-        Assert.AreEqual(0, rig.Position.Z, 1e-3);
+        Run(rig, 40);
+        Assert.IsTrue(Vector3.Distance(rig.Position, Vector3.Zero) < 25, $"at {rig.Position}");
     }
 
     [TestMethod]

@@ -1,18 +1,22 @@
 # On layouts/push-out.jsonc an asteroid field of radius 100 lies at (2000, 2000) between two destroyers. Near is ordered
-# to a point 5 inside the field's edge, Deep to a point 40 inside it. Each drives in until it meets the field and the
-# push-out moves it straight back out by position to the field's radius plus its own model radius. Near then stands
-# within tooCloseToTurn of its point, so the push ends its order and it stops where it stands (move=none). Deep
-# stands farther off and keeps its order open (move=<x>,<z>): it holds the ring at the same distance from the center,
-# without going back and forth, and slides slowly along the ring (a fraction of a unit in 10 s).
-# Dumps: "before" shows both 500 from the field's center; "driving" both on their way with move=<x>,<z>; "edge" and
-# "later" (10 s on) show both at the same distance from the center, Near with move=none and Deep with its order.
+# to a point 5 outside the field's edge, Deep to a point 40 inside it. Near's point lies in the cells the planner costs
+# around the field but not in its impassable core, so Near has a path (the cells the core touches reach 125 from the
+# center, the point is 105): it flies in until it meets the field and the push-out moves it straight back out by
+# position to the field's radius plus its own model radius (about 113 from the center), keeping its velocity. Near's
+# point lies 8 beyond that ring: the brake spring slows the ship pressed there to about 5, below half its impulse speed
+# (10), so the arrival test ends its order (move=none) and it comes to rest. Deep's point lies inside the field's
+# impassable core: the game's planner has no path to a goal in an impassable cell, so Deep holds where it stands with
+# no order (move=none) and never meets the field. (A move order cannot press a ship against the ring with its
+# order open: every point within the ring is in the core.)
+# Dumps: "before" shows both 500 from the field's center; "driving" Near on its way with move=<x>,<z> and Deep holding
+# with move=none; "edge" and "later" (10 s on) show Near at the ring with move=none and Deep still 500 from the center.
 # Run it with --layout layouts/push-out.jsonc; the layout's header comment has the whole command.
 # The points are in the frame of the dump's pos= field, whose z is the layout z mirrored.
 wait 1
 dump before
 select Near
 wait 0.3
-move 1905 -2000
+move 1895 -2000
 select Deep
 wait 0.3
 move 2060 -2000

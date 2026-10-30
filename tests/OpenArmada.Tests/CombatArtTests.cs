@@ -254,7 +254,7 @@ public class CombatArtTests
     }
 
     static Vector3 WorldOf(CombatArt art, (PlacedObject Unit, CombatProfile Profile) unit, string hardpoint) =>
-        art.HardpointPosition(unit.Unit, hardpoint, MoveGeometry.PlacedPose(unit.Unit.Position, unit.Unit.AxisZ));
+        art.HardpointPosition(unit.Unit, hardpoint, MoveGeometry.PlacedPose(unit.Unit));
 
     [TestMethod]
     public void HardpointPositionIsTheNodesOffsetFromTheUnitsCenter()

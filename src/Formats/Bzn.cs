@@ -188,6 +188,12 @@ public sealed record MapPath
 
     /// <summary>The path's points in file order.</summary>
     public required IReadOnlyList<Vector3> Points { get; init; }
+
+    /// <summary>
+    /// The path's type: the integer after its points in a map's record. An asteroid belt follows a path of type 3
+    /// (0x44e7b0); 0 for a path read from a <c>.pth</c> file, which carries none.
+    /// </summary>
+    public int Type { get; init; }
 }
 
 /// <summary>
@@ -415,10 +421,15 @@ public static class Bzn
             if (n < 0 || n > d.Length / 12)
                 throw new InvalidDataException($"path '{name}' point count {n} does not fit (offset {c.Offset})");
             var raw = c.Next(9, n * 12, "path points").Data;
-            c.Next(0, 4, "path field");
+            var type = BitConverter.ToInt32(c.Next(0, 4, "path type").Data);
             c.Next(5, 4, "path float");
             paths.Add(
-                new MapPath { Name = name, Points = Enumerable.Range(0, n).Select(k => Vec(raw, k * 12)).ToList() }
+                new MapPath
+                {
+                    Name = name,
+                    Points = Enumerable.Range(0, n).Select(k => Vec(raw, k * 12)).ToList(),
+                    Type = type,
+                }
             );
         }
 

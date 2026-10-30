@@ -153,7 +153,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             plan,
             selection,
             nodes,
-            (float)_rig.CombatPlaneHeight,
+            _rig.CombatBand,
             bounds,
             combat,
             move,

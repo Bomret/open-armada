@@ -111,7 +111,17 @@ _Avoid_: combat ship, armed ship, fighting unit
 **Asteroid field**
 A map object of class `asteroidfield` whose rocks the engine generates from the field's definition. The map
 stores only the field, not the rocks.
-_Avoid_: asteroid belt, rock field
+_Avoid_: rock field
+
+**Asteroid belt**
+An asteroid field whose record in the map names a path of the map of type 3. The path planner costs the squares along
+the path where it costs a plain field's square around the field.
+_Avoid_: asteroid ring
+
+**Nebula**
+A map object whose definition's `classLabel` is `nebula_obj`. Its area is a sphere of `effectRadius` around its
+position, cut by the plane y = 0. A ship with thrust in it flies under the speed cap of the nebula's kind (1 to 5).
+_Avoid_: gas cloud, fog
 
 **Game constants**
 The named values that the install's `RTS_CFG.h` declares, such as the camera heights and the combat plane.
@@ -153,10 +163,11 @@ The player sets it with a key chord.
 _Avoid_: alert level, stance, combat mode
 
 **Attack order**
-An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target
-until one of its weapons is within that weapon's range of the target's center, measured from the weapon's
-mount point on the model (see `docs/rules/combat-rules.md`, §Firing). Keep-closing past the closing distance is an
-engine stand-in (see `docs/rules/combat-rules.md`, §Attack order). The order ends when the target is destroyed.
+An order that names one hostile unit as the target of a unit with weapons. The unit moves by path toward the
+target until the gap is within its longest non-special weapon range less 50, then fights the **Dogfight** (see
+`docs/rules/combat-rules.md`, §Attack order). A weapon fires from a hardpoint within that weapon's range of the
+target's center (§Firing). The sandbox ends the order when the target is destroyed or dying (a stand-in:
+`docs/rules/combat-rules.md`, §Attack order).
 _Avoid_: attack command, focus fire
 
 **Move order**
@@ -220,8 +231,36 @@ _Avoid_: dead unit, destroyed unit, wreck
 
 **Coasting**
 The motion of a ship that has no thrust: a dying unit, a derelict, or a ship whose engines are
-destroyed. It keeps its velocity and its turn rate and slows down at a fixed rate.
+destroyed. It keeps its velocity and its pitch, yaw, and roll rates, and slows down at a fixed rate.
 _Avoid_: drifting, gliding, inertia
+
+**Flight model**
+The game's rules that move a ship: thrust, drag, and servos turn its orders into pitch, bank, and travel,
+from its physics definition. A ship without thrust coasts within it.
+_Avoid_: kinematic model (the retired stand-in), physics engine, flight controller
+
+**Orientation**
+A ship's facing: the game's pitch, yaw, and roll, composed as yaw about up after pitch about the side axis
+after roll about the forward axis. A unit placed by a map starts from the angles the game reads from the
+placed orientation.
+_Avoid_: heading and bank (the retired kinematic model's two angles)
+
+**Path**
+The points a move order steers a ship through, planned around costly and impassable cells of the map. The
+ship aims at a point a fixed lead distance ahead along it. The first point is the ship and the last the goal.
+_Avoid_: route, waypoints, navigation
+
+**Path planner**
+The game's planner of a path (`docs/rules/path-planning.md`): a quadtree of cell costs over the map, written by the
+asteroid fields, belts, nebulae, black holes, and starbases, searched by an A*, and straightened by a funnel. A goal in
+an impassable cell, off the grid, or with no route has no path, and the ship holds.
+_Avoid_: pathfinder, navmesh
+
+**Dogfight**
+How a ship moves while it attacks within the attack's band (the game's dogfight, 0x42c9d0): it drives at its
+target until the target is within its longest non-special weapon range, then levels out and turns to face it while
+nearly still. A Borg ship does not turn; a ship with a target-location weapon turns in place.
+_Avoid_: attack maneuver, attack run, combat movement
 
 **Forced motion**
 Motion that something other than a ship's own thrust gives it: a black hole's pull, a push-out, or a

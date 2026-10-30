@@ -123,6 +123,17 @@ public sealed record ShieldEllipsoid(Vector3 Center, Vector3 Radii, Vector3 HitC
         return MathF.Sqrt(points.Max(p => (p - center).LengthSquared()));
     }
 
+    /// <summary>
+    /// The lower and upper corner of the box around a model's points (the box <see cref="BoundingRadius"/> centres), in
+    /// the model's SOD coordinates; null for a model without points.
+    /// </summary>
+    public static (Vector3 Min, Vector3 Max)? ModelBox(Sod model, IReadOnlyList<SpriteNodeLine> spriteNodes)
+    {
+        var points = BoxPoints(model, spriteNodes);
+
+        return points.Count < 1 ? null : (points.Aggregate(Vector3.Min), points.Aggregate(Vector3.Max));
+    }
+
     // Every point the model load collects (0x5967f0): the root takes no transform of its own.
     static List<Vector3> BoxPoints(Sod model, IReadOnlyList<SpriteNodeLine> spriteNodes)
     {

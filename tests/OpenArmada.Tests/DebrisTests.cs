@@ -73,7 +73,7 @@ public class DebrisTests
         Sod? model,
         DebrisLimits? limits = null,
         Func<double>? random = null,
-        ShipMotion? motion = null,
+        FlightModel? motion = null,
         Vector3? at = null,
         CombatProfile? profile = null
     )
@@ -353,17 +353,9 @@ public class DebrisTests
     [TestMethod]
     public void APieceTakesNoShareOfTheUnitsVelocity()
     {
-        var motion = new ShipMotion(
-            new PhysicsValues
-            {
-                ImpulseSpeed = 100,
-                YawRotationRate = 2,
-                MaxRoll = null,
-            },
-            Vector3.Zero,
-            0
-        );
-        var random = Script(0.5, 0.75, 0.5, 1.0, 1.0, 0.5, 0.5, 0.5);
+        var motion = FlightFixtures.Cruiser(Vector3.Zero, 0, impulse: 100);
+        // the move order's facing offset takes the first draw
+        var random = Script(0.0, 0.5, 0.75, 0.5, 1.0, 1.0, 0.5, 0.5, 0.5);
         var scene = Build(Model(MeshNode("hull", "", 2)), Limits(life: 1, speed: 10), random, motion);
         scene.World.Move(scene.Unit, 0, 1000);
         scene.World.Step(1);

@@ -55,9 +55,10 @@ public sealed class PlayState
     /// The state dump: one line per addressable unit in plan order, then a last line <c>debris=</c> with the number of
     /// live debris pieces, <c>\n</c>-terminated, invariant culture, two
     /// decimals, the systems in a fixed order, and no time of day. A unit without combat state shows
-    /// <c>state=none</c> after its position and velocity. Fields, space-separated: name, team, pos (x,y,z), vel
+    /// <c>state=none</c> after its position, velocity, and angles. Fields, space-separated: name, team, pos (x,y,z), vel
     /// (x,y,z, the unit's world velocity in the frame of pos; 0,0,0 for a unit that stands still or has no combat
-    /// state), shields, crew, one
+    /// state), pitch, yaw, and roll (the unit's orientation as the game's angles in radians, see
+    /// <see cref="MoveGeometry"/>), shields, crew, one
     /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, coasting,
     /// destroyed (true once the unit has left the world), dying, alert, order,
     /// target, move (<c>x,z</c> of the player's open move order, or <c>none</c>), shieldDown (the state's shield-down overlay flag), damage (the names of the damage nodes the state
@@ -69,11 +70,13 @@ public sealed class PlayState
         var text = new StringBuilder();
         foreach (var unit in _names.Units)
         {
-            var p = _pose(unit).Position;
+            var pose = _pose(unit);
+            var p = pose.Position;
             var v = _states.TryGetValue(unit, out var moving) ? moving.Velocity : Vector3.Zero;
             text.Append(
                 CultureInfo.InvariantCulture,
                 $"{_names.Name(unit)} team={unit.Team} pos={p.X:F2},{p.Y:F2},{p.Z:F2} vel={v.X:F2},{v.Y:F2},{v.Z:F2}"
+                    + $" pitch={Angle(pose.Pitch)} yaw={Angle(pose.Yaw)} roll={Angle(pose.Roll)}"
             );
             if (_states.TryGetValue(unit, out var s))
             {
@@ -208,6 +211,14 @@ public sealed class PlayState
         };
 
     static string Flag(bool value) => value ? "true" : "false";
+
+    // Two decimals; an angle that rounds to zero from below shows as 0.00, so a level unit never shows -0.00.
+    static string Angle(float radians)
+    {
+        var text = radians.ToString("F2", CultureInfo.InvariantCulture);
+
+        return text == "-0.00" ? "0.00" : text;
+    }
 
     string Of(UnitCombatState? state) => state == null ? "none" : _names.Name(state.Unit);
 }

@@ -301,7 +301,40 @@ public class AsteroidFieldTests
     public void AFieldPushesByItsRadiusAroundItsMirroredCenter()
     {
         var (_, _, obstacles) = Collect(MapOf("m", Obj("mafield", 1)), Good);
-        Assert.AreEqual(new Obstacle(new Vector3(100, 0, -200), 400), obstacles.Single());
+        Assert.AreEqual(new Obstacle(new Vector3(100, 0, -200), 400, true), obstacles.Single());
+    }
+
+    [TestMethod]
+    public void AFieldsCollisionRadiusIsReadAndAMissingOrBadOneIsZero()
+    {
+        float Read(string keys) =>
+            Collect(MapOf("m", Obj("mafield", 1)), Good + keys).Obstacles.Single().CollisionRadius;
+        Assert.AreEqual(35f, Read("\ncollisionRadius = 35"));
+        Assert.AreEqual(0f, Read(""));
+        Assert.AreEqual(0f, Read("\ncollisionRadius = -4"));
+        Assert.AreEqual(0f, Read("\ncollisionRadius = wide"));
+    }
+
+    [TestMethod]
+    public void AFieldCollisionRadiusThatIsNoNumberIsReportedOnceAndOneThatIsMissingOrNotAbove0IsNot()
+    {
+        IReadOnlyList<ReportEntry> Reports(string keys) =>
+            Collect(MapOf("m", Obj("mafield", 1), Obj("mafield", 2)), Good + keys)
+                .Reports.Where(r => r.Cause.Contains("collisionRadius"))
+                .ToList();
+        var bad = Reports("\ncollisionRadius = wide").Single();
+        Assert.AreEqual(2, bad.Count, "both fields of the class");
+        foreach (var value in new[] { "1e40", "NaN", "Infinity" })
+        {
+            Assert.AreEqual(
+                2,
+                Reports($"\ncollisionRadius = {value}").Single().Count,
+                $"{value}: reported once per cause"
+            );
+        }
+
+        Assert.AreEqual(0, Reports("").Count, "missing");
+        Assert.AreEqual(0, Reports("\ncollisionRadius = -4").Count, "not above 0");
     }
 
     [TestMethod]

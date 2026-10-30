@@ -63,10 +63,14 @@ static class CombatFixtures
         bool crewAffects = false,
         int hardpoints = 1,
         float stopModifier = 0,
-        float toHitStopModifier = 0
+        float toHitStopModifier = 0,
+        bool special = false,
+        bool targetLocation = false
     ) =>
         new()
         {
+            Special = special,
+            TargetLocation = targetLocation,
             Slot = 1,
             Name = "w",
             Hardpoints = Enumerable.Range(1, hardpoints).Select(i => $"hp{i}").ToArray(),

@@ -1,0 +1,18 @@
+# Two Federation destroyers on layouts/nebula.jsonc get the same move order along +X: Inside starts in a row of Mutara
+# nebulae and Outside in clear space. The first dump (3 s) shows Inside's speed (vel=) below Outside's while Inside is in
+# the row. The path planner costs the row at the nebulae's pathing_cost of 400 (against the default 100) over their
+# effect radius times 1.8, so Inside's path leaves the row by a bend: its velocity there points off +X, where Outside's
+# stays on +X. The second dump (28 s) shows both ships still on their way, Outside on the straight line and Inside
+# on the planner's route around the row (neither has reached the point).
+# Run it with --layout layouts/nebula.jsonc; the layout's header comment has the whole command.
+# The point is in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 0.3
+select Inside
+move 2400 -2000
+wait 0.1
+select Outside
+move 2400 -2300
+wait 3
+dump inside
+wait 25
+dump after

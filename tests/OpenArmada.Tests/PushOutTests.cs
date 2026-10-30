@@ -40,17 +40,7 @@ public class PushOutTests
     {
         var unit = Placed("s", 1, at.X, at.Z) with { Position = at, Start = start };
         var poses = new UnitPoses(new[] { unit });
-        var motion = new ShipMotion(
-            new PhysicsValues
-            {
-                ImpulseSpeed = 10,
-                YawRotationRate = 1,
-                MaxRoll = null,
-                TooCloseToTurn = tooClose,
-            },
-            at,
-            0
-        );
+        var motion = FlightFixtures.Cruiser(at, 0, impulse: 20, tooClose: tooClose);
         var combat = new CombatUnit
         {
             Unit = unit,
@@ -85,7 +75,7 @@ public class PushOutTests
         Assert.IsNull(rig.State.PlayerMove);
         Assert.AreEqual(90f, rig.At.Z, 1e-3);
         Assert.AreEqual(0f, rig.At.X, 1e-3);
-        Assert.AreEqual(Vector3.Zero, rig.State.Velocity);
+        Assert.IsTrue(rig.State.Speed < 10, "slower than half the impulse speed, as the arrival test asks");
     }
 
     [TestMethod]
@@ -139,7 +129,9 @@ public class PushOutTests
         {
             var rig = Build(Vector3.Zero, null, 25, new Obstacle(new Vector3(0, 0, 400), radius));
             rig.World.Move(rig.Unit, 0, 400);
-            rig.Tick(2000);
+            // long enough to reach the ring and settle there (travel at the speed of 20 with a margin, and 8 s more), and
+            // short of 12 s without progress at the ring, which would plan the ship's path again
+            rig.Tick((int)(50 * ((400 - radius - 10) / 20 * 1.3 + 8)));
             Assert.AreEqual(400 - radius - 10, rig.At.Z, 1e-3, $"radius {radius}");
         }
     }
@@ -184,14 +176,23 @@ public class PushOutTests
     [TestMethod]
     public void APushOutLeavesTheVelocityAsItWas()
     {
+        // two ships fly the same order, one into a field: they stay together until the field's edge pushes one back, and in
+        // that tick the physics step has run before the push, so the push leaves the velocity the free ship has
         var free = Build();
         var pushed = Build(Field);
         foreach (var rig in new[] { free, pushed })
         {
             rig.World.Move(rig.Unit, 0, 150);
-            rig.Tick(498); // z is about 99.5 for the free ship; the pushed one sits at the edge
         }
 
+        var tick = 0;
+        while (pushed.At.Z >= free.At.Z && tick++ < 2000)
+        {
+            free.Tick();
+            pushed.Tick();
+        }
+
+        Assert.IsTrue(tick < 2000, "the field's edge pushed the ship");
         Assert.AreEqual(90f, pushed.At.Z, 1e-3);
         Assert.AreEqual(free.State.Velocity, pushed.State.Velocity);
         Assert.AreEqual(free.State.Speed, pushed.State.Speed);
@@ -213,8 +214,8 @@ public class PushOutTests
     {
         var rig = Build(new Obstacle(new Vector3(500, 0, 500), 30));
         rig.World.Move(rig.Unit, 0, 100);
-        rig.Tick(250);
-        Assert.AreEqual(50f, rig.At.Z, 0.5);
+        rig.Tick(100);
+        Assert.IsTrue(rig.At.Z > 5 && rig.At.Z < 50, $"z {rig.At.Z}");
         Assert.IsNotNull(rig.State.PlayerMove);
     }
 
@@ -238,8 +239,10 @@ public class PushOutTests
     static bool Outside(Vector3 at, Obstacle o) =>
         Vector2.Distance(new Vector2(at.X, at.Z), new Vector2(o.Center.X, o.Center.Z)) >= o.Radius + 10 - 1e-3f;
 
-    // Every position of the track within 1e-3 of the first (float rounding of the two pushes, as for one field).
-    static bool Rests(List<Vector3> at) => at.All(p => Vector3.Distance(p, at[0]) < 1e-3);
+    // Every position of the track within 1e-3 of the first in the plane (float rounding of the two pushes, as for one field);
+    // the height may still creep as the ship climbs toward its goal.
+    static bool Rests(List<Vector3> at) =>
+        at.All(p => Vector2.Distance(new Vector2(p.X, p.Z), new Vector2(at[0].X, at[0].Z)) < 1e-3);
 
     [TestMethod]
     public void AShipHoldingInsideTwoOverlappingFieldsIsMovedOutOfBothAndComesToRest()

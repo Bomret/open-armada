@@ -85,6 +85,18 @@ public class BznTests
     }
 
     [TestMethod]
+    public void ReadsAPathsTypeFromItsFieldToken()
+    {
+        var b = Sample();
+        b.Paths.Add(("belt", new[] { new Vector3(1, 38.5f, 2) }));
+        b.Paths.Add(("plain", new[] { new Vector3(3, 38.5f, 4) }));
+        b.PathTypes["belt"] = 3;
+        var map = Bzn.Read(b.Build());
+        Assert.AreEqual(3, map.Paths[0].Type);
+        Assert.AreEqual(0, map.Paths[1].Type);
+    }
+
+    [TestMethod]
     public void TeamOutsideTheGameRangeFails()
     {
         var b = Sample();

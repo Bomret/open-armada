@@ -160,6 +160,18 @@ public sealed record WeaponProfile
 
     /// <summary>The ordnance definition the weapon's <c>ordName</c> names.</summary>
     public required OrdnanceProfile Ordnance { get; init; }
+
+    /// <summary>
+    /// The <c>special</c> flag (0x5053a0). The dogfight's range and its choice of movement leave a special weapon
+    /// out (0x506e30): its range is not the ship's closing range.
+    /// </summary>
+    public bool Special { get; init; }
+
+    /// <summary>
+    /// The <c>targetLocation</c> flag (0x5053a0): the weapon is aimed at a point, so its ship turns in place toward
+    /// the point and never closes by the dogfight (0x42c9d0).
+    /// </summary>
+    public bool TargetLocation { get; init; }
 }
 
 /// <summary>

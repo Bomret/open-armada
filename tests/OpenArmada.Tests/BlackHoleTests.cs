@@ -58,17 +58,7 @@ public class BlackHoleTests
             Rotation = rotation,
         };
 
-    static ShipMotion Motion(Vector3 at) =>
-        new(
-            new PhysicsValues
-            {
-                ImpulseSpeed = 10,
-                YawRotationRate = 1,
-                MaxRoll = null,
-            },
-            at,
-            0
-        );
+    static FlightModel Motion(Vector3 at) => FlightFixtures.Cruiser(at);
 
     // The first unit is a ship at `at` (starting as `start`); `others` are placed too: a station when its Mobile flag is
     // false. Units without a motion take their pose from the poses, so they stand where they are placed.

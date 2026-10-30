@@ -37,8 +37,10 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   it while it stays valid and within the search radius, and takes the nearest valid hostile otherwise. A
   derelict is no valid target (0x42faa0), so a pick that turns derelict is dropped on the next tick. A unit
   that can attack (`canAttack`) stays near its **tether point**. While its center is within 300 units of that
-  point (in 3D, the square of the distance at most 90000, 0x42a3a9, the constant at 0x5ca7ac), it closes on its
-  pick (the game's attack maneuver, 0x42c400, is not traced, so how it closes is a **stand-in**). Farther away,
+  point (in 3D, the square of the distance at most 90000, 0x42a3a9, the constant at 0x5ca7ac), it fights the
+  dogfight at its pick (0x42a170 calls the attack maneuver 0x42c400, "The dogfight" below), with no path move and
+  no band test: it drives straight at the pick until the pick lies within the range, then stops and faces it. The
+  idle path tests no stance (searched, not found), so the sandbox's rule that red alone closes stays a **stand-in**. Farther away,
   or with no pick, it moves back to the point and stops there (0x42a3e4, 0x42a3f4), keeping its pick, so its
   weapons fire at it whenever one reaches. The edge has no margin: a unit closing on a pick near 300 units turns
   back to the point as soon as it crosses the edge and closes again once back inside (**stand-in**; whether the
@@ -46,7 +48,9 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   a ship stays where it was sent; an order without a position, such as a stop, sets it to where the unit stands
   (0x46eac0). The point starts at the unit's placed position (**stand-in**; the game's point at creation was
   not found). When a player's attack order ends with its target destroyed, the point becomes where the unit
-  stands then (**stand-in**). A move gives no height, so the point keeps the unit's own (**stand-in**). The
+  stands then (**stand-in**). A move gives no height: the order's goal lies at the middle of the combat band, and
+  the point takes that height (**stand-in**), so a move that ends short of its goal returns the ship to the band's
+  middle. The
   engine stops the closing when the stance leaves red (**stand-in**); the return is the hold below, which no
   stance ends. A player's attack order
   keeps a derelict target.
@@ -81,7 +85,8 @@ The install binds the stances to keys in `Input.map` (`green`, `yellow`, `red`).
 
 A unit with no weapons picks no target. Otherwise, at red or yellow (0x42ff80):
 
-1. The search radius is the longest range of the unit's weapons, less 25.
+1. The search radius is the longest range of the unit's non-special weapons (R, "State 5" below), less 25. A special
+   weapon that reaches farther does not widen it.
 2. Distances are measured surface to surface: the distance between the centers less the radii of both
    units.
 3. The current target is kept while it stays valid and within the radius.
@@ -102,19 +107,89 @@ radius. The game behaves the same way (**inferred** from the program's code; not
 
 ## Attack order
 
-An attack order (0x4294e0) names one target unit.
+An attack order names one target unit. The player's attack order is the process's state 5 (0x428e90); the AI's
+is state 7 (0x4294e0).
 
-- The closing range is the longest range of the unit's weapons (0x429616). While the surface distance is
-  more than the closing range less 50, the unit moves toward the target.
-- Within that distance, the unit holds position and turns toward the target once at least one of its
-  weapons has a hardpoint within the weapon's range of the target's center (see Firing). Until then it keeps
-  moving toward the target, so a target with a large radius is not out of reach (**stand-in**; the game
-  runs an attack maneuver that was not traced).
+**Which state the player's attack posts.** The command the interface offers for a hostile craft is 5: the craft's
+cursor command (0x4664e0, vtable slot 0x7c, in the default cursor mode) returns 5 for a hostile target when the
+attacker's weapon carrier holds a non-special weapon (0x46e2a0; the carrier's non-special count at +0x2c), and 0x470bf0
+sends the command byte on. The script export `Attack` posts 5 (0x436e50), `AI_Attack` posts 7 (0x437270), and the
+cheat `canofwhoopass` (0x4a77b0) turns 5 into 7 in the order handler (0x4274c0). That the command byte is the order
+type the handler switches on is **inferred** (the handler 0x426ad0 was not read for it). State 7 is the AI's attack,
+with a retreat check (0x4292d0, thresholds not studied); no team of the sandbox is an AI team, so it is not built.
+
+**State 5, each tick** (0x428e90):
+
+1. The weapons' target is the ordered unit when it is hostile and its surface distance is under R, else the nearest
+   valid pick (0x42ff80; target info 0x42fb90). R is the **range** of the unit: the longest `range` of its
+   non-special weapons (the carrier's +0x20, kept by 0x506e30), whatever a special weapon reaches.
+2. The gap is the distance between the ship's center and the target's center, less the ship's radius (+0x60) and
+   half the target's radius, or less none of the target's when a non-special weapon has `targetLocation = 1`.
+3. While the gap exceeds R − 50 (0x5ca798) the ship moves by path toward the target's center (0x42e4a0). The
+   game replans a path for a target farther than 400 and builds it again once the target has moved more than 300
+   from the path's goal; nearer, the move runs straight at the target. These two distances hold with the game
+   setting at 0x632ec4 off, its default; the setting's label is not known. The move may warp when the gap exceeds
+   R or the target is faster than the ship's impulse speed. The engine plans the path with the path planner, the
+   order list [the target] being planned, advanced, and replanned as a move order's is (`docs/rules/path-planning.md`,
+   "The order list and the replans"); a target no path leads to gives the ship the stop order (0x42ded0, 0x46eac0; an
+   attack's process type is 5, 6 or 7, never the 0x19 for which 0x42ded0 gives no stop order). That order is a move to the
+   ship's own position (0x4267a0 hands it to 0x426ad0 `case 2` on the next tick), so the attack ends and the ship holds
+   with no order. It models no warp (**stand-in**). The straight move hands 0x42e4a0 the ordered unit's velocity
+   (0x42fb90 reads it from +0x140 to +0x148 and gives it to 0x428e90), which enters the throttle spring as the point's
+   velocity; the engine passes it the same way.
+4. Within that gap a ship without a target-location weapon fights the dogfight at the weapons' target; with none
+   the game calls 0x46eac0(2) (0x429016), which ends the attack as the stop order of step 3 does. A ship with a
+   target-location weapon turns in place toward the ordered unit, except where its process byte +0x10c is set: that
+   case also calls 0x46eac0(2). 0x42fb90, which 0x428e90 calls first, sets +0x10c to 1 (and clears the ordered unit's
+   slot +0x68) when the ordered unit is lost: gone, its serial changed, its +0x1b1 set, or its +0x1a8 bit for the
+   ship's player set; 0x46eac0 clears it. After a loss, on the next tick (+0x68 already cleared), 0x42fb90 returns the
+   ship's own position as the point, velocity 0, half radius 0, and 0x42ff80's pick as the weapons' target; the gap in
+   0x428e90 is then below R − 50. A ship without a target-location weapon therefore fights the dogfight (0x42c400) at
+   that pick for as long as one exists and calls 0x46eac0(2) only when there is none; only a target-location ship ends
+   at once (+0x10c stays set). **Stand-in:** the engine ends the attack at once, for every ship, when the ordered unit
+   is destroyed or dying, and models neither the +0x1b1 nor the detection loss; the continued fight is not built. The
+   dump does not settle whether a death handler elsewhere ends the order before 0x428e90 runs again, nor which point
+   0x428e90 reads on the tick of the loss itself (the point `local_34` is not written there). The engine never reaches
+   the no-target case (inside the gap the ordered unit's surface distance is under R, so it is the weapons' target) and
+   would end the attack there as the game does.
+
+**The dogfight** (the attack maneuver 0x42c400, which calls 0x42c9d0). In stock play every attack maneuver takes
+the dogfight (maneuver mode 8): the test 0x42bf20 answers true because `MORASS_SHIP_LIMIT` is 1, under 3 (RTS_CFG.h),
+and a ship with a target-location weapon or with Borg physics takes it too. The maneuver does nothing for a ship
+whose engines are out or that is derelict, and holds its heading at throttle 0 when it has no target. It sets the warp
+multiplier to 1 and swaps the ship to the coefficients of `fastphys.odf` (`docs/rules/flight-model.md`, "The
+coefficient map"). The dogfight, with `d` the vector from the ship's origin to the target's origin and
+R as above:
+
+- The aim `F` is `d × (|d| − R)` while `|d| > R` (strict) and 0 within. Its Y is zeroed while the ship's center is
+  above `SHIP_COMBAT_CEILING` and the aim rises, or below `SHIP_COMBAT_FLOOR` and the aim sinks (stock 67 and 10).
+- The ship steers along `F` with scale 1 (0x42f740, "The steering routine"): beyond R the throttle is
+  min(|F|, 1), full impulse except within about 1/|d| of R, with the pitch servo toward the target's elevation;
+  within R the throttle is 0.001 and the pitch target 0, level.
+- A second yaw servo call toward the target's bearing atan2(d.x, d.z) follows the steering's and wins, so within R the
+  ship stops and faces the target. No lead point, circling, break-off, or pass exists. `DOGFIGHT_RANGE`,
+  `CIRCLE_IN_PLACE_DURING_COMBAT`, and the `ANCHOR_*` constants are not read by it.
+- A ship with a target-location weapon turns toward the ordered unit's center at throttle 0 (scale 0), or along its own
+  forward axis when that point lies within 10 (the squared distance at most 100, 0x5ca86c), so it keeps its heading.
+  **stand-in:** a ship with no ordered unit (an idle ship at red, closing on its own pick) takes its own center as the
+  point and so keeps its heading; the game's branch reads 0x4304e0 when an order list exists, and what that
+  yields for an idle ship, like where a non-idle order gives the point, was not traced.
+- A Borg ship writes no yaw target: the steering writes a velocity command only (`docs/rules/flight-model.md`, "The Borg
+  branch"), neither routine writes the heading target (+0x4b0), and each physics sub-step resets it to the
+  yaw, so the ship does not turn to face the target (**inferred** from the writes; the order of the process and the physics
+  step within a tick was not traced). The engine feeds the dogfight's aim to the Borg steering at scale 1 (a velocity
+  command along the aim), with no servo and no heading target.
+- The path move and the dogfight swap at the band's edge with no memory: the dogfight restarts its drive only when the
+  origin distance exceeds R. With small radii a ship enters the dogfight already within R, so it stops and faces.
+
 - The weapons fire at the ordered target only while it is within the longest weapon range. Until then
   they fire at the nearest valid target in range, as target selection picks it (0x42fd6f).
-- The order ends, and the unit becomes idle, when the target is destroyed (0x429903). A dying target counts
-  as destroyed. A derelict target keeps the order, so an attack order can finish off a derelict. A player's
-  attack order on a dying unit is refused.
+- When the ordered unit is lost, the player's attack (0x428e90, "State 5", step 4) ends at once for a ship with a
+  target-location weapon (0x46eac0(2)); a ship without a target-location weapon continues the fight at its own pick
+  and ends the order only when no pick is left (0x429016). **Stand-in:** the engine ends the order at once, and the
+  unit becomes idle, when the target is destroyed or dying, for every ship; a dying target counts as destroyed. A
+  derelict target keeps the order, so an attack order can finish off a derelict. A player's attack order on a dying
+  unit is refused.
 - A unit without weapons does not accept the order.
 
 ## Firing
@@ -149,7 +224,8 @@ The to-hit roll happens when the weapon fires (0x50a3b0):
 - Otherwise the chance is `hitChance`, plus `warpToHitModifier` when the firing unit is at warp, plus
   `toHitWarpModifier` when the target is at warp, plus `stopToHitModifier` when the firing unit is
   stopped, plus `toHitStopModifier` when the target is stopped. The slow modifiers are not used. **Stand-in**: a unit is stopped
-  when its velocity is 0; the game's test was not traced.
+  when the length of its physics velocity is below 0.1 (the root of the no-thrust brake's rest threshold, 0.01); the game's
+  test was not traced.
 - The shot hits when a uniform random number from 0 to 1 is at most the chance.
 
 A missed shot is aimed by the miss path (0x50aab0), which leads the target and offsets the aim by the target's
@@ -383,17 +459,20 @@ Every random draw goes through the combat world's seeded random source. A missin
 ## Coasting
 
 A ship with no thrust, a derelict, a dying unit, or one whose engines are destroyed, takes the no-thrust branch of the game's
-physics step (0x459440, checks 0x45969b-0x4596bf; ADR 0008). The branch tests the squared length of the
+physics step (0x459440, checks 0x45969b-0x4596bf; ADR 0011). The branch tests the squared length of the
 velocity vector (offset 0x140 of the physics object) against 0.01 (0x459c46). Below it the linear acceleration
 (0x158) is zeroed (0x459c59), so the ship keeps that residual speed. Otherwise the linear acceleration is the
 velocity normalized times the constant −2.0 at 0x5cc140 (0x459ca6-0x459cfe), with no heading term: the
 velocity slows against its own direction. The angular acceleration (0x164) is zeroed at 0x459c0a, so the
 pitch, yaw, and roll rates the ship had continue undamped. The yaw rate turns the heading. The roll angle wraps
 at ±π, so a ship that was rolling keeps rolling over. The pitch angle is held within ±1.5 rad (0x459ea8-0x459ed8)
-while its rate stays. The position moves by the world velocity at the middle of each step (0x459f2e-0x459f6a),
-and the orientation is built from the three angles (0x55d080). A coasting ship therefore travels a straight
-line while it turns. A turning derelict writes no velocity (0x466ca0), so the ship keeps what it had. A ship
-that stands still when it loses thrust stays still.
+while its rate stays. The position moves by the velocity after the first half of the step's acceleration
+(0x459f2e-0x459f6a: a half kick, the position, a second half kick), and the orientation is built from the three
+angles (0x55d080). A coasting ship therefore travels a straight line while it turns. A turning derelict writes no
+velocity (0x466ca0), so the ship keeps what it had. A ship that stands still when it loses thrust stays still. A
+dying ship with working engines, not derelict, still sets its yaw rate from its roll every sub-step (bank-to-turn,
+0x459579 ignores the dying flag), so its yaw follows its constant-rate roll; with its engines destroyed or
+derelict it leaves the yaw rate alone. `docs/rules/flight-model.md` ("The physics step") has the whole step.
 
 The coast starts from whatever speed the ship had. The speed cap is `impulseSpeed` times the warp speed
 multiplier (0x450a80), and the stock physics definitions set `impulseSpeed` 20 and `warpSpeed` 50 to 100. That a
@@ -402,13 +481,13 @@ seconds and speed² / 4 units: 10 s and 100 units from 20, 50 s and 2,500 units 
 waves can still change a coasting ship's velocity (`docs/rules/forced-motion.md`).
 
 No order, stop, face, or player move gives a coasting ship thrust. A ship whose engines are repaired and that
-is not derelict takes orders again. The coast starts at the combat world's tick that finds the unit without
-thrust and runs on the world's fixed tick, so positions do not depend on frame rate. The combat world owns
-every ship's motion from the moment the sandbox opens, and the view draws each ship between its tick
-poses; the simulated pose stays on the tick. A unit that starts without thrust, its engines destroyed or derelict,
-coasts from the first tick along its layout's starting velocity. **Stand-in**: the position moves by the mean
-velocity of each tick (the game's half-step integration is **inferred**). **Stand-in** (ADR 0009): the engine
-turns only the heading, so a coasting ship keeps its bank and pitch.
+is not derelict takes orders again, and keeps the velocity and the rates the coast left it. The combat world's
+tick that finds the unit without thrust runs the no-thrust branch, on the world's fixed tick, so positions do
+not depend on frame rate. The combat world owns every mobile ship's flight from the moment the sandbox opens, and
+the view draws each ship between its tick poses, ahead by its velocity and rates; the simulated pose stays on the
+tick. A unit that starts without thrust, its engines destroyed or derelict, coasts from the first tick along its
+layout's starting velocity. The physics step's pitch clamp holds the angle within ±1.5 while a coasting ship keeps
+its pitch rate.
 
 ## Damage nodes
 
@@ -542,7 +621,11 @@ sets 1.5; the sandbox draws its rocks at their stored size.
 
 ## Not known
 
-- The attack maneuver within range, and yellow alert's extra validity check.
+- Yellow alert's extra validity check, and where yellow stance stops a unit moving (the idle path tests no stance).
+- The label of the game setting at 0x632ec4 and the branch it takes in the attack maneuver (0x42dc30, 0x42d2b0), the
+  point 0x4304e0 a target-location ship's dogfight turns toward without an ordered unit, and the retreat thresholds of 0x4292d0.
+- Whether anything gives an attack back that the stop order of a no-path target ended (an AI or player re-issue, or the
+  target field +0x1c4; `docs/rules/path-planning.md`, "The order list and the replans").
 - Whether a player's attack order drops a target that turns derelict. The game's side check (0x42fb90,
   `task+0x110`) suggests it may, but the writer of that field was not found.
 - What the `targetEnemyCraft` and `targetEnemyBuildings` keys do.

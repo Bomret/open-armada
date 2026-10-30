@@ -152,11 +152,33 @@ public sealed record AsteroidField
     const string MissingKey = "asteroid field value missing or not a number, fields skipped";
     const string MinAboveMax = "asteroid field minimum above maximum, fields skipped";
     const string BadRadius = "asteroid field radius not a finite number above 0, fields skipped";
+    const string BadCollisionRadius = "asteroid field collisionRadius is no number, the field radius used";
     const string BadCount = "asteroid field count negative or above the bound, fields skipped";
 
     // stand-in: the largest rock count of one field the sandbox plans (the game's limit is not known; 4mama's fields
     // hold up to 4,800 rocks together), which keeps a bad value from allocating without bound.
     const int MaxRocksPerField = 20000;
+
+    // The field definition's collisionRadius (class +0x170, 0x46a470) where it is a number above 0, else 0. stand-in: a
+    // field without one is predicted at its field radius; the game falls back to the model radius, which a field's
+    // object has not been traced to.
+    // A value that is no number is reported (once per class) and counts as 0; one that is a number but not above 0
+    // counts as 0 without a report. stand-in: a non-finite value (infinity, or beyond a float's range) is no number to
+    // the definition reader and is reported so, where the game accepts infinity; flight must stay finite.
+    static float CollisionRadius(ResolvedDefinition d, Gaps gaps, object field)
+    {
+        try
+        {
+            return d.Has("collisionRadius") ? AvoidanceTraits.Usable(d.GetFloat("collisionRadius")) : 0;
+        }
+        catch (DefinitionException)
+        {
+            gaps.Add(BadCollisionRadius, d.Name, field);
+
+            return 0;
+        }
+    }
+
     const string MissingModel = "asteroid model missing, the others used";
     const string NoModel = "no asteroid model left, fields skipped";
 
@@ -211,7 +233,7 @@ public sealed record AsteroidField
             var radiusUsable = radius > 0 && float.IsFinite(radius);
             if (radiusUsable)
             {
-                obstacles.Add(new Obstacle(center, radius));
+                obstacles.Add(new Obstacle(center, radius, true, CollisionRadius(d, gaps, o)));
             }
 
             if (bad)

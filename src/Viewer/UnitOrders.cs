@@ -16,7 +16,7 @@ namespace OpenArmada.Viewer;
 /// the selected ships to where its ray meets the middle of the combat plane, clamped to the map's bounds, as a group
 /// move (CombatWorld.GroupMove: one ship goes to the point, several to the cells of the game's group formation around
 /// it); a ray that misses the plane is ignored. A new order of either kind replaces the old one.
-/// Each ship moves at its own height by its ShipMotion, fed by its physics definition, and follows the movement
+/// Each ship flies by its FlightModel, fed by its physics definition, and follows the movement
 /// its CombatWorld asks of it while it attacks. Stations and all other objects never move. Pose reads the
 /// current pose of any unit, from the moment the map opens: the placed pose until the unit moves. Each frame
 /// steps the CombatWorld, decides each unit's showing damage nodes once (ShowingNodes), and takes a destroyed unit
@@ -28,11 +28,8 @@ public partial class UnitOrders : Node3D
     readonly RepeatedFaults _faults = new(Area.Combat);
     readonly Dictionary<PlacedObject, Node3D> _nodes;
 
-    // Scale is the node basis's scale (negative on all axes for a mirrored basis); the rotation is rebuilt around it.
-    readonly Dictionary<
-        PlacedObject,
-        (ShipMotion Motion, System.Numerics.Quaternion Initial, float Heading, Vector3 Scale)
-    > _moving = new();
+    // Scale is the node basis's scale (HardpointGeometry.Split: negative on the side axis for a mirrored basis); the pose's rotation is built around it.
+    readonly Dictionary<PlacedObject, (FlightModel Motion, Vector3 Scale)> _moving = new();
     readonly UnitPoses _poses;
     readonly MovePlan _plan;
     readonly CombatWorld _world;
@@ -50,8 +47,8 @@ public partial class UnitOrders : Node3D
     static readonly IReadOnlySet<Sod.Node> NoNodes = new HashSet<Sod.Node>();
 
     /// <summary>
-    /// <c>planeHeight</c> is the middle of the combat plane, the camera rig's CombatPlaneHeight (the rig reports its
-    /// stand-ins), so orders aim at the plane the camera looks at; <c>bounds</c> are the ones the rig clamps its look-at
+    /// <c>band</c> is the camera rig's combat band (the rig reports its stand-ins): its middle is the plane orders aim
+    /// at, the plane the camera looks at, and its limits clamp the steering's climb and sink; <c>bounds</c> are the ones the rig clamps its look-at
     /// point to. <c>move</c> holds the physics definitions of the ships that can move. <c>combat</c> holds every unit's combat values; the units fight in a CombatWorld that this node steps
     /// and whose state it shows through Combat. <c>model</c> reads a unit's model for its damage nodes. <c>seed</c> seeds the combat random source; null seeds it from the
     /// system, so every run differs.
@@ -61,7 +58,7 @@ public partial class UnitOrders : Node3D
         SandboxPlan plan,
         UnitSelection selection,
         Dictionary<PlacedObject, Node3D> nodes,
-        float planeHeight,
+        CombatBand band,
         MapBounds bounds,
         CombatPlan combat,
         MovePlan move,
@@ -74,7 +71,7 @@ public partial class UnitOrders : Node3D
         _model = model;
         _selection = selection;
         _nodes = nodes;
-        _planeHeight = planeHeight;
+        _planeHeight = band.Middle;
         _spacing = combat.FormationSpacing;
         _bounds = bounds;
         _poses = new UnitPoses(selection.Units.Select(u => u.Object));
@@ -114,7 +111,15 @@ public partial class UnitOrders : Node3D
             return profile;
         }
 
+        // obstacle avoidance reads each class's avoidMe, avoidanceClass, and collisionRadius; a bad value is logged (by
+        // ByClass) and shown as a gap once per class
+        var traitsOf = AvoidanceTraits.ByClass(plan.Resolved, gap);
+
         var random = seed is { } fixedSeed ? new System.Random(fixedSeed) : new System.Random();
+        var stations = selection
+            .Units.Where(u => u.Unit is Station && model(u.Object) != null)
+            .Select(u => PathPlanning.Footprint(u.Object, model(u.Object)!, spriteNodes))
+            .OfType<PathStation>();
         _world = new CombatWorld(
             _poses,
             selection
@@ -127,6 +132,8 @@ public partial class UnitOrders : Node3D
                     DefinitionName = // inferred: per-target values name a definition with its `.odf` suffix (docs/rules/combat-rules.md)
                         u.Object.Class + ".odf",
                     Radius = Radius(nodes[u.Object]),
+                    Avoidance = traitsOf(u.Object.Class),
+                    Starbase = u.Unit is Station,
                     Mobile = u.Movable && u.Unit is Ship && _plan.Physics.ContainsKey(u.Object),
                     Motion = u.Movable && u.Unit is Ship ? Motion(u.Object) : null,
                     Shield = Shield(u.Object, combat.Profiles[u.Object]),
@@ -140,9 +147,13 @@ public partial class UnitOrders : Node3D
         )
         {
             MaxPreventionRotation = combat.MaxPreventionRotation,
+            Band = band,
+            Avoidance = combat.Avoidance,
             // a planet's radius is its model's bounding radius (+0x60), the same value a ship's radius is
             Obstacles = plan.Obstacles(o => model(o) is { } sod ? ShieldEllipsoid.BoundingRadius(sod, spriteNodes) : 0),
             BlackHoles = plan.BlackHoles,
+            Nebulae = plan.NebulaGrid,
+            Planner = PathPlanning.Create(files, plan, combat.FormationSpacing, stations, gap),
         };
         _fighting = _world.Units.Select(u => u.Unit).ToHashSet();
     }
@@ -212,26 +223,16 @@ public partial class UnitOrders : Node3D
             _world.GroupMove(moving, new System.Numerics.Vector2(to.X, to.Y), _spacing, _planeHeight, _bounds);
     }
 
-    // The ShipMotion of a ship that can move, which the combat world steps; made once. Null for a unit that never moves.
-    ShipMotion? Motion(PlacedObject o)
+    // The FlightModel of a ship that can move, which the combat world steps; made once. Null for a unit that never moves.
+    FlightModel? Motion(PlacedObject o)
     {
         if (_moving.TryGetValue(o, out var state))
             return state.Motion;
         if (!_plan.Physics.TryGetValue(o, out var physics) || !_nodes.TryGetValue(o, out var node))
             return null;
-        var initial = node.Transform.Basis.GetRotationQuaternion();
-        var heading = MoveGeometry.BowHeading(new System.Numerics.Vector3(o.AxisZ.X, o.AxisZ.Y, o.AxisZ.Z));
-        var motion = new ShipMotion(
-            physics,
-            new System.Numerics.Vector3(o.Position.X, o.Position.Y, o.Position.Z),
-            heading
-        );
-        _moving[o] = (
-            motion,
-            new System.Numerics.Quaternion(initial.X, initial.Y, initial.Z, initial.W),
-            heading,
-            node.Transform.Basis.Scale
-        );
+        var motion = new FlightModel(physics, MoveGeometry.PlacedPose(o));
+        var scale = HardpointGeometry.Split(o).Scale;
+        _moving[o] = (motion, new Vector3(scale.X, scale.Y, scale.Z));
 
         return motion;
     }
@@ -301,10 +302,10 @@ public partial class UnitOrders : Node3D
 
         // The world moves the ships on its ticks; the view draws each between its tick poses (the simulated pose
         // stays on the tick), before the step's events reach the nodes that read the drawn transforms.
-        foreach (var (o, (motion, initial, start, scale)) in _moving)
+        foreach (var (o, (motion, scale)) in _moving)
         {
             var pose = motion.Drawn(_world.Pending);
-            var q = MoveGeometry.Orientation(initial, pose.Heading - start, pose.Bank);
+            var q = pose.Orientation;
             _nodes[o].Transform = new Transform3D(
                 new Basis(new Quaternion(q.X, q.Y, q.Z, q.W)) * Basis.FromScale(scale),
                 new Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z)

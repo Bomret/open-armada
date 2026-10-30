@@ -60,41 +60,35 @@ public static class HardpointGeometry
 
     /// <summary>
     /// The world position of a point at <c>offset</c> in the model of <c>unit</c>, which stands in <c>pose</c>: the
-    /// unit's node transform as UnitOrders sets it (its placed basis, turned by the heading change and the bank, at the
-    /// pose's position), applied to the offset. A mirrored placed basis keeps its mirror.
+    /// unit's node transform as UnitOrders sets it (the pose's orientation, <see cref="ShipPose.Orientation"/>, at the
+    /// pose's position, with the placed basis's scale), applied to the offset. A mirrored placed basis keeps its mirror.
     /// </summary>
     public static Vector3 WorldPosition(PlacedObject unit, ShipPose pose, Vector3 offset)
     {
-        var (scale, turned) = Placement(unit, pose);
+        var scale = Split(unit).Scale;
 
-        return pose.Position + Vector3.Transform(offset * scale, turned);
+        return pose.Position + Vector3.Transform(offset * scale, pose.Orientation);
     }
 
     /// <summary>The offset in the model, in Godot's frame, of the world point <c>at</c>: the inverse of <see cref="WorldPosition"/>.</summary>
     public static Vector3 ModelOffset(PlacedObject unit, ShipPose pose, Vector3 at)
     {
-        var (scale, turned) = Placement(unit, pose);
+        var scale = Split(unit).Scale;
 
-        return Vector3.Transform(at - pose.Position, Quaternion.Inverse(turned)) / scale;
+        return Vector3.Transform(at - pose.Position, Quaternion.Inverse(pose.Orientation)) / scale;
     }
 
     /// <summary>
-    /// The scale and the rotation of the unit's node transform at the pose, in Godot's frame: a model offset <c>p</c>
-    /// stands at <c>pose.Position + Rotate(p * Scale, Turned)</c>.
+    /// The unit's placed basis split into scale and rotation: the scale is the axes' lengths, with the mirror of a
+    /// negative determinant on the side axis only, so the rotation's side, up, and forward axes are (-X, Y, Z) of a
+    /// mirrored basis and its forward axis is the raw one, the bow the model shows (the game's yaw reads it). The
+    /// three unit axes are the rotation's columns.
     /// </summary>
-    public static (Vector3 Scale, Quaternion Turned) Placement(PlacedObject unit, ShipPose pose)
+    public static (Vector3 Scale, Vector3 X, Vector3 Y, Vector3 Z) Split(PlacedObject unit)
     {
-        // The basis splits into scale and rotation as Godot's Basis does: a negative determinant negates the scale.
         var sign = Vector3.Dot(unit.AxisX, Vector3.Cross(unit.AxisY, unit.AxisZ)) < 0 ? -1f : 1f;
-        var scale = new Vector3(unit.AxisX.Length(), unit.AxisY.Length(), unit.AxisZ.Length()) * sign;
-        var x = unit.AxisX / scale.X;
-        var y = unit.AxisY / scale.Y;
-        var z = unit.AxisZ / scale.Z;
-        var initial = Quaternion.CreateFromRotationMatrix(
-            new Matrix4x4(x.X, x.Y, x.Z, 0, y.X, y.Y, y.Z, 0, z.X, z.Y, z.Z, 0, 0, 0, 0, 1)
-        );
-        var turned = MoveGeometry.Orientation(initial, pose.Heading - MoveGeometry.BowHeading(unit.AxisZ), pose.Bank);
+        var scale = new Vector3(unit.AxisX.Length() * sign, unit.AxisY.Length(), unit.AxisZ.Length());
 
-        return (scale, turned);
+        return (scale, unit.AxisX / scale.X, unit.AxisY / scale.Y, unit.AxisZ / scale.Z);
     }
 }

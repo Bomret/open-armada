@@ -21,9 +21,15 @@ public class CombatPlanTests
 
     const string Physics = "physicsFile = \"p.odf\"\r\n";
     const string Constants =
-        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\n";
+        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\n"
+        + AvoidanceConstants;
     const string ConstantsWithoutPrevention =
-        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\n";
+        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\n"
+        + AvoidanceConstants;
+
+    // the stock install's avoidance keys (RTS_CFG.h lines 272, 276, 280)
+    const string AvoidanceConstants =
+        "int OBSTACLE_AVOIDANCE = 0;\r\nfloat COLLISION_LOOK_AHEAD_TIME = 1.4;\r\nfloat COLLISION_SAFETY_MARGIN = 1.2;\r\n";
     const string ArtConstants =
         "int ST3D_CHUNK_MANAGER_MAX_CHUNKS = 1500;\r\nfloat ST3D_CHUNK_DENSITY = 0.8;\r\nfloat ST3D_CHUNK_MAX_LIFETIME = 2.75;\r\n"
         + "float ST3D_CHUNK_MAX_ANGULAR_VELOCITY = 5.0;\r\nfloat ST3D_CHUNK_MAX_VELOCITY = 70.0;\r\n";
@@ -122,6 +128,20 @@ public class CombatPlanTests
         Assert.AreEqual(2f, w.Ordnance.DamageBase.For("zmama.odf"));
         Assert.AreEqual(1f, w.HitChance.For("zmama.odf"));
         Assert.AreEqual("bp", w.Ordnance.Sprite);
+    }
+
+    [TestMethod]
+    public void TheSpecialAndTargetLocationFlagsOfAWeaponAreRead()
+    {
+        var r = OneShip(
+            "weapon1 = \"beam\"\r\nweaponHardpoints1 = \"hp1\"\r\nweapon2 = \"flagged\"\r\nweaponHardpoints2 = \"hp2\"\r\n",
+            ("flagged", Beam + "special = 1\r\ntargetLocation = 1\r\n")
+        );
+        var weapons = ProfileOf(r).Weapons;
+        Assert.IsFalse(weapons.Single(w => w.Slot == 1).Special);
+        Assert.IsFalse(weapons.Single(w => w.Slot == 1).TargetLocation);
+        Assert.IsTrue(weapons.Single(w => w.Slot == 2).Special);
+        Assert.IsTrue(weapons.Single(w => w.Slot == 2).TargetLocation);
     }
 
     [TestMethod]
@@ -508,7 +528,7 @@ public class CombatPlanTests
         var r = Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) }, ("RTS_CFG.h", "int OTHER = 1;\r\n"));
         Assert.AreEqual(1f, r.Plan.ShieldDamageProtection);
         Assert.AreEqual(0f, r.Plan.SystemHitpointsBonus);
-        Assert.AreEqual(4, r.Plan.Reports.Count(g => g.Cause.Contains("game constant")));
+        Assert.AreEqual(7, r.Plan.Reports.Count(g => g.Cause.Contains("game constant")));
         Assert.AreEqual(40f, r.Plan.FormationSpacing);
     }
 
@@ -555,6 +575,29 @@ public class CombatPlanTests
         );
         Assert.AreEqual(0.4f, r.Plan.MaxPreventionRotation);
         Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("game constant MAX_PREVENTION_ROTATION")));
+    }
+
+    [TestMethod]
+    public void TheAvoidanceKeysComeFromTheInstall()
+    {
+        var r = Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) }, ("RTS_CFG.h", Constants));
+        Assert.AreEqual(new AvoidanceKeys(false, 1.4f, 1.2f), r.Plan.Avoidance);
+        Assert.AreEqual(0, r.Plan.Reports.Count(g => g.Cause.Contains("OBSTACLE_AVOIDANCE")));
+    }
+
+    [TestMethod]
+    public void AMissingAvoidanceKeyTakesTheGamesDefaultAndIsReportedOnce()
+    {
+        var r = Plan(
+            new[] { "s", "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", "#include \"ART_CFG.h\"\r\nfloat COLLISION_LOOK_AHEAD_TIME = 2.0;\r\n")
+        );
+        // the game's statics: on, 4.0, 1.5 (0x5fbc30, 0x5fbc34, 0x5fbc38); the key the file sets is the file's
+        Assert.AreEqual(new AvoidanceKeys(true, 2f, 1.5f), r.Plan.Avoidance);
+        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("game constant OBSTACLE_AVOIDANCE")));
+        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("game constant COLLISION_SAFETY_MARGIN")));
+        Assert.AreEqual(0, r.Plan.Reports.Count(g => g.Cause.Contains("game constant COLLISION_LOOK_AHEAD_TIME")));
     }
 
     [TestMethod]

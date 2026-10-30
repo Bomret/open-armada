@@ -88,10 +88,15 @@ The engine's stand-ins for the field and planet push-out:
 The overlap test is `0.0 < (r + ship radius)² − d²`, with the plane distance d: the float at 0x5ca16c is 0.0 (read
 from `Armada.exe`'s `.rdata`), so the push runs when (r + ship radius)² is above the squared plane distance.
 
-A push-out goes through the push route, so a ship ordered to a point inside a field or a planet and left within
-`tooCloseToTurn` of it by the push ends its order and stops at the edge; one held off farther rests at the edge
-with its order open, with no back and forth: it stays on the ring at the same distance from the center and slides
-slowly along it (`play/push-out.play`, a field; `play/push-out-planet.play`, a planet).
+A push-out goes through the push route, so a ship ordered to a point inside a planet, or to one at a field's edge, and
+left within `tooCloseToTurn` of it by the push ends its order and stops at the edge; one held off farther rests at the
+edge with its order open, with no back and forth: it stays on the ring at the same distance from the center and slides
+slowly along it (`play/push-out.play`, a field; `play/push-out-planet.play`, a planet). A ship that moves no more than
+1 unit in 12 whole seconds of this has its path dropped and planned again to its order's first point, the ship's
+position at order time, so it leaves the ring toward that point and plans to the goal again once it is within the lead
+distance of it (the stuck rule, `docs/rules/path-planning.md`, "The order list and the replans"). A planet is no obstacle to the
+path planner, so its point has a path. A point inside a field's core, which the planner costs impassable, has none
+(`docs/rules/path-planning.md`): the ship holds and meets no ring.
 
 ### Event horizon
 
@@ -215,6 +220,11 @@ is **inferred** to be handled twice per tick.
 - The axis is a = normalize(f × V), with no guard for a zero length. The angle is φ = (pen / |e|) ×
   `MAX_PREVENTION_ROTATION` / α. The nose turns toward V, away from the other ship. The share gates the turn and
   does not scale the angle.
+- The rotation by φ about a turns the whole orientation (side, up, and forward axes), and the turned matrix is
+  written through the matrix setter (slot 0x14, 0x4718e0), which reads pitch, yaw, and roll back by the
+  decomposition (0x458ea0, `docs/rules/flight-model.md`, "The decomposition"). So the ship pitches and rolls as
+  well as yaws, by the decomposition's angles (a roll can change too), and the heading target becomes the new yaw.
+  The rates stay as they were.
 - `MAX_PREVENTION_ROTATION` is read from `RTS_CFG.h` (0x4453f0). The stock value is 0.6 and the compiled default
   is 0.4.
 
@@ -226,7 +236,8 @@ engine does not reproduce the clamp.
 
 ### Stand-ins in the engine
 
-- **Heading-only turn** (ADR 0009): the engine applies only the heading (yaw) part of the turn's rotation.
+- **A nose parallel to V** has no axis (the game divides by the zero length of f × V): the engine turns nothing, and
+  also for a nose within a sine of 1e-5 of V's line, where float noise would make the axis arbitrary.
 - **No warp multiplier:** the engine's speed cap in the black hole's pull uses a multiplier of 1.
 - **The hole's height** is the **inferred** one of "Black hole". The engine lowers the placed position by
   `distanceBelowGrid` whenever the definition gives one (the `moveBelowCombatArea` test and the combat floor of
@@ -259,16 +270,15 @@ engine does not reproduce the clamp.
 - **The centers** cA and cB are the units' positions. The turn reads the positions after A's move.
 - **The pass's ships:** a unit without a motion (a station) and a derelict ship run no pass, and a unit that is
   not dying is a neighbor. The engine has no phased state. The neighbor box is on X and Z.
-- **A head-on push turns no heading.** The rotation about the axis of the nose and the push is a pitch for a
-  ship pushed straight along its nose, and the engine keeps only the heading part. A ship that drives head-on into
-  another keeps its heading and slides up over it, since nothing in the engine holds a flying height. A ship held
-  off farther than its `tooCloseToTurn` from the point keeps its order open, is lifted by the separation's
-  vertical push, passes over the other ship, and ends its order by arrival above it; neither moves afterwards. The
-  reasoning: the game's separation is position-only, with the fixed 0.42 vertical push and no height hold (ADR
-  0009), so the game very likely climbs too. That game-side climb is **inferred, not observed**.
-- **The turn rotates a moving ship's velocity.** A ship with thrust takes its velocity from its heading, so the
-  collision turn changes the direction of its velocity (the speed stays). The game's turn writes only the
-  orientation, never the velocity (+0x140).
+- **A head-on push.** A ship whose nose points straight at the other ship has α of 0 (the push runs against the
+  nose) and takes no turn. That is the engine's own guard (`alpha <= 0`): the game's φ divides by α and would be
+  infinite there (**stand-in**: the game's division by 0 is not recovered). A ship that drives head-on into another keeps its heading and slides up over it, since the flight model
+  steers height only toward a goal and holds none. A ship held off farther than its `tooCloseToTurn` from the point keeps its order open, is lifted by
+  the separation's vertical push, passes over the other ship, and ends its order by arrival above it; neither moves
+  afterwards. The reasoning: the game's separation is position-only, with the fixed 0.42 vertical push and no height
+  hold, so the game very likely climbs too. That game-side climb is **inferred, not observed**.
+- **The turn leaves the velocity.** The collision turn writes only the orientation (`FlightModel.SetAngles`), never
+  the velocity (+0x140) or the rates, as the game's does; the physics step turns the velocity later through its drag and thrust terms.
 - **`borgPhysics`** is read from the physics definition as a number other than 0.
 
 The avoidance force of `Collision.cfg` (0x436580, 0x435600) is steering of the unit AI. The stock file sets
@@ -280,11 +290,14 @@ A push and a separation touch no order state (0x464910 and its callees read and 
 update ends it, and the idle handler holds the spot afterwards.
 
 - **Arrival** (the move order's update, 0x428170). Each tick, before the path follower, the order posts the stop
-  order (0x46eac0) when the 3D distance to the path's last point is under `tooCloseToTurn` (class +0x208) **and**
+  order (0x46eac0) when the 3D distance to the order's last point is under `tooCloseToTurn` (class +0x208) **and**
   the speed (+0x138) is under 0.5 × `impulseSpeed` (+0x4a8; the 0.5 at 0x5ca230). A looping path skips the test.
-  The stop order is a one-point path at the ship's own position. The same tick ends the order of a ship that a
+  The stop order (a pending command 2 with a one-point list at the ship's own position) is read the next tick by 0x4267a0
+  and handed to 0x426ad0, whose `case 2` makes it the ship's order (`docs/rules/path-planning.md`, "The order list and the
+  replans"). The same tick ends the order of a ship that a
   separation or a push-out leaves inside the radius and slowed down; one held off beyond the radius keeps its order
-  and replans its path (the stuck rule in 0x42ded0 never ends an order).
+  and replans its path after 12 whole seconds (the stuck rule in 0x42ded0, `docs/rules/path-planning.md`, never ends
+  an order).
 - **`tooCloseToTurn`** is a key of the physics definition (read by 0x455440). The stock definitions set 50, and
   `destphys.odf` sets 40. The compiled default is 25 (0x45fbe0, which also sets `tooCloseForWarp` 100,
   `tooSlowToTurn` 1, and `pathLeadDistance` 30).
@@ -292,20 +305,23 @@ update ends it, and the idle handler holds the spot afterwards.
   holds the point of its last path, its tether point, at every alert stance, with or without weapons. Within
   `tooCloseToTurn` of the point the maneuver zeroes the control vector and brakes the throttle along the forward
   axis (a critically damped brake, 0x4657b0, 0x4699e0) and the ship stays. Beyond it the ship steers back. That
-  a ship pushed beyond the radius steers back to the point is **inferred** from the maneuver's structure. The
-  game's attack maneuver (0x42c400) is not traced.
+  a ship pushed beyond the radius steers back to the point is **inferred** from the maneuver's structure. A ship that
+  can attack and has a pick fights it instead while within 300 of the point, by the attack maneuver (0x42c400);
+  `docs/rules/combat-rules.md`, "Alert stance" and "The dogfight", states it.
 - **Group move.** Several ships ordered to one point never share it; see "Group move" below.
 
 ### Stand-ins in the engine
 
-- **Arrival by a push** (ADR 0009): the kinematic model has no brake, so a push that leaves a ship strictly under
-  `tooCloseToTurn` from the order's point stands for "slow and near": the order ends where the ship stands, the
-  motion's target ends with it, and that spot, its height included, becomes the tether point. A push that leaves it
-  at or beyond the radius leaves the order open. A ship that drives to its point ends the order on reaching it.
-- **The hold** has no brake: a ship nearer than `tooCloseToTurn` to its tether point does not move at all, and a
-  ship at or beyond it drives back and stops on reaching the point (or on a push that leaves it inside the
-  radius, which makes that spot the tether point). A ship that regains thrust away from its tether point drives
-  back to it. A change of stance does not end the return. Red's close-on-pick
+- **Arrival by a push.** The arrival test runs at once on a ship that a push has moved, with the game's two tests:
+  the order's point strictly under `tooCloseToTurn` away in 3D and the speed under half the `impulseSpeed`. The order
+  and its path end where the ship stands, and that spot, its height included, becomes the tether point. A push that
+  leaves the ship at or beyond the radius, or too fast, leaves the order open. (The game runs the test in the next
+  tick's order update; the engine runs it at the push and in each tick's process.) A ship that flies to its point
+  ends the order there by the same test.
+- **The hold** brakes a ship nearer than `tooCloseToTurn` to its tether point where it stands, and a ship at or
+  beyond it drives back and ends the return on arrival by the same test (or on a push that leaves it so, which makes
+  that spot the tether point). The game's hold inside the radius uses the tether point itself in the brake spring.
+  A change of stance does not end the return. Red's close-on-pick
   within 300 units of the tether point keeps precedence, and red's return after closing is the same hold.
 - **`tooCloseToTurn` default:** a definition without the key, or whose value is not a positive number, takes 25
   and is reported once per class as a plan gap. The stock `destphys.odf` writes `tooCloseToTurn = 40;` with a
@@ -360,9 +376,10 @@ alone. The sandbox's right-click and a play script's `move` step aim the same cl
 - **One move order per cell.** The leader's order and the followers' follow orders reduce to one move order per
   ship to its cell (arrival as in "Move-order arrival and hold"), since the stock `DEFAULT_TO_FORMATION_MOVE` of 0
   makes a follower a plain mover and the sandbox's targets are points. Followers start at once, not after the
-  countdown of three updates. The tether point is the cell at the ship's own height.
-- **Height.** Each ship keeps its own height; the game's flight model steers it (ADR 0009), which the engine does
-  not.
+  countdown of three updates. The tether point is the cell at the middle of the combat band, the height of the
+  ship's path end.
+- **Height.** Every cell lies at the middle of the combat band, where each ship's path ends; the ship climbs or
+  sinks toward it by the flight model.
 - **Selection order** is the order the sandbox lists its selected units: a box takes them in the scene's unit
   order, which the layout's object order fixes, so every run of a script sees the same order.
 - **A cell outside the map** goes to the nearest point of the map's edge, as a single ship's click does; two
@@ -382,7 +399,7 @@ alone. The sandbox's right-click and a play script's `move` step aim the same cl
 - **Debris.** The pieces of a ship that ends do not take its velocity (`docs/rules/debris.md`, "The shatter").
 - **Gravity mine.** `gravmine` lowers the warp speed multiplier, m → 1 + (m − 1) × `slowPercent` / 100 (0x4dd720;
   stock `slowPercent` 50). It moves nothing itself, but a slowed ship can be held by a tractor beam.
-- **Nebulas** cap the speed (0x44c520, 0x4690c0). **Ion storms** only damage (0x451870).
+- **Nebulas** cap the speed (0x44c520, 0x4690c0; `docs/rules/nebulae.md`). **Ion storms** only damage (0x451870).
 
 ## Dying ships
 

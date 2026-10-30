@@ -41,16 +41,7 @@ public class FrameRateTests
                     Radius = 0,
                     ModelRadius = 10,
                     Mobile = true,
-                    Motion = new ShipMotion(
-                        new PhysicsValues
-                        {
-                            ImpulseSpeed = 10,
-                            YawRotationRate = 1,
-                            MaxRoll = null,
-                        },
-                        s.At,
-                        0
-                    ),
+                    Motion = FlightFixtures.Cruiser(s.At),
                     Model = s.Model,
                 }
         );

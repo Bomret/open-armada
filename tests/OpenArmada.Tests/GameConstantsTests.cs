@@ -62,6 +62,43 @@ public class GameConstantsTests
     }
 
     [TestMethod]
+    public void AnIdentifierValueIsTheNumberOfTheEarlierDeclarationItNames()
+    {
+        // 0x4f82f0 looks a name up among the declarations read so far: the install's BLACKHOLE_PATHING_COST is
+        // IMPASSABLE_TERRAIN, which is -1 where it is declared before.
+        var c = Read(
+            "int IMPASSABLE_TERRAIN = -1;",
+            "float BLACKHOLE_PATHING_COST = IMPASSABLE_TERRAIN;",
+            "float LATER = AFTER;",
+            "int AFTER = 5;"
+        );
+        Assert.IsTrue(c.TryNumber("BLACKHOLE_PATHING_COST", out var cost, out _));
+        Assert.AreEqual(-1.0, cost);
+        Assert.AreEqual(0, c.Notes.Count(n => n.Contains("BLACKHOLE_PATHING_COST")));
+        Assert.IsFalse(c.TryNumber("LATER", out _, out var problem), "a name declared later is not yet known");
+        StringAssert.Contains(problem, "not a literal");
+    }
+
+    [TestMethod]
+    public void AnIntDeclarationNamingANonIntegralConstantTakesItsTruncatedValue()
+    {
+        // 0x4f82f0 hands an int declaration the ftol of the named value; a float declaration keeps it
+        var c = Read(
+            "float RATIO = 1.5;",
+            "float NEGATIVE = -2.75;",
+            "int WHOLE = RATIO;",
+            "int BELOW = NEGATIVE;",
+            "float KEPT = RATIO;"
+        );
+        Assert.IsTrue(c.TryNumber("WHOLE", out var whole, out _));
+        Assert.AreEqual(1.0, whole);
+        Assert.IsTrue(c.TryNumber("BELOW", out var below, out _));
+        Assert.AreEqual(-2.0, below);
+        Assert.IsTrue(c.TryNumber("KEPT", out var kept, out _));
+        Assert.AreEqual(1.5, kept);
+    }
+
+    [TestMethod]
     public void AnUppercaseFloatSuffixIsPartOfTheLiteral()
     {
         var c = Read("float RATE = 1.0F;");

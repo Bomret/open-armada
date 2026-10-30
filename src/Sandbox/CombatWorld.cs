@@ -31,14 +31,23 @@ public sealed record CombatUnit
     /// </summary>
     public float ModelRadius { get; init; }
 
+    /// <summary>
+    /// The unit class's <c>avoidMe</c>, <c>avoidanceClass</c>, and <c>collisionRadius</c>, which obstacle avoidance reads; the
+    /// class defaults.
+    /// </summary>
+    public AvoidanceTraits Avoidance { get; init; } = AvoidanceTraits.Default;
+
+    /// <summary>Whether the unit is a station (<c>is_starbase</c>), which obstacle avoidance treats as still.</summary>
+    public bool Starbase { get; init; }
+
     /// <summary>Whether the unit can move at all.</summary>
     public required bool Mobile { get; init; }
 
     /// <summary>
-    /// The unit's motion, which the world steps on its ticks and gives the unit's orders to; null for a unit whose
+    /// The unit's flight, which the world steps on its ticks and gives the unit's orders to; null for a unit whose
     /// pose something else drives. A mobile unit has one from the moment the world opens.
     /// </summary>
-    public ShipMotion? Motion { get; init; }
+    public FlightModel? Motion { get; init; }
 
     /// <summary>
     /// The unit's model as the game loads it (at the class's scale), whose faces become debris pieces when the unit
@@ -52,9 +61,10 @@ public sealed record CombatUnit
 
 /// <summary>
 /// The fight of a map in plain C#: every unit's combat state, the orders, and the shots in flight. Step advances
-/// it and returns what happened. The world owns each mobile unit's motion (<see cref="CombatUnit.Motion"/>) and
+/// it and returns what happened. The world owns each mobile unit's flight (<see cref="CombatUnit.Motion"/>) and
 /// steps it on its fixed ticks, recording the pose in the pose source; a unit without motion keeps the pose the
-/// pose source gives it. Randomness comes from the injected source, a number in [0, 1) per call.
+/// pose source gives it. In a tick the units' processes (the move order, the hold, the dogfight) write the controls first and
+/// the physics step then integrates them. Randomness comes from the injected source, a number in [0, 1) per call.
 /// </summary>
 public sealed class CombatWorld
 {
@@ -65,6 +75,9 @@ public sealed class CombatWorld
     public const double Tick = 0.02;
 
     const double Epsilon = 1e-9;
+
+    // the facing offset is a quarter turn times a draw of 0 to 3 (0x5014d0 with 4)
+    const int FacingOffsets = 4;
 
     /// <summary>The game's compiled default of <c>MAX_PREVENTION_ROTATION</c> (0x4453f0), in radians.</summary>
     public const float DefaultMaxPreventionRotation = 0.4f;
@@ -79,9 +92,21 @@ public sealed class CombatWorld
     const float HullSpriteScale = 2f;
     const float ArrivedWithin = 1e-3f;
 
+    // A ship slower than this is stopped: the game's own rest threshold of the no-thrust brake, the root of 0.01
+    // (0x459c46). stand-in: the test of the to-hit stop modifiers was not traced.
+    const float RestSpeed = 0.1f;
+
     // An idle unit at red closes on its pick only while its center is within 300 units of its tether point, in
     // 3D (0x42a3a9, the constant at 0x5ca7ac).
     const float TetherSquared = 90000f;
+
+    // The attack state's band (0x428e90): the dogfight starts when the gap is at most the range less 50 (0x5ca798); the
+    // target counts with half its radius (0x5ca230). The path move builds a path for a target farther than 400 and the
+    // path is built again once the target has moved more than 300 from its goal (0x428d20, the game setting off).
+    const float BandWidth = 50f;
+    const float HalfRadius = 0.5f;
+    const float PathReplan = 400f;
+    const float PathRebuild = 300f;
 
     // A hit counts as recent for less than this many seconds (0x46e640, the 1.0 at 0x42a14a).
     const double HitWindow = 1.0;
@@ -111,6 +136,16 @@ public sealed class CombatWorld
     readonly Dictionary<PlacedObject, Sod?> _models = new(ReferenceEqualityComparer.Instance);
     readonly HashSet<string> _faults = new();
 
+    // The units' avoidance values and the avoidance of each ship, once OBSTACLE_AVOIDANCE is on (Avoidance).
+    readonly Dictionary<UnitCombatState, (AvoidanceTraits Traits, bool Starbase)> _avoidance = new(
+        ReferenceEqualityComparer.Instance
+    );
+    readonly Dictionary<UnitCombatState, ObstacleAvoidance> _scorers = new(ReferenceEqualityComparer.Instance);
+    AvoidanceKeys _avoidanceKeys = AvoidanceKeys.Stock;
+
+    // The flights and processes that failed: a unit (by reference) and the cause, each reported once.
+    readonly HashSet<(UnitCombatState, string)> _flightFaults = new();
+
     // The units whose non-finite push is reported: by reference, since labels can repeat.
     readonly HashSet<PlacedObject> _badPushes = new(ReferenceEqualityComparer.Instance);
     double _pending;
@@ -121,6 +156,35 @@ public sealed class CombatWorld
     /// unless the combat plan read the install's.
     /// </summary>
     public float MaxPreventionRotation { get; init; } = DefaultMaxPreventionRotation;
+
+    /// <summary>
+    /// The combat band (<c>SHIP_COMBAT_FLOOR</c> and <c>SHIP_COMBAT_CEILING</c>): the height move orders aim at, the middle
+    /// of the band, and the limits the steering holds a rising or sinking ship to; the stock band unless the view gives
+    /// the camera's.
+    /// </summary>
+    public CombatBand Band { get; init; } = CombatBand.Stock;
+
+    /// <summary>
+    /// The avoidance keys (<c>OBSTACLE_AVOIDANCE</c> and the two collision keys); the stock install's, which is off.
+    /// With avoidance on, every ship that can move steers by the game's scorer (<see cref="ObstacleAvoidance"/>)
+    /// among the other units, the asteroid fields, and the planets.
+    /// </summary>
+    public AvoidanceKeys Avoidance
+    {
+        get => _avoidanceKeys;
+        init
+        {
+            _avoidanceKeys = value;
+            if (!value.Enabled)
+                return;
+            foreach (var u in _units.Values.Where(u => u.Motion != null))
+            {
+                var scorer = new ObstacleAvoidance(value, Body(u), () => Neighbours(u));
+                _scorers[u] = scorer;
+                u.Motion!.Avoidance = scorer.Steer;
+            }
+        }
+    }
 
     /// <summary>
     /// The asteroid fields and planets that push a ship out of them in the post-simulate pass (0x4644b0), every ship
@@ -134,6 +198,18 @@ public sealed class CombatWorld
     /// post-simulate pass; none unless the plan gives some.
     /// </summary>
     public IReadOnlyList<BlackHole> BlackHoles { get; init; } = Array.Empty<BlackHole>();
+
+    /// <summary>
+    /// The nebulae of the map: each tick, before the physics step, a ship in a nebula's cell is given its kind's speed
+    /// cap (0x43edc0); none unless the plan gives some.
+    /// </summary>
+    public NebulaGrid Nebulae { get; init; } = NebulaGrid.Empty;
+
+    /// <summary>
+    /// The path planner of the map's obstacles (0x40a310): a move order and an attack's closing from beyond 400 follow its
+    /// paths. Null plans none: those paths are the two points [ship, goal].
+    /// </summary>
+    public PathPlanner? Planner { get; init; }
 
     /// <summary>Seconds of fight the ticks that ran add up to.</summary>
     public double Time => _ticks * Tick;
@@ -179,21 +255,18 @@ public sealed class CombatWorld
                 state.Begin(start);
             }
 
-            if (state.Motion is { } motion && state.Coasting)
+            if (state.Motion is { } motion && state.Coasting && u.Unit.Start?.Velocity is { } velocity)
             {
-                // a unit that starts without thrust coasts from the first tick, along its starting velocity
-                motion.Coast();
-                if (u.Unit.Start?.Velocity is { } velocity)
-                {
-                    motion.SetVelocity(velocity);
-                }
-
+                // a unit that starts without thrust coasts from the first tick, along its starting velocity; the plan
+                // leaves a velocity on a unit with thrust unused (CombatPlan)
+                motion.SetVelocity(velocity);
                 state.Velocity = motion.Velocity;
-                state.Stopped = state.Velocity == Vector3.Zero;
+                state.Stopped = motion.Speed < RestSpeed;
             }
 
             _units[u.Unit] = state;
             _models[u.Unit] = u.Model;
+            _avoidance[state] = (u.Avoidance, u.Starbase);
         }
     }
 
@@ -223,20 +296,23 @@ public sealed class CombatWorld
         a.AutoMove = false;
         a.Returning = false;
         a.PlayerMove = null;
+        a.Planned = null;
         a.Intent = default;
+        a.Motion?.EndMove();
 
         return true;
     }
 
     /// <summary>
-    /// The one route of every forced push of a ship (collision separation, push-out): the ship's motion moves it by
-    /// <c>displacement</c> (<see cref="ShipMotion.Push"/>), its pose, position, and velocity follow at once, and the
-    /// arrival test runs. A move order, or the hold's return to the tether point, whose point lies strictly under the
-    /// ship's tooCloseToTurn away after the push ends where the ship stands: the order and the motion's target
-    /// end, and that spot, its height included, becomes the tether point (0x428170 posts STOP inside the radius, and
-    /// 0x46eac0 makes the stopping spot the path). A ship at or beyond the radius keeps its order. A ship without
-    /// thrust, a ship with an attack order, and a unit without motion end no order. A displacement with a component
-    /// that is no finite number skips the push and is reported as one ERROR entry, the first time for that unit.
+    /// The one route of every forced push of a ship (collision separation, push-out): the ship's flight moves it by
+    /// <c>displacement</c> (<see cref="FlightModel.Push"/>), its pose, position, and velocity follow at once, and the
+    /// arrival test runs. A move order whose goal lies under the ship's tooCloseToTurn away after the push while the ship
+    /// is slower than half its impulse speed, or the hold's return to the tether point under the same test, ends where the
+    /// ship stands: the order ends, and that spot, its height included, becomes the tether point (0x428170 posts STOP
+    /// inside the radius, and 0x46eac0 makes the stopping spot the path). A ship at or beyond the radius, or too fast,
+    /// keeps its order. A ship without thrust, a ship with an attack order, and a unit without motion end no order. A
+    /// displacement with a component that is no finite number skips the push and is reported as one ERROR entry, the
+    /// first time for that unit.
     /// </summary>
     public void Push(PlacedObject unit, Vector3 displacement)
     {
@@ -257,28 +333,37 @@ public sealed class CombatWorld
         }
 
         motion.Push(displacement);
-        u.Position = _poses.Advance(unit, motion, 0).Position;
+        u.Position = _poses.Record(unit, motion).Position;
         u.Velocity = motion.Velocity;
         if (u.Coasting || u.Order != null)
             return;
-        var at = u.Position.Value;
-        var point =
-            u.PlayerMove is { } to ? new Vector3(to.X, u.Tether.Y, to.Z)
-            : u.Returning ? u.Tether
-            : (Vector3?)null;
-        // stand-in (ADR 0009): the game also asks the ship to be slower than half its impulseSpeed, which its brake
-        // brings about; the kinematic model has no brake, so a push inside the radius stands for slow and near.
-        if (point is { } p && Vector3.Distance(at, p) < motion.TooCloseToTurn)
+        if (u.PlayerMove != null && motion.HasArrived || u.PlayerMove == null && u.Returning && Near(u, u.Tether))
         {
-            u.PlayerMove = null;
-            u.Returning = false;
-            u.Intent = default;
-            motion.Stop();
-            _poses.Advance(unit, motion, 0); // the stop drops the bank
-            u.Tether = at;
-            u.Velocity = motion.Velocity;
-            u.Stopped = u.Velocity == Vector3.Zero;
+            EndMove(u);
         }
+    }
+
+    // Whether the unit has arrived at the point (0x428170): inside its tooCloseToTurn in 3D and slower than half its impulse speed.
+    // A unit whose pose something else drives has arrived on the point itself.
+    static bool Near(UnitCombatState u, Vector3 point)
+    {
+        var at = u.Position ?? point;
+
+        return u.Motion is { } motion
+            ? Vector3.Distance(at, point) < motion.TooCloseToTurn && motion.Speed < motion.ImpulseSpeed * 0.5
+            : Math.Abs(at.X - point.X) < ArrivedWithin && Math.Abs(at.Z - point.Z) < ArrivedWithin;
+    }
+
+    // The end of a move order or of the hold's return: the order is gone, and where the ship stands becomes the tether
+    // point (0x46eac0 makes the stopping spot the path); the ship then brakes where it is.
+    void EndMove(UnitCombatState u)
+    {
+        u.PlayerMove = null;
+        u.Planned = null;
+        u.Returning = false;
+        u.Intent = default;
+        u.Motion?.EndMove();
+        u.Tether = Position(u);
     }
 
     /// <summary>
@@ -293,14 +378,20 @@ public sealed class CombatWorld
         state.AutoMove = false;
         state.Returning = false;
         state.PlayerMove = null;
+        state.Planned = null;
         state.Intent = default;
         state.Tether = Position(state);
+        state.Motion?.EndMove();
     }
 
     /// <summary>
-    /// Gives the unit a move order to the point (X, Z), replacing its attack order. The unit is not idle until it
-    /// arrives, however the motion gets there (a ship turns in place first without changing its position). The
-    /// destination becomes the tether point (0x42704e).
+    /// Gives the unit a move order to the point (X, Z), replacing its attack order. The order list is [the ship, the goal]
+    /// with the goal at the middle of the combat band, and its path is the <see cref="Planner"/>'s from the ship to the goal
+    /// (the two points where the planner is absent or no obstacle bends the way). A goal the planner finds no path to, in an
+    /// impassable cell or off the grid, leaves the ship holding with no order, as the game's idle order does (0x42ded0). The
+    /// ship takes the coefficients of <c>fastphys.odf</c>. The unit is not idle until its order ends at arrival
+    /// (<see cref="FlightModel.HasArrived"/>), and a ship that makes no progress has its path planned again
+    /// (<see cref="PlannedMove"/>). The destination, at the goal's height, becomes the tether point (0x42704e).
     /// </summary>
     public void Move(PlacedObject unit, float x, float z)
     {
@@ -308,12 +399,25 @@ public sealed class CombatWorld
         if (State(unit) is { } state)
         {
             state.PlayerMove = (x, z);
-            // stand-in: a move names no height, so the tether point keeps the unit's own
-            state.Tether = new Vector3(x, Position(state).Y, z);
+            // a move names no height: the order's goal, and so the tether point, lies at the middle of the combat band
+            state.Tether = new Vector3(x, Band.Middle, z);
             if (state.Motion is { } motion && !state.Immobile)
             {
-                motion.Thrust();
-                motion.SetTarget(x, z);
+                // the order handler's one draw per accepted move order (0x426ad0): a quarter turn times 0 to 3, for every
+                // ship; only a Borg ship's heading target reads it
+                motion.FacingOffset = Math.Min(FacingOffsets - 1, (int)(_random() * FacingOffsets)) * MathF.PI / 2;
+                // The game plans on the first tick to the list's first point, the ship's own position, and passes that
+                // point on the second; the order shows its path to the goal at once (stand-in: the first tick's zero-length path is not flown).
+                var planned = new PlannedMove([motion.Pose.Position, new Vector3(x, Band.Middle, z)]);
+                if (planned.Update(motion, Planner, Time, Band) && planned.Update(motion, Planner, Time, Band))
+                {
+                    state.Planned = planned;
+                }
+                else
+                {
+                    // no path: the game gives the ship an idle order at its position (0x46eac0), which holds it there
+                    EndMove(state);
+                }
             }
         }
     }
@@ -329,8 +433,8 @@ public sealed class CombatWorld
     /// <remarks>
     /// stand-in: the leader's move order and the followers' FOLLOW orders (cmd 9, 0x480c30's pipeline, 0x4805d0) reduce
     /// to one move order per cell, which is what they come to with stock DEFAULT_TO_FORMATION_MOVE = 0 and the
-    /// sandbox's one-point targets; followers start at once, not two game ticks after the leader; each ship keeps its
-    /// own height (height steering belongs to the flight-model feature, ADR 0009); two clamped cells may coincide.
+    /// sandbox's one-point targets; followers start at once, not two game ticks after the leader; every cell lies at the
+    /// middle of the combat band, where each ship's path ends (<see cref="Move"/>); two clamped cells may coincide.
     /// </remarks>
     public void GroupMove(IReadOnlyList<PlacedObject> ships, Vector2 click, float spacing, float midY, MapBounds bounds)
     {
@@ -367,7 +471,7 @@ public sealed class CombatWorld
 
     /// <summary>
     /// The seconds of the latest Step call after its last tick: the part of a tick the motions have not run yet,
-    /// which the view draws ahead (<see cref="ShipMotion.Drawn"/>).
+    /// which the view draws ahead (<see cref="FlightModel.Drawn"/>).
     /// </summary>
     public double Pending => _pending;
 
@@ -404,9 +508,20 @@ public sealed class CombatWorld
         return events;
     }
 
-    // A ship that arrives stands exactly on its target (ShipMotion), which ends the move order.
+    // A move order of a unit whose pose something else drives ends when the pose stands on its goal; a unit with a flight
+    // of its own has its order ended by the arrival test (RunMotions, Push).
     static void EndArrivedMove(UnitCombatState u)
     {
+        if (u.Motion != null)
+        {
+            if (u.PlayerMove != null && u.Motion.Order == null)
+            {
+                u.PlayerMove = null;
+            }
+
+            return;
+        }
+
         if (
             u.PlayerMove is { } to
             && u.Position is { } at
@@ -418,42 +533,177 @@ public sealed class CombatWorld
         }
     }
 
-    // One tick of every unit's motion: it takes the thrust away or gives the unit's orders to it, runs for the tick,
-    // and the unit's pose, velocity, and move order follow. Done for all units before any of them thinks or fires,
-    // so each reads the same positions and velocities. A move order ends here, in the step that reaches its target.
+    // One tick of every unit's flight: the unit's process writes the controls (the move order, else the intent), then the
+    // physics step integrates them, and the unit's pose, velocity, and move order follow. Done for all units before any
+    // of them thinks or fires, so each reads the same positions and velocities. A move order ends here, in the tick that
+    // finds the ship near its goal and slow. A physics step that fails, a process that fails, and the recording of the pose
+    // that fails are each reported once per unit and cause (a process fault keyed by its exception type, not as a flight
+    // fault), and the run goes on with the tick.
     void RunMotions()
     {
-        foreach (var u in _units.Values.Where(u => u.Motion != null))
+        foreach (var u in _units.Values.Where(u => u.Motion != null).ToList())
         {
             var motion = u.Motion!;
-            if (u.Coasting)
+            if (!u.Coasting)
             {
-                motion.Coast();
-            }
-            else
-            {
-                motion.Thrust();
-                switch (u.Intent.Kind)
+                try
                 {
-                    case MoveKind.MoveTo:
-                        motion.SetTarget(u.Intent.X, u.Intent.Z);
-
-                        break;
-                    case MoveKind.Face:
-                        motion.Face(u.Intent.X, u.Intent.Z);
-
-                        break;
-                    case MoveKind.Stop:
-                        motion.Stop();
-
-                        break;
+                    Process(u, motion);
+                }
+                catch (Exception e)
+                {
+                    // the controls stay as the process left them and the step runs; its own cause key keeps it apart
+                    // from a flight fault; the cause is the exception's type, so a message that changes each tick is
+                    // reported once
+                    if (_flightFaults.Add((u, "process: " + e.GetType().Name)))
+                    {
+                        Log.Error(Area.Combat, $"process of {u.Unit.Label} failed: {e.Message}");
+                    }
                 }
             }
 
-            u.Position = _poses.Advance(u.Unit, motion, Tick).Position;
-            u.Velocity = motion.Velocity;
-            u.Stopped = u.Velocity == Vector3.Zero; // stand-in: stopped is no velocity at all; the game's test was not traced
-            EndArrivedMove(u);
+            // the nebula pass (0x43edc0) gives the cap; the Borg branch of the step does not read it, and no ship is phased yet
+            if (!motion.BorgPhysics)
+            {
+                foreach (var kind in Nebulae.At(motion.Pose.Position))
+                {
+                    motion.CapSpeed(kind.Coefficient, kind.Limit);
+                }
+            }
+
+            try
+            {
+                motion.Step(Tick, u.Dying, !(u.Derelict || u.SystemDestroyed(SystemNames.Engines)));
+            }
+            catch (InvalidOperationException e)
+            {
+                // the step restored the ship at rest; each ship and cause is reported once (labels can repeat)
+                if (_flightFaults.Add((u, e.Message)))
+                {
+                    Log.Error(Area.Combat, $"flight of {u.Unit.Label} failed: {e.Message}");
+                }
+            }
+
+            try
+            {
+                u.Position = _poses.Record(u.Unit, motion).Position;
+                u.Velocity = motion.Velocity;
+                u.Stopped = motion.Speed < RestSpeed;
+                EndArrivedMove(u);
+            }
+            catch (Exception e)
+            {
+                // the pose sink or the arrival test failed: the other ships still run this tick
+                if (_flightFaults.Add((u, "record: " + e.GetType().Name)))
+                {
+                    Log.Error(Area.Combat, $"recording the flight of {u.Unit.Label} failed: {e.Message}");
+                }
+            }
+        }
+    }
+
+    // The unit's process for one tick (0x4267a0, 0x427ff0): a move order tests its arrival and ends there, else follows its
+    // path; without one the intent moves the ship, and the default holds it where it is.
+    void Process(UnitCombatState u, FlightModel motion)
+    {
+        // a predicted hit on an asteroid field (0x42e3f0): the ship holds where it is this tick
+        // stand-in: the slot's order against the move process in the tick is not traced
+        if (_scorers.TryGetValue(u, out var avoidance) && avoidance.TakeFieldHit())
+        {
+            motion.Brake(Band);
+
+            return;
+        }
+
+        var point = new Vector3(u.Intent.X, u.Intent.Y, u.Intent.Z);
+        if (u.Intent.Kind == MoveKind.Path)
+        {
+            // the attack's path move (0x42e4a0 through 0x428d20): the order list [the target] is built again once the target
+            // has moved more than the rebuild distance from the stored one; the planner's path leads to it, and a path that
+            // makes no progress is planned again
+            if (
+                u.AttackMove is not { } attack
+                || motion.Order == null
+                || Vector3.Distance(attack.Points[0], point) > PathRebuild
+            )
+            {
+                u.AttackMove = attack = new PlannedMove([point]);
+            }
+
+            if (!attack.Update(motion, Planner, Time, Band))
+            {
+                // No path to the target: 0x42ded0 gives the ship the stop order (0x46eac0), because the process type (+0x20) of
+                // an attack is 5, 6 or 7 (0x426ad0), not 0x19. That order is a pending command 2 with the ship's one-point
+                // list at ship+0x10c; the next tick's 0x4267a0 hands it to 0x426ad0, whose case 2 replaces the attack with a
+                // move to the ship's own position. The attack ends and the ship holds, as a move order's no path ends it (the
+                // sandbox drops it in this tick, not the next). Whether anything gives the attack back is not known.
+                ClearOrder(u.Unit);
+                u.AttackMove = null;
+                u.AttackPath = null;
+                motion.Brake(Band);
+
+                return;
+            }
+
+            u.AttackPath = motion.Order;
+            motion.Follow(Band);
+
+            return;
+        }
+
+        if (u.AttackPath != null)
+        {
+            if (motion.Order == u.AttackPath)
+            {
+                motion.EndMove(); // the attack's path ends where the dogfight or the direct move takes over
+            }
+
+            u.AttackPath = null;
+        }
+
+        u.AttackMove = null;
+        if (motion.Order != null)
+        {
+            if (motion.HasArrived)
+            {
+                EndMove(u);
+            }
+            else if (u.Planned is { } planned && !planned.Update(motion, Planner, Time, Band))
+            {
+                EndMove(u); // the replan found no path: the idle order holds the ship where it is
+            }
+            else
+            {
+                motion.Follow(Band);
+            }
+
+            return;
+        }
+
+        switch (u.Intent.Kind)
+        {
+            case MoveKind.MoveTo:
+                // the attack's direct move carries the ordered unit's velocity (0x42fb90 to 0x428e90 to 0x42e4a0); the
+                // other straight moves (the hold's return to the tether point, 0x42a170) carry 0
+                motion.Approach(
+                    point,
+                    Band,
+                    u.Order is { } ordered ? ordered.Motion?.Velocity ?? ordered.Velocity : default
+                );
+
+                break;
+            case MoveKind.Dogfight:
+                motion.Dogfight(point, DogfightRange(u), Band);
+
+                break;
+            case MoveKind.Pivot:
+                motion.Pivot(point);
+
+                break;
+            default:
+                motion.Brake(Band);
+
+                break;
         }
     }
 
@@ -530,7 +780,7 @@ public sealed class CombatWorld
                     }
 
                     s.Velocity = motion.Velocity;
-                    s.Stopped = s.Velocity == Vector3.Zero;
+                    s.Stopped = motion.Speed < RestSpeed;
                 }
                 catch (Exception e)
                 {
@@ -635,7 +885,7 @@ public sealed class CombatWorld
         if (contact.Coincide || s.Destroyed)
             return;
         var turn = CollisionSeparation.Turn(
-            motion.Pose.Heading,
+            motion.Pose,
             Position(s),
             Position(o),
             share,
@@ -644,10 +894,10 @@ public sealed class CombatWorld
             contact.Penetration,
             MaxPreventionRotation
         );
-        if (turn is { } delta)
+        if (turn is { } angles)
         {
-            motion.Yaw(delta);
-            _poses.Advance(s.Unit, motion, 0);
+            motion.SetAngles(angles.Pitch, angles.Yaw, angles.Roll);
+            _poses.Record(s.Unit, motion);
             s.Velocity = motion.Velocity;
         }
     }
@@ -677,6 +927,7 @@ public sealed class CombatWorld
                 u.Intent = new MoveIntent { Kind = MoveKind.Stop }; // no order moves a ship without thrust
                 u.PlayerMove = null;
                 u.Returning = false;
+                u.Motion?.EndMove();
             }
 
             Fire(u, events);
@@ -812,6 +1063,51 @@ public sealed class CombatWorld
     // The unit's position as of its latest motion tick; for a unit without motion, as of the current Step call.
     Vector3 Position(UnitCombatState u) => u.Position ?? _poses.Pose(u.Unit).Position;
 
+    // A unit as the avoidance sees it: a ship or station, radius +0x60 (the model radius), the radius of its hit
+    // prediction (its collisionRadius where above 0, else the model radius), the move target of its order or its move
+    // intent.
+    AvoidanceBody Body(UnitCombatState u)
+    {
+        var (traits, starbase) = _avoidance[u];
+        var target =
+            u.Motion?.Order?.Goal
+            ?? (u.Intent.Kind == MoveKind.MoveTo ? new Vector3(u.Intent.X, u.Intent.Y, u.Intent.Z) : (Vector3?)null);
+
+        return new AvoidanceBody
+        {
+            Center = Position(u),
+            Radius = u.ModelRadius,
+            Velocity = u.Motion?.Velocity ?? u.Velocity,
+            AvoidMe = traits.AvoidMe,
+            AvoidanceClass = traits.AvoidanceClass,
+            CollisionRadius = traits.CollisionRadius,
+            Craft = true,
+            Starbase = starbase,
+            MoveTarget = target,
+        };
+    }
+
+    // What a ship's avoidance looks at: the other units, the asteroid fields, and the planets. A planet and a field
+    // carry the class defaults of avoidMe and avoidanceClass (stand-in: their definitions are not read for them).
+    IEnumerable<AvoidanceBody> Neighbours(UnitCombatState self)
+    {
+        foreach (var other in _units.Values.Where(o => o != self))
+        {
+            yield return Body(other);
+        }
+
+        foreach (var o in Obstacles)
+        {
+            yield return new AvoidanceBody
+            {
+                Center = o.Center,
+                Radius = o.Radius,
+                Field = o.Field,
+                CollisionRadius = o.CollisionRadius,
+            };
+        }
+    }
+
     // The distance between the units' surfaces.
     float Surface(UnitCombatState a, UnitCombatState b) =>
         Vector3.Distance(Position(a), Position(b)) - a.Radius - b.Radius;
@@ -830,6 +1126,8 @@ public sealed class CombatWorld
             return;
         }
 
+        // stand-in: the game keeps a ship without a target-location weapon fighting its own pick after the ordered unit
+        // is lost (see AttackIntent)
         if (u.Order is { Destroyed: true } or { Dying: true })
         {
             u.Order = null;
@@ -845,7 +1143,7 @@ public sealed class CombatWorld
             u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;
         }
 
-        var range = LongestRange(u);
+        var range = DogfightRange(u);
         var radius = range - 25;
         if (u.Order == null)
         {
@@ -890,34 +1188,97 @@ public sealed class CombatWorld
         }
 
         var order = u.Order ?? u.Target!;
-        var distance = Surface(u, order);
-        if (u.Mobile)
-        {
-            var there = Position(order);
-            // stand-in: the game's attack maneuver was not traced; the unit follows its target to the closing
-            // range, then holds position and turns toward it once a weapon has a hardpoint within its range of the
-            // target's center. Until then it keeps closing, so a target with a large radius is not out of reach.
-            u.Intent = new MoveIntent
-            {
-                Kind =
-                    distance > range - 50 || !u.Weapons.Any(w => NearestHardpoint(u, w.Profile, order) != null)
-                        ? MoveKind.MoveTo
-                        : MoveKind.Face,
-                X = there.X,
-                Z = there.Z,
-            };
-        }
-
-        if (distance <= range)
+        if (Surface(u, order) < range)
         {
             u.Target = order;
-
-            return;
+        }
+        else
+        {
+            // An ordered target out of range: the weapons fire at the unit's own pick (none at green).
+            u.Target = u.Alert == AlertStance.Green ? null : Select(u, held, radius);
         }
 
-        // An ordered target out of range: the weapons fire at the unit's own pick (none at green).
-        u.Target = u.Alert == AlertStance.Green ? null : Select(u, held, radius);
+        if (u.Mobile)
+        {
+            u.Intent = u.Order == null ? Dogfight(u, order) : AttackIntent(u, order, range);
+        }
     }
+
+    // The attack state's choice of movement (0x428e90): the target's half radius (none for a ship with a target-location
+    // weapon) and the ship's own radius come off the distance between the origins; while that gap exceeds the range less
+    // 50 the ship moves toward the target, by path beyond the replan distance and straight at it nearer. Within the gap it
+    // fights the dogfight at the weapon target, or turns in place toward the ordered unit when it has a target-location
+    // weapon. The game's two other branches there call 0x46eac0(2), which ends the attack (no weapons target and no
+    // target-location weapon, 0x429016; a target-location ship whose process byte +0x10c is set). 0x42fb90, which 0x428e90
+    // calls first, sets +0x10c to 1 (and clears the ordered unit's slot +0x68) when the ordered unit is lost: gone, its
+    // serial changed, its +0x1b1 set, or its +0x1a8 bit for the ship's player set; 0x46eac0 clears it. On the next tick
+    // 0x42fb90 returns the ship's own position (velocity 0, half radius 0) and 0x42ff80's pick, the gap is below the
+    // band, and a ship without a target-location weapon dogfights that pick (0x42c400) while one exists, calling
+    // 0x46eac0(2) only when there is none; a target-location ship ends at once (+0x10c stays set).
+    // stand-in: the sandbox ends the attack at once, for every ship, when the ordered unit is destroyed or dying
+    // (<see cref="Think"/>), and models neither +0x1b1 nor the detection loss; the continued fight is not built. Not
+    // settled by the dump: whether a death handler elsewhere ends the order first, and which point 0x428e90 reads on the
+    // loss tick (local_34 is unset there). The sandbox never reaches the first branch: inside the gap the
+    // surface distance is under the range, so the ordered unit is the weapons' target (<see cref="Think"/>); the branch
+    // ends the attack as the game does.
+    // stand-in: the warp the game allows beyond the range is not modelled; the centers are the positions.
+    MoveIntent AttackIntent(UnitCombatState u, UnitCombatState order, float range)
+    {
+        var (at, there) = (Position(u), Position(order));
+        var between = Vector3.Distance(at, there);
+        var pivot = HasTargetLocation(u);
+        var gap = between - (pivot ? 0 : order.Radius * HalfRadius) - u.Radius;
+        if (gap > range - BandWidth)
+        {
+            return At(between > PathReplan ? MoveKind.Path : MoveKind.MoveTo, there);
+        }
+
+        if (pivot)
+        {
+            return At(MoveKind.Pivot, there);
+        }
+
+        if (u.Target == null)
+        {
+            // 0x429016: 0x46eac0(2) ends the attack, as the no-path case does (unreachable, see above)
+            ClearOrder(u.Unit);
+
+            return default;
+        }
+
+        return Dogfight(u, u.Target);
+    }
+
+    static MoveIntent At(MoveKind kind, Vector3 point) =>
+        new()
+        {
+            Kind = kind,
+            X = point.X,
+            Y = point.Y,
+            Z = point.Z,
+        };
+
+    // The dogfight at the target (0x42c400 into 0x42c9d0): a ship with a target-location weapon only keeps its heading
+    // (the dogfight's point is its own center when no ordered unit gives one).
+    // stand-in: for a ship with no order, the game's branch reads 0x4304e0 when an order list exists (not traced); the
+    // idle ship turning toward its own center, so keeping its heading, is not recovered.
+    MoveIntent Dogfight(UnitCombatState u, UnitCombatState target)
+    {
+        var pivot = HasTargetLocation(u);
+        var there = Position(pivot ? u : target);
+
+        return At(pivot ? MoveKind.Pivot : MoveKind.Dogfight, there);
+    }
+
+    // Whether a non-special weapon of the unit is aimed at a point (the carrier's +0x34).
+    static bool HasTargetLocation(UnitCombatState u) =>
+        u.Weapons.Any(w => w.Profile.TargetLocation && !w.Profile.Special);
+
+    // The range of the dogfight and of the attack state's band: the longest range of the non-special weapons (0x506e30
+    // keeps it as the carrier's +0x20). stand-in: a ship with only special weapons uses the longest of them; the game's
+    // value is then -1, and the order is not offered to such a ship.
+    static float DogfightRange(UnitCombatState u) =>
+        u.Profile.Weapons.Where(w => !w.Special).Select(w => w.Range).DefaultIfEmpty(LongestRange(u)).Max();
 
     // Whether a shot landed less than HitWindow ago on the unit or on a unit of its team within TeammateBox.
     // stand-in: a dying teammate is still in _units, so its hit counts like any other until it leaves (the window ends
@@ -942,21 +1303,22 @@ public sealed class CombatWorld
     // near-target rule (0x42e4a0). A ship the tether point lies tooCloseToTurn or more away from drives back to it
     // and stops on reaching it; nearer, it stays where it was moved. The return is its own state, so a change of
     // stance does not end it. A push inside the radius ends it as well (<see cref="Push"/>).
-    // stand-in: the game's brake inside the radius is not modelled (ADR 0009), so a ship nearer than the radius
-    // does not move at all.
+    // The drive back ends when the ship has arrived (<see cref="Near"/>): inside the radius and slower than half its speed.
+    // stand-in: the game's idle handler also holds the tether point with the brake spring inside the radius; the sandbox
+    // brakes the ship where it stands there (0x428081), so a ship nearer than the radius stops in place.
     void Hold(UnitCombatState u)
     {
         if (!u.Mobile || u.Coasting || u.PlayerMove != null || u.Order != null)
             return;
         var at = Position(u);
-        var reached = Math.Abs(at.X - u.Tether.X) < ArrivedWithin && Math.Abs(at.Z - u.Tether.Z) < ArrivedWithin;
         var tooClose = u.Motion?.TooCloseToTurn ?? PhysicsValues.DefaultTooCloseToTurn;
-        if (u.Returning ? !reached : Vector3.Distance(at, u.Tether) >= tooClose)
+        if (u.Returning ? !Near(u, u.Tether) : Vector3.Distance(at, u.Tether) >= tooClose)
         {
             u.Intent = new MoveIntent
             {
                 Kind = MoveKind.MoveTo,
                 X = u.Tether.X,
+                Y = u.Tether.Y,
                 Z = u.Tether.Z,
             };
             u.Returning = true;

@@ -48,6 +48,12 @@ public sealed class CameraRig
     /// </summary>
     public double CombatPlaneHeight => _targetY;
 
+    /// <summary>
+    /// The combat band (SHIP_COMBAT_FLOOR and SHIP_COMBAT_CEILING, or their stand-ins): the one floor and ceiling the camera's
+    /// look-at height, the move orders' plane, the path points, and the steering's climb and sink clamp read.
+    /// </summary>
+    public CombatBand CombatBand { get; }
+
     double DistanceAt(double height) => Math.Sqrt(_focus * height + (height - _targetY) * (height - _targetY));
 
     /// <summary>The height change per mouse wheel notch (ZOOM_SCROLL_COEFFICIENT) and the rotation per dragged pixel.</summary>
@@ -147,7 +153,8 @@ public sealed class CameraRig
         _initSpeed = Get("INITIAL_SCROLL_SPEED", 0.5, v => v >= 0, "below 0");
         var floor = Get("SHIP_COMBAT_FLOOR", 10, _ => true, "");
         var ceiling = Get("SHIP_COMBAT_CEILING", 67, _ => true, "");
-        _targetY = (floor + ceiling) / 2;
+        CombatBand = new CombatBand((float)floor, (float)ceiling);
+        _targetY = CombatBand.Middle;
 
         _height = _initHeight;
         ScrollSpeed = _initSpeed;

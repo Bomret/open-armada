@@ -8,14 +8,17 @@
 # mirror in the dump's pos= and vel= fields) to the speed cap of 20, aimed at the center: (11.56, -3.15, 16.01) in the dump.
 # At about 20.8 s it is inside the event radius of 70 in the plane and is swallowed: it is dying with a timer of 0 for one
 # tick, then it leaves, with no fireball and no small explosions, and shatters into debris. Driver has thrust and is
-# ordered through the hole: the push-out stops it at the ring of 1.5 x 70 = 105 (plus its own radius) and it is not
-# swallowed.
+# ordered to the hole's center, a point inside the impassable square the path planner writes around the hole (1.5 x the
+# event radius 70 = 105 on each side, with the cells it touches): the planner has no path to a goal in an impassable cell,
+# so Driver holds at its start with no order and is not swallowed. (A move order cannot reach the push-out ring of 105:
+# the planner routes around the hole's square; forced motion alone drives a ship against the ring, as the unit
+# tests do.)
 # Dumps: "before" (0.2 s) shows Drifter at its start, outside the radius, with velocity (19.60, 0, 0); "outside" (1.6 s)
 # shows it 451 from the center, still outside, with velocity (16.64, 0, 0) from coasting; "entered" (1.8 s) shows the first
 # velocity the pull gave it, (18.61, -0.62, 3.16), turned off +X toward the center; "bend" (2.4 s) shows it turning further,
 # (14.38, -2.68, 13.64); "edge" (20.2 s) shows it at 82 from the center in the plane at the settled velocity
 # (11.56, -3.15, 16.01); each with its engines still destroyed. "swallowed" (21.2 s) shows it destroyed with debris above
-# 0; "ring" and "later" show Driver held at the ring with move=<x>,<z> and not dying.
+# 0; "ring" and "later" show Driver at its start (2500, 2000) with move=none and not dying.
 # Shots "outside", "entered", "bend" and "edge" crop Drifter, "swallowed" is the whole frame, and "ring" crops Driver;
 # "spin0" and "spin1" are whole frames 49.0 s apart (0.2 s and 49.2 s): the hole's model has turned by Rotation x 49 s
 # between them.

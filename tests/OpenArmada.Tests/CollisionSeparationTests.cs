@@ -80,17 +80,17 @@ public class CollisionSeparationTests
                 Mobile = !s.Station,
                 Motion = s.Station
                     ? null
-                    : new ShipMotion(
-                        new PhysicsValues
-                        {
-                            ImpulseSpeed = 10,
-                            YawRotationRate = 1,
-                            MaxRoll = null,
-                            TooCloseToTurn = s.TooClose,
-                            BorgPhysics = s.Borg,
-                        },
+                    : FlightFixtures.Ship(
                         o.Position,
-                        s.Heading
+                        s.Heading,
+                        FlightFixtures.Values(
+                            FlightFixtures.Fast.With(("impulseSpeed", 10)),
+                            FlightFixtures.Fast.With(("impulseSpeed", 10)),
+                            s.TooClose
+                        ) with
+                        {
+                            BorgPhysics = s.Borg,
+                        }
                     ),
             };
         });
@@ -202,6 +202,161 @@ public class CollisionSeparationTests
             ),
         ];
 
+    // The collision turn's result by the game's rule, in double precision and in the game's frame (Z mirrored): the
+    // nose f turns about normalize(f x V) by pen / |e| * maxPrevention / alpha, the same turn takes the side and up
+    // axes, and the decomposition 0x458ea0 reads the angles.
+    static (double Pitch, double Yaw, double Roll) ReferenceTurn(
+        ShipPose pose,
+        Vector3 positionS,
+        Vector3 positionO,
+        Vector3 v,
+        float penetration,
+        double maxPrevention
+    )
+    {
+        static double[] Game(Vector3 p) => [p.X, p.Y, -p.Z];
+        static double Dot(double[] a, double[] b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        static double[] Cross(double[] a, double[] b) =>
+            [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+        static double[] Scale(double[] a, double s) => [a[0] * s, a[1] * s, a[2] * s];
+        static double[] Add(double[] a, double[] b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+
+        double p = pose.Pitch,
+            y = pose.Yaw,
+            r = pose.Roll;
+        double[] side =
+        [
+            Math.Cos(r) * Math.Cos(y) + Math.Sin(r) * Math.Sin(p) * Math.Sin(y),
+            Math.Sin(r) * Math.Cos(p),
+            -Math.Cos(r) * Math.Sin(y) + Math.Sin(r) * Math.Sin(p) * Math.Cos(y),
+        ];
+        double[] up =
+        [
+            -Math.Sin(r) * Math.Cos(y) + Math.Cos(r) * Math.Sin(p) * Math.Sin(y),
+            Math.Cos(r) * Math.Cos(p),
+            Math.Sin(r) * Math.Sin(y) + Math.Cos(r) * Math.Sin(p) * Math.Cos(y),
+        ];
+        double[] front = [Math.Sin(y) * Math.Cos(p), -Math.Sin(p), Math.Cos(y) * Math.Cos(p)];
+        var e = Game(positionS - positionO);
+        var length = Math.Sqrt(Dot(e, e));
+        var alpha = Math.Acos(Dot(front, Scale(e, -1)) / length);
+        var cross = Cross(front, Game(v));
+        var axis = Scale(cross, 1 / Math.Sqrt(Dot(cross, cross)));
+        var phi = penetration / length * maxPrevention / alpha;
+        double[] Rotate(double[] a) =>
+            Add(
+                Add(Scale(a, Math.Cos(phi)), Scale(Cross(axis, a), Math.Sin(phi))),
+                Scale(axis, Dot(axis, a) * (1 - Math.Cos(phi)))
+            );
+        var (rs, ru, rf) = (Rotate(side), Rotate(up), Rotate(front));
+
+        return (-Math.Asin(rf[1]), Math.Atan2(rf[0], rf[2]), Math.Atan2(rs[1], ru[1]));
+    }
+
+    [TestMethod]
+    public void TheCollisionTurnRotatesTheShipInThreeDimensionsByTheGamesAngle()
+    {
+        // heading 0.3, pitched down 0.2 and rolled 0.4; B off the nose to the side and below, the push with a vertical part
+        var pose = new ShipPose
+        {
+            Position = Vector3.Zero,
+            Pitch = 0.2f,
+            Yaw = MoveGeometry.YawOfHeading(0.3f),
+            Roll = 0.4f,
+        };
+        var positionO = new Vector3(6, -2, 10);
+        var v = new Vector3(-3, 0.42f, -5);
+        var turn = CollisionSeparation.Turn(pose, pose.Position, positionO, 0.5f, false, v, 8.34f, 0.4f);
+        var expected = ReferenceTurn(pose, pose.Position, positionO, v, 8.34f, 0.4);
+        Assert.IsNotNull(turn);
+        Assert.AreEqual(expected.Pitch, turn.Value.Pitch, 1e-4);
+        Assert.AreEqual(expected.Yaw, turn.Value.Yaw, 1e-4);
+        Assert.AreEqual(expected.Roll, turn.Value.Roll, 1e-4);
+        Assert.AreNotEqual(pose.Pitch, turn.Value.Pitch, 1e-3f, "the nose pitches as well as yaws");
+    }
+
+    [TestMethod]
+    public void ANoseParallelToThePushGivesNoTurn()
+    {
+        var pose = new ShipPose
+        {
+            Position = Vector3.Zero,
+            Pitch = 0,
+            Yaw = MoveGeometry.YawOfHeading(0),
+            Roll = 0,
+        };
+        // the nose faces +Z, and V along it has no axis (the game divides by its zero length)
+        var v = new Vector3(0, 0, 2);
+        var turn = CollisionSeparation.Turn(pose, pose.Position, new Vector3(6, 0, 10), 0.5f, false, v, 8, 0.4f);
+        Assert.IsNull(turn);
+    }
+
+    // A ship at the origin with its nose at `pitch` (negative raises it) and heading 0.
+    static ShipPose Pitched(float pitch) =>
+        new()
+        {
+            Position = Vector3.Zero,
+            Pitch = pitch,
+            Yaw = MoveGeometry.YawOfHeading(0),
+            Roll = 0,
+        };
+
+    [TestMethod]
+    public void TheNoseGateIsTheThreeDimensionalAngleToTheOtherShip()
+    {
+        // the nose points up at 80 degrees. O lies below and ahead: its bearing is straight along the nose's horizontal
+        // part, yet the angle in 3D is beyond 1.57, so there is no turn; O above and ahead is within it
+        var pose = Pitched(-1.4f);
+        Assert.IsTrue(Vector3.Transform(-Vector3.UnitZ, pose.Orientation).Y > 0.9f, "the nose points up");
+        var v = new Vector3(1, 0, 0);
+        Assert.IsNull(CollisionSeparation.Turn(pose, pose.Position, new Vector3(0, -5, 5), 0.5f, false, v, 8, 0.4f));
+        Assert.IsNotNull(CollisionSeparation.Turn(pose, pose.Position, new Vector3(0, 5, 5), 0.5f, false, v, 8, 0.4f));
+    }
+
+    [TestMethod]
+    public void ATurnThatEndsNearVerticalTakesThePoleBranchOfTheDecomposition()
+    {
+        // the nose is 1.5 up (front.y 0.9975) and the push turns it by about 0.05 toward straight up (angle 0.8 to O,
+        // distance 78): the result is past the 0.999 threshold and short of vertical, so the pitch is -pi/2 and the
+        // roll 0
+        var pose = Pitched(-1.5f);
+        var turn = CollisionSeparation.Turn(
+            pose,
+            pose.Position,
+            new Vector3(0, 50, 60),
+            0.5f,
+            false,
+            Vector3.UnitY,
+            8,
+            0.4f
+        );
+        Assert.IsNotNull(turn);
+        Assert.AreEqual(-MathF.PI / 2, turn.Value.Pitch, 1e-6);
+        Assert.AreEqual(0, turn.Value.Roll, 1e-6);
+    }
+
+    [TestMethod]
+    public void AShipWhoseNosePointsTowardTheOtherTurnsAwayByTheGamesAngleWhenItIsTheSecondOfThePair()
+    {
+        // b faces -Z toward a, so b takes the push -V of the pair. Both have moved half the push when b's turn runs:
+        // |e| = 11.66 + 8.34 = 20, alpha = 0.540, so the angle is 8.34 / 20 * 0.4 / 0.540 = 0.309 about the axis of the
+        // nose and -V, nearly horizontal: b's heading moves from pi toward +X by about that
+        var rig = Build(SideBySide(false, bHeading: MathF.PI));
+        rig.Tick();
+        Assert.AreEqual(MathF.PI - 0.309f, rig.Heading("b"), 0.03);
+    }
+
+    [TestMethod]
+    public void AShipPushedWithAVerticalPartPitchesAsWellAsYawsAwayInTheWorld()
+    {
+        var rig = Build(SideBySide(false));
+        rig.Tick();
+        var pose = rig.Poses.Pose(rig.Objects["a"]);
+        Assert.IsTrue(Math.Abs(pose.Pitch) > 1e-3f, $"pitch {pose.Pitch}");
+        Assert.IsTrue(pose.Pitch < 0, $"a is pushed up and its nose follows: pitch {pose.Pitch}");
+        Assert.IsTrue(pose.Heading < -0.1f, $"yaw away from b: heading {pose.Heading}");
+    }
+
     [TestMethod]
     public void AShipWhoseNosePointsTowardTheOtherTurnsItsHeadingAwayByTheGamesAngle()
     {
@@ -278,18 +433,30 @@ public class CollisionSeparationTests
         Assert.AreNotEqual(rig.At("a").Y, rig.At("b").Y);
         var (a, b) = (rig.At("a"), rig.At("b"));
         rig.Tick(250);
-        Assert.AreEqual(a, rig.At("a"));
+        Assert.IsTrue(
+            Vector3.Distance(a, rig.At("a")) < 0.05f,
+            "a rests (the brake's last creep is below a twentieth)"
+        );
         Assert.AreEqual(b, rig.At("b"));
     }
 
     [TestMethod]
     public void AShipHeldOffFartherThanTooCloseToTurnFromItsPointKeepsItsOrderOpenAtTheContact()
     {
-        // radii of 30: the surfaces meet 60 from the holder, beyond the 25 of tooCloseToTurn from the point
-        var rig = Build(new Ship("a", Vector3.Zero, Radius: 30), new Ship("b", new Vector3(0, 0, 100), Radius: 30));
+        // radii of 30: the surfaces meet 60 from the holder, beyond the 25 of tooCloseToTurn from the point; both ships
+        // fly at the middle of the band, where the order's goal is, so the contact is in the plane
+        var rig = Build(
+            new Ship("a", new Vector3(0, 38.5f, 0), Radius: 30),
+            new Ship("b", new Vector3(0, 38.5f, 100), Radius: 30)
+        );
         rig.World.Move(rig.Objects["a"], 0, 100);
-        rig.Tick(200); // 4 s at 10 units/s: the surfaces meet
-        Assert.AreEqual(40f, rig.At("a").Z, 0.1);
+        for (var i = 0; i < 1000 && rig.At("a").Z < 39.9f; i++)
+        {
+            rig.Tick(); // until the surfaces meet
+        }
+
+        rig.Tick(5);
+        Assert.AreEqual(40f, rig.At("a").Z, 0.3);
         Assert.IsNotNull(rig.State("a").PlayerMove);
     }
 
@@ -337,18 +504,21 @@ public class CollisionSeparationTests
     }
 
     [TestMethod]
-    public void TheCollisionTurnOfAShipWithThrustTurnsItsVelocityWithItsHeading()
+    public void TheCollisionTurnOfAShipWithThrustLeavesItsVelocityAndRatesAsTheyWere()
     {
-        // a drives +Z at 10 beside b, which is off its nose to the side: the turn runs, and a ship with thrust takes
-        // its velocity from its heading, so the velocity direction follows (the game's turn never writes velocity)
+        // a flies +Z beside b, which is off its nose to the side: the turn rewrites the orientation only (0x464620 never
+        // writes the velocity or the rates); the physics step turns the velocity later, through drag and thrust
         var rig = Build(SideBySide(false));
         rig.World.Move(rig.Objects["a"], 0, 1000);
         rig.Tick();
         var heading = rig.Heading("a");
         var velocity = rig.State("a").Velocity;
         Assert.IsTrue(heading < -0.1f, $"turned away from b: {heading}");
-        Assert.IsTrue(velocity.Length() > 0.01f, $"a drives: {velocity}");
-        Assert.AreEqual(heading, MathF.Atan2(velocity.X, velocity.Z), 1e-3);
+        Assert.IsTrue(velocity.Length() > 0.01f, $"a flies: {velocity}");
+        Assert.IsTrue(
+            velocity.Z > 0 && Math.Abs(velocity.X) < 1e-4f,
+            $"its velocity keeps the direction it had: {velocity}"
+        );
     }
 
     [TestMethod]

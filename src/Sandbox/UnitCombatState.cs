@@ -7,25 +7,31 @@ using OpenArmada.Formats;
 namespace OpenArmada.Sandbox;
 
 /// <summary>
-/// What the combat world asks a unit's motion to do this tick: nothing (leave the motion alone), stop, move to a
-/// point, or turn in place to face one. Points are (X, Z) in the pose source's frame.
+/// What the combat world asks a unit's flight to do this tick: nothing (follow the move order it has, or brake where it
+/// is), brake where it is, move to a point directly or by path, or fight the dogfight at one. Points are (X, Y, Z) in the pose source's frame.
 /// </summary>
 public enum MoveKind
 {
-    /// <summary>Leave the motion alone.</summary>
+    /// <summary>Leave the flight alone: the unit follows the move order it has, or brakes where it is.</summary>
     None,
 
-    /// <summary>Stop where the unit is.</summary>
+    /// <summary>Stop where the unit is: it brakes to rest and levels out.</summary>
     Stop,
 
-    /// <summary>Move to the point.</summary>
+    /// <summary>Move straight to the point.</summary>
     MoveTo,
 
-    /// <summary>Turn in place to face the point.</summary>
-    Face,
+    /// <summary>Move by path to the point: an attack's closing from beyond the replan distance.</summary>
+    Path,
+
+    /// <summary>Fight the dogfight with the target whose origin is the point (<see cref="FlightModel.Dogfight"/>).</summary>
+    Dogfight,
+
+    /// <summary>Turn in place toward the point at no thrust (<see cref="FlightModel.Pivot"/>).</summary>
+    Pivot,
 }
 
-/// <summary>What the combat world asks a unit's motion to do this tick; X and Z are the point for MoveTo and Face.</summary>
+/// <summary>What the combat world asks a unit's flight to do this tick; X, Y, and Z are the point for every kind but None and Stop.</summary>
 public readonly record struct MoveIntent
 {
     /// <summary>What the motion is to do; <c>default</c> holds <see cref="MoveKind.None"/>.</summary>
@@ -33,6 +39,9 @@ public readonly record struct MoveIntent
 
     /// <summary>The point's X in the pose source's frame.</summary>
     public float X { get; init; }
+
+    /// <summary>The point's height.</summary>
+    public float Y { get; init; }
 
     /// <summary>The point's Z in the pose source's frame.</summary>
     public float Z { get; init; }
@@ -211,10 +220,10 @@ public sealed class UnitCombatState(
     public bool ShieldDownOverlay => !Derelict && SystemDestroyed(SystemNames.ShieldGenerator);
 
     /// <summary>
-    /// The unit's motion, which the combat world steps on its ticks and takes its orders into; null for a unit
+    /// The unit's flight, which the combat world steps on its ticks and takes its orders into; null for a unit
     /// whose pose something else drives (a station, or a ship without a physics definition).
     /// </summary>
-    public ShipMotion? Motion { get; init; }
+    public FlightModel? Motion { get; init; }
 
     /// <summary>The state of each weapon of the profile, in profile order.</summary>
     public List<WeaponState> Weapons { get; } = profile.Weapons.Select(w => new WeaponState(w)).ToList();
@@ -258,6 +267,15 @@ public sealed class UnitCombatState(
     /// <summary>What the world asks the unit's motion to do; the default leaves the motion alone.</summary>
     public MoveIntent Intent { get; set; }
 
+    /// <summary>The path an attack's closing built; the world ends it when the attack no longer asks for a path move.</summary>
+    public MovePath? AttackPath { get; set; }
+
+    /// <summary>The order list and replanning of the player's move order, until it ends; null without one.</summary>
+    internal PlannedMove? Planned { get; set; }
+
+    /// <summary>The order list and replanning of the attack's path move; null while the attack asks for none.</summary>
+    internal PlannedMove? AttackMove { get; set; }
+
     /// <summary>
     /// Whether the unit has left the world: its dying phase ended. A critical hit makes it a dying unit first
     /// (<see cref="Dying"/>).
@@ -286,7 +304,7 @@ public sealed class UnitCombatState(
     public double ExplosionClock { get; set; }
 
     /// <summary>
-    /// The unit's world velocity in units per second: its motion's velocity as of the latest tick, 0 for a unit
+    /// The unit's world velocity in units per second: its flight's velocity as of the latest tick, 0 for a unit
     /// without motion that has not moved. For a unit whose pose something else drives, its position change over
     /// the latest Step call (stand-in: the world has no motion of it to read).
     /// </summary>
@@ -304,6 +322,10 @@ public sealed class UnitCombatState(
     /// </summary>
     public Vector3? Position { get; set; }
 
-    /// <summary>Whether the unit has no velocity (a unit the world has not yet seen is stopped).</summary>
+    /// <summary>
+    /// Whether the unit is stopped: its speed is below 0.1, the game's own rest threshold of the no-thrust brake (squared 0.01,
+    /// 0x459c46). A unit the world has not yet seen is stopped.
+    /// stand-in: the game's test for the to-hit stop modifiers was not traced.
+    /// </summary>
     public bool Stopped { get; set; } = true;
 }

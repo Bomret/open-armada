@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Sandbox;
 using static OpenArmada.Tests.CombatFixtures;
@@ -51,22 +52,9 @@ public class CombatAlertTests
         return (world, poses);
     }
 
-    // Moves the unit to (x, 0) as its own motion would, so the world sees it there.
-    static void Place(UnitPoses poses, PlacedObject unit, float x)
-    {
-        var motion = new ShipMotion(
-            new PhysicsValues
-            {
-                ImpulseSpeed = 100,
-                YawRotationRate = 100,
-                MaxRoll = null,
-            },
-            unit.Position,
-            0
-        );
-        motion.SetTarget(x, 0);
-        poses.Advance(unit, motion, 100);
-    }
+    // Moves the unit to (x, 0) from outside, so the world sees it there.
+    static void Place(UnitPoses poses, PlacedObject unit, float x, float? y = null) =>
+        poses.Record(unit, FlightFixtures.Cruiser(new Vector3(x, y ?? unit.Position.Y, 0)));
 
     // An immobile unit that fires one beam at its pick, which lands after the beam's life of one second.
     static Spec OneShotShooter(string label, int team, float x) =>
@@ -154,8 +142,9 @@ public class CombatAlertTests
         Assert.AreEqual(
             new MoveIntent
             {
-                Kind = MoveKind.MoveTo,
+                Kind = MoveKind.Dogfight, // an idle ship fights the dogfight at its pick (0x42a170 into 0x42c400)
                 X = 70,
+                Y = 0,
                 Z = 0,
             },
             world.State(a.Object)!.Intent
@@ -194,8 +183,9 @@ public class CombatAlertTests
         Assert.AreEqual(
             new MoveIntent
             {
-                Kind = MoveKind.Face,
+                Kind = MoveKind.Dogfight,
                 X = 900,
+                Y = 0,
                 Z = 0,
             },
             world.State(a.Object)!.Intent
@@ -216,13 +206,14 @@ public class CombatAlertTests
     [TestMethod]
     public void AnIdleRedShipClosingOnItsPickSwitchesEveryTimeItCrossesTheTetherEdge()
     {
-        var a = Ship("a", 1, 0); // range 100: the pick within 75, closing beyond 50
+        var a = Ship("a", 1, 0); // range 100: the pick within 75
         var t = Target("t", 2, 360);
         var (world, poses) = WorldWithPoses(a, t);
         var pick = new MoveIntent
         {
-            Kind = MoveKind.MoveTo,
+            Kind = MoveKind.Dogfight,
             X = 360,
+            Y = 0,
             Z = 0,
         };
         var tether = new MoveIntent
@@ -283,7 +274,7 @@ public class CombatAlertTests
         var a = Ship("a", 1, 0);
         var (world, poses) = WorldWithPoses(a);
         world.Move(a.Object, 500, 0);
-        Place(poses, a.Object, 500);
+        Place(poses, a.Object, 500, world.Band.Middle); // the goal's height, the middle of the band
         world.Step(0.02);
         Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind);
     }
@@ -296,7 +287,7 @@ public class CombatAlertTests
         var (world, poses) = WorldWithPoses(a, t);
         world.Attack(a.Object, t.Object);
         world.Move(a.Object, 600, 0);
-        Place(poses, a.Object, 600);
+        Place(poses, a.Object, 600, world.Band.Middle);
         world.Step(0.02);
         Assert.AreEqual(MoveKind.None, world.State(a.Object)!.Intent.Kind);
     }
@@ -385,8 +376,9 @@ public class CombatAlertTests
         Assert.AreEqual(
             new MoveIntent
             {
-                Kind = MoveKind.Face,
+                Kind = MoveKind.Dogfight,
                 X = 900,
+                Y = 0,
                 Z = 0,
             },
             world.State(a.Object)!.Intent
@@ -405,7 +397,7 @@ public class CombatAlertTests
             world.Step(wait - CombatWorld.Tick); // in one step, as a long frame would
             Place(poses, a.Object, 800); // beyond 300 units of the tether point the hit set
             world.Step(CombatWorld.Tick); // the tick `wait` seconds after the hit
-            Assert.AreEqual(holds ? MoveKind.Face : MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind, $"{wait}");
+            Assert.AreEqual(holds ? MoveKind.Dogfight : MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind, $"{wait}");
             if (!holds)
             {
                 Assert.AreEqual(400, world.State(a.Object)!.Intent.X, 0.01, $"{wait}");
@@ -433,7 +425,7 @@ public class CombatAlertTests
             Place(poses, a.Object, 400); // the shooter picks the other unit, the nearer one
             StepUntilHit(world, other.Object);
             Assert.AreEqual(
-                moves ? MoveKind.Face : MoveKind.MoveTo,
+                moves ? MoveKind.Dogfight : MoveKind.MoveTo,
                 world.State(a.Object)!.Intent.Kind,
                 $"{team} {x} {z}"
             );
@@ -454,8 +446,9 @@ public class CombatAlertTests
         Assert.AreEqual(
             new MoveIntent
             {
-                Kind = MoveKind.Face,
+                Kind = MoveKind.Dogfight,
                 X = 1300,
+                Y = 0,
                 Z = 0,
             },
             world.State(a.Object)!.Intent
@@ -591,6 +584,7 @@ public class CombatAlertTests
             {
                 Kind = MoveKind.MoveTo,
                 X = -500,
+                Y = world.Band.Middle,
                 Z = 0,
             },
             world.State(a.Object)!.Intent
@@ -609,8 +603,9 @@ public class CombatAlertTests
         Assert.AreEqual(
             new MoveIntent
             {
-                Kind = MoveKind.MoveTo,
+                Kind = MoveKind.Dogfight,
                 X = 70,
+                Y = 0,
                 Z = 0,
             },
             world.State(a.Object)!.Intent
@@ -638,10 +633,10 @@ public class CombatAlertTests
         var a = Ship("a", 1, 0);
         var world = World(a, Target("t", 2, 70));
         world.Step(0.02);
-        Assert.AreEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        Assert.AreEqual(MoveKind.Dogfight, world.State(a.Object)!.Intent.Kind);
         world.State(a.Object)!.Alert = AlertStance.Yellow;
         world.Step(0.02);
-        Assert.AreNotEqual(MoveKind.MoveTo, world.State(a.Object)!.Intent.Kind);
+        Assert.AreNotEqual(MoveKind.Dogfight, world.State(a.Object)!.Intent.Kind);
     }
 
     [TestMethod]

@@ -1,6 +1,7 @@
 # 8. Ships without thrust coast inside the kinematic model
 
-**Status:** Accepted
+**Status:** Superseded
+**Superseded by:** ADR 0011
 **Amends:** ADR 0003
 
 Amends ADR 0003. A ship that has no thrust coasts instead of stopping. This covers a dying unit, a

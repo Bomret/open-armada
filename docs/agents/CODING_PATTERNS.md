@@ -16,8 +16,8 @@ or `OpenArmada.Viewer`. A type that both layers need lives in the lower one. For
 `src/Formats/`, `src/Assets/`, `src/Sandbox/`, and `src/Diagnostics/` are Godot-free. The test project compiles their source
 files directly, so the tests run without Godot. A `using Godot` in these folders breaks the test build.
 
-- Put logic that needs no engine in a Godot-free folder and test it there. For example, `ShipMotion`
-  computes a pose, and `MoveOrders` in the viewer only applies the pose to a node.
+- Put logic that needs no engine in a Godot-free folder and test it there. For example, `FlightModel`
+  computes a pose, and `UnitOrders` in the viewer only applies the pose to a node.
 - When Godot-free code needs an engine service, pass it in as a delegate. For example,
   `AssetCheck.Run` takes `GodotDecoders.Check` from the viewer.
 - Only `src/Rendering/` and `src/Viewer/` reference Godot.

@@ -1,0 +1,16 @@
+// Two Federation destroyers for play/nebula.play: Inside starts in a row of Mutara nebulae (mnebula3, a forward-speed
+// coefficient of 0.6) and Outside starts in clear space 300 units away. Both get the same move order, so the state dump
+// shows Inside slower than Outside while it is in the nebulae.
+// Run it with: sh tools/play-run.sh nebula --layout layouts/nebula.jsonc --fps 10
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "fdestroy", "team": 1, "position": [1700, 0, 2000], "label": "Inside" },
+    { "class": "fdestroy", "team": 1, "position": [1700, 0, 2300], "label": "Outside" },
+    { "class": "mnebula3", "team": 0, "position": [1700, 0, 2000], "label": "n1" },
+    { "class": "mnebula3", "team": 0, "position": [1850, 0, 2000], "label": "n2" },
+    { "class": "mnebula3", "team": 0, "position": [2000, 0, 2000], "label": "n3" },
+    { "class": "mnebula3", "team": 0, "position": [2150, 0, 2000], "label": "n4" },
+    { "class": "mnebula3", "team": 0, "position": [2300, 0, 2000], "label": "n5" },
+  ],
+}

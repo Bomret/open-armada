@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Formats;
 using OpenArmada.Sandbox;
@@ -63,7 +64,7 @@ public class PlayStateTests
         var lines = scene.Play.Dump().Split('\n');
 
         Assert.AreEqual(
-            "a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
+            "a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
                 + "Weapons=5.00/5.00/intact Sensors=4.00/4.00/intact "
                 + "derelict=false immobile=false coasting=false destroyed=false dying=false alert=Red order=b target=none move=none shieldDown=false damage=crew",
             lines[0]
@@ -89,7 +90,10 @@ public class PlayStateTests
         var play = new PlayState(new UnitNames([a]), new UnitPoses([a]).Pose, [], debris: () => count);
         StringAssert.EndsWith(play.Dump(), "\ndebris=0\n");
         count = 7;
-        Assert.AreEqual("a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 state=none\ndebris=7\n", play.Dump());
+        Assert.AreEqual(
+            "a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 state=none\ndebris=7\n",
+            play.Dump()
+        );
     }
 
     [TestMethod]
@@ -98,16 +102,47 @@ public class PlayStateTests
         var scene = new Scene();
         scene.StateA.Velocity = new System.Numerics.Vector3(1.234f, -0.006f, 20);
 
-        StringAssert.Contains(scene.Play.Dump().Split('\n')[0], "pos=1.50,0.00,2.00 vel=1.23,-0.01,20.00 shields=");
-        StringAssert.Contains(scene.Play.Dump().Split('\n')[1], " vel=0.00,0.00,0.00 shields=");
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[0], "pos=1.50,0.00,2.00 vel=1.23,-0.01,20.00 pitch=");
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[1], " vel=0.00,0.00,0.00 pitch=");
     }
 
     [TestMethod]
     public void TheDumpListsAUnitWithoutCombatState() =>
         Assert.AreEqual(
-            "rock team=0 pos=50.00,0.00,0.00 vel=0.00,0.00,0.00 state=none",
+            "rock team=0 pos=50.00,0.00,0.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 state=none",
             new Scene().Play.Dump().Split('\n')[2]
         );
+
+    [TestMethod]
+    public void TheDumpShowsEachUnitsPitchYawAndRollInRadiansWithTwoDecimals()
+    {
+        var a = Placed("a", 1, 1.5f, 2);
+        var pose = new ShipPose
+        {
+            Position = a.Position,
+            Pitch = -0.3f,
+            Yaw = 2.468f,
+            Roll = -0.004f, // rounds to zero from below and shows as 0.00
+        };
+        var play = new PlayState(new UnitNames([a]), _ => pose, []);
+
+        StringAssert.Contains(play.Dump(), " vel=0.00,0.00,0.00 pitch=-0.30 yaw=2.47 roll=0.00 state=none");
+    }
+
+    [TestMethod]
+    public void TheDumpShowsTheAnglesOfAPlacedUnitThatTheGameDecomposes()
+    {
+        var (s, c) = MathF.SinCos(0.3f);
+        var a = Placed("a", 1, 1.5f, 2) with
+        {
+            AxisX = Vector3.UnitX,
+            AxisY = new Vector3(0, c, -s), // the game's up (0, c, s) with Z mirrored
+            AxisZ = new Vector3(0, s, c), // the game's front (0, -s, c), negated and Z mirrored
+        };
+        var play = new PlayState(new UnitNames([a]), new UnitPoses([a]).Pose, []);
+
+        StringAssert.Contains(play.Dump(), " pitch=0.30 yaw=0.00 roll=0.00 state=none");
+    }
 
     [TestMethod]
     public void TheDumpListsADestroyedUnitWithItsDestroyedFlagSet()
@@ -196,7 +231,10 @@ public class PlayStateTests
         System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
         try
         {
-            StringAssert.Contains(scene.Play.Dump(), "pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 shields=100.00");
+            StringAssert.Contains(
+                scene.Play.Dump(),
+                "pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 shields=100.00"
+            );
         }
         finally
         {

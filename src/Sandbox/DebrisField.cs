@@ -61,7 +61,8 @@ sealed class DebrisField(DebrisLimits limits)
             }
         }
 
-        var (scale, turned) = HardpointGeometry.Placement(unit, pose);
+        var scale = HardpointGeometry.Split(unit).Scale;
+        var turned = pose.Orientation;
         // the unit's matrix: its axes carry the scale and the turn (Godot's frame)
         Vector3 Unit(Vector3 axis) => Vector3.Transform(axis, turned);
         var unitX = Unit(Vector3.UnitX * scale.X);

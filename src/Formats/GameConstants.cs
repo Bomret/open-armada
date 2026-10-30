@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -39,7 +40,9 @@ public sealed record GameConstant
 /// The game constants: the named values of the install's RTS_CFG.h, in file order, with the headers it
 /// names by #include (named, not followed) and Notes. The grammar is the C-like subset of that file: "//"
 /// comments, #include "name", #define NAME "string" or number, and float/int NAME = value; declarations.
-/// A value that is an expression or names another constant is kept as text with a note; a line the reader
+/// A value that is the name of a constant declared earlier is that constant's number (<c>float COST = IMPASSABLE_TERRAIN;</c>,
+/// as the game evaluates it, 0x4f82f0; an <c>int</c> declaration truncates a fractional value toward zero); a value that is another expression, or names a constant not declared before, is
+/// kept as text with a note; a line the reader
 /// does not recognize, a missing ';' and a duplicate name (the later value wins) are notes, each naming
 /// file:line (INV-0002). A file that is empty or binary throws InvalidDataException naming it.
 /// </summary>
@@ -51,6 +54,7 @@ public sealed class GameConstants
     static readonly Regex Literal = new(@"^[-+]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?[fF]?$");
     static readonly Regex IntLiteral = new(@"^[-+]?\d+$");
     static readonly Regex Quoted = new(@"^""([^""]*)""$");
+    static readonly Regex Identifier = new(@"^[A-Za-z_]\w*$");
 
     readonly List<GameConstant> _values = new();
     readonly List<string> _notes = new();
@@ -95,7 +99,7 @@ public sealed class GameConstants
 
     /// <summary>
     /// The number of the constant, or false with the problem: missing, text (a #define string), or not a
-    /// literal (an expression or a reference to another constant, kept as text).
+    /// literal (an expression, or a name not declared before, kept as text).
     /// </summary>
     public bool TryNumber(string name, out double value, out string problem)
     {
@@ -188,6 +192,20 @@ public sealed class GameConstants
                 Name = name,
                 Type = type,
                 Number = double.Parse(value.TrimEnd('f', 'F'), CultureInfo.InvariantCulture),
+                Text = null,
+                IsString = false,
+                Line = line,
+            };
+        }
+        else if (Identifier.IsMatch(value) && _values.FirstOrDefault(v => v.Name == value)?.Number is { } named)
+        {
+            // An identifier is the value of the earlier declaration of that name (0x4f82f0 reads the declarations so far);
+            // an int declaration truncates it as the game does (ftol).
+            c = new()
+            {
+                Name = name,
+                Type = type,
+                Number = type == "int" ? Math.Truncate(named) : named,
                 Text = null,
                 IsString = false,
                 Line = line,

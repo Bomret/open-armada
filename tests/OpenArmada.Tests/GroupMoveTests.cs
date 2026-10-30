@@ -33,7 +33,7 @@ public class GroupMoveTests
         public Vector3 Position(int i) => Poses.Pose(Ships[i]).Position;
     }
 
-    // Mobile ships at the given (x, z) with the given heights, driving at 100 units/s; other units are stations.
+    // Mobile ships at the given (x, z) with the given heights, with an impulse speed of 100; other units are stations.
     static Rig Build(IEnumerable<(float X, float Z, float Y)> ships, int stations = 0)
     {
         var placed = ships
@@ -49,16 +49,7 @@ public class GroupMoveTests
                 DefinitionName = "s.odf",
                 Radius = 0,
                 Mobile = true,
-                Motion = new ShipMotion(
-                    new PhysicsValues
-                    {
-                        ImpulseSpeed = 100,
-                        YawRotationRate = 3,
-                        MaxRoll = null,
-                    },
-                    p.Position,
-                    0
-                ),
+                Motion = FlightFixtures.Cruiser(p.Position, 0, impulse: 100),
             })
             .Concat(
                 posts.Select(p => new CombatUnit
@@ -212,14 +203,14 @@ public class GroupMoveTests
     }
 
     [TestMethod]
-    public void EachShipsTetherPointIsItsOwnCellAtItsOwnHeight()
+    public void EachShipsTetherPointIsItsOwnCellAtTheMiddleOfTheBand()
     {
         var rig = Build([(1000, -700, 5), (1010, -700, 20)]);
         rig.World.GroupMove(rig.Ships, Click(2000, -2000), K, Mid, Map);
         for (var i = 0; i < 2; i++)
         {
             var cell = Dest(rig, i);
-            Assert.AreEqual(new Vector3(cell.X, rig.Position(i).Y, cell.Y), rig.State(i).Tether);
+            Assert.AreEqual(new Vector3(cell.X, Mid, cell.Y), rig.State(i).Tether);
         }
 
         Assert.AreEqual(5f, rig.Position(0).Y);

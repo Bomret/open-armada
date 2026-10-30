@@ -166,6 +166,8 @@ The other checked-in play scripts. Each script's header comment describes the ru
 | `shield-hit.play` | `layouts/shield-hit.jsonc` | Shield hit effects of beams and torpedoes on both sides |
 | `shield-hull.play` | `--map kling1` | The hull hit sprite on a unit without shields |
 | `shield-red.play` | `--map kling4` | Shield hit colors as shields fall; the shield-down overlay |
+| `sound-fade.play` | `layouts/sound-fade.jsonc` | A fireball fading as the camera pans away, silent beyond its maximum distance, heard again on return |
+| `sound-fade-start.play` | `layouts/sound-fade.jsonc` | A fireball that starts beyond its maximum distance, never heard |
 | `sparks.play` | `layouts/emitters.jsonc` | Repair sparks of repairing systems |
 | `vent-fade.play` | `layouts/emitters.jsonc` | A damage emitter stopping once its system is whole |
 

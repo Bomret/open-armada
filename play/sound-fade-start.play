@@ -1,0 +1,11 @@
+# A fireball that starts while the camera is beyond its maximum distance is never heard, even when the camera then
+# comes back while the sound would still play. Run it with --layout layouts/sound-fade.jsonc; tools/WavLevel on
+# play-out/sound-fade-start/frame.wav from 5.3 to 7.3 seconds reads silence.
+wait 0.2
+select Vorcha6
+attack Sensor5
+wait 4
+hold Left 1.2
+hold Right 1.2
+wait 1.5
+expect Sensor5 destroyed = true

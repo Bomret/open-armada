@@ -49,6 +49,13 @@ public partial class CombatView : Node3D
         public Vector3 Direction; // a missed torpedo or pulse: its straight flight
     }
 
+    sealed class Sounding
+    {
+        public required AudioStreamPlayer3D Player;
+        public required PlacedObject? Follows; // the unit it follows; null: it stays where it started
+        public required double MinimumScale;
+    }
+
     readonly CombatArt _art;
     readonly RepeatedFaults _faults = new(Area.Combat);
     readonly CombatWorld _world;
@@ -57,6 +64,7 @@ public partial class CombatView : Node3D
     readonly Dictionary<string, AudioStreamWav> _sounds = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, Node3D> _models = new(StringComparer.OrdinalIgnoreCase);
     readonly List<Drawn> _drawn = new();
+    readonly List<Sounding> _sounding = new();
     readonly GameFileSystem _files;
     readonly SoundFade _fade;
 
@@ -164,7 +172,7 @@ public partial class CombatView : Node3D
                     case ShotFired { Shot: var shot }:
                         if (sounded.Add((shot.Shooter, shot.Weapon.Slot)) && At(shot.Shooter.Unit) is { } at)
                         {
-                            PlaySound(shot.Weapon.FireSound, at, SoundFade.FireMinimumScale);
+                            PlaySound(shot.Weapon.FireSound, at, SoundFade.FireMinimumScale, shot.Shooter.Unit);
                         }
 
                         Draw(shot);
@@ -249,20 +257,21 @@ public partial class CombatView : Node3D
     static Vector3 Gd(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
 
     // Plays the sound at the level the game's fade gives for its distance from the camera eye, positional so it pans;
-    // Godot's own distance fade, cutoff, and filter apply nothing. A sound beyond its maximum distance is not played.
-    void PlaySound(string name, Vector3 at, double minimumScale)
+    // Godot's own distance fade, cutoff, and filter apply nothing. A sound that starts beyond its maximum distance is
+    // never played. A fire sound follows its unit (`follows`) while the unit's node lives; UpdateSounds keeps the level.
+    void PlaySound(string name, Vector3 at, double minimumScale, PlacedObject? follows)
     {
         if (!_sounds.TryGetValue(name, out var stream)) // only a sound the install holds and Godot decodes is read
             return;
         if (GetViewport().GetCamera3D() is not { } camera)
             return;
-        if (_fade.DbAt(camera.GlobalPosition.DistanceTo(at), minimumScale) is not { } db)
+        if (!_fade.StartsAt(camera.GlobalPosition.DistanceTo(at)))
             return;
         var player = new AudioStreamPlayer3D
         {
             Stream = stream,
             Position = at,
-            VolumeDb = (float)db + PanLiftDb,
+            VolumeDb = Volume(_fade.VolumeDbAt(Num(at), Num(camera.GlobalPosition), minimumScale)),
             MaxDb = 6, // Godot's highest cap, above the lift
             AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.Disabled,
             MaxDistance = 0,
@@ -271,7 +280,38 @@ public partial class CombatView : Node3D
         player.Finished += player.QueueFree;
         AddChild(player);
         player.Play();
+        _sounding.Add(
+            new Sounding
+            {
+                Player = player,
+                Follows = follows,
+                MinimumScale = minimumScale,
+            }
+        );
     }
+
+    // Each frame, every playing sound moves with the unit it follows (it stays at its last place once the unit's node is
+    // gone, 0x5b09e0) and takes the fade's level at its distance from the camera eye, silent beyond its maximum.
+    void UpdateSounds()
+    {
+        _sounding.RemoveAll(s => !IsInstanceValid(s.Player) || s.Player.IsQueuedForDeletion());
+        if (GetViewport().GetCamera3D() is not { } camera)
+            return;
+        foreach (var s in _sounding)
+        {
+            if (s.Follows != null && At(s.Follows) is { } at)
+            {
+                s.Player.Position = at;
+            }
+
+            s.Player.VolumeDb = Volume(
+                _fade.VolumeDbAt(Num(s.Player.Position), Num(camera.GlobalPosition), s.MinimumScale)
+            );
+        }
+    }
+
+    // The player's volume for a fade level: the level with the pan lift, or the silent level as it stands.
+    static float Volume(double db) => (float)(db > SoundFade.SilentDb ? db + PanLiftDb : db);
 
     void Draw(Shot shot)
     {
@@ -443,7 +483,7 @@ public partial class CombatView : Node3D
     {
         if (_art.Explosion(unit) is not { } explosion || At(unit) is not { } at)
             return;
-        PlaySound(explosion.Sound ?? "", at, SoundFade.ExplosionMinimumScale);
+        PlaySound(explosion.Sound ?? "", at, SoundFade.ExplosionMinimumScale, null);
         if (explosion.Model == null || !_models.TryGetValue(explosion.Model, out var template))
             return;
         // Each explosion plays its sprite nodes once from the moment of destruction, on its own clock.
@@ -480,6 +520,7 @@ public partial class CombatView : Node3D
     public override void _Process(double delta)
     {
         UpdateShieldEffects();
+        UpdateSounds();
         var live = _world.Shots.ToHashSet();
         _drawn.RemoveAll(d =>
         {

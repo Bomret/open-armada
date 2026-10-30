@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Sandbox;
@@ -58,6 +59,46 @@ public class SoundFadeTests
     public void ARolloffOf0GivesNoFade()
     {
         Assert.AreEqual(0, (Stock with { Rolloff = 0 }).DbAt(1999, SoundFade.FireMinimumScale));
+    }
+
+    static readonly Vector3 Sound = new(0, 0, 0);
+
+    [TestMethod]
+    public void ZoomingOrPanningTheCameraChangesAPlayingSoundsLevelByTheFade()
+    {
+        var near = Stock.VolumeDbAt(Sound, new Vector3(0, 0, 509), SoundFade.FireMinimumScale);
+        var far = Stock.VolumeDbAt(Sound, new Vector3(600, 800, 0), SoundFade.FireMinimumScale);
+        Assert.AreEqual(Stock.DbAt(509, SoundFade.FireMinimumScale)!.Value, near, 1e-9);
+        Assert.AreEqual(Stock.DbAt(1000, SoundFade.FireMinimumScale)!.Value, far, 1e-9);
+        Assert.AreEqual(0, Stock.VolumeDbAt(Sound, new Vector3(30, 0, 0), SoundFade.FireMinimumScale));
+    }
+
+    [TestMethod]
+    public void ASoundStartsOnlyWithinItsMaximumDistance()
+    {
+        Assert.IsTrue(Stock.StartsAt(2000));
+        Assert.IsFalse(Stock.StartsAt(2001));
+    }
+
+    [TestMethod]
+    public void APlayingSoundBeyondItsMaximumIsSilentAndIsHeardAgainWithinIt()
+    {
+        Assert.AreEqual(
+            SoundFade.SilentDb,
+            Stock.VolumeDbAt(Sound, new Vector3(2500, 0, 0), SoundFade.FireMinimumScale)
+        );
+        Assert.IsTrue(
+            Stock.VolumeDbAt(Sound, new Vector3(1500, 0, 0), SoundFade.FireMinimumScale) > SoundFade.SilentDb
+        );
+    }
+
+    [TestMethod]
+    public void ASilentSoundNeverHasANaNOrInfiniteVolume()
+    {
+        foreach (var eye in new[] { new Vector3(float.NaN, 0, 0), new Vector3(float.PositiveInfinity, 0, 0) })
+        {
+            Assert.AreEqual(SoundFade.SilentDb, Stock.VolumeDbAt(Sound, eye, SoundFade.FireMinimumScale));
+        }
     }
 
     // The fade read from an install that holds `audio` as audio.odf (null: none).

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Numerics;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
 
@@ -20,6 +21,9 @@ public sealed record SoundFade
 
     /// <summary>The minimum scale of an explosion sound (0x51a490).</summary>
     public const double ExplosionMinimumScale = 2;
+
+    /// <summary>The level of a silent sound, in dB: Godot's floor, never a NaN or an infinite volume.</summary>
+    public const double SilentDb = -80;
 
     const string File = "audio.odf";
     const string CannotBeRead = "audio.odf cannot be read, combat sounds take the game's fade";
@@ -123,6 +127,24 @@ public sealed record SoundFade
             return null;
 
         return 20 * Math.Log10(minimum / (minimum + Rolloff * (distance - minimum)));
+    }
+
+    /// <summary>
+    /// Whether a sound <paramref name="distance"/> from the camera eye starts at all: one beyond its maximum distance
+    /// is never played, even when the camera comes closer later (0x5b0b90).
+    /// </summary>
+    public bool StartsAt(double distance) => distance <= MaximumDistance;
+
+    /// <summary>
+    /// The level in dB of a playing sound at <paramref name="at"/> heard from the camera eye <paramref name="eye"/>:
+    /// <see cref="DbAt"/>, or <see cref="SilentDb"/> beyond its maximum distance (the game's buffers mute there,
+    /// 0x5aff40) and for a distance that is no finite number.
+    /// </summary>
+    public double VolumeDbAt(Vector3 at, Vector3 eye, double minimumScale)
+    {
+        var distance = Vector3.Distance(at, eye);
+
+        return float.IsFinite(distance) && DbAt(distance, minimumScale) is { } db ? db : SilentDb;
     }
 
     static string Show(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);

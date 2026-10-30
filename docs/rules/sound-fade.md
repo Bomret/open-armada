@@ -33,6 +33,16 @@ the maximum scale.
 The listener sits at the camera eye. Each frame, 0x5abed0 hands the camera's pose to 0x5acb60, which sets
 DirectSound's listener position and orientation from it.
 
+## Following and the maximum distance
+
+- **Following.** Each update, 0x5b09e0 moves a playing 3D sound to its object's current position. A sound
+  whose object is gone keeps the last position it had.
+- **Start.** 0x5b0b90 starts no sound whose distance from the listener is beyond its maximum distance. Such a
+  sound is never heard, even when the camera comes closer while it would still play.
+- **Mute.** 0x5aff40 creates every 3D buffer through 0x5ad9c0 with the flags 0x60010, which hold DirectSound's
+  mute-at-maximum-distance flag (0x20000). A playing sound beyond its maximum distance is silent, and is heard
+  again once the listener is back within it.
+
 ## The fade
 
 The game hands the distances and the rolloff to DirectSound, which computes the fade itself. Microsoft
@@ -52,9 +62,11 @@ when the map opens. A missing file, an unreadable file, a missing key, a value t
 unusable value (a rolloff below 0, a minimum distance of 0 or less, a maximum distance not above the minimum)
 each take the exe's default and are reported once in the gap report.
 
-A combat sound starts at the level the fade gives for its distance from the camera eye. Godot's own distance
-fade, its maximum distance, and its attenuation filter apply nothing. The sound stays positional, so it pans
-by its direction from the camera. A sound that starts beyond its maximum distance is not played.
+A combat sound that starts within its maximum distance from the camera eye is played; one beyond it is not.
+Each frame, a playing sound takes the level the fade gives for its distance from the camera eye, and a fire
+sound moves with its ship's node while that node lives. A silent sound plays at −80 dB, Godot's floor. Godot's
+own distance fade, its maximum distance, and its attenuation filter apply nothing. The sound stays positional,
+so it pans by its direction from the camera as the camera moves or turns.
 
 **stand-in:** Godot's stereo panning keeps a sound's total power, so a sound straight ahead plays at −3 dB in
 each channel. DirectSound plays it at full level in both (**inferred**). The engine lifts every combat sound by

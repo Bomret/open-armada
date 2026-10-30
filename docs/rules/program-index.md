@@ -529,7 +529,10 @@ Range 0x5abbc0–0x5b6180 (`Utilities\Audio\`). The rest of the range is in Unex
 | 0x5abbc0 | Audio_ReadSettings | Reads `audio.odf`: the rolloff and the minimum and maximum 3D distances, among others | confirmed | game | 0x62c284–0x62c290 | [sound-fade](sound-fade.md#the-settings) |
 | 0x5abed0 | Audio_Update | Hands the camera's pose to the listener each frame | confirmed | game | — | [sound-fade](sound-fade.md#the-listener) |
 | 0x5acb60 | Audio_SetListener | Sets DirectSound's listener position and orientation from a pose | confirmed | game | — | [sound-fade](sound-fade.md#the-listener) |
+| 0x5ad9c0 | Sound_CreateBuffer | Creates a DirectSound buffer with the flags it is given | confirmed | game | caller 0x5aff40 | [sound-fade](sound-fade.md#following-and-the-maximum-distance) |
 | 0x5aff40 | Sound3D_Create | Makes a 3D sound; its minimum and maximum distance are the settings times its two scales | confirmed | game | — | [sound-fade](sound-fade.md#a-sounds-distances) |
+| 0x5b09e0 | Sound3D_Follow | Moves a playing 3D sound to its object's position | confirmed | game | — | [sound-fade](sound-fade.md#following-and-the-maximum-distance) |
+| 0x5b0b90 | Sound3D_Play | Starts a 3D sound; refuses one beyond its maximum distance from the listener | confirmed | game | — | [sound-fade](sound-fade.md#following-and-the-maximum-distance) |
 
 ## Structures and globals
 
@@ -988,7 +991,10 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x5abbc0 | Audio_ReadSettings | confirmed | Audio |
 | 0x5abed0 | Audio_Update | confirmed | Audio |
 | 0x5acb60 | Audio_SetListener | confirmed | Audio |
+| 0x5ad9c0 | Sound_CreateBuffer | confirmed | Audio |
 | 0x5aff40 | Sound3D_Create | confirmed | Audio |
+| 0x5b09e0 | Sound3D_Follow | confirmed | Audio |
+| 0x5b0b90 | Sound3D_Play | confirmed | Audio |
 <!-- by-address:end -->
 
 ## Unexplored
@@ -1016,10 +1022,10 @@ table and narrow or remove its line here.
 | 0x5547e0–0x55b830 | Parameter database internals, queue managers, user profile | `ParameterDB.cpp`, `QueueManager.cpp` |
 | 0x55ef00–0x5648b0 | Timed effects and special flags beyond the rows above | `Timed…` classes, `SpecialFlag.cpp` |
 | 0x576450–0x5a6200 | Storm3D beyond the rows above: devices, lights, LOD, text streams; the debris draw 0x57dc80 | `ST3D_…` classes |
-| 0x5abbc0–0x5b7b10 | Audio beyond the rows above (the settings, the listener, and a 3D sound's distances are named), jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
+| 0x5abbc0–0x5b7b10 | Audio beyond the rows above (the settings, the listener, and a 3D sound's distances, start, and following are named), jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
 
 <!-- coverage:start -->
-Coverage: the index names 325 routines of the 9,401 functions in the game code band: 277 confirmed, 42 inferred, 6 unknown.
+Coverage: the index names 328 routines of the 9,401 functions in the game code band: 280 confirmed, 42 inferred, 6 unknown.
 <!-- coverage:end -->
 
 ## ODF keys

@@ -172,9 +172,9 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
         art.AddSmallExplosions();
         art.AddRepairSparks();
-        var (eye, target) = _rig.Pose; // the camera's opening pose: no input has moved it yet
-        var falloff = SoundFalloff.For(System.Numerics.Vector3.Distance(eye, target));
-        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, falloff, gap => AddGap(gap)));
+        var fade = SoundFade.Read(files);
+        _gaps.AddRange(fade.Reports.Select(r => r.Text));
+        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, fade.Fade, gap => AddGap(gap)));
         _gaps.AddRange(art.Reports.Select(r => r.Text));
         AddChild(
             new DamageSprayView(

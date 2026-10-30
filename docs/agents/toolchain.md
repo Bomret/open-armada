@@ -20,6 +20,8 @@
     selected in `global.json`)
   - Asset check of an install — `godot-mono --headless --path . -- --check --game "$ARMADA_DIR"`
   - Measure a sound's level in a play run's WAV — `dotnet run --project tools/WavLevel -- <wav> --from <s> --to <s>`
+  - Dump `Armada.exe` with Ghidra and rebuild the program index — `tools/GhidraDump/` (Ghidra scripts
+    and Python tools); `tools/GhidraDump/README.md` has the runs
 - Formatter: CSharpier `1.3.0`, a local dotnet tool pinned in `dotnet-tools.json`;
   `.csharpierrc.json` sets `printWidth: 120` and leaves every other option at its default. CSharpier
   reads `.gitignore`, so `.godot/`, `bin/`, `obj/`, and `.superdev/` are skipped.

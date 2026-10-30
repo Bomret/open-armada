@@ -64,8 +64,9 @@ so docs converge on the standard as they are touched.
 
 ## Audit set
 
-`/superdev:document audit` reads a default tree — the `AGENTS.md` hierarchy, `README.md`, and
-`CONTEXT.md` — plus every glob listed here:
+`/superdev:document audit` reads a default tree — the `AGENTS.md` hierarchy, `README.md`,
+`CONTEXT.md`, and the local knowledge-base pages when the knowledge base is a local `docs/kb/` — plus
+every glob listed here:
 
 - `docs/rules/*.md`
 - `docs/*.md`

@@ -51,6 +51,11 @@ where none does.
   scope absorbed. The same body-append mechanism as the anchor dependency above, and never confused with
   it, with the deploy line, the Repairs line, or `**Depends on:** #<n>`: it records which triage records
   the scope builds and blocks nothing (`plan-contract.md` → *Scope anchor*, ADR 0144).
+- **Intent** (optional) ↔ a `**Intent:** #<n>[, #<n>]` line in the **anchor's own** body — the epic on a
+  multi-slice feature, the lone slice issue on a single-slice one — naming every intent record a plan of this
+  feature was seeded from. The same body-append mechanism as the Absorbs line above, and never confused
+  with the other anchor lines or with `**Depends on:** #<n>`: it records where the feature came from and blocks
+  nothing (`plan-contract.md` → *Scope anchor*, ADR 0200).
 - global DoD ↔ an **epic** issue (label `epic`) whose body holds the DoD checklist; slices carry the
   feature label and reference the epic (`#<epic>`).
 - **Parked questions** (optional) ↔ a `## Parked questions` section in the epic issue body, same
@@ -115,6 +120,10 @@ where none does.
   the **anchor issue's own** body when `/superdev:plan` absorbs records, revising the line in place on an
   append that absorbs more. A body edit through **Edit an issue's body** below, like the anchor dependency
   above (ADR 0144).
+- **Record the Intent line:** append `**Intent:** #<n>[, #<n>]` (every seeding intent record's reference)
+  to the **anchor issue's own** body when `/superdev:plan` was seeded from an intent record, revising the
+  line in place on an append seeded from another one. A body edit through **Edit an issue's body** below,
+  like the Absorbs line above (ADR 0200).
 - **List feature slices:** `tea issues list -o json --fields index,state,title,body,labels --labels
   <type>/<feature> --state all --page <p> --limit 50`, paged until a page returns fewer than 50 entries.
 - **Read a slice:** `tea issues <index> -o json`.
@@ -270,7 +279,7 @@ below, which the dispatch swaps to `in-progress`.
 `plan-contract.md` → *Triage record*. The scope review's fix loop, or the full tier's per-slice loop,
 creates one the moment it defers a finding; the controller creates one the same way the moment it meets an
 observation, and `/superdev:plan` the moment its interview places a found defect later
-(`references/scope-mode.md`'s `## Observations` section).
+(`references/scope-findings.md`'s `## Observations` section).
 On this store it is an ordinary issue carrying the **Triage label** from *Configuration* and nothing else.
 
 - **Create it:** `tea issues create -t "$title" --description-file -`, with `title` (the finding, one line) set
@@ -283,7 +292,7 @@ On this store it is an ordinary issue carrying the **Triage label** from *Config
   configuration names, because nobody has picked the work up. Capture the created `<n>` as the record's
   reference: **the deferred trigger** is what the deferring command puts in the ledger bullet; **an
   observation** instead reports that reference to the operator and writes no ledger bullet of its own,
-  since the record is its own identity (`references/scope-mode.md`'s `## Observations` section).
+  since the record is its own identity (`references/scope-findings.md`'s `## Observations` section).
 - **List the records:** `tea issues list -o json --fields index,title,body --labels <triage> --state open --page <p> --limit 50`,
   paged until a page returns fewer than 50 entries. It returns every open triage record across pages with its `index`, `title`, and `body`, which is the whole
   record — a triage record carries no other state. No label of that name resolving means no record has
@@ -430,11 +439,11 @@ ADR 0004).
   `epic`-labeled sibling has no epic yet (the single-slice shape, `## Scope anchor` above). Append
   creates the epic issue first — `body` holding the lone slice's `acceptance` checklist as the global DoD
   — then references it (`#<epic>`) from every new slice issue. The lone existing issue itself is never
-  edited: no epic body copies onto it, no label changes, no `#<epic>` reference added to it. **The anchor-dependency, deploy, Repairs, and Absorbs lines are the
+  edited: no epic body copies onto it, no label changes, no `#<epic>` reference added to it. **The anchor-dependency, deploy, Repairs, Absorbs, and Intent lines are the
   exceptions:** when the lone issue carries an anchor dependency (a `**Blocked by feature:** #<n>` line), it
   **migrates to the new epic issue's own body** and is removed from the lone issue — the epic is the anchor
   now. The `**Deploy:**` line migrates the same way, for the same reason, and is removed from the lone
-  issue. The `**Repairs:**` line migrates the same way too, and is removed from the lone issue. The `**Absorbs:**` line migrates the same way, and is removed from the lone issue. Nothing else about the lone issue changes.
+  issue. The `**Repairs:**` line migrates the same way too, and is removed from the lone issue. The `**Absorbs:**` line migrates the same way, and is removed from the lone issue. So does the `**Intent:**` line. Nothing else about the lone issue changes.
 - **Amend the epic's own body — the one sanctioned edit.** An edit of the epic's body through **Edit an
   issue's body** (*tea conventions*), the amended body as its result, folds the interview's new criteria into the epic's
   Definition of Done in place, and, the same call, deletes a resolved parked question's line from the

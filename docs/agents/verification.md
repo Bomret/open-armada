@@ -33,13 +33,15 @@ through the play-run wrapper, from the repository root:
 sh tools/play-run.sh <stem> --layout layouts/<layout>.jsonc --fps <fps>
 ```
 
-The wrapper clears `play-out/<stem>/` and runs the Godot command `README.md`'s "Run a play script"
-gives, with `ARMADA_DIR` as `--game` (`--map <map>` in place of `--layout` for a stock map). It stores
-the result under a hash of the run's inputs in `play-out/.cache/<hash>/` and reuses it on the next call
-whose inputs hash the same: no Godot run, the stored dumps, named screenshots and WAV copied back into
-`play-out/<stem>/`, the stored `WARN`/`ERROR` lines printed under a `reused` line, and the stored exit
-status. Only a run that exits 0 or 1 is stored. `--fresh` always runs Godot and replaces the stored
-result.
+The wrapper clears `play-out/<stem>/`, builds `OpenArmada.csproj` with `dotnet build`, and runs the
+Godot command `README.md`'s "Run a play script" gives, with `ARMADA_DIR` as `--game` (`--map <map>` in
+place of `--layout` for a stock map). It stores the result under a hash of the run's inputs in
+`play-out/.cache/<hash>/` and reuses it on the next call whose inputs hash the same: no Godot run, the
+stored dumps, named screenshots and WAV copied back into `play-out/<stem>/`, the stored `WARN`/`ERROR`
+lines printed under a `reused` line, and the stored exit status. Only a run that exits 0 or 1 is stored.
+`--fresh` always builds, runs Godot, and replaces the stored result. A failed build prints the build
+output, starts no Godot, stores nothing, and exits 3. Godot does not build C# itself, so without the
+build step it runs stale code, or none.
 
 - The hash covers every tracked or untracked, not ignored file under `src/` and `scenes/` (content and
   path), `project.godot`, `OpenArmada.csproj`, `global.json`, the play script, the layout's content,
@@ -50,8 +52,8 @@ result.
   scope's Definition of Done needs once, at the tip.
 - Each call appends one tab-separated line to `play-out/runs.log`: UTC time, input hash, `HEAD`,
   `clean` or `dirty` (an untracked file counts), stem, `layout=<file>` or `map=<map>`, `fps=<n>`,
-  `exit=<status>`, and `run` or `reused`. A line proves a run at a tip when its `HEAD` equals the tip
-  and it reads `clean`.
+  `exit=<status>`, and `run`, `reused`, or `build` (a failed build). A line proves a run at a tip when
+  its `HEAD` equals the tip and it reads `clean`.
 - Bad arguments exit 2 with a message, and run, store, and log nothing.
 - Calls for one stem run one at a time: a second call waits on the lock directory
   `play-out/.lock-<stem>`, says so once on stderr, then hashes its inputs and reuses what the first

@@ -8,7 +8,9 @@
 # past the argument checks appends one line to play-out/runs.log. Bad arguments exit 2 and leave no trace.
 # Calls for one stem run one at a time through the lock play-out/.lock-<stem>, which holds the owner's pid: a
 # call waits on a live owner, says so once on stderr, and takes over the lock of a dead one under the mutex
-# play-out/.lock-<stem>.takeover. An unwritable play-out/ exits 2. PLAY_RUN_GODOT replaces the Godot binary (default godot-mono).
+# play-out/.lock-<stem>.takeover. An unwritable play-out/ exits 2. A run builds OpenArmada.csproj first; a failed
+# build starts no Godot, stores nothing, and exits 3. PLAY_RUN_GODOT replaces the Godot binary (default
+# godot-mono), PLAY_RUN_DOTNET the dotnet binary (default dotnet).
 set -u
 
 usage() {
@@ -61,6 +63,7 @@ if [ -n "$layout" ] && [ ! -f "$layout" ]; then
 fi
 [ -n "${ARMADA_DIR:-}" ] || usage "set ARMADA_DIR to an Armada install"
 godot=${PLAY_RUN_GODOT:-godot-mono}
+dotnet=${PLAY_RUN_DOTNET:-dotnet}
 version=$("$godot" --version 2>/dev/null) || usage "cannot read the version of $godot"
 
 # One call per stem at a time, locked before the hash so a waiting call hashes the inputs it runs on. The lock
@@ -130,12 +133,18 @@ if [ -z "$fresh" ] && [ -f "$entry/status" ]; then
 else
   how=run
   log=$(mktemp)
-  if [ -n "$layout" ]; then
+  # Godot does not build C# itself: on a missing or stale build it runs old code, or none and waits on an open
+  # window, and closing that window exits 0.
+  if ! "$dotnet" build OpenArmada.csproj >"$log" 2>&1; then
+    how=build
+    status=3
+  elif [ -n "$layout" ]; then
     "$godot" --path . --write-movie "$out/frame.png" --fixed-fps "$fps" -- --game "$ARMADA_DIR" --layout "$layout" --play "$script" >"$log" 2>&1
+    status=$?
   else
     "$godot" --path . --write-movie "$out/frame.png" --fixed-fps "$fps" -- --game "$ARMADA_DIR" --map "$map" --play "$script" >"$log" 2>&1
+    status=$?
   fi
-  status=$?
   cat "$log"
   if [ "$status" -le 1 ]; then
     mkdir -p "$cache"

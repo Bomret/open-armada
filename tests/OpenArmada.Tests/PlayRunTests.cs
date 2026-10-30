@@ -9,9 +9,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace OpenArmada.Tests;
 
-// tools/play-run.sh runs in a throwaway git repository against a fake Godot set through PLAY_RUN_GODOT.
-// The fake counts its calls, writes a dump, two named shots, numbered frames, a WAV and log lines, and exits
-// with FAKE_STATUS after FAKE_SLEEP seconds.
+// tools/play-run.sh runs in a throwaway git repository against a fake Godot set through PLAY_RUN_GODOT and a
+// fake dotnet set through PLAY_RUN_DOTNET. The fake Godot counts its calls, writes a dump, two named shots,
+// numbered frames, a WAV and log lines, and exits with FAKE_STATUS after FAKE_SLEEP seconds. The fake dotnet
+// exits with FAKE_BUILD_STATUS. Both append their name and arguments to the order file.
 [TestClass]
 public class PlayRunTests
 {
@@ -25,6 +26,7 @@ public class PlayRunTests
           exit 0
         fi
         echo call >> "$FAKE_DIR/calls"
+        echo godot >> "$FAKE_DIR/order"
         printf '%s\n' "$@" > "$FAKE_DIR/args"
         prev=
         for a; do
@@ -44,6 +46,13 @@ public class PlayRunTests
         exit "${FAKE_STATUS:-0}"
         """;
 
+    const string FakeDotnet = """
+        #!/bin/sh
+        echo "dotnet $*" >> "$FAKE_DIR/order"
+        echo "build output"
+        exit "${FAKE_BUILD_STATUS:-0}"
+        """;
+
     string root = "";
     string repo = "";
     string fake = "";
@@ -58,6 +67,9 @@ public class PlayRunTests
         var godot = Path.Combine(fake, "godot");
         File.WriteAllText(godot, FakeGodot);
         File.SetUnixFileMode(godot, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var dotnet = Path.Combine(fake, "dotnet");
+        File.WriteAllText(dotnet, FakeDotnet);
+        File.SetUnixFileMode(dotnet, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
 
         Write("tools/play-run.sh", File.ReadAllText(Path.Combine(RepoRoot(), "tools", "play-run.sh")));
         Write("src/Game.cs", "class Game {}");
@@ -100,6 +112,9 @@ public class PlayRunTests
     string Out(string path) => Path.Combine(repo, "play-out", path);
 
     int Calls => File.Exists(Path.Combine(fake, "calls")) ? File.ReadAllLines(Path.Combine(fake, "calls")).Length : 0;
+
+    string[] Order =>
+        File.Exists(Path.Combine(fake, "order")) ? File.ReadAllLines(Path.Combine(fake, "order")) : [];
 
     string[] LogLines => File.Exists(Out("runs.log")) ? File.ReadAllLines(Out("runs.log")) : [];
 
@@ -149,6 +164,7 @@ public class PlayRunTests
         var all = new Dictionary<string, string?>
         {
             ["PLAY_RUN_GODOT"] = Path.Combine(fake, "godot"),
+            ["PLAY_RUN_DOTNET"] = Path.Combine(fake, "dotnet"),
             ["ARMADA_DIR"] = Armada,
             ["FAKE_DIR"] = fake,
         };
@@ -295,6 +311,29 @@ public class PlayRunTests
     }
 
     [TestMethod]
+    public void ARunBuildsTheGameBeforeGodotAndAReuseDoesNot()
+    {
+        Run(Layout);
+        Run(Layout);
+
+        CollectionAssert.AreEqual(new[] { "dotnet build OpenArmada.csproj", "godot" }, Order);
+    }
+
+    [TestMethod]
+    public void AFailedBuildStartsNoGodotStoresNothingAndExitsThree()
+    {
+        var env = new Dictionary<string, string?> { ["FAKE_BUILD_STATUS"] = "1" };
+
+        var (status, stdout, _) = Run(Layout, env);
+
+        Assert.AreEqual(3, status);
+        StringAssert.Contains(stdout, "build output");
+        Assert.AreEqual(0, Calls);
+        Assert.IsFalse(Directory.Exists(Out(".cache")) && Directory.EnumerateFileSystemEntries(Out(".cache")).Any());
+        CollectionAssert.AreEqual(new[] { "exit=3", "build" }, LogLines.Single().Split('\t')[7..]);
+    }
+
+    [TestMethod]
     public void NumberedFramesAreNotStoredAndAnAllDigitShotIs()
     {
         Run(Layout);
@@ -428,7 +467,10 @@ public class PlayRunTests
               ;;
           esac
         done
-        exec /bin/mkdir "$@"
+        /bin/mkdir "$@"
+        status=$?
+        if [ "$status" -ne 0 ] && [ -f "$FAKE_DIR/shimmed" ]; then : > "$FAKE_DIR/retried"; fi
+        exit "$status"
         """;
 
     [TestMethod]
@@ -451,13 +493,14 @@ public class PlayRunTests
             ["FAKE_LIVE_PID"] = live,
         };
         var call = Task.Run(() => Run(Layout, env));
-        var shimmed = Path.Combine(fake, "shimmed");
-        for (var i = 0; i < 200 && !File.Exists(shimmed) && !call.IsCompleted; i++)
+        // A failed mkdir after the takeover is the retry on the kept lock, after which the call says it waits.
+        var retried = Path.Combine(fake, "retried");
+        for (var i = 0; i < 200 && !File.Exists(retried) && !call.IsCompleted; i++)
         {
             Thread.Sleep(50);
         }
 
-        var survived = File.Exists(shimmed) && File.ReadAllText(Out(".lock-demo/pid")).Trim() == live;
+        var survived = File.Exists(retried) && File.ReadAllText(Out(".lock-demo/pid")).Trim() == live;
         Directory.Delete(Out(".lock-demo"), true);
         call.Wait();
 

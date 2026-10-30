@@ -100,7 +100,7 @@ rm -rf play-out/duel && mkdir -p play-out/duel
 godot-mono --path . --write-movie play-out/duel/frame.png --fixed-fps 30 -- --game "/path/to/Star Trek - Armada" --layout layouts/two-ships.jsonc --play duel.play
 ```
 
-`sh tools/play-run.sh <stem> (--layout <file> | --map <map>) --fps <n> [--fresh]` runs the same command with `ARMADA_DIR` as `--game`, stores the result under a hash of the run's inputs, reuses it while they are unchanged, and logs each call to `play-out/runs.log`. `docs/agents/verification.md` describes it.
+`sh tools/play-run.sh <stem> (--layout <file> | --map <map>) --fps <n> [--fresh]` builds `OpenArmada.csproj`, runs the same command with `ARMADA_DIR` as `--game` (a failed build exits 3 and runs no Godot), stores the result under a hash of the run's inputs, reuses it while they are unchanged, and logs each call to `play-out/runs.log`. `docs/agents/verification.md` describes it.
 
 A play run on a stock map is slow under Movie Maker. `docs/agents/verification.md` says how to keep a run short.
 

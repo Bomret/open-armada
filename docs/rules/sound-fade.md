@@ -51,7 +51,7 @@ documents no formula for it. The engine uses this one, **inferred**:
 
 - Within the minimum distance, the sound plays at 0 dB.
 - Between the minimum and the maximum distance, the gain is min / (min + rolloff × (distance − min)).
-- Beyond the maximum distance, the sound is silent.
+- Beyond the maximum distance, the sound is silent, even where a scaled minimum distance lies beyond the maximum.
 
 With the stock values, a fire sound 509 units from the camera plays at about −7.5 dB and an explosion at
 about −4.2 dB.

@@ -116,15 +116,15 @@ public sealed record SoundFade
     /// <summary>
     /// The level in dB of a sound <paramref name="distance"/> from the camera eye with the minimum scale
     /// <paramref name="minimumScale"/>: 0 within its minimum distance, the fade between, and null (silent) beyond
-    /// its maximum distance.
+    /// its maximum distance, which wins over a minimum distance beyond it.
     /// </summary>
     public double? DbAt(double distance, double minimumScale)
     {
+        if (distance > MaximumDistance)
+            return null;
         var minimum = MinimumDistance * minimumScale;
         if (distance <= minimum)
             return 0;
-        if (distance > MaximumDistance)
-            return null;
 
         return 20 * Math.Log10(minimum / (minimum + Rolloff * (distance - minimum)));
     }

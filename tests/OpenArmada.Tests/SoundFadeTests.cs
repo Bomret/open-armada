@@ -56,6 +56,14 @@ public class SoundFadeTests
     }
 
     [TestMethod]
+    public void AnExplosionBeyondTheMaximumIsSilentEvenWithinTwiceTheMinimum()
+    {
+        var fade = Stock with { MinimumDistance = 1500 };
+
+        Assert.IsNull(fade.DbAt(2500, SoundFade.ExplosionMinimumScale));
+    }
+
+    [TestMethod]
     public void ARolloffOf0GivesNoFade()
     {
         Assert.AreEqual(0, (Stock with { Rolloff = 0 }).DbAt(1999, SoundFade.FireMinimumScale));

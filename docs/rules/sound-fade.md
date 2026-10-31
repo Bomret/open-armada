@@ -26,7 +26,8 @@ the maximum scale.
 
 - **Fire sound.** 0x50b7c0 passes 1 and 1.
 - **Explosion.** 0x51a490 passes 2 (the float at 0x5d2b4c) and 1, so an explosion plays at full level out to
-  twice the distance of a fire sound, and goes silent at the same maximum distance.
+  twice the distance of a fire sound, and goes silent at the same maximum distance. Beyond the maximum distance a sound is silent even where its
+  minimum distance lies further out.
 
 ## The listener
 

@@ -311,6 +311,7 @@ Weapon definitions 0x5030d0–0x505d00, weapons 0x506080–0x50c810 (`Weapon\`).
 | 0x50aab0 | Weapon_AimMiss | Aims a missed shot: leads the target and offsets the aim | confirmed | game | — | [combat-rules](combat-rules.md#to-hit) |
 | 0x50ae40 | Weapon_MakeShot | Makes the shot: its damage and hit location (0x4ee710) and its hit node (0x468a60) | confirmed | game | — | [combat-rules](combat-rules.md#hit-explosion) |
 | 0x50b690 | Weapon_ReloadDelay | The reload delay, with `crewAffectsWeaponDelay` | confirmed | game | — | [combat-rules](combat-rules.md#firing) |
+| 0x50b7c0 | Weapon_PlayFireSound | Plays the weapon's fire sound at a minimum scale of 1 | confirmed | game | — | [sound-fade](sound-fade.md#a-sounds-distances) |
 
 ### Ordnance: shots, beams, torpedoes, mines
 
@@ -391,6 +392,7 @@ Range 0x51a400–0x51e000 (`Explosion`, `ShockwaveCannon`, `ShockwaveExplosion`)
 
 | Address | Name | Role | Status | Layer | Anchor | Rule note |
 |---|---|---|---|---|---|---|
+| 0x51a490 | Explosion_PlaySound | Plays the explosion's sound at a minimum scale of 2 | confirmed | game | 0x5d2b4c | [sound-fade](sound-fade.md#a-sounds-distances) |
 | 0x51c4d0 | ShockwaveCannon_Update | Grows the wave front and finds the ships in its arc | confirmed | game | 0x51c51e | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
 | 0x51c8d0 | ShockwaveCannon_HitShip | Damages a ship, disables its engines, and replaces its velocity | confirmed | game | 0x51c987–0x51ca32 | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
 | 0x51cb90 | ShockwaveCannonClass_Load | Reads `waveArc`, `disableTime`, `repulsionForce` | confirmed | game | — | [forced-motion](forced-motion.md#repulsion-wave-and-shockwave-cannon) |
@@ -520,7 +522,17 @@ classes `SprayParticle`, `RandomParticle`, `StraightParticle`).
 
 ### Audio
 
-Range 0x5abbc0–0x5b6180 (`Utilities\Audio\`). Settings from `audio_odf` are read at 0x5abbc0. Unexplored.
+Range 0x5abbc0–0x5b6180 (`Utilities\Audio\`). The rest of the range is in Unexplored.
+
+| Address | Name | Role | Status | Layer | Anchor | Rule note |
+|---|---|---|---|---|---|---|
+| 0x5abbc0 | Audio_ReadSettings | Reads `audio.odf`: the rolloff and the minimum and maximum 3D distances, among others | confirmed | game | 0x62c284–0x62c290 | [sound-fade](sound-fade.md#the-settings) |
+| 0x5abed0 | Audio_Update | Hands the camera's pose to the listener each frame | confirmed | game | — | [sound-fade](sound-fade.md#the-listener) |
+| 0x5acb60 | Audio_SetListener | Sets DirectSound's listener position and orientation from a pose | confirmed | game | — | [sound-fade](sound-fade.md#the-listener) |
+| 0x5ad9c0 | Sound_CreateBuffer | Creates a DirectSound buffer with the flags it is given | confirmed | game | caller 0x5aff40 | [sound-fade](sound-fade.md#following-and-the-maximum-distance) |
+| 0x5aff40 | Sound3D_Create | Makes a 3D sound; its minimum and maximum distance are the settings times its two scales | confirmed | game | — | [sound-fade](sound-fade.md#a-sounds-distances) |
+| 0x5b09e0 | Sound3D_Follow | Moves a playing 3D sound to its object's position | confirmed | game | — | [sound-fade](sound-fade.md#following-and-the-maximum-distance) |
+| 0x5b0b90 | Sound3D_Play | Starts a 3D sound; refuses one beyond its maximum distance from the listener | confirmed | game | — | [sound-fade](sound-fade.md#following-and-the-maximum-distance) |
 
 ## Structures and globals
 
@@ -891,6 +903,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x50aab0 | Weapon_AimMiss | confirmed | Weapons and firing |
 | 0x50ae40 | Weapon_MakeShot | confirmed | Weapons and firing |
 | 0x50b690 | Weapon_ReloadDelay | confirmed | Weapons and firing |
+| 0x50b7c0 | Weapon_PlayFireSound | confirmed | Weapons and firing |
 | 0x515d50 | NodeEffect_Queue | confirmed | Effects at nodes: sparks and system explosions |
 | 0x515f40 | NodeEffect_Age | confirmed | Effects at nodes: sparks and system explosions |
 | 0x515fb0 | NodeEffect_Draw | confirmed | Effects at nodes: sparks and system explosions |
@@ -901,6 +914,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x516c40 | ShieldEffect_MoveContact | confirmed | Shield effect |
 | 0x516fa0 | ShieldEffect_Update | confirmed | Shield effect |
 | 0x5170e0 | ShieldEffect_Color | confirmed | Shield effect |
+| 0x51a490 | Explosion_PlaySound | confirmed | Explosions and shockwaves |
 | 0x51c4d0 | ShockwaveCannon_Update | confirmed | Explosions and shockwaves |
 | 0x51c8d0 | ShockwaveCannon_HitShip | confirmed | Explosions and shockwaves |
 | 0x51cb90 | ShockwaveCannonClass_Load | confirmed | Explosions and shockwaves |
@@ -974,6 +988,13 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x5a4200 | Mesh_VertexColor | confirmed | Storm3D: textures, animation, and drawing |
 | 0x5a62c0 | Workspace_CullFront | confirmed | Storm3D: textures, animation, and drawing |
 | 0x5a6360 | Workspace_CullBack | confirmed | Storm3D: textures, animation, and drawing |
+| 0x5abbc0 | Audio_ReadSettings | confirmed | Audio |
+| 0x5abed0 | Audio_Update | confirmed | Audio |
+| 0x5acb60 | Audio_SetListener | confirmed | Audio |
+| 0x5ad9c0 | Sound_CreateBuffer | confirmed | Audio |
+| 0x5aff40 | Sound3D_Create | confirmed | Audio |
+| 0x5b09e0 | Sound3D_Follow | confirmed | Audio |
+| 0x5b0b90 | Sound3D_Play | confirmed | Audio |
 <!-- by-address:end -->
 
 ## Unexplored
@@ -1001,10 +1022,10 @@ table and narrow or remove its line here.
 | 0x5547e0–0x55b830 | Parameter database internals, queue managers, user profile | `ParameterDB.cpp`, `QueueManager.cpp` |
 | 0x55ef00–0x5648b0 | Timed effects and special flags beyond the rows above | `Timed…` classes, `SpecialFlag.cpp` |
 | 0x576450–0x5a6200 | Storm3D beyond the rows above: devices, lights, LOD, text streams; the debris draw 0x57dc80 | `ST3D_…` classes |
-| 0x5abbc0–0x5b7b10 | Audio, jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
+| 0x5abbc0–0x5b7b10 | Audio beyond the rows above (the settings, the listener, and a 3D sound's distances, start, and following are named), jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
 
 <!-- coverage:start -->
-Coverage: the index names 319 routines of the 9,401 functions in the game code band: 271 confirmed, 42 inferred, 6 unknown.
+Coverage: the index names 328 routines of the 9,401 functions in the game code band: 280 confirmed, 42 inferred, 6 unknown.
 <!-- coverage:end -->
 
 ## ODF keys
@@ -1136,5 +1157,5 @@ can be missing (for example `crew`, `life`); search `strings.tsv` for it.
 | 0x51c1b0 | a method of `OmegaExplosionClass` | `topEdgeModifier`, `waveHeight` |
 | 0x51cb90 | ShockwaveCannonClass_Load | `disableTime`, `repulsionForce`, `waveArc` |
 | 0x51d950 | called by `OmegaExplosionClass` | `color`, `damageBase`, `damageThreshold`, `damageVariance`, `fadeFactor`, `hullCrewModifier`, `radiusFactor`, `shieldCrewModifier`, `texture` |
-| 0x5abbc0 | — | `audio_odf`, `bitsPerSample`, `distanceFactor`, `dopplerFactor`, `maximumDistance3D`, `minimum3DSounds`, `minimumDistance3D`, `rolloffFactor`, `sampleRate`, `streamBufferLength`, `streamChunkLength` |
+| 0x5abbc0 | Audio_ReadSettings | `audio_odf`, `bitsPerSample`, `distanceFactor`, `dopplerFactor`, `maximumDistance3D`, `minimum3DSounds`, `minimumDistance3D`, `rolloffFactor`, `sampleRate`, `streamBufferLength`, `streamChunkLength` |
 <!-- odf-keys:end -->

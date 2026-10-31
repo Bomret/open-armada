@@ -1,0 +1,12 @@
+# A Klingon warship destroys a sensor station; while the station's fireball plays, the camera pans beyond the sound's
+# maximum distance and back. The fireball fades as the camera leaves, goes silent beyond 2000 units, and is heard
+# again once the camera returns. Run it with --layout layouts/sound-fade.jsonc; tools/WavLevel on
+# play-out/sound-fade/frame.wav reads about -100 dB from 6.40 to 6.56 seconds and the fireball's tail after.
+wait 0.2
+select Vorcha6
+attack Sensor5
+wait 5.3
+hold Left 0.95
+hold Right 0.8
+wait 1.5
+expect Sensor5 destroyed = true

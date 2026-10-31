@@ -1,0 +1,10 @@
+// The units of layouts/destroy.jsonc on a wider map, so the camera can pan beyond a sound's maximum distance, for
+// play/sound-fade.play and play/sound-fade-start.play. Run them with:
+// sh tools/play-run.sh sound-fade --layout layouts/sound-fade.jsonc --fps 30
+{
+  "bounds": { "minX": 0, "maxX": 8000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "kcruise1", "team": 2, "position": [3850, 0, 2000], "label": "Vorcha6" },
+    { "class": "ksensor", "team": 1, "position": [4150, 0, 2000], "label": "Sensor5" },
+  ],
+}

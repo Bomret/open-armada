@@ -23,6 +23,15 @@ public static class CombatRules
     public static bool Hostile(int a, int b) => a != b && a != 0 && b != 0;
 
     /// <summary>
+    /// The team relation an attack order stores and checks (0x4275ee, 0x4275f3, 0x42fb90, 0x468cd0): derelict for a
+    /// derelict target, else enemy when the teams are hostile, else not an enemy.
+    /// </summary>
+    public static TeamRelation RelationOf(UnitCombatState attacker, UnitCombatState target) =>
+        target.Derelict ? TeamRelation.Derelict
+        : Hostile(attacker.Team, target.Team) ? TeamRelation.Enemy
+        : TeamRelation.NotEnemy;
+
+    /// <summary>
     /// The chance that a shot at <c>target</c> hits: hitChance plus the modifiers that apply. The slow modifiers are
     /// not used.
     /// </summary>
@@ -48,7 +57,7 @@ public static class CombatRules
     {
         if (!weapon.CrewAffectsWeaponDelay)
             return weapon.ShotDelay;
-        var race = shooter.Profile.Race;
+        var race = shooter.Race;
 
         return weapon.ShotDelay * CrewFactor(shooter, race.WeaponYellow, race.WeaponRed);
     }
@@ -59,7 +68,7 @@ public static class CombatRules
     /// </summary>
     public static CrewStatus CrewStatusOf(UnitCombatState unit)
     {
-        var race = unit.Profile.Race;
+        var race = unit.Race;
         var ratio = unit.Crew / unit.Profile.MaximumCrew;
 
         return ratio <= race.CrewRedStatus ? CrewStatus.Red
@@ -120,7 +129,7 @@ public static class CombatRules
     {
         if (unit.Derelict || unit.Dying)
             return;
-        var race = unit.Profile.Race;
+        var race = unit.Race;
         var factor = CrewFactor(unit, race.RepairYellow, race.RepairRed);
         foreach (var s in unit.Systems.Values.Where(s => s.HitPoints < s.Max))
         {

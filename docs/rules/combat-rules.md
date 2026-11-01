@@ -52,8 +52,7 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   the point takes that height (**stand-in**), so a move that ends short of its goal returns the ship to the band's
   middle. The
   engine stops the closing when the stance leaves red (**stand-in**); the return is the hold below, which no
-  stance ends. A player's attack order
-  keeps a derelict target.
+  stance ends. A player's attack order keeps its target by its stored team relation (see Attack order).
 
   A recent hit moves the tether point. When a shot landed less than one second ago (0x46e640 compares the
   time since the hit, recorded by 0x46e340, against 1.0; strictly less) on the idle unit itself or on a unit
@@ -93,7 +92,9 @@ A unit with no weapons picks no target. Otherwise, at red or yellow (0x42ff80):
 4. Otherwise the nearest valid target within the radius is taken.
 
 A target is valid when it is a hostile unit, not being destroyed (a dying unit is being destroyed), and not
-derelict (0x42faa0). The game
+derelict (0x42faa0). An attack order is no pick: it keeps its target by the team relation it stored, so an order
+given on a derelict keeps it and an order on a live hostile unit drops it when the unit turns derelict (see Attack
+order, 0x42fb90, 0x468cd0). The game
 also requires that the target is visible to the unit's team; the engine has no fog of war, so every
 unit is visible (**stand-in**).
 
@@ -188,8 +189,15 @@ R as above:
   target-location weapon (0x46eac0(2)); a ship without a target-location weapon continues the fight at its own pick
   and ends the order only when no pick is left (0x429016). **Stand-in:** the engine ends the order at once, and the
   unit becomes idle, when the target is destroyed or dying, for every ship; a dying target counts as destroyed. A
-  derelict target keeps the order, so an attack order can finish off a derelict. A player's attack order on a dying
-  unit is refused.
+  player's attack order on a dying unit is refused.
+- **The stored team relation** (0x4275ee, 0x4275f3 write it; 0x42fb90 checks it; 0x468cd0 computes it). The order
+  stores the relation between the attacker's team and the target's at the moment it is given: derelict for a derelict
+  target, otherwise enemy or not an enemy. It keeps its target only while that relation still holds. A live target that
+  turns derelict, or that changes team so that the relation differs (it joins the attacker's team, say), ends the order
+  (**inferred** that the order ends as the destroyed-target order does; the game drops the target in 0x42fb90). An order
+  given on a derelict keeps it, so an attack order can finish off a derelict, until the derelict is destroyed or its
+  relation changes (a revived or captured unit). The check runs every tick, so it applies out of range as well. A team
+  change of the attacker itself replaces its order with a stop (0x46dff0, 0x46eac0).
 - A unit without weapons does not accept the order.
 
 ## Firing
@@ -626,8 +634,6 @@ sets 1.5; the sandbox draws its rocks at their stored size.
   point 0x4304e0 a target-location ship's dogfight turns toward without an ordered unit, and the retreat thresholds of 0x4292d0.
 - Whether anything gives an attack back that the stop order of a no-path target ended (an AI or player re-issue, or the
   target field +0x1c4; `docs/rules/path-planning.md`, "The order list and the replans").
-- Whether a player's attack order drops a target that turns derelict. The game's side check (0x42fb90,
-  `task+0x110`) suggests it may, but the writer of that field was not found.
 - What the `targetEnemyCraft` and `targetEnemyBuildings` keys do.
 - The flight of pulse phaser shots and the class behind poleron torpedoes.
 - The officer factor in repair, and the full-repair path at 0x468760.

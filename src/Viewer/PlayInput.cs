@@ -19,6 +19,7 @@ public sealed class PlayInput(
     Node host,
     UnitNames names,
     UnitSelection selection,
+    CombatWorld world,
     IReadOnlyDictionary<PlacedObject, Node3D> nodes,
     float planeHeight,
     string outputFolder
@@ -104,7 +105,14 @@ public sealed class PlayInput(
             return wrongPick;
         if (attack)
         {
-            var hostile = selection.Selected.Select(s => CombatRules.Hostile(s.Object.Team, target!.Team)).ToList();
+            // the current teams (INV-0012); a unit the world has lost is hostile to none
+            var hostile = selection
+                .Selected.Select(s =>
+                    world.State(s.Object) is { } shooter
+                    && world.State(target!) is { } victim
+                    && CombatRules.Hostile(shooter.Team, victim.Team)
+                )
+                .ToList();
             if (PlayTarget.AttackProblem(unit, hostile) is { } notAttack)
                 return notAttack;
         }

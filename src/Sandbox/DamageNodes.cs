@@ -47,7 +47,7 @@ public static class DamageNodes
     /// </summary>
     public static IReadOnlyList<Sod.Node> ShowingNodes(Sod? model, UnitCombatState unit)
     {
-        var yellow = unit.Profile.Race.CrewYellowStatus;
+        var yellow = unit.Race.CrewYellowStatus;
         var defined = unit.Profile.DefinedMaximumCrew;
         var ratio = yellow > 0 ? (defined > 0 ? unit.Crew / defined : 1) / yellow : double.PositiveInfinity;
 

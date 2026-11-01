@@ -207,7 +207,7 @@ public partial class UnitOrders : Node3D
         var moving = new List<PlacedObject>();
         foreach (var unit in _selection.Selected)
         {
-            if (clicked != null && CombatRules.Hostile(unit.Object.Team, clicked.Object.Team))
+            if (clicked != null && HostileUnits(unit.Object, clicked.Object))
             {
                 _world.Attack(unit.Object, clicked.Object); // refused for a unit without weapons: it ignores the click
 
@@ -224,6 +224,10 @@ public partial class UnitOrders : Node3D
     }
 
     // The FlightModel of a ship that can move, which the combat world steps; made once. Null for a unit that never moves.
+    // Whether the units are hostile by their current teams (INV-0012); a unit the world has lost is hostile to none.
+    bool HostileUnits(PlacedObject a, PlacedObject b) =>
+        _world.State(a) is { } x && _world.State(b) is { } y && CombatRules.Hostile(x.Team, y.Team);
+
     FlightModel? Motion(PlacedObject o)
     {
         if (_moving.TryGetValue(o, out var state))

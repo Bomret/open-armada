@@ -1178,8 +1178,8 @@ public class CombatWorldTests
         var a = WithSystems("a", 1, 0, Weapon(range: 500, hitChance: 0));
         var b = WithSystems("b", 2, 100, null);
         var world = World(() => 0.9, a, b);
+        MakeDerelict(world, b); // the order is given on a derelict, so it keeps its target
         world.Attack(a.Object, b.Object);
-        MakeDerelict(world, b);
         Assert.IsTrue(world.Step(0.02).OfType<ShotFired>().First().Shot.Hits);
     }
 
@@ -1193,8 +1193,8 @@ public class CombatWorldTests
         };
         var b = new Spec { Object = Placed("b", 2, 100), Profile = Profile(hull: 0, maxHealth: 0) }; // every roll is a critical hit
         var world = World(null, a, b);
+        MakeDerelict(world, b); // the order is given on a derelict, so it keeps its target
         world.Attack(a.Object, b.Object);
-        MakeDerelict(world, b);
         var events = world.Step(4);
         Assert.IsTrue(events.OfType<UnitDestroyed>().Any(e => e.Unit == b.Object));
         Assert.IsNull(world.State(b.Object));
@@ -1211,8 +1211,8 @@ public class CombatWorldTests
         };
         var b = new Spec { Object = Placed("b", 2, 100), Profile = Profile(hull: 100, maxHealth: 0) };
         var world = World(null, a, b);
+        MakeDerelict(world, b); // the order is given on a derelict, so it keeps its target
         world.Attack(a.Object, b.Object);
-        MakeDerelict(world, b);
         world.Step(3);
         Assert.IsNotNull(world.State(b.Object));
         Assert.AreSame(world.State(b.Object), world.State(a.Object)!.Order);
@@ -2334,6 +2334,159 @@ public class CombatWorldTests
         Assert.IsTrue(ticks > 1, "the process ran on more than one tick");
         Assert.AreEqual(1, log.Lines.Count(l => l.Contains("process of a failed")), log.Text);
         Assert.AreNotEqual(before, poses.Pose(a.Object).Position);
+    }
+
+    // A race whose values differ from the fixture race in every value the rules read.
+    static readonly RaceValues OtherRace = Race with
+    {
+        CrewYellowStatus = 0.9f,
+        CrewRedStatus = 0.6f,
+        WeaponYellow = 5,
+        WeaponRed = 7,
+        RepairYellow = 4,
+        RepairRed = 8,
+    };
+
+    // x holds team 1 at 0, y team 2 at 40, z team 2 at 80, all armed and at red alert; the weapons reach 100.
+    static (CombatWorld World, Spec X, Spec Y, Spec Z) ThreeFighters()
+    {
+        var x = Fighter("x", 1, 0, Weapon());
+        var y = Fighter("y", 2, 40, Weapon());
+        var z = Fighter("z", 2, 80, Weapon());
+
+        return (World(null, x, y, z), x, y, z);
+    }
+
+    [TestMethod]
+    public void AfterATeamChangeTheFormerTeammatesPickTheUnitAndTheNewTeammatesDoNot()
+    {
+        var (world, x, y, z) = ThreeFighters();
+        world.Step(0.02);
+        Assert.AreEqual(y.Object, world.State(x.Object)!.Target?.Unit);
+        world.ChangeTeam(y.Object, 1, Race);
+        world.Step(0.02);
+        Assert.AreEqual(y.Object, world.State(z.Object)!.Target?.Unit, "a former teammate picks it");
+        Assert.AreNotEqual(y.Object, world.State(x.Object)!.Target?.Unit, "a new teammate does not");
+    }
+
+    [TestMethod]
+    public void ATeamChangedUnitsWeaponsStopFiringAtItsNewTeammatesAndFireAtItsNewEnemies()
+    {
+        var (world, x, y, z) = ThreeFighters();
+        world.ChangeTeam(y.Object, 1, Race);
+        var events = world.Step(0.02);
+        Assert.AreEqual(
+            0,
+            events.OfType<ShotFired>().Count(e => e.Shot.Shooter.Unit == y.Object && e.Shot.Target.Unit == x.Object)
+        );
+        Assert.AreEqual(z.Object, world.State(y.Object)!.Target?.Unit);
+    }
+
+    [TestMethod]
+    public void AfterATeamChangeCrewStatusReloadAndRepairUseTheNewRace()
+    {
+        var a = WithSystems(
+            "a",
+            1,
+            0,
+            Weapon(delay: 2, crewAffects: true),
+            Sys("Weapons", hitPoints: 2, repairTime: 2)
+        );
+        var world = World(null, a);
+        var state = world.State(a.Object)!;
+        state.Crew = 40; // ratio 0.4: yellow by the fixture race, red by the other
+        Assert.AreEqual(CrewStatus.Yellow, CombatRules.CrewStatusOf(state));
+        world.ChangeTeam(a.Object, 3, OtherRace);
+        Assert.AreEqual(CrewStatus.Red, CombatRules.CrewStatusOf(state));
+        Assert.AreEqual(2 * 7, CombatRules.ReloadDelay(state.Weapons[0].Profile, state), 1e-9);
+        state.Systems["Weapons"].HitPoints = 0;
+        CombatRules.Repair(state, 1);
+        Assert.AreEqual(1.0 / 8, state.Systems["Weapons"].HitPoints, 1e-9);
+    }
+
+    [TestMethod]
+    public void ATeamChangeStopsTheOrderKeepsTheAlertStanceAndTheUnitsPlace()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 500));
+        var b = Fighter("b", 2, 300);
+        var world = World(out var poses, null, a, b);
+        var state = world.State(a.Object)!;
+        state.Alert = AlertStance.Yellow;
+        world.Attack(a.Object, b.Object);
+        world.Step(0.02);
+        var pose = poses.Pose(a.Object);
+        world.ChangeTeam(a.Object, 3, OtherRace);
+        Assert.IsNull(state.Order);
+        Assert.IsFalse(state.AutoMove);
+        Assert.IsNull(state.PlayerMove);
+        Assert.AreEqual(AlertStance.Yellow, state.Alert);
+        Assert.AreEqual(3, state.Team);
+        Assert.AreEqual(state.Position ?? default, state.Tether);
+        Assert.AreSame(state, world.State(a.Object), "the unit keeps its entry");
+        Assert.AreEqual(pose, poses.Pose(a.Object));
+    }
+
+    [TestMethod]
+    public void TwoUnitsOfOneModelAndPlacedTeamKeepSeparateEntriesWhenOneChangesTeam()
+    {
+        var a = Fighter("a", 1, 0);
+        var b = Fighter("b", 1, 10);
+        var world = World(out var poses, null, a, b);
+        world.ChangeTeam(a.Object, 2, OtherRace);
+        Assert.AreEqual(2, world.State(a.Object)!.Team);
+        Assert.AreEqual(1, world.State(b.Object)!.Team);
+        Assert.AreNotSame(world.State(a.Object), world.State(b.Object));
+        Assert.AreNotEqual(poses.Pose(a.Object), poses.Pose(b.Object));
+    }
+
+    [TestMethod]
+    public void AnAttackOrderOnALiveHostileUnitDropsTheTargetWhenItTurnsDerelict()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 500));
+        var b = Fighter("b", 2, 300);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        world.State(b.Object)!.Derelict = true;
+        world.Step(0.02);
+        Assert.IsNull(world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void AnAttackOrderDropsAnOutOfRangeTargetThatTurnsDerelict()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 100));
+        var b = Fighter("b", 2, 5000);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        world.Step(0.02);
+        Assert.AreSame(world.State(b.Object), world.State(a.Object)!.Order);
+        world.State(b.Object)!.Derelict = true;
+        world.Step(0.02);
+        Assert.IsNull(world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void AnAttackOrderDropsTheTargetWhenItChangesTeamToTheAttackersTeam()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 500));
+        var b = Fighter("b", 2, 300);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        world.ChangeTeam(b.Object, 1, Race);
+        world.Step(0.02);
+        Assert.IsNull(world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void AnAttackOrderGivenOnADerelictKeepsItsTargetWhileItStaysDerelict()
+    {
+        var a = Fighter("a", 1, 0, Weapon(range: 500));
+        var b = Fighter("b", 2, 300);
+        var world = World(null, a, b);
+        world.State(b.Object)!.Derelict = true;
+        Assert.IsTrue(world.Attack(a.Object, b.Object));
+        world.Step(0.5);
+        Assert.AreSame(world.State(b.Object), world.State(a.Object)!.Order);
     }
 
     [TestMethod]

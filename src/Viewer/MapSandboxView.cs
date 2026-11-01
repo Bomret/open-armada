@@ -224,7 +224,15 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 () => orders.Combat.Debris.Count
             );
             var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
-            var input = new PlayInput(this, names, selection, nodes, (float)_rig.CombatPlaneHeight, folder);
+            var input = new PlayInput(
+                this,
+                names,
+                selection,
+                orders.Combat,
+                nodes,
+                (float)_rig.CombatPlaneHeight,
+                folder
+            );
             AddChild(new PlayKeys(input));
             AddChild(new PlayDriver(new PlayRun(play, state, folder, input.Run)));
         }

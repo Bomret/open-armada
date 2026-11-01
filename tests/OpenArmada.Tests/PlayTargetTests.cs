@@ -78,7 +78,10 @@ public class PlayTargetTests
             "every selected unit is transporting: the transport chord would cancel them, not wait for 'a'",
             PlayTarget.TransportProblem("a", [false, false], [true, true])
         );
-        Assert.AreEqual("no unit is selected to transport to 'a'", PlayTarget.TransportProblem("a", [], []));
+        Assert.AreEqual(
+            "no unit is selected to transport to 'a'",
+            PlayTarget.TransportProblem("a", [], [])
+        );
     }
 
     [TestMethod]

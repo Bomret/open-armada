@@ -132,6 +132,10 @@ public sealed class CombatWorld
     readonly Func<PlacedObject, string, ShipPose, Vector3> _hardpointPosition;
     readonly Dictionary<PlacedObject, UnitCombatState> _units = new(ReferenceEqualityComparer.Instance);
     readonly List<Shot> _shots = new();
+    readonly List<BoardingParty> _parties = new();
+
+    // The events of orders given between two Step calls; the next Step returns them first.
+    readonly List<CombatEvent> _queued = new();
     readonly DebrisField _debris;
     readonly Dictionary<PlacedObject, Sod?> _models = new(ReferenceEqualityComparer.Instance);
     readonly HashSet<string> _faults = new();
@@ -302,6 +306,57 @@ public sealed class CombatWorld
         a.Motion?.EndMove();
 
         return true;
+    }
+
+    /// <summary>
+    /// The transporter values of RTS_CFG.h; <see cref="TransporterValues.Stock"/> where the plan read none.
+    /// </summary>
+    public TransporterValues Transporter { get; init; } = TransporterValues.Stock;
+
+    /// <summary>
+    /// Gives <c>source</c> a transport order on <c>target</c>, true when it is accepted
+    /// (<see cref="CombatRules.TransportOrderOk"/>). The source starts transporting only with more than
+    /// <c>TRANSPORTER_MAX</c> crew; its move or attack order runs on.
+    /// </summary>
+    public bool Transport(PlacedObject source, PlacedObject target)
+    {
+        if (State(source) is not { } s || State(target) is not { } t || !CombatRules.TransportOrderOk(s, t))
+            return false;
+        if (s.Crew <= Transporter.Max)
+            return true; // the start needs more crew than one party (0x466f70)
+
+        // stand-in: an order on a transporting unit ends its earlier transport first; the game's handler overwrites the
+        // target without a stop
+        StopTransport(s, _queued);
+        s.Transporting = true;
+        s.TransportTarget = t;
+        if (t.Team != s.Team)
+        {
+            t.BoardedBy.Add(s.Team); // no team of the sandbox is an AI team (0x466f70 skips those)
+        }
+
+        _queued.Add(new TransportStarted { Source = source, Target = target });
+
+        return true;
+    }
+
+    /// <summary>Ends the unit's transport (0x467000); its move or attack order runs on.</summary>
+    public void CancelTransport(PlacedObject source)
+    {
+        if (State(source) is { } s)
+        {
+            StopTransport(s, _queued);
+        }
+    }
+
+    // Ends the unit's transport and reports it; does nothing for a unit that is not transporting.
+    static void StopTransport(UnitCombatState s, List<CombatEvent> events)
+    {
+        if (!s.Transporting || s.TransportTarget is not { } target)
+            return;
+        s.Transporting = false;
+        s.TransportTarget = null;
+        events.Add(new TransportStopped { Source = s.Unit, Target = target.Unit });
     }
 
     /// <summary>
@@ -494,7 +549,8 @@ public sealed class CombatWorld
     /// <summary>Advances the fight by <c>seconds</c> and returns the events of the ticks that ran.</summary>
     public IReadOnlyList<CombatEvent> Step(double seconds)
     {
-        var events = new List<CombatEvent>();
+        var events = new List<CombatEvent>(_queued);
+        _queued.Clear();
         // A unit without motion has its pose driven from outside, which changes once per Step call (a frame): it is
         // stopped when it did not move since the previous call, and its velocity is that change over the call. Every
         // tick of the call shares that, so the to-hit does not depend on the frame rate.

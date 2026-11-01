@@ -244,6 +244,12 @@ public sealed record RaceValues
 
     /// <summary>The <c>repairStrength</c>: a factor on every system's repair time per hit point.</summary>
     public required float RepairStrength { get; init; }
+
+    /// <summary>
+    /// The <c>boardingStrength</c> (0x4442b0): the weight of the race's boarders in a boarding fight; 1 where the
+    /// definition gives none, as the game does.
+    /// </summary>
+    public float BoardingStrength { get; init; } = 1;
 }
 
 /// <summary>

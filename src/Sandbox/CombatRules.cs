@@ -19,6 +19,12 @@ public static class CombatRules
     // The seconds a further damaging hit cuts from a dying unit's time (0x465100).
     const double DyingHitCut = 0.5;
 
+    // A transport order needs the source's crew above 9.0 (0x5ca860, 0x426cb8).
+    const double OrderCrewAbove = 9;
+
+    // The cursor refuses a hostile target whose absolute shields are above 0.01 (0x4664e0); the cycle tests the fraction.
+    const double CursorShieldsAbove = 0.01;
+
     /// <summary>Units of different teams are hostile; team 0 is neutral and hostile to no one.</summary>
     public static bool Hostile(int a, int b) => a != b && a != 0 && b != 0;
 
@@ -30,6 +36,32 @@ public static class CombatRules
         target.Derelict ? TeamRelation.Derelict
         : Hostile(attacker.Team, target.Team) ? TeamRelation.Enemy
         : TeamRelation.NotEnemy;
+
+    /// <summary>
+    /// Whether a transport order from <c>source</c> on <c>target</c> is accepted (0x426cb8): the target is another live
+    /// unit with crew (its maximum crew at least 1), and the source has more than 9 crew. The spec adds that a live
+    /// non-hostile target is below its crew maximum (the game's hover does not test that: **inferred** from the
+    /// cycle, which stops on a full friendly target). Neither range nor shields are tested.
+    /// </summary>
+    public static bool TransportOrderOk(UnitCombatState source, UnitCombatState target) =>
+        source != target
+        && !source.Destroyed
+        && !source.Dying
+        && !target.Destroyed
+        && !target.Dying
+        && target.Profile.DefinedMaximumCrew >= 1
+        && source.Crew > OrderCrewAbove
+        && (target.Derelict || Hostile(source.Team, target.Team) || target.Crew < target.Profile.DefinedMaximumCrew);
+
+    /// <summary>
+    /// The validity test of the transport cursor (0x4664e0), for <c>distance</c> center to center: the order is
+    /// accepted (<see cref="TransportOrderOk"/>), the target is within <c>range</c>, and a hostile target's absolute
+    /// shields are at most 0.01.
+    /// </summary>
+    public static bool CanTransportTo(UnitCombatState source, UnitCombatState target, double distance, double range) =>
+        TransportOrderOk(source, target)
+        && distance <= range
+        && !(Hostile(source.Team, target.Team) && target.Shields > CursorShieldsAbove);
 
     /// <summary>
     /// The chance that a shot at <c>target</c> hits: hitChance plus the modifiers that apply. The slow modifiers are

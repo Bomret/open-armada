@@ -57,6 +57,17 @@ public class PlayTargetTests
     }
 
     [TestMethod]
+    public void ATransportNeedsASelectionWithAUnitThatTakesTheOrder()
+    {
+        Assert.IsNull(PlayTarget.TransportProblem("a", [true, false]));
+        Assert.AreEqual("no unit is selected to transport to 'a'", PlayTarget.TransportProblem("a", []));
+        Assert.AreEqual(
+            "no selected unit can take a transport order on 'a'",
+            PlayTarget.TransportProblem("a", [false, false])
+        );
+    }
+
+    [TestMethod]
     public void ACropReachesHalfTheBoxsLongerSidePastEachEdgeRoundedOutward()
     {
         // a box 40 wide and 20 high pads by 20 on each side

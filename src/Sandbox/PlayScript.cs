@@ -62,6 +62,13 @@ public sealed record AttackStep : PlayStep
     public required string Unit { get; init; }
 }
 
+/// <summary><c>transport &lt;unit&gt;</c>: the transport chord, then a left click at the unit's projected screen point.</summary>
+public sealed record TransportStep : PlayStep
+{
+    /// <summary>The unit's name as the script writes it.</summary>
+    public required string Unit { get; init; }
+}
+
 /// <summary><c>move &lt;x&gt; &lt;z&gt;</c>: a right click at the screen point of a point of the combat plane.</summary>
 public sealed record MoveStep : PlayStep
 {
@@ -262,8 +269,10 @@ public sealed class PlayScript
     {
         switch (word)
         {
-            case "select" or "attack" or "press" when args.Length != 1:
+            case "select" or "attack" or "transport" or "press" when args.Length != 1:
                 return Wrong(word, 1, args.Length);
+            case "transport":
+                return (new TransportStep { Line = number, Unit = args[0] }, null);
             case "select":
                 return (new SelectStep { Line = number, Unit = args[0] }, null);
             case "attack":

@@ -46,6 +46,15 @@ public static class PlayTarget
         : $"'{name}' is not hostile to every selected unit";
 
     /// <summary>
+    /// The problem with a transport step on <c>name</c> when each entry of <c>takes</c> says whether one selected unit
+    /// takes a transport order on it, or null when at least one does. Nothing selected takes none.
+    /// </summary>
+    public static string? TransportProblem(string name, IReadOnlyCollection<bool> takes) =>
+        takes.Count == 0 ? $"no unit is selected to transport to '{name}'"
+        : takes.Any(t => t) ? null
+        : $"no selected unit can take a transport order on '{name}'";
+
+    /// <summary>
     /// The pixels a <c>shot</c> step aimed at a unit keeps: the unit's screen <c>box</c> grown past each edge by half its
     /// longer side, so effects around the hull such as a fireball or a shield flash stay in it, then every pixel the
     /// grown box touches, clipped to <c>viewport</c>. The box lies at least partly inside the viewport.

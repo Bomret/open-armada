@@ -46,6 +46,35 @@ public sealed class BoardingParty(
     public double Remaining { get; set; } = delay;
 }
 
+/// <summary>What a view does for a transport event.</summary>
+public enum CueKind
+{
+    /// <summary>Attach the transport effect to the unit.</summary>
+    EffectOn,
+
+    /// <summary>Take the transport effect off the unit.</summary>
+    EffectOff,
+
+    /// <summary>Play the sound <see cref="TransportCue.Name"/> at the unit.</summary>
+    Sound,
+
+    /// <summary>Give the unit the team color of the team-color slot of <see cref="TransportCue.Team"/>.</summary>
+    Recolor,
+}
+
+/// <summary>One thing a view shows or plays for a transport event, from <see cref="CombatArt.TransportCues"/>.</summary>
+public readonly record struct TransportCue(CueKind Kind, PlacedObject Unit, string Name = "", int Team = 0)
+{
+    /// <summary>The effect's sprite row (0x466f70 attaches <c>xtransport</c>).</summary>
+    public const string EffectSprite = "xtransport";
+
+    /// <summary>The sound played at the source and the target of every party (0x467050).</summary>
+    public const string TransportSound = "transprt.wav";
+
+    /// <summary>The sound played at the target of a fight against a live hostile unit (0x55f750).</summary>
+    public const string BoardingSound = "msboard.wav";
+}
+
 /// <summary>A transport began: <c>Source</c> beams crew to <c>Target</c>.</summary>
 public sealed record TransportStarted : CombatEvent
 {

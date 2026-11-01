@@ -464,6 +464,7 @@ public sealed class CombatPlan
                 CanAttack = r.Flag("canAttack", true),
                 Fireball = r.Str("fireball"),
                 IsHero = r.Flag("isHero", false),
+                TransportVoice = r.Str("eventTransport"),
                 ShieldPad = r.Num("shieldPad", ShieldEllipsoid.DefaultShieldPad),
                 Race = ReadRace(d, r, gaps),
             };

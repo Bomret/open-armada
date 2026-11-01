@@ -325,6 +325,12 @@ public sealed record CombatProfile
     public bool IsHero { get; init; }
 
     /// <summary>
+    /// The <c>eventTransport</c> voice line (the 8th event key, 0x5ab750): the sound played when the unit is ordered to
+    /// transport; empty when the definition names none (only hero units do).
+    /// </summary>
+    public string TransportVoice { get; init; } = "";
+
+    /// <summary>
     /// The <c>shieldPad</c>: the model units the longest radius of the shield ellipsoid grows by (0x46a74f, 0x46b8f0);
     /// <see cref="ShieldEllipsoid.DefaultShieldPad"/> when the key is missing.
     /// </summary>

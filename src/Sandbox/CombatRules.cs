@@ -192,7 +192,7 @@ public static class CombatRules
     }
 
     // The crew below one is set to zero and the unit becomes derelict, its shields down.
-    static void CheckCrew(UnitCombatState unit)
+    internal static void CheckCrew(UnitCombatState unit)
     {
         if (unit.Crew >= 1)
             return;

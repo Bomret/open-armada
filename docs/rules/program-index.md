@@ -148,6 +148,8 @@ and dying.
 | 0x4685c0 | Craft_RepairAll | The full-repair path (0x468760) | unknown | game | — | [combat-rules](combat-rules.md#not-known) |
 | 0x468a60 | Craft_HitNode | The node a shot hits: the hit location's target hardpoint nearest the firing hardpoint, else the model root | confirmed | game | class +0x358–+0x3b8 | [combat-rules](combat-rules.md#hit-explosion) |
 | 0x468990 | Craft_BeginDying | Marks the unit as being destroyed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
+| 0x467050 | Craft_TransportCycle | The per-tick transport work: counts the cycle timer down, sends a boarding party (0x55f620), and stops the transport once (crew − `TRANSPORTER_MAX`) / maximum crew is at or below the race's `crewRedStatus` | confirmed | game | crew +0x4d8, maximum crew +0x4c8, race `crewRedStatus` +0x208; test at 0x4672d0–0x467300 | [combat-rules](combat-rules.md#transport-and-boarding) |
+| 0x468cd0 | Craft_TeamRelation | The relation an attack order stores: 1 for a derelict target (+0x4dc), else the attacker's team's diplomacy value toward the target's team (0x4493f0) | confirmed | game | written at 0x4275ee–0x4275f3, compared at 0x42fbde–0x42fbe9 | [combat-rules](combat-rules.md#attack-order) |
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | Spawns the shield-down overlay | confirmed | game | 0x469368–0x4693a6 | [shield-effects](shield-effects.md#shield-down-overlay) |
 | 0x472120 | GameObject_FrameUpdate | A per-frame update that runs the damage nodes for each ship | inferred | game | calls 0x4677b0 | [combat-rules](combat-rules.md#damage-nodes) |
 | 0x459440 | HoverCraft_PhysicsStep | One physics step of a ship's motion | confirmed | game | `HoverCraft.cpp`; log `pitch:% .2f, roll:` | [combat-rules](combat-rules.md#coasting), [flight-model](flight-model.md#the-physics-step) |
@@ -219,6 +221,8 @@ Range 0x4259d0–0x430400 (`Ai\Tactical\CraftProcess.cpp`). Strategic AI lies be
 | 0x42ff80 | Craft_SetWeaponTarget | Hands a target to a unit's weapons | confirmed | game | — | [combat-rules](combat-rules.md#alert-stance) |
 | 0x4300a0 | Target_IsValidFor | The target test of target selection | confirmed | game | — | [combat-rules](combat-rules.md#target-selection) |
 | 0x436840 | Team_IsAITeam | Whether a team is played by the AI | confirmed | game | getter name `IsAITeam` | [combat-rules](combat-rules.md#alert-stance) |
+| 0x4493f0 | Team_Relation | A team's diplomacy value toward another team, from the table at +0x2c indexed by that team | confirmed | game | called by 0x468cd0 | [combat-rules](combat-rules.md#attack-order) |
+| 0x449430 | Team_SetRelation | Sets a team's diplomacy value toward another team | confirmed | game | writes the table at +0x2c | [combat-rules](combat-rules.md#attack-order) |
 | 0x40a310 | Path_Plan | Plans the path of a move: the goal clamp, the no-path and same-leaf cases, the search, the rubber banding, and the points at the middle of the combat band with the ship first and the goal last | confirmed | game | called by 0x42ded0 | [path-planning](path-planning.md#a-plan-0x40a310), [flight-model](flight-model.md#the-move-order) |
 | 0x428081 | CraftProcess_IdleHold | The idle hold: the move maneuver with the ship's own position as point, goal, and carrot and a velocity of 0 | confirmed | game | calls 0x42e4a0 | [flight-model](flight-model.md#the-hold) |
 | 0x42c9d0 | CraftProcess_DogfightManeuver | The dogfight: the aim d × (\|d\| − R) beyond R, steering with scale 1, a second yaw servo call toward the target; a target-location ship turns in place at scale 0 | confirmed | game | log text `DogFight_Forces` | [combat-rules](combat-rules.md#attack-order), [flight-model](flight-model.md#the-steering-routine) |
@@ -748,6 +752,8 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4440b0 | Race_FindByName | confirmed | Races |
 | 0x4442b0 | Race_Load | confirmed | Races |
 | 0x4453f0 | RtsCfg_Load | confirmed | Program, startup, and frame loop |
+| 0x4493f0 | Team_Relation | confirmed | Unit AI: alert stance, targets, orders |
+| 0x449430 | Team_SetRelation | confirmed | Unit AI: alert stance, targets, orders |
 | 0x44a810 | Map_DefaultBounds | confirmed | Path planning |
 | 0x44ab30 | Map_ClampGoal | confirmed | Path planning |
 | 0x44abb0 | MapBounds_Load | confirmed | Map objects |
@@ -800,6 +806,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4664e0 | Craft_TargetValid | inferred | Ships (Craft) |
 | 0x466b00 | Craft_RegenerateShields | confirmed | Ships (Craft) |
 | 0x466ca0 | Craft_OnCrewChanged | inferred | Ships (Craft) |
+| 0x467050 | Craft_TransportCycle | confirmed | Ships (Craft) |
 | 0x4675d0 | Craft_ShareSystemDamage | inferred | Ships (Craft) |
 | 0x467620 | Craft_PassSystemDamage | inferred | Ships (Craft) |
 | 0x4677b0 | Craft_UpdateDamageNodes | confirmed | Ships (Craft) |
@@ -812,6 +819,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4685c0 | Craft_RepairAll | unknown | Ships (Craft) |
 | 0x468990 | Craft_BeginDying | confirmed | Ships (Craft) |
 | 0x468a60 | Craft_HitNode | confirmed | Ships (Craft) |
+| 0x468cd0 | Craft_TeamRelation | confirmed | Ships (Craft) |
 | 0x4690c0 | Craft_CapSpeed | confirmed | Ships (Craft) |
 | 0x469120 | Craft_DisableEngines | confirmed | Ships (Craft) |
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | confirmed | Ships (Craft) |

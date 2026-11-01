@@ -193,8 +193,11 @@ R as above:
   unit becomes idle, when the target is destroyed or dying, for every ship; a dying target counts as destroyed. A
   player's attack order on a dying unit is refused.
 - **The stored team relation** (0x4275ee, 0x4275f3 write it; 0x42fb90 checks it; 0x468cd0 computes it). The order
-  stores the relation between the attacker's team and the target's at the moment it is given: derelict for a derelict
-  target, otherwise enemy or not an enemy. It keeps its target only while that relation still holds. A live target that
+  stores the relation between the attacker's team and the target's at the moment it is given: 1 for a derelict target,
+  otherwise the attacker's team's diplomacy value toward the target's team (0x4493f0, the team's table at +0x2c), never
+  the target's team number. It keeps its target only while that value still holds, so a target that moves to another
+  team the attacker's team holds the same value toward keeps the order. Which diplomacy value an enemy team holds was
+  not read: were it 1, a live enemy that turns derelict would keep the order. A live target that
   turns derelict, or that changes team so that the relation differs (it joins the attacker's team, say), ends the order
   (**inferred** that the order ends as the destroyed-target order does; the game drops the target in 0x42fb90). An order
   given on a derelict keeps it, so an attack order can finish off a derelict, until the derelict is destroyed or its
@@ -472,8 +475,10 @@ recovered; the engine's tick is the world tick). At or below zero a transporting
    `TRANSPORTER_ACTION_DELAY`; onto any other target on the next tick. Any other target stops the transport.
 5. The cycle timer is set to `TRANSPORTER_DELAY`.
 6. The transport stops when the source's crew after the party, over its maximum crew, is at or below its race's
-   `crewRedStatus` (0x467050). **Inferred**: the test counts the party just sent; the program's expression subtracts
-   `TRANSPORTER_MAX` once, and whether its crew operand is read before or after the party left was not settled.
+   `crewRedStatus` (0x467050). The test runs right after the party is sent (0x4672d0–0x467300): (crew −
+   `TRANSPORTER_MAX`) / maximum crew against the race's `crewRedStatus`. Neither 0x467050 before the test nor the
+   party's constructor 0x55f620 writes the source's crew, so the crew operand is the crew before this party leaves and
+   the test counts the party just sent. **Inferred**: where the source's crew is lowered was not found.
 
 The first party leaves on the first tick after the order, because the timer starts at or below zero and keeps
 counting while the unit is idle. **Stand-in**: a party lands once its delay has elapsed (the game lands it when its

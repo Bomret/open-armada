@@ -276,6 +276,25 @@ public sealed class UnitCombatState(
     /// <summary>The point (X, Z) of the player's move order, until the unit arrives; null without one.</summary>
     public (float X, float Z)? PlayerMove { get; set; }
 
+    /// <summary>Whether the unit is transporting (0x466f70 sets it, 0x467000 and 0x467050 clear it).</summary>
+    public bool Transporting { get; set; }
+
+    /// <summary>The unit the transport aims at; null while the unit is not transporting.</summary>
+    public UnitCombatState? TransportTarget { get; set; }
+
+    /// <summary>
+    /// The seconds until the transporter's next cycle (0x4cc); at or below zero the cycle runs. It counts down on every
+    /// tick, transporting or not.
+    /// </summary>
+    public double TransportTimer { get; set; }
+
+    /// <summary>
+    /// The teams that started boarding this unit and have not since ordered an attack on it (the boarding block,
+    /// 0x466f70, 0x427616): their automatic selection rejects the unit and their attack orders drop it. A team change of
+    /// the unit clears it.
+    /// </summary>
+    public HashSet<int> BoardedBy { get; } = new();
+
     /// <summary>The unit the weapons fire at this tick.</summary>
     public UnitCombatState? Target { get; set; }
 

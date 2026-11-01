@@ -132,6 +132,10 @@ public sealed class CombatWorld
     readonly Func<PlacedObject, string, ShipPose, Vector3> _hardpointPosition;
     readonly Dictionary<PlacedObject, UnitCombatState> _units = new(ReferenceEqualityComparer.Instance);
     readonly List<Shot> _shots = new();
+    readonly List<BoardingParty> _parties = new();
+
+    // The events of orders given between two Step calls; the next Step returns them first.
+    readonly List<CombatEvent> _queued = new();
     readonly DebrisField _debris;
     readonly Dictionary<PlacedObject, Sod?> _models = new(ReferenceEqualityComparer.Instance);
     readonly HashSet<string> _faults = new();
@@ -292,6 +296,7 @@ public sealed class CombatWorld
             return false;
         if (!CombatRules.Hostile(a.Team, t.Team) || a.Weapons.Count == 0)
             return false;
+        t.BoardedBy.Remove(a.Team); // an attack order on the unit lifts its team's boarding block (0x427616)
         a.Order = t;
         a.OrderRelation = CombatRules.RelationOf(a, t);
         a.AutoMove = false;
@@ -302,6 +307,57 @@ public sealed class CombatWorld
         a.Motion?.EndMove();
 
         return true;
+    }
+
+    /// <summary>
+    /// The transporter values of RTS_CFG.h; <see cref="TransporterValues.Stock"/> where the plan read none.
+    /// </summary>
+    public TransporterValues Transporter { get; init; } = TransporterValues.Stock;
+
+    /// <summary>
+    /// Gives <c>source</c> a transport order on <c>target</c>, true when it is accepted
+    /// (<see cref="CombatRules.TransportOrderOk"/>). The source starts transporting only with more than
+    /// <c>TRANSPORTER_MAX</c> crew; its move or attack order runs on.
+    /// </summary>
+    public bool Transport(PlacedObject source, PlacedObject target)
+    {
+        if (State(source) is not { } s || State(target) is not { } t || !CombatRules.TransportOrderOk(s, t))
+            return false;
+        if (s.Crew <= Transporter.Max)
+            return true; // the start needs more crew than one party (0x466f70)
+
+        // stand-in: an order on a transporting unit ends its earlier transport first; the game's handler overwrites the
+        // target without a stop
+        StopTransport(s, _queued);
+        s.Transporting = true;
+        s.TransportTarget = t;
+        if (t.Team != s.Team)
+        {
+            t.BoardedBy.Add(s.Team); // no team of the sandbox is an AI team (0x466f70 skips those)
+        }
+
+        _queued.Add(new TransportStarted { Source = source, Target = target });
+
+        return true;
+    }
+
+    /// <summary>Ends the unit's transport (0x467000); its move or attack order runs on.</summary>
+    public void CancelTransport(PlacedObject source)
+    {
+        if (State(source) is { } s)
+        {
+            StopTransport(s, _queued);
+        }
+    }
+
+    // Ends the unit's transport and reports it; does nothing for a unit that is not transporting.
+    static void StopTransport(UnitCombatState s, List<CombatEvent> events)
+    {
+        if (!s.Transporting || s.TransportTarget is not { } target)
+            return;
+        s.Transporting = false;
+        s.TransportTarget = null;
+        events.Add(new TransportStopped { Source = s.Unit, Target = target.Unit });
     }
 
     /// <summary>
@@ -388,8 +444,8 @@ public sealed class CombatWorld
     /// <summary>
     /// Sets the unit's team and race (INV-0012): the unit's current order is replaced by a stop (the order, the automatic
     /// move, and the player move end, and the tether point becomes where the unit stands, as <see cref="ClearOrder"/>
-    /// does). Its alert stance, its place in the selection, its motion, its node, and its readout stay. Does nothing for a
-    /// unit that is gone.
+    /// does). Its alert stance, its place in the selection, its motion, its node, its readout, and its own transport stay;
+    /// the teams that were boarding it lose their boarding block. Does nothing for a unit that is gone.
     /// </summary>
     public void ChangeTeam(PlacedObject unit, int team, RaceValues race)
     {
@@ -398,6 +454,7 @@ public sealed class CombatWorld
         ClearOrder(unit);
         state.Team = team;
         state.Race = race;
+        state.BoardedBy.Clear(); // the owner change zeroes the boarding block (0x46e030)
     }
 
     /// <summary>
@@ -494,7 +551,8 @@ public sealed class CombatWorld
     /// <summary>Advances the fight by <c>seconds</c> and returns the events of the ticks that ran.</summary>
     public IReadOnlyList<CombatEvent> Step(double seconds)
     {
-        var events = new List<CombatEvent>();
+        var events = new List<CombatEvent>(_queued);
+        _queued.Clear();
         // A unit without motion has its pose driven from outside, which changes once per Step call (a frame): it is
         // stopped when it did not move since the previous call, and its velocity is that change over the call. Every
         // tick of the call shares that, so the to-hit does not depend on the frame rate.
@@ -952,6 +1010,160 @@ public sealed class CombatWorld
             Spark(u, events); // before the repair of the tick, as 0x4683d0 sparks before it adds hit points
             CombatRules.Repair(u, Tick);
         }
+
+        RunParties(events);
+        RunTransports(events);
+    }
+
+    // The shield fraction at or below which a transport boards a hostile target (0x467143): 1 % of the maximum.
+    const double BoardingShieldFraction = 0.01;
+
+    // One tick of the boarding parties in flight: each party's time runs, and a party whose time is out lands
+    // (0x55f720). A party sent in this tick first runs in the next, so one with no delay lands on the next tick.
+    void RunParties(List<CombatEvent> events)
+    {
+        foreach (var party in _parties.ToList())
+        {
+            // stand-in: a party lands once its delay has elapsed; the game lands it when its timer falls below 0
+            party.Remaining -= Tick;
+            if (party.Remaining > Epsilon)
+                continue;
+            _parties.Remove(party);
+            Land(party, events);
+        }
+    }
+
+    // A party lands (0x55f750); it reads the target only, and the team and race it was sent with.
+    void Land(BoardingParty party, List<CombatEvent> events)
+    {
+        var target = party.Target;
+        // stand-in: a dying target counts as gone; the game tests only that the target is found
+        if (target.Destroyed || target.Dying || target.Profile.DefinedMaximumCrew < 1)
+            return; // the party is lost
+        var hostile = CombatRules.Hostile(party.Team, target.Team);
+        if (target.Derelict)
+        {
+            if (hostile)
+            {
+                Capture(party, target, party.Size, events);
+
+                return;
+            }
+
+            Receive(target, party.Size); // a derelict of a neutral team is never captured
+            if (target.Team == party.Team)
+            {
+                target.Race = party.Race;
+            }
+
+            return;
+        }
+
+        if (!hostile)
+        {
+            Receive(target, party.Size); // the overflow above the maximum is lost (inferred)
+
+            return;
+        }
+
+        // The fight: the party's strength in defender crew, E. The target loses all of E; the party survives with
+        // (d / a) * (E - C) when it outnumbers the crew C, and dies otherwise.
+        double a = party.Race.BoardingStrength,
+            d = target.Race.BoardingStrength;
+        var strength = a / d * party.Size;
+        var survivors = strength > target.Crew ? d / a * (strength - target.Crew) : 0;
+        events.Add(new BoardingFight { Source = party.Source, Target = target.Unit });
+        target.Crew = Math.Max(0, target.Crew - strength);
+        CombatRules.CheckCrew(target);
+        if (survivors > 0)
+        {
+            Capture(party, target, survivors, events);
+        }
+    }
+
+    // Adds crew to a unit up to its maximum; a derelict that reaches one crew or more is alive again (0x467570, 0x466ca0).
+    static void Receive(UnitCombatState unit, double crew)
+    {
+        unit.Crew = Math.Min(unit.Profile.DefinedMaximumCrew, unit.Crew + crew);
+        if (unit.Derelict && unit.Crew >= 1)
+        {
+            unit.Derelict = false;
+        }
+        else
+        {
+            CombatRules.CheckCrew(unit);
+        }
+    }
+
+    // The owner change (0x55f750, 0x46dff0): the unit joins the party's team and race, its crew is the survivors, capped
+    // at its maximum, and it is derelict with fewer than one. A neutral unit is never captured: only hostile units reach it.
+    void Capture(BoardingParty party, UnitCombatState target, double survivors, List<CombatEvent> events)
+    {
+        ChangeTeam(target.Unit, party.Team, party.Race);
+        target.Crew = 0;
+        target.Derelict = true;
+        Receive(target, survivors);
+        events.Add(
+            new UnitCaptured
+            {
+                Unit = target.Unit,
+                Source = party.Source,
+                Team = party.Team,
+            }
+        );
+    }
+
+    // One tick of every unit's transporter (0x465e80, 0x467050), for armed and unarmed units, ships and stations alike. The
+    // cycle timer counts down in every tick; at or below zero a transporting unit checks its target and sends a party.
+    void RunTransports(List<CombatEvent> events)
+    {
+        var range = Transporter.Range * Transporter.Range;
+        foreach (var u in _units.Values.ToList())
+        {
+            u.TransportTimer -= Tick;
+            if (!u.Transporting || u.TransportTarget is not { } t)
+                continue;
+            if (u.Dying || u.Destroyed || u.Derelict)
+            {
+                StopTransport(u, events);
+
+                continue;
+            }
+
+            if (u.TransportTimer > Epsilon)
+                continue;
+            var hostile = CombatRules.Hostile(u.Team, t.Team);
+            var shields = t.Profile.MaxHealth > 0 ? t.Shields / t.Profile.MaxHealth : 0;
+            if (
+                t.Destroyed
+                || t.Dying
+                || Vector3.DistanceSquared(Position(u), Position(t)) > range
+                || hostile && shields > BoardingShieldFraction
+                || !hostile && t.Crew >= t.Profile.DefinedMaximumCrew
+            )
+            {
+                StopTransport(u, events);
+
+                continue;
+            }
+
+            if (hostile)
+            {
+                t.ShieldDown = t.Profile.ShieldDelay; // every boarding cycle holds the shields down (0x467050)
+            }
+
+            // the party is TRANSPORTER_MAX crew, or what the source has; the subtraction is the full TRANSPORTER_MAX
+            var size = Math.Min(u.Crew, Transporter.Max);
+            u.Crew = Math.Max(0, u.Crew - Transporter.Max);
+            CombatRules.CheckCrew(u);
+            _parties.Add(new BoardingParty(u.Unit, t, size, u.Team, u.Race, hostile ? Transporter.ActionDelay : 0));
+            events.Add(new PartySent { Source = u.Unit, Target = t.Unit });
+            u.TransportTimer = Transporter.Delay;
+            if (u.Derelict || u.Crew / u.Profile.MaximumCrew <= u.Race.CrewRedStatus)
+            {
+                StopTransport(u, events);
+            }
+        }
     }
 
     // The repair sparks of the unit's systems for one tick (0x4683d0). Each system below its maximum hit points runs its
@@ -1060,6 +1272,7 @@ public sealed class CombatWorld
         u.Dying = false; // the phase is over: the unit is destroyed
         u.Destroyed = true;
         _units.Remove(u.Unit);
+        StopTransport(u, events);
         Shatter(u);
         events.Add(
             new UnitDestroyed { Unit = u.Unit, Cause = u.Swallowed ? DestroyCause.BlackHole : DestroyCause.Fireball }
@@ -1149,7 +1362,8 @@ public sealed class CombatWorld
         // The check precedes the range test, so every branch below sees the dropped order.
         if (
             u.Order is { Destroyed: true } or { Dying: true }
-            || u.Order is { } ordered && CombatRules.RelationOf(u, ordered) != u.OrderRelation
+            || u.Order is { } ordered
+                && (CombatRules.RelationOf(u, ordered) != u.OrderRelation || ordered.BoardedBy.Contains(u.Team))
         )
         {
             u.Order = null;
@@ -1366,8 +1580,9 @@ public sealed class CombatWorld
     // A valid target is hostile, not being destroyed (dying or gone), and not derelict (0x42faa0).
     // stand-in: every unit is visible to every team until fog of war exists, and the extra check the game makes on
     // yellow candidates (meaning unknown) is skipped.
+    // A team that started boarding the target does not pick it on its own (0x42fb31, the boarding block).
     static bool Valid(UnitCombatState u, UnitCombatState t) =>
-        !t.Destroyed && !t.Dying && !t.Derelict && CombatRules.Hostile(u.Team, t.Team);
+        !t.Destroyed && !t.Dying && !t.Derelict && CombatRules.Hostile(u.Team, t.Team) && !t.BoardedBy.Contains(u.Team);
 
     // Target selection (0x42fd6f): the current target while it stays valid and within `radius`, else the nearest
     // valid one within it.

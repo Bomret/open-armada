@@ -147,6 +147,7 @@ public partial class UnitOrders : Node3D
         )
         {
             MaxPreventionRotation = combat.MaxPreventionRotation,
+            Transporter = combat.Transporter,
             Band = band,
             Avoidance = combat.Avoidance,
             // a planet's radius is its model's bounding radius (+0x60), the same value a ship's radius is

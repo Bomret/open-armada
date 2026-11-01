@@ -27,7 +27,7 @@ public class StartingStateTests
         + Systems;
     const string Race =
         "name = \"federation\"\r\ncrewYellowStatus = 0.4\r\ncrewRedStatus = 0.2\r\nweaponYellow = 1\r\n"
-        + "weaponRed = 1\r\nrepairYellow = 1\r\nrepairRed = 1\r\nrepairStrength = 1\r\n";
+        + "weaponRed = 1\r\nrepairYellow = 1\r\nrepairRed = 1\r\nrepairStrength = 1\r\nboardingStrength = 1\r\n";
 
     // A world of the layout's objects: "s" a ship with all five systems and 100 crew, "nosensors" one without
     // sensors, "nocrew" one whose class has no crew, "rock" an object that is no unit. Returns the world, the
@@ -57,7 +57,7 @@ public class StartingStateTests
                 ("addon/races.odf", "numberOfRaces = 1\r\nrace0 = \"fed.odf\"\r\n"),
                 (
                     "RTS_CFG.h",
-                    "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 1;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\nint OBSTACLE_AVOIDANCE = 0;\r\nfloat COLLISION_LOOK_AHEAD_TIME = 1.4;\r\nfloat COLLISION_SAFETY_MARGIN = 1.2;\r\n"
+                    "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 1;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\nint OBSTACLE_AVOIDANCE = 0;\r\nfloat COLLISION_LOOK_AHEAD_TIME = 1.4;\r\nfloat COLLISION_SAFETY_MARGIN = 1.2;\r\nfloat TRANSPORTER_RANGE = 500.0;\r\nfloat TRANSPORTER_DELAY = 1.0;\r\nfloat TRANSPORTER_ACTION_DELAY = 1.0;\r\nint TRANSPORTER_MAX = 5;\r\n"
                 ),
                 (
                     "ART_CFG.h",

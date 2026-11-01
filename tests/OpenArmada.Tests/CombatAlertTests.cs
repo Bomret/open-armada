@@ -715,15 +715,27 @@ public class CombatAlertTests
     }
 
     [TestMethod]
-    public void APlayersAttackOrderKeepsATargetThatTurnsDerelictAndTheUnitKeepsFiring()
+    public void APlayersAttackOrderGivenOnADerelictKeepsItAndTheUnitKeepsFiring()
+    {
+        var a = Ship("a", 1, 0);
+        var t = Target("t", 2, 20);
+        var world = World(a, t, Target("other", 3, 40));
+        world.State(t.Object)!.Derelict = true;
+        world.Attack(a.Object, t.Object);
+        Assert.AreEqual("t", Aimed(world.Step(0.02), "a"));
+        Assert.AreSame(world.State(t.Object), world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void APlayersAttackOrderOnALiveUnitDropsItWhenItTurnsDerelictAndTheUnitFiresAtItsOwnPick()
     {
         var a = Ship("a", 1, 0);
         var t = Target("t", 2, 20);
         var world = World(a, t, Target("other", 3, 40));
         world.Attack(a.Object, t.Object);
         world.State(t.Object)!.Derelict = true;
-        Assert.AreEqual("t", Aimed(world.Step(0.02), "a"));
-        Assert.AreSame(world.State(t.Object), world.State(a.Object)!.Order);
+        Assert.AreEqual("other", Aimed(world.Step(0.02), "a"));
+        Assert.IsNull(world.State(a.Object)!.Order);
     }
 
     [TestMethod]

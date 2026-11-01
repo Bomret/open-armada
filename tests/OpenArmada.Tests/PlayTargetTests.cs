@@ -57,6 +57,34 @@ public class PlayTargetTests
     }
 
     [TestMethod]
+    public void ATransportNeedsASelectionWithAUnitThatTakesTheOrder()
+    {
+        Assert.IsNull(PlayTarget.TransportProblem("a", [true, false]));
+        Assert.AreEqual("no unit is selected to transport to 'a'", PlayTarget.TransportProblem("a", []));
+        Assert.AreEqual(
+            "no selected unit can take a transport order on 'a'",
+            PlayTarget.TransportProblem("a", [false, false])
+        );
+    }
+
+    [TestMethod]
+    public void ATransportStepFailsOnAnUnboundChordAndOnASelectionOfOnlyTransportingUnits()
+    {
+        Assert.IsNull(PlayTarget.TransportChordProblem(true));
+        StringAssert.Contains(PlayTarget.TransportChordProblem(false)!, "the transport chord is unbound");
+        Assert.IsNull(PlayTarget.TransportProblem("a", [true, true], [false, false]));
+        Assert.IsNull(PlayTarget.TransportProblem("a", [false, true], [true, false]));
+        Assert.AreEqual(
+            "every selected unit is transporting: the transport chord would cancel them, not wait for 'a'",
+            PlayTarget.TransportProblem("a", [false, false], [true, true])
+        );
+        Assert.AreEqual(
+            "no unit is selected to transport to 'a'",
+            PlayTarget.TransportProblem("a", [], [])
+        );
+    }
+
+    [TestMethod]
     public void ACropReachesHalfTheBoxsLongerSidePastEachEdgeRoundedOutward()
     {
         // a box 40 wide and 20 high pads by 20 on each side

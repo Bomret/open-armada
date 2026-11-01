@@ -19,7 +19,37 @@ public class AlertBindingsTests
     const string Reference =
         "# set green alert\ngreen {\n\t+ keyboard\tG\n\t- keyboard \tControl\n\t+ keyboard\tShift\n\t- keyboard\tAlt\n}\n"
         + "yellow {\n\t+ keyboard\tY\n\t- keyboard \tControl\n\t+ keyboard\tShift\n\t- keyboard\tAlt\n}\n"
-        + "red {\n\t+ keyboard\tR\n\t- keyboard \tControl\n\t+ keyboard\tShift\n\t- keyboard\tAlt\n}\n";
+        + "red {\n\t+ keyboard\tR\n\t- keyboard \tControl\n\t+ keyboard\tShift\n\t- keyboard\tAlt\n}\n"
+        + "transport {\n\t+ keyboard\tT\n\t- keyboard \tControl\n\t- keyboard\tShift\n\t- keyboard\tAlt\n}\n";
+
+    [TestMethod]
+    public void TheTransportChordIsTWithNoModifiers()
+    {
+        var (b, gaps) = Read(("Input.map", Reference));
+        Assert.IsTrue(b.IsTransport(new KeyChord { Key = "T" }));
+        Assert.IsFalse(b.IsTransport(new KeyChord { Key = "T", Shift = true }));
+        Assert.IsFalse(b.IsTransport(new KeyChord { Key = "G", Shift = true }));
+        Assert.AreEqual(new KeyChord { Key = "T" }, b.Transport);
+        Assert.AreEqual(0, gaps.Count);
+    }
+
+    [TestMethod]
+    public void AMissingTransportBlockIsOneGapAndLeavesTheOrderUnbound()
+    {
+        var (b, gaps) = Read(("Input.map", Reference.Replace("transport {", "other {")));
+        Assert.AreEqual(1, gaps.Count);
+        StringAssert.Contains(gaps[0], "transport");
+        Assert.IsNull(b.Transport);
+        Assert.IsFalse(b.IsTransport(new KeyChord { Key = "T" }));
+        Assert.AreEqual(AlertStance.Green, b.For(new KeyChord { Key = "G", Shift = true }));
+    }
+
+    [TestMethod]
+    public void AMissingInputMapLeavesTheTransportOrderUnbound()
+    {
+        var (b, _) = Read(("other.txt", "x"));
+        Assert.IsNull(b.Transport);
+    }
 
     (AlertBindings Bindings, List<string> Gaps) Read(params (string Path, string Content)[] files)
     {

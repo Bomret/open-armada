@@ -43,7 +43,8 @@ public class PlayScriptTests
                 "turn -40",
                 "shot after",
                 "shot close kbattle58",
-                "shot closer enemy#2 3"
+                "shot closer enemy#2 3",
+                "transport enemy#3"
             ),
             "x.play"
         );
@@ -67,11 +68,13 @@ public class PlayScriptTests
         Assert.AreEqual(("close", "kbattle58", 1), (close.Name, close.Unit, close.Scale));
         var closer = (ShotStep)script.Steps[12];
         Assert.AreEqual(("closer", "enemy#2", 3), (closer.Name, closer.Unit, closer.Scale));
+        Assert.AreEqual("enemy#3", ((TransportStep)script.Steps[13]).Unit);
     }
 
     [TestMethod]
     [DataRow("select", "'select' takes 1 argument, found 0")]
     [DataRow("attack a b", "'attack' takes 1 argument, found 2")]
+    [DataRow("transport", "'transport' takes 1 argument, found 0")]
     [DataRow("move 1", "'move' takes 2 arguments, found 1")]
     [DataRow("move 1 x", "'x' is not a number")]
     [DataRow("box", "'box' takes 4 numbers or one or more unit names, found 0 arguments")]

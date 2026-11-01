@@ -24,4 +24,4 @@ select FriendBoarder
 transport Ally
 wait 3
 dump friendly
-expect Ally team = 1
+expect Ally crew > 4

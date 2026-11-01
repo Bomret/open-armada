@@ -649,7 +649,12 @@ public class CombatArtTests
     {
         var art = TransportArt(TransportInstall());
         Cues(art, Start(Boarder, Prize));
-        Cues(art, new UnitDestroyed { Unit = Prize, Cause = DestroyCause.Fireball });
+        // the view drops its entry for the destroyed unit on this cue; a unit that holds none gets none
+        CollectionAssert.AreEqual(
+            new[] { new TransportCue(CueKind.EffectOff, Prize) },
+            Cues(art, new UnitDestroyed { Unit = Prize, Cause = DestroyCause.Fireball })
+        );
+        Assert.AreEqual(0, Cues(art, new UnitDestroyed { Unit = Prize, Cause = DestroyCause.Fireball }).Count());
 
         // the destroyed target holds none, so a later stop takes nothing off it
         CollectionAssert.AreEqual(

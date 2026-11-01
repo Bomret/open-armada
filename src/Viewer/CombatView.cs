@@ -59,7 +59,7 @@ public partial class CombatView : Node3D
 
     readonly CombatArt _art;
     readonly Action<PlacedObject, int> _recolor; // gives a unit's node the team color of a team's slot, the unit alone
-    readonly Dictionary<PlacedObject, Node3D> _effects = new(); // the transport effect each unit holds, a child of its node
+    readonly Dictionary<PlacedObject, Node3D> _effects = new(ReferenceEqualityComparer.Instance); // the transport effect each unit holds, a child of its node
     readonly RepeatedFaults _faults = new(Area.Combat);
     readonly CombatWorld _world;
     readonly Dictionary<PlacedObject, Node3D> _nodes;

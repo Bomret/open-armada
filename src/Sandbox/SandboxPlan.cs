@@ -116,9 +116,7 @@ public sealed class SandboxPlan
     /// The team-color slot a team takes (0x46e030), mapped the way the plan maps the team of each object. A team
     /// whose record is unusable gets the stand-in slot with no report: the plan reported it when it placed objects.
     /// </summary>
-    public int SlotOf(int team) => _slotOf(team);
-
-    readonly Func<int, int> _slotOf;
+    public Func<int, int> SlotOf { get; }
 
     /// <summary>The asteroid fields to fill with rocks (a field with a missing or illegal value is reported and absent).</summary>
     public IReadOnlyList<AsteroidField> Fields { get; }
@@ -195,7 +193,7 @@ public sealed class SandboxPlan
         Func<int, int> slotOf
     )
     {
-        _slotOf = slotOf;
+        SlotOf = slotOf;
         _fieldObstacles = fieldObstacles;
         BlackHoles = blackHoles;
         Nebulae = nebulae;

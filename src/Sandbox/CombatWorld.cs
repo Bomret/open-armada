@@ -339,7 +339,6 @@ public sealed class CombatWorld
         if (s.Crew <= Transporter.Max)
             return true; // the start needs more crew than one party (0x466f70)
 
-
         s.Transporting = true;
         s.TransportTarget = t;
         if (t.Team != s.Team)

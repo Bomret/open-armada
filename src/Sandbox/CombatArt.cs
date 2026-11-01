@@ -282,29 +282,20 @@ public sealed class CombatArt
         foreach (var (unit, profile) in units)
         {
             // stand-in: the game plays the voice for the local player's team only (0x470680); the sandbox orders every team
-            if (profile.TransportVoice.Length > 0 && !stations.Contains(unit))
+            if (
+                profile.TransportVoice.Length > 0
+                && !stations.Contains(unit)
+                && ResolveFile(profile.TransportVoice, MissingTransportVoice) is { } voice
+            )
             {
-                if (ResolveFile(profile.TransportVoice, MissingTransportVoice) is { } voice)
-                {
-                    _voices[unit] = voice;
-                }
+                _voices[unit] = voice;
             }
         }
 
-        foreach (
-            var cause in new[]
-            {
-                MissingTransportEffect,
-                MissingTransportSound,
-                MissingBoardingSound,
-                MissingTransportVoice,
-            }
-        )
+        string[] causes = [MissingTransportEffect, MissingTransportSound, MissingBoardingSound, MissingTransportVoice];
+        foreach (var report in _gaps.Entries.Where(r => causes.Contains(r.Cause)))
         {
-            if (_gaps.Entries.SingleOrDefault(r => r.Cause == cause) is { } report)
-            {
-                Log.Warn(Area.Combat, report.Text);
-            }
+            Log.Warn(Area.Combat, report.Text);
         }
     }
 
@@ -362,7 +353,11 @@ public sealed class CombatArt
 
                 break;
             case UnitDestroyed { Unit: var unit }:
-                _effects.Remove(unit); // the effect goes with the unit's node
+                // the effect goes with the unit's node; the cue lets the view drop its entry for it
+                if (_effects.Remove(unit))
+                {
+                    cues.Add(new TransportCue(CueKind.EffectOff, unit));
+                }
 
                 break;
         }

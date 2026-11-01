@@ -44,6 +44,15 @@ public partial class UnitSelection : Node3D
     /// <summary>The selected units; a ship whose Movable is false has no physics definition and takes no order.</summary>
     public IReadOnlyList<SelectableUnit> Selected => _marks.Keys.ToList();
 
+    /// <summary>
+    /// Offered each left click without a drag, with the unit under it (null for none) before the click selects; true
+    /// takes the click, which then changes nothing.
+    /// </summary>
+    public Func<PlacedObject?, bool>? ClickTaker { get; set; }
+
+    /// <summary>Raised when the selection changes: a click or a box drag selects, or a dismissed unit leaves it.</summary>
+    public event Action? SelectionChanged;
+
     /// <inheritdoc/>
     public override void _Ready()
     {
@@ -87,6 +96,8 @@ public partial class UnitSelection : Node3D
         if (GetViewport().GetCamera3D() == null)
             return;
         var unit = UnitAt(at);
+        if (ClickTaker?.Invoke(unit?.Object) == true)
+            return;
         Select(unit != null ? new[] { unit } : Array.Empty<SelectableUnit>());
     }
 
@@ -101,6 +112,7 @@ public partial class UnitSelection : Node3D
         {
             mark.Ring.QueueFree();
             mark.Name.QueueFree();
+            SelectionChanged?.Invoke();
         }
 
         if (_nodes.TryGetValue(unit, out var node) && Extent(node) is { } box)
@@ -226,6 +238,8 @@ public partial class UnitSelection : Node3D
             _layer.AddChild(name);
             _marks[unit] = (ring, name);
         }
+
+        SelectionChanged?.Invoke();
     }
 
     /// <inheritdoc/>

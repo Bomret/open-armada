@@ -102,7 +102,8 @@ public sealed class AlertBindings
     public KeyChord? Transport { get; private set; }
 
     /// <summary>Whether the chord is the transport chord.</summary>
-    public bool IsTransport(KeyChord pressed) => Transport is { } t && t == pressed with { Key = pressed.Key.ToUpperInvariant() };
+    public bool IsTransport(KeyChord pressed) =>
+        Transport is { } t && t == pressed with { Key = pressed.Key.ToUpperInvariant() };
 
     /// <summary>The stance the chord sets; null when it is bound to none.</summary>
     public AlertStance? For(KeyChord pressed) =>

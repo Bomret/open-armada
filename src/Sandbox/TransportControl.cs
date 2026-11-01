@@ -111,7 +111,12 @@ public sealed class TransportControl(
         var ok = selected()
             .Any(u =>
                 world.State(u) is { } source
-                && CombatRules.CanTransportTo(source, target, Vector3.Distance(positionOf(u), positionOf(hovered)), range)
+                && CombatRules.CanTransportTo(
+                    source,
+                    target,
+                    Vector3.Distance(positionOf(u), positionOf(hovered)),
+                    range
+                )
             );
 
         return ok ? TransportCursor.Transport : TransportCursor.NoTransport;

@@ -35,7 +35,8 @@ public class TransportControlTests
         public bool Transporting(string label) => World.State(Units[label])!.Transporting;
     }
 
-    const string Input = "transport {\n\t+ keyboard\tT\n\t- keyboard \tControl\n\t- keyboard\tShift\n\t- keyboard\tAlt\n}\n";
+    const string Input =
+        "transport {\n\t+ keyboard\tT\n\t- keyboard \tControl\n\t- keyboard\tShift\n\t- keyboard\tAlt\n}\n";
 
     static readonly KeyChord T = new() { Key = "T" };
 
@@ -100,12 +101,7 @@ public class TransportControlTests
     [TestMethod]
     public void AUnitThatCannotTakeTheOrderGetsNoneWhileTheOthersDo()
     {
-        var r = Build(
-            true,
-            new Spec("weak", 1, 0, Crew: 9),
-            new Spec("strong", 1, 10),
-            new Spec("enemy", 2, 100)
-        );
+        var r = Build(true, new Spec("weak", 1, 0, Crew: 9), new Spec("strong", 1, 10), new Spec("enemy", 2, 100));
         r.Select("weak", "strong");
         r.Control.Pressed(T, false);
         r.Control.Click(r.Units["enemy"]);
@@ -246,12 +242,7 @@ public class TransportControlTests
     [TestMethod]
     public void TheCursorIsTransportWhenAnySelectedUnitAcceptsTheHoveredUnit()
     {
-        var r = Build(
-            true,
-            new Spec("weak", 1, 0, Crew: 9),
-            new Spec("strong", 1, 10),
-            new Spec("enemy", 2, 100)
-        );
+        var r = Build(true, new Spec("weak", 1, 0, Crew: 9), new Spec("strong", 1, 10), new Spec("enemy", 2, 100));
         r.Select("weak", "strong");
         r.Control.Pressed(T, false);
         Assert.AreEqual(TransportCursor.Transport, r.Control.Cursor(r.Units["enemy"]));

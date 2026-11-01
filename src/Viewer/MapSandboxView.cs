@@ -165,7 +165,16 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
         AddChild(new SelectionDisplayView(selection, orders.Combat, HoverPoint));
-        AddChild(new AlertKeys(AlertBindings.Read(files, gap => AddGap(gap)), selection, orders.Combat));
+        var bindings = AlertBindings.Read(files, gap => AddGap(gap));
+        AddChild(new AlertKeys(bindings, selection, orders.Combat));
+        // after the orders node, so the transport mode sees a right-click first
+        var transport = new TransportControl(
+            orders.Combat,
+            bindings,
+            () => selection.Selected.Select(u => u.Object).ToList(),
+            u => orders.Pose(u).Position
+        );
+        AddChild(new TransportInput(transport, selection, files, gap => AddGap(gap)));
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.
@@ -229,6 +238,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 names,
                 selection,
                 orders.Combat,
+                bindings,
                 nodes,
                 (float)_rig.CombatPlaneHeight,
                 folder

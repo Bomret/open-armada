@@ -25,7 +25,8 @@ public class TransportTests
         float Shields = 0,
         float ShieldDelay = 0,
         RaceValues? Race = null,
-        WeaponProfile? Weapon = null
+        WeaponProfile? Weapon = null,
+        float Radius = 0
     );
 
     static (CombatWorld World, Dictionary<string, PlacedObject> Units) Build(
@@ -49,7 +50,7 @@ public class TransportTests
                     race: s.Race
                 ),
                 DefinitionName = s.Label + ".odf",
-                Radius = 0,
+                Radius = s.Radius,
                 Mobile = false,
             }),
             1,
@@ -471,5 +472,280 @@ public class TransportTests
         }
 
         CollectionAssert.AreEqual(Run1(), Run1());
+    }
+
+    // --- the stop conditions ---
+
+    static bool Stopped(IEnumerable<CombatEvent> events, PlacedObject source) =>
+        events.OfType<TransportStopped>().Any(e => e.Source == source);
+
+    [TestMethod]
+    public void ATargetOutOfRangeCenterToCenterTakesNoPartyAndTheTransportStopsAtTheFirstCycle()
+    {
+        // the surfaces (radius 400 each) are within range; the centers, 600 apart, are not
+        var (world, u) = Build(
+            null,
+            new Spec("s", 1, 0, Radius: 400),
+            new Spec("t", 1, 600, Crew: 10, Radius: 400)
+        );
+        Assert.IsTrue(world.Transport(u["s"], u["t"]));
+        var events = Run(world, Tick);
+        Assert.AreEqual(0, events.OfType<PartySent>().Count());
+        Assert.IsTrue(Stopped(events, u["s"]));
+    }
+
+    [TestMethod]
+    public void ATargetAtExactlyTheTransporterRangeTakesAParty()
+    {
+        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 1, 500, Crew: 10));
+        world.Transport(u["s"], u["t"]);
+        Assert.AreEqual(1, Run(world, Tick).OfType<PartySent>().Count());
+    }
+
+    [TestMethod]
+    public void AHostileTargetWithShieldsAboveOnePercentOfItsMaximumTakesNoParty()
+    {
+        int Parties(float shields)
+        {
+            var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 2, 100, Shields: 100));
+            world.State(u["t"])!.Shields = shields;
+            world.Transport(u["s"], u["t"]);
+
+            return Run(world, Tick).OfType<PartySent>().Count();
+        }
+
+        Assert.AreEqual(1, Parties(0.5f));
+        Assert.AreEqual(1, Parties(1f));
+        Assert.AreEqual(0, Parties(2f));
+    }
+
+    [TestMethod]
+    public void ATargetWithoutAShieldMaximumIsAlwaysOpen()
+    {
+        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 2, 100, Shields: 0));
+        world.Transport(u["s"], u["t"]);
+        Assert.AreEqual(1, Run(world, Tick).OfType<PartySent>().Count());
+    }
+
+    [TestMethod]
+    public void ADestroyedTargetEndsTheTransportAtTheNextCycle()
+    {
+        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 1, 100, Crew: 10));
+        world.Transport(u["s"], u["t"]);
+        Run(world, Tick);
+        world.State(u["t"])!.Destroyed = true;
+        var events = Run(world, 1.0);
+        Assert.IsTrue(Stopped(events, u["s"]));
+        Assert.AreEqual(0, events.OfType<PartySent>().Count());
+    }
+
+    [TestMethod]
+    public void TheTransportStopsOnceTheSourcesCrewAfterAPartyIsAtOrBelowRedStatus()
+    {
+        // 40 -> 35 -> 30 -> 25 of 100; the red status is 0.25
+        var (world, u) = Build(null, new Spec("s", 1, 0, Crew: 40), new Spec("t", 1, 100, Crew: 10));
+        world.Transport(u["s"], u["t"]);
+        var events = Run(world, 5);
+        Assert.AreEqual(3, events.OfType<PartySent>().Count());
+        Assert.IsTrue(Stopped(events, u["s"]));
+        Assert.AreEqual(25, CrewOf(world, u["s"]));
+    }
+
+    [TestMethod]
+    public void ADerelictOrDyingSourceEndsItsTransport()
+    {
+        foreach (var make in new Action<UnitCombatState>[] { s => s.Derelict = true, s => s.Dying = true })
+        {
+            var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 1, 100, Crew: 10));
+            world.Transport(u["s"], u["t"]);
+            Run(world, Tick);
+            make(world.State(u["s"])!);
+            var events = Run(world, 2);
+            Assert.IsTrue(Stopped(events, u["s"]));
+            Assert.AreEqual(0, events.OfType<PartySent>().Count());
+        }
+    }
+
+    [TestMethod]
+    public void ADestroyedSourceIsReportedStopped()
+    {
+        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 1, 100, Crew: 10));
+        world.Transport(u["s"], u["t"]);
+        var s = world.State(u["s"])!;
+        s.Dying = true; // the dying time is 0: the unit leaves in the next tick
+        s.DyingRemaining = 0;
+        Assert.IsTrue(Stopped(Run(world, Tick), u["s"]));
+    }
+
+    [TestMethod]
+    public void TheOrderAndTheCancelAreReportedAsStartAndStop()
+    {
+        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 1, 100, Crew: 10));
+        world.Transport(u["s"], u["t"]);
+        var started = world.Step(Tick).OfType<TransportStarted>().Single();
+        Assert.AreEqual((u["s"], u["t"]), (started.Source, started.Target));
+        world.CancelTransport(u["s"]);
+        var events = Run(world, 2);
+        Assert.IsTrue(Stopped(events, u["s"]));
+        Assert.AreEqual(0, events.OfType<PartySent>().Count());
+        Assert.IsFalse(world.State(u["s"])!.Transporting);
+    }
+
+    // --- orders ---
+
+    [TestMethod]
+    public void AMoveAttackOrStopOrderLeavesTheTransportRunning()
+    {
+        var (world, u) = Build(
+            null,
+            new Spec("s", 1, 0, Weapon: Weapon()),
+            new Spec("t", 2, 50, Crew: 50)
+        );
+        var s = world.State(u["s"])!;
+        world.Transport(u["s"], u["t"]);
+        world.Move(u["s"], 5, 5);
+        Assert.IsTrue(s.Transporting);
+        Assert.IsTrue(world.Attack(u["s"], u["t"]));
+        Assert.IsTrue(s.Transporting);
+        world.ClearOrder(u["s"]);
+        Assert.IsTrue(s.Transporting);
+    }
+
+    [TestMethod]
+    public void ATransportOrderLeavesTheAttackAndMoveOrdersRunning()
+    {
+        var (world, u) = Build(
+            null,
+            new Spec("s", 1, 0, Weapon: Weapon()),
+            new Spec("t", 2, 50, Crew: 50)
+        );
+        var s = world.State(u["s"])!;
+        world.Attack(u["s"], u["t"]);
+        world.Transport(u["s"], u["t"]);
+        Assert.AreSame(world.State(u["t"]), s.Order);
+        world.Move(u["s"], 5, 5);
+        world.Transport(u["s"], u["t"]);
+        Assert.IsNotNull(s.PlayerMove);
+    }
+
+    // --- parties in flight ---
+
+    [TestMethod]
+    public void APartyInFlightLandsAfterItsSourceIsDestroyedWithTheTeamAndRaceItWasSentWith()
+    {
+        var (world, u) = Build(null, new Spec("s", 1, 0, Race: Strong), new Spec("t", 2, 100, Crew: 4));
+        world.Transport(u["s"], u["t"]);
+        world.Step(Tick);
+        var s = world.State(u["s"])!;
+        s.Dying = true;
+        s.DyingRemaining = 0; // the source is gone before the party lands
+        Run(world, 1.0);
+        var target = world.State(u["t"])!;
+        Assert.AreEqual(1, target.Team);
+        Assert.AreSame(Strong, target.Race);
+    }
+
+    [TestMethod]
+    public void APartyInFlightLandsAfterItsSourceIsCapturedWithTheTeamAndRaceItWasSentWith()
+    {
+        var (world, u) = Build(null, new Spec("s", 1, 0, Race: Strong), new Spec("t", 2, 100, Crew: 4));
+        world.Transport(u["s"], u["t"]);
+        world.Step(Tick);
+        world.ChangeTeam(u["s"], 3, Weak);
+        Run(world, 1.0);
+        var target = world.State(u["t"])!;
+        Assert.AreEqual(1, target.Team);
+        Assert.AreSame(Strong, target.Race);
+    }
+
+    [TestMethod]
+    public void AUnitCapturedWhileTransportingSendsItsNextPartyWithTheNewTeamAndRace()
+    {
+        var (world, u) = Build(
+            null,
+            new Spec("s", 1, 0, Race: Strong),
+            new Spec("t", 2, 100, Crew: 12, Max: 12),
+            new Spec("v", 2, 200, Crew: 0)
+        );
+        world.Transport(u["s"], u["t"]);
+        world.Step(Tick);
+        world.Transport(u["t"], u["v"]); // t sends in tick 2 (a hostile derelict lands 50 ticks later)
+        world.ChangeTeam(u["t"], 3, Weak); // t changes team before its party is sent
+        Run(world, 1.1);
+        var v = world.State(u["v"])!;
+        Assert.AreEqual(3, v.Team);
+        Assert.AreSame(Weak, v.Race);
+    }
+
+    // --- the boarding block ---
+
+    // s (team 1) boards t (team 2, no shields). mate (team 1) and other (team 3) are armed and stand in range of t.
+    static (CombatWorld World, Dictionary<string, PlacedObject> Units) Boarding() =>
+        Build(
+            null,
+            new Spec("s", 1, 0),
+            new Spec("t", 2, 100, Crew: 100),
+            new Spec("mate", 1, 110, Weapon: Weapon(range: 100)),
+            new Spec("other", 3, 90, Weapon: Weapon(range: 100))
+        );
+
+    static int ShotsAt(IEnumerable<CombatEvent> events, PlacedObject shooter, PlacedObject target) =>
+        events.OfType<ShotFired>().Count(e => e.Shot.Shooter.Unit == shooter && e.Shot.Target.Unit == target);
+
+    [TestMethod]
+    public void TheBoardingTeamNeitherAutoTargetsTheBoardedUnitNorKeepsAnOlderAttackOrderOnIt()
+    {
+        var (world, u) = Boarding();
+        Assert.IsTrue(world.Attack(u["mate"], u["t"]));
+        world.Transport(u["s"], u["t"]);
+        var events = Run(world, 3);
+        Assert.AreEqual(0, ShotsAt(events, u["mate"], u["t"]));
+        Assert.IsNull(world.State(u["mate"])!.Order);
+        Assert.IsTrue(ShotsAt(events, u["other"], u["t"]) > 0, "a team that is not boarding still shoots it");
+    }
+
+    [TestMethod]
+    public void StoppingTheTransportDoesNotLiftTheBlock()
+    {
+        var (world, u) = Boarding();
+        world.Transport(u["s"], u["t"]);
+        world.Step(Tick);
+        world.CancelTransport(u["s"]);
+        Assert.AreEqual(0, ShotsAt(Run(world, 3), u["mate"], u["t"]));
+    }
+
+    [TestMethod]
+    public void ANewAttackOrderOnTheUnitLiftsTheBlockForTheTeam()
+    {
+        var (world, u) = Boarding();
+        world.Transport(u["s"], u["t"]);
+        world.Step(Tick);
+        Assert.IsTrue(world.Attack(u["mate"], u["t"]));
+        Assert.IsTrue(ShotsAt(Run(world, 3), u["mate"], u["t"]) > 0);
+    }
+
+    [TestMethod]
+    public void AChangeOfTheUnitsTeamLiftsTheBlock()
+    {
+        var (world, u) = Boarding();
+        world.State(u["other"])!.Destroyed = true; // mate holds no other pick, so only the block can keep it off t
+        world.Transport(u["s"], u["t"]);
+        world.Step(Tick);
+        world.ChangeTeam(u["t"], 4, CombatFixtures.Race);
+        Assert.IsTrue(ShotsAt(Run(world, 3), u["mate"], u["t"]) > 0);
+    }
+
+    [TestMethod]
+    public void BoardingAUnitOfTheOwnTeamBlocksNothing()
+    {
+        var (world, u) = Build(
+            null,
+            new Spec("s", 1, 0),
+            new Spec("t", 1, 100, Crew: 10),
+            new Spec("foe", 2, 110, Weapon: Weapon(range: 100))
+        );
+        world.Transport(u["s"], u["t"]);
+        Assert.IsTrue(ShotsAt(Run(world, 3), u["foe"], u["t"]) > 0);
+        Assert.AreEqual(0, world.State(u["t"])!.BoardedBy.Count);
     }
 }

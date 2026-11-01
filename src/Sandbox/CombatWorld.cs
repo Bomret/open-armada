@@ -296,6 +296,7 @@ public sealed class CombatWorld
             return false;
         if (!CombatRules.Hostile(a.Team, t.Team) || a.Weapons.Count == 0)
             return false;
+        t.BoardedBy.Remove(a.Team); // an attack order on the unit lifts its team's boarding block (0x427616)
         a.Order = t;
         a.OrderRelation = CombatRules.RelationOf(a, t);
         a.AutoMove = false;
@@ -443,8 +444,8 @@ public sealed class CombatWorld
     /// <summary>
     /// Sets the unit's team and race (INV-0012): the unit's current order is replaced by a stop (the order, the automatic
     /// move, and the player move end, and the tether point becomes where the unit stands, as <see cref="ClearOrder"/>
-    /// does). Its alert stance, its place in the selection, its motion, its node, and its readout stay. Does nothing for a
-    /// unit that is gone.
+    /// does). Its alert stance, its place in the selection, its motion, its node, its readout, and its own transport stay;
+    /// the teams that were boarding it lose their boarding block. Does nothing for a unit that is gone.
     /// </summary>
     public void ChangeTeam(PlacedObject unit, int team, RaceValues race)
     {
@@ -453,6 +454,7 @@ public sealed class CombatWorld
         ClearOrder(unit);
         state.Team = team;
         state.Race = race;
+        state.BoardedBy.Clear(); // the owner change zeroes the boarding block (0x46e030)
     }
 
     /// <summary>
@@ -1369,7 +1371,8 @@ public sealed class CombatWorld
         // The check precedes the range test, so every branch below sees the dropped order.
         if (
             u.Order is { Destroyed: true } or { Dying: true }
-            || u.Order is { } ordered && CombatRules.RelationOf(u, ordered) != u.OrderRelation
+            || u.Order is { } ordered
+                && (CombatRules.RelationOf(u, ordered) != u.OrderRelation || ordered.BoardedBy.Contains(u.Team))
         )
         {
             u.Order = null;
@@ -1586,8 +1589,9 @@ public sealed class CombatWorld
     // A valid target is hostile, not being destroyed (dying or gone), and not derelict (0x42faa0).
     // stand-in: every unit is visible to every team until fog of war exists, and the extra check the game makes on
     // yellow candidates (meaning unknown) is skipped.
+    // A team that started boarding the target does not pick it on its own (0x42fb31, the boarding block).
     static bool Valid(UnitCombatState u, UnitCombatState t) =>
-        !t.Destroyed && !t.Dying && !t.Derelict && CombatRules.Hostile(u.Team, t.Team);
+        !t.Destroyed && !t.Dying && !t.Derelict && CombatRules.Hostile(u.Team, t.Team) && !t.BoardedBy.Contains(u.Team);
 
     // Target selection (0x42fd6f): the current target while it stays valid and within `radius`, else the nearest
     // valid one within it.

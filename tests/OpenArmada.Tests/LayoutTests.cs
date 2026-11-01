@@ -267,12 +267,18 @@ public class LayoutTests
     }
 
     [TestMethod]
-    [DataRow("/home/me/play", "/home/me/play")]
     [DataRow(null, "/srv/project")]
     [DataRow("play", "/srv/project")]
     public void TheStartDirectoryIsAnAbsolutePwdElseTheCurrentDirectory(string? pwd, string start)
     {
         Assert.AreEqual(start, Layout.Start(pwd, "/srv/project"));
+    }
+
+    [TestMethod]
+    public void AnAbsolutePwdIsTheStartDirectory()
+    {
+        var pwd = Path.GetFullPath("/home/me/play");
+        Assert.AreEqual(pwd, Layout.Start(pwd, "/srv/project"));
     }
 
     [TestMethod]

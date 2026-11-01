@@ -69,6 +69,14 @@ public class InterfaceSpritesTests
         File.SetUnixFileMode(locked, UnixFileMode.None);
         try
         {
+            // Root reads a file whatever its mode (container CI), so the fault cannot be staged there.
+            try
+            {
+                File.ReadAllBytes(locked);
+                Assert.Inconclusive("the file stays readable (running as root)");
+            }
+            catch (UnauthorizedAccessException) { }
+
             using var log = new CapturedLog();
 
             var found = InterfaceSprites.Of(new GameFileSystem(root), "gui_fed.cfg");

@@ -63,18 +63,18 @@ run = [
   "dotnet csharpier check .",
   "dotnet test --project tests/OpenArmada.Tests",
   "dotnet build OpenArmada.csproj",
-  "{{ env.GODOT }} --headless --path . -- --check --game \"${ARMADA_DIR:?set ARMADA_DIR to an Armada install}\"",
+  "{{ env.GODOT }} --headless --path . -- --check --game \"{{ env.ARMADA_DIR }}\"",
 ]
 
 [tasks.assets]
 description = "Run the asset check (needs ARMADA_DIR)"
 depends = ["build"]
-run = "{{ env.GODOT }} --headless --path . -- --check --game \"${ARMADA_DIR:?set ARMADA_DIR to an Armada install}\""
+run = "{{ env.GODOT }} --headless --path . -- --check --game \"{{ env.ARMADA_DIR }}\""
 
 [tasks.browser]
 description = "Open the asset browser (needs ARMADA_DIR)"
 depends = ["build"]
-run = "{{ env.GODOT }} --path . -- --game \"${ARMADA_DIR:?set ARMADA_DIR to an Armada install}\""
+run = "{{ env.GODOT }} --path . -- --game \"{{ env.ARMADA_DIR }}\""
 
 [tasks.editor]
 description = "Open the project in the Godot editor"

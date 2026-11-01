@@ -13,7 +13,9 @@ namespace OpenArmada.Tests;
 // fake dotnet set through PLAY_RUN_DOTNET. The fake Godot counts its calls, writes a dump, two named shots,
 // numbered frames, a WAV and log lines, and exits with FAKE_STATUS after FAKE_SLEEP seconds. The fake dotnet
 // exits with FAKE_BUILD_STATUS. Both append their name and arguments to the order file.
+// tools/play-run.sh is a POSIX shell script.
 [TestClass]
+[OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
 public class PlayRunTests
 {
     const string Armada = "/games/Star Trek - Armada";
@@ -558,6 +560,14 @@ public class PlayRunTests
         File.SetUnixFileMode(Out(""), UnixFileMode.UserRead | UnixFileMode.UserExecute);
         try
         {
+            // Root writes to a folder whatever its mode (container CI), so the fault cannot be staged there.
+            try
+            {
+                File.WriteAllText(Path.Combine(Out(""), "probe"), "");
+                Assert.Inconclusive("the folder stays writable (running as root)");
+            }
+            catch (UnauthorizedAccessException) { }
+
             var call = Task.Run(() => Run(Layout));
             var finished = call.Wait(10000);
 

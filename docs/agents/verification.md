@@ -131,6 +131,7 @@ The checked-in play scripts, the layout or map each runs on, and the mechanics e
 | `sound-fade-start.play` | `layouts/sound-fade.jsonc` | A fireball that starts beyond its maximum distance, never heard |
 | `sparks.play` | `layouts/emitters.jsonc` | Repair sparks of repairing systems |
 | `transport.play` | `layouts/transport.jsonc` | A destroyer ordered to transport (key, then click) boards and captures a crippled hostile ship; its team changes |
+| `transport-feedback.play` | `layouts/transport-feedback.jsonc` | The transport effect on source and target while the transport runs and not after a cancel; the transport sound; the captured ship in its new team color beside a ship of its model in the old one |
 | `vent-fade.play` | `layouts/emitters.jsonc` | A damage emitter stopping once its system is whole |
 
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.

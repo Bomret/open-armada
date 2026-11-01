@@ -149,6 +149,10 @@ and dying.
 | 0x468a60 | Craft_HitNode | The node a shot hits: the hit location's target hardpoint nearest the firing hardpoint, else the model root | confirmed | game | class +0x358–+0x3b8 | [combat-rules](combat-rules.md#hit-explosion) |
 | 0x468990 | Craft_BeginDying | Marks the unit as being destroyed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
 | 0x467050 | Craft_TransportCycle | The per-tick transport work: counts the cycle timer down, sends a boarding party (0x55f620), and stops the transport once (crew − `TRANSPORTER_MAX`) / maximum crew is at or below the race's `crewRedStatus` | confirmed | game | crew +0x4d8, maximum crew +0x4c8, race `crewRedStatus` +0x208; test at 0x4672d0–0x467300 | [combat-rules](combat-rules.md#transport-and-boarding) |
+| 0x466f70 | Craft_StartTransport | Starts a transport: attaches the `xtransport` effect to the source and the target, adds the source's team to the target's boarding block | confirmed | game | `xtransport`, `TRANSPORTER_MAX` test | [combat-rules](combat-rules.md#transport-and-boarding) |
+| 0x46db90 | Craft_AttachEffect | Attaches a named effect to a unit only when it holds none (+0xdc is 0) | confirmed | game | name `xtransport`; handle +0xdc | [combat-rules](combat-rules.md#transport-and-boarding) |
+| 0x46e030 | Craft_JoinTeam | The team join of the owner change: copies the new team's colors into the unit (+0x174..+0x190) and zeroes the boarding block | confirmed | game | color table 0x633ac8 | [combat-rules](combat-rules.md#transport-and-boarding) |
+| 0x462d40 | Craft_PlayEventSound | Plays the unit definition's event voice line (event 8 is `eventTransport`) for the local player's team | confirmed | game | event keys read in 0x5ab750; throttle 0x5ab7d0 | [combat-rules](combat-rules.md#transport-and-boarding) |
 | 0x468cd0 | Craft_TeamRelation | The relation an attack order stores: 1 for a derelict target (+0x4dc), else the attacker's team's diplomacy value toward the target's team (0x4493f0) | confirmed | game | written at 0x4275ee–0x4275f3, compared at 0x42fbde–0x42fbe9 | [combat-rules](combat-rules.md#attack-order) |
 | 0x4692f0 | Craft_SpawnShieldDownOverlay | Spawns the shield-down overlay | confirmed | game | 0x469368–0x4693a6 | [shield-effects](shield-effects.md#shield-down-overlay) |
 | 0x472120 | GameObject_FrameUpdate | A per-frame update that runs the damage nodes for each ship | inferred | game | calls 0x4677b0 | [combat-rules](combat-rules.md#damage-nodes) |
@@ -789,6 +793,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x45fea0 | CraftClass_Load | confirmed | Game object definitions |
 | 0x460f30 | CraftClass_LoadSystem | confirmed | Game object definitions |
 | 0x4617b0 | Craft_Init | confirmed | Ships (Craft) |
+| 0x462d40 | Craft_PlayEventSound | confirmed | Ships (Craft) |
 | 0x462dd0 | Craft_StopMotion | confirmed | Ships (Craft) |
 | 0x463f60 | Craft_HullSurfacePoint | confirmed | Ships (Craft) |
 | 0x464000 | Craft_CollisionOverlap | confirmed | Ships (Craft) |
@@ -806,6 +811,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x4664e0 | Craft_TargetValid | inferred | Ships (Craft) |
 | 0x466b00 | Craft_RegenerateShields | confirmed | Ships (Craft) |
 | 0x466ca0 | Craft_OnCrewChanged | inferred | Ships (Craft) |
+| 0x466f70 | Craft_StartTransport | confirmed | Ships (Craft) |
 | 0x467050 | Craft_TransportCycle | confirmed | Ships (Craft) |
 | 0x4675d0 | Craft_ShareSystemDamage | inferred | Ships (Craft) |
 | 0x467620 | Craft_PassSystemDamage | inferred | Ships (Craft) |
@@ -829,6 +835,8 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x46bae0 | GameObjectClass_ModelPoints | confirmed | Game object definitions |
 | 0x46d5c0 | GameObject_PlaceHeight | inferred | Units in general (Entity, GameObject) |
 | 0x46d790 | Entity_InitHealth | confirmed | Units in general (Entity, GameObject) |
+| 0x46db90 | Craft_AttachEffect | confirmed | Ships (Craft) |
+| 0x46e030 | Craft_JoinTeam | confirmed | Ships (Craft) |
 | 0x46e340 | GameObject_RecordHit | confirmed | Units in general (Entity, GameObject) |
 | 0x46e640 | GameObject_HitRecently | confirmed | Units in general (Entity, GameObject) |
 | 0x46e670 | GameObject_CloakState | inferred | Units in general (Entity, GameObject) |

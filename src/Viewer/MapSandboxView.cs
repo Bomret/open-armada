@@ -181,9 +181,25 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
         art.AddSmallExplosions();
         art.AddRepairSparks();
+        art.AddTransport(
+            orders.Combat.Units.Select(u => (u.Unit, u.Profile)),
+            selection.Units.Where(u => u.Unit is Station).Select(u => u.Object)
+        );
         var fade = SoundFade.Read(files);
         _gaps.AddRange(fade.Reports.Select(r => r.Text));
-        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, fade.Fade, gap => AddGap(gap)));
+        AddChild(
+            new CombatView(
+                files,
+                art,
+                orders.Combat,
+                nodes,
+                builder,
+                orders,
+                fade.Fade,
+                (unit, newTeam) => Recolor(files, builder, team, nodes, unit, plan.SlotOf(newTeam)),
+                gap => AddGap(gap)
+            )
+        );
         _gaps.AddRange(art.Reports.Select(r => r.Text));
         AddChild(
             new DamageSprayView(
@@ -288,6 +304,42 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
 
             return null;
         }
+    }
+
+    // Gives the unit's node the team color of the slot (0x46e030) and no other unit's: each of its meshes is swapped for
+    // the mesh of the same node in a copy of the model built in that slot, whose team materials carry the color. Units
+    // sharing the old template keep its meshes. A model the slot cannot build leaves the unit as it is (reported by
+    // Instance).
+    void Recolor(
+        GameFileSystem files,
+        SodBuilder builder,
+        TeamColors team,
+        Dictionary<PlacedObject, Node3D> nodes,
+        PlacedObject unit,
+        int slot
+    )
+    {
+        if (!nodes.TryGetValue(unit, out var node) || !IsInstanceValid(node))
+            return;
+        if (Instance(files, builder, team, unit.Model, unit.Scale, slot) is not { } donor)
+            return;
+        var meshes = donor
+            .FindChildren("*", nameof(MeshInstance3D), true, false)
+            .Cast<MeshInstance3D>()
+            .Where(m => m.HasMeta(SodBuilder.SodIndexMeta))
+            .ToDictionary(m => (int)m.GetMeta(SodBuilder.SodIndexMeta), m => m.Mesh);
+        foreach (var mesh in node.FindChildren("*", nameof(MeshInstance3D), true, false).Cast<MeshInstance3D>())
+        {
+            if (
+                mesh.HasMeta(SodBuilder.SodIndexMeta)
+                && meshes.TryGetValue((int)mesh.GetMeta(SodBuilder.SodIndexMeta), out var recolored)
+            )
+            {
+                mesh.Mesh = recolored;
+            }
+        }
+
+        donor.Free();
     }
 
     // The object's model at its class's scale; null when the model was not read.

@@ -291,7 +291,15 @@ public sealed class CombatArt
             }
         }
 
-        foreach (var cause in new[] { MissingTransportEffect, MissingTransportSound, MissingBoardingSound, MissingTransportVoice })
+        foreach (
+            var cause in new[]
+            {
+                MissingTransportEffect,
+                MissingTransportSound,
+                MissingBoardingSound,
+                MissingTransportVoice,
+            }
+        )
         {
             if (_gaps.Entries.SingleOrDefault(r => r.Cause == cause) is { } report)
             {

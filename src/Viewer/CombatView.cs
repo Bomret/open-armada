@@ -14,7 +14,8 @@ namespace OpenArmada.Viewer;
 /// Draws and sounds the fight on the combat events of the orders node: a beam from the firing hardpoint to its
 /// target for its life, a torpedo along its flight, each with the sprite its ordnance names; the weapon's fire
 /// sound at the firing unit, once per weapon volley; the explosions of hits and the repair sparks of repairing systems
-/// at their nodes; the small explosions on a dying unit; the explosion of a destroyed unit where it was. A shot that
+/// at their nodes; the small explosions on a dying unit; the explosion of a destroyed unit where it was; the transport
+/// effect, sounds, and voice line, and the new team color of a captured unit (the cues of CombatArt.TransportCues). A shot that
 /// missed is drawn too, aimed beside its target, for its ordnance's life. Everything the install may lack is read once
 /// when the node is built and reported through the CombatArt (INV-0002); a shot or a destruction without its art still
 /// resolves.
@@ -57,6 +58,8 @@ public partial class CombatView : Node3D
     }
 
     readonly CombatArt _art;
+    readonly Action<PlacedObject, int> _recolor; // gives a unit's node the team color of a team's slot, the unit alone
+    readonly Dictionary<PlacedObject, Node3D> _effects = new(); // the transport effect each unit holds, a child of its node
     readonly RepeatedFaults _faults = new(Area.Combat);
     readonly CombatWorld _world;
     readonly Dictionary<PlacedObject, Node3D> _nodes;
@@ -81,9 +84,11 @@ public partial class CombatView : Node3D
         SodBuilder builder,
         UnitOrders orders,
         SoundFade fade,
+        Action<PlacedObject, int> recolor,
         Action<string> gap
     )
     {
+        _recolor = recolor;
         _files = files;
         _fade = fade;
         _art = art;
@@ -167,6 +172,11 @@ public partial class CombatView : Node3D
         {
             try
             {
+                foreach (var cue in _art.TransportCues(e))
+                {
+                    Apply(cue);
+                }
+
                 switch (e)
                 {
                     case ShotFired { Shot: var shot }:
@@ -224,6 +234,71 @@ public partial class CombatView : Node3D
                 _faults.Report($"combat presentation failed: {ex.Message}");
             }
         }
+    }
+
+    // Shows or plays one transport cue. The effect hangs from the unit's node, so it follows the unit and goes with it.
+    void Apply(TransportCue cue)
+    {
+        switch (cue.Kind)
+        {
+            case CueKind.EffectOn:
+                ShowEffect(cue.Unit);
+
+                break;
+            case CueKind.EffectOff:
+                if (_effects.Remove(cue.Unit, out var effect) && IsInstanceValid(effect))
+                {
+                    effect.QueueFree();
+                }
+
+                break;
+            case CueKind.Sound:
+                if (At(cue.Unit) is { } at)
+                {
+                    PlaySound(cue.Name, at, SoundFade.FireMinimumScale, cue.Unit);
+                }
+
+                break;
+            case CueKind.Recolor:
+                _recolor(cue.Unit, cue.Team);
+
+                break;
+        }
+    }
+
+    // The transport effect (0x46db90): the xtransport flipbook loops on a billboard at the unit's center until the cue
+    // takes it off. stand-in: the billboard is as wide as the unit's model; the game's size is not known.
+    void ShowEffect(PlacedObject unit)
+    {
+        if (
+            _art.Sprite(TransportCue.EffectSprite) is not { } art
+            || Texture(art.Sprite.Texture) is not { } tex
+            || UnitNode(unit) is not { } node
+        )
+            return;
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoTexture = tex,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        SpriteMaterial.Blend(material, art.Sprite.Material);
+        var width = Math.Max(_world.State(unit)?.ModelRadius ?? 0, 1f) * 2;
+        var quad = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = new Vector2(width, width), Material = material },
+        };
+        node.AddChild(quad);
+        var length = art.FrameSeconds > 0 ? art.FrameSeconds * art.Frames.Count : 1;
+        var tween = quad.CreateTween().SetLoops();
+        tween.TweenMethod(
+            Callable.From<double>(age => SpriteMaterial.ShowFrame(material, art.Sprite, art.FrameAt(age), tex)),
+            0.0,
+            length,
+            length
+        );
+        _effects[unit] = quad;
     }
 
     /// <summary>

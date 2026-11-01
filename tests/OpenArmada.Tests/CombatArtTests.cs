@@ -635,19 +635,13 @@ public class CombatArtTests
         var art = TransportArt(TransportInstall());
         Cues(art, Start(Boarder, Prize));
 
-        CollectionAssert.AreEqual(
-            new[] { new TransportCue(CueKind.EffectOn, Rival) },
-            Cues(art, Start(Rival, Prize))
-        );
+        CollectionAssert.AreEqual(new[] { new TransportCue(CueKind.EffectOn, Rival) }, Cues(art, Start(Rival, Prize)));
         CollectionAssert.AreEqual(
             new[] { new TransportCue(CueKind.EffectOff, Boarder), new TransportCue(CueKind.EffectOff, Prize) },
             Cues(art, Stop(Boarder, Prize))
         );
         // the second source goes on boarding without the target's effect; its own goes with its stop
-        CollectionAssert.AreEqual(
-            new[] { new TransportCue(CueKind.EffectOff, Rival) },
-            Cues(art, Stop(Rival, Prize))
-        );
+        CollectionAssert.AreEqual(new[] { new TransportCue(CueKind.EffectOff, Rival) }, Cues(art, Stop(Rival, Prize)));
     }
 
     [TestMethod]
@@ -677,10 +671,7 @@ public class CombatArtTests
             },
             Cues(art, Party())
         );
-        CollectionAssert.AreEqual(
-            new[] { new TransportCue(CueKind.Sound, Prize, "msboard.wav") },
-            Cues(art, Fight())
-        );
+        CollectionAssert.AreEqual(new[] { new TransportCue(CueKind.Sound, Prize, "msboard.wav") }, Cues(art, Fight()));
         CollectionAssert.Contains(art.Sounds.ToArray(), "transprt.wav");
         CollectionAssert.Contains(art.Sounds.ToArray(), "msboard.wav");
     }
@@ -693,7 +684,16 @@ public class CombatArtTests
 
         Assert.AreEqual(
             0,
-            Cues(art, new UnitCaptured { Unit = Prize, Source = Boarder, Team = 1 }).Count(c => c.Kind == CueKind.Sound)
+            Cues(
+                    art,
+                    new UnitCaptured
+                    {
+                        Unit = Prize,
+                        Source = Boarder,
+                        Team = 1,
+                    }
+                )
+                .Count(c => c.Kind == CueKind.Sound)
         );
     }
 
@@ -748,6 +748,14 @@ public class CombatArtTests
     public void ACaptureRecolorsTheCapturedUnitToTheTeamItJoined() =>
         CollectionAssert.AreEqual(
             new[] { new TransportCue(CueKind.Recolor, Prize, "", 1) },
-            Cues(TransportArt(TransportInstall()), new UnitCaptured { Unit = Prize, Source = Boarder, Team = 1 })
+            Cues(
+                TransportArt(TransportInstall()),
+                new UnitCaptured
+                {
+                    Unit = Prize,
+                    Source = Boarder,
+                    Team = 1,
+                }
+            )
         );
 }

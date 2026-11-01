@@ -55,7 +55,7 @@ public sealed class PlayInput(
             case TurnStep turn:
                 return Turn(turn.Pixels);
             case ShotStep shot:
-                return Shot(shot.Name);
+                return Shot(shot);
             default:
                 return $"step '{step.GetType().Name}' is no input step";
         }
@@ -270,17 +270,36 @@ public sealed class PlayInput(
         return null;
     }
 
-    // The viewport's last drawn frame: a step that changes the view takes effect in the frame after it, so a wait
-    // comes before the shot.
-    string? Shot(string name)
+    // The viewport's last drawn frame, or its crop around a unit: a step that changes the view takes effect in the
+    // frame after it, so a wait comes before the shot.
+    string? Shot(ShotStep shot)
     {
-        var file = Path.Combine(outputFolder, name + ".png");
+        var file = Path.Combine(outputFolder, shot.Name + ".png");
+        ScreenBox? box = null;
+        if (shot.Unit is { } name)
+        {
+            var (unit, problem) = names.Resolve(name);
+            if (unit == null)
+                return problem;
+            box = selection.ScreenBoxOf(unit);
+            if (box == null)
+                return $"'{name}' has no screen box: it shows no mesh, reaches behind the camera, or is off screen";
+        }
+
         try
         {
             Directory.CreateDirectory(outputFolder);
             var image = View.GetTexture().GetImage();
             if (image == null)
                 return $"cannot write '{file}': the viewport has no image";
+            if (box is { } b)
+            {
+                var (crop, problem) = Crop(image, b, shot.Scale);
+                if (crop == null)
+                    return problem;
+                image = crop;
+            }
+
             // Opening the file first makes an unwritable target a throw here, not an engine ERROR on stderr.
             File.Open(file, FileMode.Create).Dispose();
             var saved = image.SavePng(file);
@@ -291,6 +310,25 @@ public sealed class PlayInput(
         {
             return $"cannot write '{file}': {e.Message}";
         }
+    }
+
+    // The image holds the viewport's pixels, which are as many as its viewport coordinates unless a display scale
+    // applies; the box is scaled to the image first. A crop too large for an image once scaled is a problem.
+    (Image? Image, string? Problem) Crop(Image image, ScreenBox box, int scale)
+    {
+        var size = image.GetSize();
+        var (sx, sy) = (size.X / Size.X, size.Y / Size.Y);
+        var crop = PlayTarget.CropOf(
+            new ScreenBox(box.Left * sx, box.Top * sy, box.Right * sx, box.Bottom * sy),
+            new System.Numerics.Vector2(size.X, size.Y)
+        );
+        if (PlayTarget.ScaleProblem(crop, scale) is { } problem)
+            return (null, problem);
+        var region = image.GetRegion(new Rect2I(crop.X, crop.Y, crop.Width, crop.Height));
+        if (scale > 1)
+            region.Resize(crop.Width * scale, crop.Height * scale, Image.Interpolation.Nearest);
+
+        return (region, null);
     }
 
     void Send(InputEvent e) => View.PushInput(e, true);

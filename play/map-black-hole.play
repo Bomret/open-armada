@@ -1,0 +1,9 @@
+# On the stock map borg4, which holds a black hole (mblkhole) and 12 asteroid fields (mafield): the sandbox opens on it
+# with its forced motions in place, and the log reports the hole's missing GravityForce key once. Dumps: "start" (0.5 s)
+# and "later" (2 s) show every unit with its velocity (vel=) and its move order (move=). Shot "start" is the whole frame.
+# Run it with: sh tools/play-run.sh map-black-hole --map borg4 --fps 10
+wait 0.5
+dump start
+shot start
+wait 1.5
+dump later

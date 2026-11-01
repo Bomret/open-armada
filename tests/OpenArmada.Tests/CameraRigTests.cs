@@ -82,6 +82,26 @@ public class CameraRigTests
         Near(38.5f, (float)rig.CombatPlaneHeight);
     }
 
+    // One floor and one ceiling: the camera's look-at height, the order plane, and the steering clamp read the same band.
+    [TestMethod]
+    public void TheCombatBandIsTheFloorAndCeilingTheCameraAndTheOrderPlaneRead()
+    {
+        var rig = Rig(("SHIP_COMBAT_FLOOR", "20.0"), ("SHIP_COMBAT_CEILING", "100.0"));
+        Assert.AreEqual(new CombatBand(20, 100), rig.CombatBand);
+        Near(60, (float)rig.CombatPlaneHeight);
+        Near(60, rig.CombatBand.Middle);
+        Near(60, rig.Pose.Target.Y);
+        Assert.AreEqual(CombatBand.Stock, Rig().CombatBand);
+    }
+
+    [TestMethod]
+    public void WithoutConstantsTheCombatBandIsTheStockOne()
+    {
+        var rig = new CameraRig(null, Bounds);
+        Assert.AreEqual(CombatBand.Stock, rig.CombatBand);
+        Near(38.5f, (float)rig.CombatPlaneHeight);
+    }
+
     [TestMethod]
     public void AChangedInitHeightAndRotationChangeTheStartPose()
     {

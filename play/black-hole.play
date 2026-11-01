@@ -1,0 +1,55 @@
+# On layouts/black-hole.jsonc a black hole lies at (2000, 2000), its center 70 below the plane. Drifter has its engines
+# destroyed and is derelict (crew 0): the engines-destroyed pull is what the script shows, and the crew 0 keeps the engines
+# from repairing (a destroyed engine works again at 10/10 hit points, 3.7 s with a crew, and a derelict ship repairs
+# nothing), so Drifter has no thrust for the whole 21 s drift. It starts at (1701, 2356), 470 from the hole's center in 3D
+# and outside the gravity radius of 450, with a starting velocity of 20 along +X (19.6 at the first dump, slowed by
+# coasting at about 2 per second) that points 50 degrees off the direction to the hole. At about 1.7 s it has coasted
+# inside the radius and the pull turns its velocity from +X toward the center (down, and toward -z in the layout, the
+# mirror in the dump's pos= and vel= fields) to the speed cap of 20, aimed at the center: (11.56, -3.15, 16.01) in the dump.
+# At about 20.8 s it is inside the event radius of 70 in the plane and is swallowed: it is dying with a timer of 0 for one
+# tick, then it leaves, with no fireball and no small explosions, and shatters into debris. Driver has thrust and is
+# ordered to the hole's center, a point inside the impassable square the path planner writes around the hole (1.5 x the
+# event radius 70 = 105 on each side, with the cells it touches): the planner has no path to a goal in an impassable cell,
+# so Driver holds at its start with no order and is not swallowed. (A move order cannot reach the push-out ring of 105:
+# the planner routes around the hole's square; forced motion alone drives a ship against the ring, as the unit
+# tests do.)
+# Dumps: "before" (0.2 s) shows Drifter at its start, outside the radius, with velocity (19.60, 0, 0); "outside" (1.6 s)
+# shows it 451 from the center, still outside, with velocity (16.64, 0, 0) from coasting; "entered" (1.8 s) shows the first
+# velocity the pull gave it, (18.61, -0.62, 3.16), turned off +X toward the center; "bend" (2.4 s) shows it turning further,
+# (14.38, -2.68, 13.64); "edge" (20.2 s) shows it at 82 from the center in the plane at the settled velocity
+# (11.56, -3.15, 16.01); each with its engines still destroyed. "swallowed" (21.2 s) shows it destroyed with debris above
+# 0; "ring" and "later" show Driver at its start (2500, 2000) with move=none and not dying.
+# Shots "outside", "entered", "bend" and "edge" crop Drifter, "swallowed" is the whole frame, and "ring" crops Driver;
+# "spin0" and "spin1" are whole frames 49.0 s apart (0.2 s and 49.2 s): the hole's model has turned by Rotation x 49 s
+# between them.
+# Run it with --layout layouts/black-hole.jsonc; the layout's header comment has the whole command.
+# The points are in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 0.2
+dump before
+shot spin0
+select Driver
+wait 0.3
+move 2000 -2000
+wait 1.1
+dump outside
+shot outside Drifter
+wait 0.2
+dump entered
+shot entered Drifter
+wait 0.6
+dump bend
+shot bend Drifter
+wait 17.8
+dump edge
+shot edge Drifter
+wait 1
+dump swallowed
+expect Drifter destroyed = true
+expect Driver dying = false
+shot swallowed
+wait 18
+dump ring
+shot ring Driver
+wait 10
+dump later
+shot spin1

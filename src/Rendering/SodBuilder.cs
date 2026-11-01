@@ -64,6 +64,12 @@ public sealed class SodBuilder
     }
 
     /// <summary>
+    /// The metadata key under which each built node holds its index in <c>Sod.Nodes</c>. A copy of the built node
+    /// (Duplicate) carries it, so a view maps a model node to the node it drew without going by name.
+    /// </summary>
+    public const string SodIndexMeta = "sodIndex";
+
+    /// <summary>
     /// Builds the model with its team materials in <c>teamColor</c> (the last color set when null); <c>asset</c>,
     /// the model's name, is named in the log entry of a texture that fails (ViewerLog.TextureFailed).
     /// </summary>
@@ -83,6 +89,7 @@ public sealed class SodBuilder
         {
             Node3D node = n.Mesh != null ? BuildMesh(sod, n) : new Node3D();
             node.Name = NodeName.Of(n.Name);
+            node.SetMeta(SodIndexMeta, nodes.Count);
             node.Transform = ToGodot(n.Transform);
             nodes.Add((n, node));
         }
@@ -123,14 +130,14 @@ public sealed class SodBuilder
             }
         }
 
-        // A LOD control node holds one child per detail level; show only the most detailed.
-        foreach (var lod in sod.Nodes.Where(n => n.Type == Sod.NodeType.LodControl).Select(n => byName[n.Name]))
+        // A LOD control node holds one child per detail level; show only the most detailed (Sod.ShownLodLevel).
+        var built = nodes.ToDictionary(n => n.Data, n => n.Node);
+        foreach (var lod in sod.Nodes.Where(n => n.Type == Sod.NodeType.LodControl))
         {
-            var levels = lod.GetChildren().OfType<Node3D>().ToList();
-            var best = levels.OrderByDescending(VertexCount).FirstOrDefault();
-            foreach (var level in levels)
+            var best = sod.ShownLodLevel(lod);
+            foreach (var level in sod.ChildrenOf(lod))
             {
-                level.Visible = level == best;
+                built[level].Visible = level == best;
             }
         }
 
@@ -147,7 +154,6 @@ public sealed class SodBuilder
         var sprites = SpriteNodes.For(_files, sod);
         var unnamed = new Gaps();
         var gaps = new Gaps();
-        var built = nodes.ToDictionary(n => n.Data, n => n.Node);
         foreach (var sprite in sprites.Nodes)
         {
             var name = sprite.Sprite.Sprite.Texture;
@@ -174,9 +180,6 @@ public sealed class SodBuilder
 
         return root;
     }
-
-    static int VertexCount(Node node) =>
-        (node is MeshInstance3D m ? m.Mesh.GetFaces().Length : 0) + node.GetChildren().Sum(VertexCount);
 
     MeshInstance3D BuildMesh(Sod sod, Sod.Node data)
     {

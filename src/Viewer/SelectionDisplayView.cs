@@ -6,7 +6,7 @@ using OpenArmada.Sandbox;
 namespace OpenArmada.Viewer;
 
 /// <summary>
-/// The game's in-world selection display over the map sandbox (docs/selection-display.md), through the unit under
+/// The game's in-world selection display over the map sandbox (docs/rules/selection-display.md), through the unit under
 /// <c>hoverPoint</c> (null: none): the shield bars of the hovered unit and its team, and the crew dots of the selected
 /// among them, redrawn every frame from the units' current combat state.
 /// </summary>
@@ -31,7 +31,7 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
     public override void _Process(double delta)
     {
         // The hover steps here, once per frame: the draw callback can run zero or several times a frame.
-        // ponytail: the hover pick walks every placed object's meshes each frame (O(objects × meshes)); skip
+        // simplicity: the hover pick walks every placed object's meshes each frame (O(objects × meshes)); skip
         // it while neither the mouse nor the camera moved, or cache the pick, when maps grow large.
         var pick = hoverPoint() is { } point ? selection.UnitAt(point)?.Object : null;
         _hover = _hover.Step(pick, selection.Units.Select(u => u.Object), delta);
@@ -43,11 +43,11 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
     {
         // stand-in: the display scale of the screen the window is on stands for the game's pixel size
         var scale = DisplayServer.ScreenGetScale(DisplayServer.WindowGetCurrentScreen());
-        var units = selection.Units.ToDictionary(u => u.Object);
+        var units = selection.Units.Select(u => u.Object).ToList();
         var selected = selection.Selected.Select(u => u.Object);
-        foreach (var shown in SelectionDisplay.Shown(_hover, units.Keys, selected))
+        foreach (var shown in SelectionDisplay.Shown(_hover, units, selected))
         {
-            if (world.State(shown.Unit) is not { } state || selection.ScreenBoxOf(units[shown.Unit]) is not { } box)
+            if (world.State(shown.Unit) is not { } state || selection.ScreenBoxOf(shown.Unit) is not { } box)
                 continue;
             // stand-in: each part draws at alpha (opacity − 0.5) × 2 kept within 0 and 1 (SelectionDisplay.AlphaOf)
             var alpha = SelectionDisplay.AlphaOf(shown.Opacity);

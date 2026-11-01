@@ -137,6 +137,50 @@ public class LayoutTests
         "objects[1].position[2]: -1e999 is not a finite number"
     )]
     [DataRow("""{ "class": "x", "team": 1, "position": [0, 0, 0], "hp": 5 }""", "objects[1].hp: unknown key")]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "crew": 1.5 }""",
+        "objects[1].crew: 1.5 is outside 0..1"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "shields": -0.1 }""",
+        "objects[1].shields: -0.1 is outside 0..1"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "crew": 1e999 }""",
+        "objects[1].crew: 1e999 is not a finite number"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "crew": "half" }""",
+        "objects[1].crew: must be a number"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "destroyedSystems": "Engines" }""",
+        "objects[1].destroyedSystems: must be an array of system names"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "destroyedSystems": ["Sensors", "engines"] }""",
+        "objects[1].destroyedSystems[1]: 'engines' is no ship system; systems: Engines, LifeSupport, Weapons, ShieldGenerator, Sensors"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "destroyedSystems": [1] }""",
+        "objects[1].destroyedSystems[0]: must be a string"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "destroyedSystems": ["Weapons", "Weapons"] }""",
+        "objects[1].destroyedSystems[1]: 'Weapons' is given twice"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, 2] }""",
+        "objects[1].velocity: must be an array of 3 numbers [x, y, z], not an array of 2"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, "2", 3] }""",
+        "objects[1].velocity[1]: must be a number"
+    )]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, 2, 1e999] }""",
+        "objects[1].velocity[2]: 1e999 is not a finite number"
+    )]
     public void ABadObjectIsAProblemNamingItsJsonPath(string obj, string where)
     {
         var text =
@@ -223,12 +267,18 @@ public class LayoutTests
     }
 
     [TestMethod]
-    [DataRow("/home/me/play", "/home/me/play")]
     [DataRow(null, "/srv/project")]
     [DataRow("play", "/srv/project")]
     public void TheStartDirectoryIsAnAbsolutePwdElseTheCurrentDirectory(string? pwd, string start)
     {
         Assert.AreEqual(start, Layout.Start(pwd, "/srv/project"));
+    }
+
+    [TestMethod]
+    public void AnAbsolutePwdIsTheStartDirectory()
+    {
+        var pwd = Path.GetFullPath("/home/me/play");
+        Assert.AreEqual(pwd, Layout.Start(pwd, "/srv/project"));
     }
 
     [TestMethod]
@@ -294,6 +344,34 @@ public class LayoutTests
     }
 
     [TestMethod]
+    [DataRow("""{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, -2, 3.5] }""", null, null)]
+    [DataRow(
+        """{ "class": "x", "team": 1, "position": [0, 0, 0], "velocity": [1, -2, 3.5], "crew": 0.5, "shields": 0.25, "destroyedSystems": ["Engines"] }""",
+        0.5,
+        0.25
+    )]
+    public void AVelocityAloneOrWithTheOtherStartingStateReachesTheMapInTheLayoutsFrame(
+        string obj,
+        double? crew,
+        double? shields
+    )
+    {
+        var start = Layout.Read("a.jsonc", WithObject(obj)).Asset!.Map.Objects.Single().Start!;
+        Assert.AreEqual(new Vector3(1, -2, 3.5f), start.Velocity);
+        Assert.AreEqual(crew, start.Crew);
+        Assert.AreEqual(shields, start.Shields);
+    }
+
+    [TestMethod]
+    public void AnObjectWithoutAVelocityHasNone()
+    {
+        var o = Layout
+            .Read("a.jsonc", WithObject("""{ "class": "x", "team": 1, "position": [0, 0, 0], "crew": 1 }"""))
+            .Asset!.Map.Objects.Single();
+        Assert.IsNull(o.Start!.Velocity);
+    }
+
+    [TestMethod]
     public void ZeroAxesReachTheMapUnchanged()
     {
         var o = Layout
@@ -352,5 +430,29 @@ public class LayoutTests
     {
         var text = WithObject("""{ "class": "x", "team": 1, "position": [0, 0, 0] }""", top);
         Assert.AreEqual("layout 'l.jsonc': " + where, Layout.Read("l.jsonc", text).Problem);
+    }
+
+    [TestMethod]
+    public void AStartingStateReachesTheMapObject()
+    {
+        var read = Layout.Read(
+            "l.jsonc",
+            """
+            { "bounds": { "minX": 0, "maxX": 1, "minZ": 0, "maxZ": 1 }, "objects": [
+              { "class": "a", "team": 1, "position": [0, 0, 0], "crew": 0.3, "shields": 0.5, "destroyedSystems": ["Engines", "Sensors"] },
+              { "class": "b", "team": 1, "position": [0, 0, 0], "crew": 0 },
+              { "class": "c", "team": 1, "position": [0, 0, 0] }
+            ] }
+            """
+        );
+        Assert.IsNull(read.Problem);
+        var objects = read.Asset!.Map.Objects;
+        Assert.AreEqual(0.3, objects[0].Start!.Crew!.Value, 1e-9);
+        Assert.AreEqual(0.5, objects[0].Start!.Shields!.Value, 1e-9);
+        CollectionAssert.AreEqual(new[] { "Engines", "Sensors" }, objects[0].Start!.DestroyedSystems.ToArray());
+        Assert.AreEqual(0, objects[1].Start!.Crew);
+        Assert.IsNull(objects[1].Start!.Shields);
+        Assert.AreEqual(0, objects[1].Start!.DestroyedSystems.Count);
+        Assert.IsNull(objects[2].Start);
     }
 }

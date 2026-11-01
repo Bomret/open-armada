@@ -35,6 +35,7 @@ internal sealed class BznBuilder
     internal int[]? TeamColors; // the color slot of each of the 9 team records; team i's own number when null
     internal List<Obj> Objects = new();
     internal List<(string Name, Vector3[] Points)> Paths = new();
+    internal Dictionary<string, int> PathTypes = new(); // a path's type value by name; 0 when unlisted
     internal int? CountOverride; // the object count written, to build a map whose count lies
     internal List<byte[]>? Extra; // tokens appended after the AiPaths, to build corrupt maps
 
@@ -182,7 +183,7 @@ internal sealed class BznBuilder
 
             body.AddRange(Int(points.Length));
             body.AddRange(Token(9, Floats(points.SelectMany(p => new[] { p.X, p.Y, p.Z }).ToArray())));
-            body.AddRange(Token(0, new byte[4]));
+            body.AddRange(Token(0, BitConverter.GetBytes(PathTypes.GetValueOrDefault(name))));
             body.AddRange(Float(0.01f));
         }
 

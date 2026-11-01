@@ -129,7 +129,7 @@ public class HardpointGeometryTests
     {
         var unit = Placed("u", 1, 10) with { AxisX = x, AxisY = y, AxisZ = z };
 
-        return (unit, MoveGeometry.PlacedPose(unit.Position, unit.AxisZ));
+        return (unit, MoveGeometry.PlacedPose(unit));
     }
 
     [TestMethod]
@@ -140,19 +140,62 @@ public class HardpointGeometryTests
     }
 
     [TestMethod]
-    public void UnitThatTurnedMovesTheOffsetWithIt()
+    public void UnitThatYawedMovesTheBowTowardsPlusX()
     {
         var (unit, pose) = Standing(Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
-        pose = pose with { Heading = pose.Heading + MathF.PI / 2 };
+        pose = pose with { Yaw = MathF.PI / 2 };
+        AreClose(new Vector3(11, 0, 0), HardpointGeometry.WorldPosition(unit, pose, -Vector3.UnitZ)); // the bow
+        AreClose(new Vector3(10, 0, 1), HardpointGeometry.WorldPosition(unit, pose, Vector3.UnitX)); // the right side
+    }
+
+    [TestMethod]
+    public void UnitThatPitchedLowersItsNoseAndRaisesItsTail()
+    {
+        var (unit, pose) = Standing(Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
+        pose = pose with { Pitch = MathF.PI / 2 };
+        AreClose(new Vector3(10, -1, 0), HardpointGeometry.WorldPosition(unit, pose, -Vector3.UnitZ)); // the bow
+        AreClose(new Vector3(10, 1, 0), HardpointGeometry.WorldPosition(unit, pose, Vector3.UnitZ)); // the tail
+    }
+
+    [TestMethod]
+    public void UnitThatRolledRaisesItsRightSide()
+    {
+        var (unit, pose) = Standing(Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
+        pose = pose with { Roll = MathF.PI / 2 };
+        AreClose(new Vector3(10, 1, 0), HardpointGeometry.WorldPosition(unit, pose, Vector3.UnitX));
+        AreClose(new Vector3(10, -1, 0), HardpointGeometry.WorldPosition(unit, pose, -Vector3.UnitX));
+    }
+
+    [TestMethod]
+    public void UnitThatRolledAndPitchedRollsFirstAboutItsForwardAxis()
+    {
+        var (unit, pose) = Standing(Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
+        pose = pose with { Pitch = MathF.PI / 2, Roll = MathF.PI / 2 };
         AreClose(new Vector3(10, 0, -1), HardpointGeometry.WorldPosition(unit, pose, Vector3.UnitX));
     }
 
     [TestMethod]
-    public void UnitThatBankedMovesTheOffsetWithIt()
+    public void UnitAtItsPlacedPoseStandsWhereTheMapPutItWhateverItsOrientationAndMirror()
     {
-        var (unit, pose) = Standing(Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
-        pose = pose with { Bank = MathF.PI / 2 };
-        AreClose(new Vector3(10, -1, 0), HardpointGeometry.WorldPosition(unit, pose, Vector3.UnitX));
+        // game axes of a unit yawed 0.4, pitched 0.3, and rolled 0.2 (the game's composition), then mirrored or not
+        var (sy, cy) = MathF.SinCos(0.4f);
+        var (sp, cp) = MathF.SinCos(0.3f);
+        var (sr, cr) = MathF.SinCos(0.2f);
+        var right = new Vector3(cr * cy + sr * sp * sy, sr * cp, -cr * sy + sr * sp * cy);
+        var up = new Vector3(-sr * cy + cr * sp * sy, cr * cp, sr * sy + cr * sp * cy);
+        var front = new Vector3(cp * sy, -sp, cp * cy);
+        foreach (var mirror in new[] { 1f, -1f })
+        {
+            var godotX = new Vector3(right.X, right.Y, -right.Z) * 2 * mirror;
+            var godotY = new Vector3(up.X, up.Y, -up.Z) * 3 * mirror;
+            var godotZ = new Vector3(-front.X, -front.Y, front.Z) * 4 * mirror;
+            var unit = Placed("u", 1, 10) with { AxisX = godotX, AxisY = godotY, AxisZ = godotZ };
+            var pose = MoveGeometry.PlacedPose(unit);
+            var offset = new Vector3(1, 2, -3); // in Godot's frame: the node's basis applies to it as the scene does
+            var world = HardpointGeometry.WorldPosition(unit, pose, offset);
+            AreClose(unit.Position + godotX * 1 + godotY * 2 + godotZ * -3, world);
+            AreClose(offset, HardpointGeometry.ModelOffset(unit, pose, world));
+        }
     }
 
     [TestMethod]
@@ -173,7 +216,7 @@ public class HardpointGeometryTests
     public void UnitPlacedWithOneMirroredAxisKeepsItsMirrorWhenItTurns()
     {
         var (unit, pose) = Standing(-Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
-        pose = pose with { Heading = pose.Heading + MathF.PI / 2 };
+        pose = pose with { Yaw = pose.Yaw - MathF.PI / 2 };
         AreClose(new Vector3(10, 0, 1), HardpointGeometry.WorldPosition(unit, pose, Vector3.UnitX));
     }
 }

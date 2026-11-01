@@ -118,7 +118,7 @@ internal sealed class SodBytes
             _w.Write((ushort)t);
         }
 
-        _w.Write((byte)1); // backface cull
+        _w.Write(m.Cull);
         _w.Write((ushort)0);
     }
 
@@ -151,6 +151,9 @@ internal sealed class SodBytes
         public required int Vertices { get; init; }
         public required int TexCoords { get; init; }
         public required (int Vertex, int TexCoord)[] Corners { get; init; }
+
+        // The stored cull byte.
+        public byte Cull { get; init; } = 1;
     }
 
     internal sealed record NodeSpec

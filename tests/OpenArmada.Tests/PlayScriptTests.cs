@@ -41,7 +41,9 @@ public class PlayScriptTests
                 "scroll up",
                 "scroll down 3",
                 "turn -40",
-                "shot after"
+                "shot after",
+                "shot close kbattle58",
+                "shot closer enemy#2 3"
             ),
             "x.play"
         );
@@ -59,7 +61,12 @@ public class PlayScriptTests
         Assert.AreEqual((true, 1), (((ScrollStep)script.Steps[7]).Up, ((ScrollStep)script.Steps[7]).Count));
         Assert.AreEqual((false, 3), (((ScrollStep)script.Steps[8]).Up, ((ScrollStep)script.Steps[8]).Count));
         Assert.AreEqual(-40.0, ((TurnStep)script.Steps[9]).Pixels);
-        Assert.AreEqual("after", ((ShotStep)script.Steps[10]).Name);
+        var shot = (ShotStep)script.Steps[10];
+        Assert.AreEqual(("after", (string?)null, 1), (shot.Name, shot.Unit, shot.Scale));
+        var close = (ShotStep)script.Steps[11];
+        Assert.AreEqual(("close", "kbattle58", 1), (close.Name, close.Unit, close.Scale));
+        var closer = (ShotStep)script.Steps[12];
+        Assert.AreEqual(("closer", "enemy#2", 3), (closer.Name, closer.Unit, closer.Scale));
     }
 
     [TestMethod]
@@ -79,6 +86,10 @@ public class PlayScriptTests
     [DataRow("scroll", "'scroll' takes 1 or 2 arguments, found 0")]
     [DataRow("turn left", "'left' is not a number")]
     [DataRow("shot ../x", "'../x' is no file name")]
+    [DataRow("shot", "'shot' takes 1 to 3 arguments, found 0")]
+    [DataRow("shot x a 2 4", "'shot' takes 1 to 3 arguments, found 4")]
+    [DataRow("shot x a 0", "'0' is not a whole number of one or more")]
+    [DataRow("shot x a 1.5", "'1.5' is not a whole number of one or more")]
     public void AnUnreadableInputStepIsOneProblemNamingTheFileAndTheLine(string line, string reason)
     {
         var script = PlayScript.Parse($"wait 1\n{line}\n", "play/x.play");
@@ -105,12 +116,23 @@ public class PlayScriptTests
     [DataRow("expect a shields > many", "'many' is not a number")]
     [DataRow("expect a destroyed < true", "'destroyed' takes only '=', not '<'")]
     [DataRow("expect a destroyed = maybe", "'maybe' is not true or false")]
+    [DataRow("expect a dying < true", "'dying' takes only '=', not '<'")]
+    [DataRow("expect a dying = maybe", "'maybe' is not true or false")]
     public void AnUnreadableLineIsOneProblemNamingTheFileAndTheLine(string line, string reason)
     {
         var script = PlayScript.Parse($"wait 1\n{line}\n", "play/x.play");
 
         Assert.AreEqual(1, script.Steps.Count);
         CollectionAssert.AreEqual(new[] { $"play/x.play line 2: {reason}" }, script.Problems.ToArray());
+    }
+
+    [TestMethod]
+    public void ADyingExpectationParsesLikeADestroyedOne()
+    {
+        var step = (ExpectStep)PlayScript.Parse("expect a dying = true", "x.play").Steps.Single();
+
+        Assert.AreEqual("dying", step.Field);
+        Assert.AreEqual("true", step.Value);
     }
 
     [TestMethod]

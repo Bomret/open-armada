@@ -1,286 +1,584 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using OpenArmada.Sandbox;
-using static OpenArmada.Tests.CombatFixtures;
 
 namespace OpenArmada.Tests;
 
+// tools/play-run.sh runs in a throwaway git repository against a fake Godot set through PLAY_RUN_GODOT and a
+// fake dotnet set through PLAY_RUN_DOTNET. The fake Godot counts its calls, writes a dump, two named shots,
+// numbered frames, a WAV and log lines, and exits with FAKE_STATUS after FAKE_SLEEP seconds. The fake dotnet
+// exits with FAKE_BUILD_STATUS. Both append their name and arguments to the order file.
+// tools/play-run.sh is a POSIX shell script.
 [TestClass]
+[OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
 public class PlayRunTests
 {
-    const double Frame = 1.0 / 30;
+    const string Armada = "/games/Star Trek - Armada";
 
-    // Two hostile ships that fight with rolled damage and rolled hits, so the dumps depend on the random source.
-    sealed class Fight
+    const string FakeGodot = """
+        #!/bin/sh
+        if [ "$1" = --version ]; then
+          [ "${FAKE_VERSION_FAIL:-}" = 1 ] && exit 1
+          echo "${FAKE_VERSION:-4.5.stable.mono}"
+          exit 0
+        fi
+        echo call >> "$FAKE_DIR/calls"
+        echo godot >> "$FAKE_DIR/order"
+        printf '%s\n' "$@" > "$FAKE_DIR/args"
+        prev=
+        for a; do
+          [ "$prev" = --write-movie ] && out=$(dirname "$a")
+          prev=$a
+        done
+        sleep "${FAKE_SLEEP:-0}"
+        echo "state ${FAKE_MARK:-1}" > "$out/end.txt"
+        echo shot > "$out/hull.png"
+        echo shot > "$out/42.png"
+        echo frame > "$out/frame00000000.png"
+        echo frame > "$out/frame00000001.png"
+        echo wav > "$out/frame.wav"
+        echo "WARN: a warning"
+        echo "plain output"
+        echo "ERROR: an error" >&2
+        exit "${FAKE_STATUS:-0}"
+        """;
+
+    const string FakeDotnet = """
+        #!/bin/sh
+        echo "dotnet $*" >> "$FAKE_DIR/order"
+        echo "build output"
+        exit "${FAKE_BUILD_STATUS:-0}"
+        """;
+
+    string root = "";
+    string repo = "";
+    string fake = "";
+
+    [TestInitialize]
+    public void Init()
     {
-        readonly CombatWorld _world;
-        readonly PlayRun _run;
-        public readonly PlayState State;
+        root = Path.Combine(Path.GetTempPath(), "play-run-" + Guid.NewGuid().ToString("N"));
+        repo = Path.Combine(root, "repo");
+        fake = Path.Combine(root, "fake");
+        Directory.CreateDirectory(fake);
+        var godot = Path.Combine(fake, "godot");
+        File.WriteAllText(godot, FakeGodot);
+        File.SetUnixFileMode(godot, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var dotnet = Path.Combine(fake, "dotnet");
+        File.WriteAllText(dotnet, FakeDotnet);
+        File.SetUnixFileMode(dotnet, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
 
-        public Fight(PlayScript script, string folder, bool lethal = false, Func<PlayStep, string?>? input = null)
+        Write("tools/play-run.sh", File.ReadAllText(Path.Combine(RepoRoot(), "tools", "play-run.sh")));
+        Write("src/Game.cs", "class Game {}");
+        Write("scenes/main.tscn", "[scene]");
+        Write("project.godot", "config");
+        Write("OpenArmada.csproj", "<Project />");
+        Write("global.json", "{}");
+        Write("play/demo.play", "wait 1");
+        Write("layouts/demo.jsonc", "{}");
+        Write("README.md", "readme");
+        Write("tests/T.cs", "class T {}");
+        Write(".gitignore", "play-out/\nsrc/ignored.txt\n");
+        Write("src/ignored.txt", "ignored");
+        Git("init", "-q");
+        Git("add", "-A");
+        Git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init");
+    }
+
+    [TestCleanup]
+    public void Cleanup() => Directory.Delete(root, true);
+
+    static string RepoRoot()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(dir, "tools", "play-run.sh")))
         {
-            var a = Placed("a", 1, 0);
-            var b = Placed("b", 2, 10);
-            var beam = Weapon(Beam(damage: lethal ? 60 : 6, variance: 5), delay: 0.5f, hitChance: 0.5f);
-            var units = new[] { a, b }
-                .Select(o => new CombatUnit
-                {
-                    Unit = o,
-                    Profile = Profile(
-                        [beam],
-                        maxHealth: 30,
-                        hull: lethal ? 0 : 100,
-                        systems:
-                        [
-                            Sys(SystemNames.Engines, 5, percent: lethal ? 0 : 10),
-                            Sys(SystemNames.Weapons, 5, percent: lethal ? 0 : 10),
-                        ]
-                    ),
-                    DefinitionName = o.Label + ".odf",
-                    Radius = 0,
-                    Mobile = false,
-                })
-                .ToList();
-            var poses = new UnitPoses([a, b]);
-            var random = new Random(PlayScript.Seed);
-            _world = new CombatWorld(poses, units, 1, random.NextDouble, (_, _, pose) => pose.Position);
-            _world.Attack(a, b);
-            _world.Attack(b, a);
-            State = new PlayState(new UnitNames([a, b]), poses.Pose, _world.Units);
-            _run = new PlayRun(script, State, folder, input);
+            dir = Path.GetDirectoryName(dir) ?? throw new InvalidOperationException("tools/play-run.sh not found");
         }
 
-        public PlayRun Run => _run;
+        return dir;
+    }
 
-        // Frames until the run finishes, each stepping the world first, as the sandbox does.
-        public int Play(int limit = 100000)
+    void Write(string path, string text)
+    {
+        var full = Path.Combine(repo, path);
+        Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+        File.WriteAllText(full, text);
+    }
+
+    string Out(string path) => Path.Combine(repo, "play-out", path);
+
+    int Calls => File.Exists(Path.Combine(fake, "calls")) ? File.ReadAllLines(Path.Combine(fake, "calls")).Length : 0;
+
+    string[] Order => File.Exists(Path.Combine(fake, "order")) ? File.ReadAllLines(Path.Combine(fake, "order")) : [];
+
+    string[] LogLines => File.Exists(Out("runs.log")) ? File.ReadAllLines(Out("runs.log")) : [];
+
+    static readonly string[] Layout = ["demo", "--layout", "layouts/demo.jsonc", "--fps", "10"];
+
+    void Git(params string[] args) => Exec("git", args, new Dictionary<string, string?>());
+
+    (int Status, string Stdout, string Stderr) Exec(string file, string[] args, Dictionary<string, string?> env)
+    {
+        var info = new ProcessStartInfo(file)
         {
-            var frames = 0;
-            while (!_run.Finished && frames < limit)
+            WorkingDirectory = repo,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        foreach (var arg in args)
+        {
+            info.ArgumentList.Add(arg);
+        }
+
+        foreach (var (key, value) in env)
+        {
+            if (value is null)
             {
-                _world.Step(Frame);
-                _run.Advance(Frame);
-                frames++;
+                info.Environment.Remove(key);
             }
-
-            return frames;
-        }
-    }
-
-    static string Temp() => Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-
-    [TestMethod]
-    public void TwoRunsOfOneScriptWriteByteIdenticalDumps()
-    {
-        var script = PlayScript.Parse("dump start\nwait 1\ndump mid\nwait 2.5\ndump end\n", "x.play");
-        var one = Temp();
-        var two = Temp();
-        try
-        {
-            new Fight(script, one).Play();
-            new Fight(script, two).Play();
-
-            foreach (var name in new[] { "start", "mid", "end" })
+            else
             {
-                CollectionAssert.AreEqual(
-                    File.ReadAllBytes(Path.Combine(one, name + ".txt")),
-                    File.ReadAllBytes(Path.Combine(two, name + ".txt"))
-                );
+                info.Environment[key] = value;
             }
-
-            Assert.AreNotEqual(
-                File.ReadAllText(Path.Combine(one, "start.txt")),
-                File.ReadAllText(Path.Combine(one, "end.txt"))
-            );
         }
-        finally
+
+        using var process = Process.Start(info)!;
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(30000))
         {
-            Directory.Delete(one, true);
-            Directory.Delete(two, true);
+            process.Kill(true);
+            Assert.Fail($"{file} did not exit within 30 s");
         }
+
+        return (process.ExitCode, stdout.Result, stderr.Result);
     }
 
-    [TestMethod]
-    public void AUnitThatCombatDestroysIsDumpedWithItsDestroyedFlagSet()
+    (int Status, string Stdout, string Stderr) Run(string[] args, Dictionary<string, string?>? env = null)
     {
-        var folder = Temp();
-        try
+        var all = new Dictionary<string, string?>
         {
-            var fight = new Fight(PlayScript.Parse("wait 120\ndump end\n", "x.play"), folder, lethal: true);
-            fight.Play();
-
-            StringAssert.Contains(File.ReadAllText(Path.Combine(folder, "end.txt")), "destroyed=true");
-        }
-        finally
+            ["PLAY_RUN_GODOT"] = Path.Combine(fake, "godot"),
+            ["PLAY_RUN_DOTNET"] = Path.Combine(fake, "dotnet"),
+            ["ARMADA_DIR"] = Armada,
+            ["FAKE_DIR"] = fake,
+        };
+        foreach (var (key, value) in env ?? [])
         {
-            Directory.Delete(folder, true);
+            all[key] = value;
         }
+
+        return Exec("sh", ["tools/play-run.sh", .. args], all);
     }
 
     [TestMethod]
-    public void TheRunFinishesWhenTheLastWaitHasPassedOnSimulatedTime()
+    [DataRow(0)]
+    [DataRow(1)]
+    public void SecondCallOnUnchangedInputsReusesTheStoredResult(int status)
     {
-        var fight = new Fight(PlayScript.Parse("wait 1\nwait 0.5\n", "x.play"), Temp());
+        var env = new Dictionary<string, string?> { ["FAKE_STATUS"] = status.ToString() };
+        Assert.AreEqual(status, Run(Layout, env).Status);
+        File.WriteAllText(Out("demo/stray.txt"), "stray");
+        File.Delete(Out("demo/end.txt"));
 
-        Assert.AreEqual(45, fight.Play());
-        Assert.AreEqual(0, fight.Run.Problems.Count);
+        var (second, stdout, _) = Run(Layout, env);
+
+        Assert.AreEqual(1, Calls);
+        Assert.AreEqual(status, second);
+        StringAssert.Contains(stdout, "reused");
+        StringAssert.Contains(stdout, "WARN: a warning");
+        StringAssert.Contains(stdout, "ERROR: an error");
+        Assert.IsFalse(stdout.Contains("plain output"));
+        Assert.AreEqual("state 1\n", File.ReadAllText(Out("demo/end.txt")));
+        Assert.IsTrue(File.Exists(Out("demo/hull.png")));
+        Assert.IsTrue(File.Exists(Out("demo/frame.wav")));
+        Assert.IsFalse(File.Exists(Out("demo/stray.txt")));
     }
 
     [TestMethod]
-    public void AScriptWithoutStepsFinishesAtOnce()
+    [DataRow("src")]
+    [DataRow("untracked-scenes")]
+    [DataRow("deleted")]
+    [DataRow("renamed")]
+    [DataRow("project")]
+    [DataRow("script")]
+    [DataRow("layout")]
+    [DataRow("map")]
+    [DataRow("fps")]
+    [DataRow("version")]
+    [DataRow("armada")]
+    public void AChangedHashedInputStartsGodotAgain(string input)
     {
-        var fight = new Fight(PlayScript.Parse("", "x.play"), Temp());
-
-        Assert.AreEqual(1, fight.Play());
-    }
-
-    [TestMethod]
-    public void AFailedExpectationEndsTheRunWithAProblemNamingScriptAndLine()
-    {
-        var script = PlayScript.Parse("wait 1\n\nexpect a shields > 1000\nwait 5\n", "play/x.play");
-        var fight = new Fight(script, Temp());
-
-        var frames = fight.Play();
-
-        Assert.AreEqual(30, frames);
-        Assert.AreEqual(1, fight.Run.Problems.Count);
-        StringAssert.StartsWith(
-            fight.Run.Problems[0],
-            "play/x.play line 3: expectation failed: a shields: expected > 1000, actual "
-        );
-    }
-
-    [TestMethod]
-    public void AnUnknownUnitInAStepIsAProblemNamingTheLine()
-    {
-        var fight = new Fight(PlayScript.Parse("expect ghost shields > 1\n", "x.play"), Temp());
-
-        fight.Play();
-
-        CollectionAssert.AreEqual(new[] { "x.play line 1: unknown unit 'ghost'" }, fight.Run.Problems.ToArray());
-    }
-
-    [TestMethod]
-    public void ADumpThatCannotBeWrittenEndsTheRunWithAProblemNamingTheLine()
-    {
-        var blocker = Temp();
-        File.WriteAllText(blocker, "not a folder");
-        try
+        var first = input == "map" ? new[] { "demo", "--map", "kling1", "--fps", "10" } : Layout;
+        Run(first);
+        var second = first;
+        var env = new Dictionary<string, string?>();
+        switch (input)
         {
-            var fight = new Fight(PlayScript.Parse("wait 0\ndump d\n", "x.play"), Path.Combine(blocker, "out"));
-
-            fight.Play();
-
-            Assert.AreEqual(1, fight.Run.Problems.Count);
-            StringAssert.StartsWith(fight.Run.Problems[0], "x.play line 2: cannot write '");
+            case "src":
+                Write("src/Game.cs", "class Game { int x; }");
+                break;
+            case "untracked-scenes":
+                Write("scenes/new.tscn", "[scene]");
+                break;
+            case "deleted":
+                File.Delete(Path.Combine(repo, "scenes/main.tscn"));
+                break;
+            case "renamed":
+                File.Move(Path.Combine(repo, "src/Game.cs"), Path.Combine(repo, "src/Game2.cs"));
+                break;
+            case "project":
+                Write("project.godot", "config 2");
+                break;
+            case "script":
+                Write("play/demo.play", "wait 2");
+                break;
+            case "layout":
+                Write("layouts/demo.jsonc", "{ }");
+                break;
+            case "map":
+                second = ["demo", "--map", "kling4", "--fps", "10"];
+                break;
+            case "fps":
+                second = ["demo", "--layout", "layouts/demo.jsonc", "--fps", "30"];
+                break;
+            case "version":
+                env["FAKE_VERSION"] = "4.6.stable.mono";
+                break;
+            case "armada":
+                env["ARMADA_DIR"] = "/games/other";
+                break;
         }
-        finally
+
+        Run(second, env);
+
+        Assert.AreEqual(2, Calls);
+    }
+
+    [TestMethod]
+    [DataRow("README.md")]
+    [DataRow("tests/T.cs")]
+    [DataRow("src/ignored.txt")]
+    public void AnEditOutsideTheHashedInputsReuses(string path)
+    {
+        Run(Layout);
+        Write(path, "edited");
+
+        Run(Layout);
+
+        Assert.AreEqual(1, Calls);
+    }
+
+    [TestMethod]
+    public void TheLayoutPathSpellingDoesNotChangeTheHash()
+    {
+        Run(Layout);
+
+        Run(["demo", "--layout", "./layouts/demo.jsonc", "--fps", "10"]);
+        Run(["demo", "--layout", Path.Combine(repo, "layouts/demo.jsonc"), "--fps", "10"]);
+
+        Assert.AreEqual(1, Calls);
+    }
+
+    [TestMethod]
+    public void FreshStartsGodotOnAHitAndReplacesTheEntry()
+    {
+        Run(Layout);
+
+        Run([.. Layout, "--fresh"], new Dictionary<string, string?> { ["FAKE_MARK"] = "2" });
+        File.Delete(Out("demo/end.txt"));
+        Run(Layout);
+
+        Assert.AreEqual(2, Calls);
+        Assert.AreEqual("state 2\n", File.ReadAllText(Out("demo/end.txt")));
+    }
+
+    [TestMethod]
+    public void AnExitOtherThanZeroOrOneStoresNothing()
+    {
+        var env = new Dictionary<string, string?> { ["FAKE_STATUS"] = "3" };
+
+        Assert.AreEqual(3, Run(Layout, env).Status);
+        Assert.IsFalse(Directory.Exists(Out(".cache")) && Directory.EnumerateFileSystemEntries(Out(".cache")).Any());
+        Run(Layout, env);
+
+        Assert.AreEqual(2, Calls);
+    }
+
+    [TestMethod]
+    public void ARunBuildsTheGameBeforeGodotAndAReuseDoesNot()
+    {
+        Run(Layout);
+        Run(Layout);
+
+        CollectionAssert.AreEqual(new[] { "dotnet build OpenArmada.csproj", "godot" }, Order);
+    }
+
+    [TestMethod]
+    public void AFailedBuildStartsNoGodotStoresNothingAndExitsThree()
+    {
+        var env = new Dictionary<string, string?> { ["FAKE_BUILD_STATUS"] = "1" };
+
+        var (status, stdout, _) = Run(Layout, env);
+
+        Assert.AreEqual(3, status);
+        StringAssert.Contains(stdout, "build output");
+        Assert.AreEqual(0, Calls);
+        Assert.IsFalse(Directory.Exists(Out(".cache")) && Directory.EnumerateFileSystemEntries(Out(".cache")).Any());
+        CollectionAssert.AreEqual(new[] { "exit=3", "build" }, LogLines.Single().Split('\t')[7..]);
+    }
+
+    [TestMethod]
+    public void NumberedFramesAreNotStoredAndAnAllDigitShotIs()
+    {
+        Run(Layout);
+        var entry = Directory.GetDirectories(Out(".cache")).Single();
+        var stored = Directory.GetFiles(entry, "*", SearchOption.AllDirectories).Select(Path.GetFileName).ToList();
+
+        CollectionAssert.Contains(stored, "42.png");
+        CollectionAssert.DoesNotContain(stored, "frame00000000.png");
+        CollectionAssert.DoesNotContain(stored, "frame00000001.png");
+    }
+
+    [TestMethod]
+    public void EachCallAppendsOneLogLineWithEveryField()
+    {
+        Run(Layout);
+        Write("notes.txt", "untracked");
+        Run(Layout);
+        Run(["demo", "--map", "kling1", "--fps", "10"]);
+
+        var lines = LogLines;
+        var head = "";
+        Assert.AreEqual(3, lines.Length);
+        using (
+            var git = Process.Start(
+                new ProcessStartInfo("git", "rev-parse HEAD") { WorkingDirectory = repo, RedirectStandardOutput = true }
+            )!
+        )
         {
-            File.Delete(blocker);
+            head = git.StandardOutput.ReadToEnd().Trim();
+            git.WaitForExit();
         }
-    }
 
-    [TestMethod]
-    public void AHeldKeyIsPressedWhenItsStepIsDueAndReleasedWhenItsTimeHasPassed()
-    {
-        var log = new System.Collections.Generic.List<string>();
-        var script = PlayScript.Parse("select a\nhold Left 1\npress Escape\n", "x.play");
-        var fight = new Fight(
-            script,
-            Temp(),
-            input: step =>
-            {
-                log.Add(
-                    step switch
-                    {
-                        SelectStep s => $"select {s.Unit}",
-                        HoldStep h => $"down {h.Key}",
-                        ReleaseStep r => $"up {r.Key}",
-                        PressStep p => $"press {p.Key}",
-                        _ => "?",
-                    }
-                );
-
-                return null;
-            }
-        );
-
-        var frames = fight.Play();
-
-        CollectionAssert.AreEqual(new[] { "select a", "down Left", "up Left", "press Escape" }, log.ToArray());
-        Assert.AreEqual(30, frames);
-    }
-
-    [TestMethod]
-    public void AnInputStepThatFailsEndsTheRunWithItsProblemNamingTheLine()
-    {
-        var script = PlayScript.Parse("wait 0\nselect a\nwait 5\n", "x.play");
-        var fight = new Fight(script, Temp(), input: _ => "unit 'a' is off screen");
-
-        fight.Play();
-
-        CollectionAssert.AreEqual(new[] { "x.play line 2: unit 'a' is off screen" }, fight.Run.Problems.ToArray());
-    }
-
-    [TestMethod]
-    public void AnInputStepThatThrowsIsAProblemNamingTheLine()
-    {
-        var script = PlayScript.Parse("wait 0\nselect a\nwait 5\n", "x.play");
-        var fight = new Fight(script, Temp(), input: _ => throw new InvalidOperationException("boom"));
-
-        fight.Play();
-
+        var first = lines[0].Split('\t');
+        Assert.AreEqual(9, first.Length, lines[0]);
+        StringAssert.Matches(first[0], new System.Text.RegularExpressions.Regex(@"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$"));
+        StringAssert.Matches(first[1], new System.Text.RegularExpressions.Regex("^[0-9a-f]{40}$"));
         CollectionAssert.AreEqual(
-            new[] { "x.play line 2: step threw InvalidOperationException: boom" },
-            fight.Run.Problems.ToArray()
+            new[] { head, "clean", "demo", "layout=layouts/demo.jsonc", "fps=10", "exit=0", "run" },
+            first[2..]
         );
-        Assert.IsTrue(fight.Run.Finished);
+        var second = lines[1].Split('\t');
+        Assert.AreEqual(first[1], second[1]);
+        CollectionAssert.AreEqual(new[] { "dirty", "reused" }, new[] { second[3], second[8] });
+        Assert.AreEqual("map=kling1", lines[2].Split('\t')[5]);
     }
 
     [TestMethod]
-    public void AnInputStepWithoutAnExecutorIsAProblemNamingTheLine()
+    [DataRow("none", "demo", "--fps", "10")]
+    [DataRow("both", "demo", "--layout", "layouts/demo.jsonc", "--map", "kling1", "--fps", "10")]
+    [DataRow("no value", "demo", "--layout")]
+    [DataRow("no fps", "demo", "--layout", "layouts/demo.jsonc")]
+    [DataRow("zero fps", "demo", "--layout", "layouts/demo.jsonc", "--fps", "0")]
+    [DataRow("negative fps", "demo", "--layout", "layouts/demo.jsonc", "--fps", "-5")]
+    [DataRow("text fps", "demo", "--layout", "layouts/demo.jsonc", "--fps", "ten")]
+    [DataRow("slash stem", "play/demo", "--layout", "layouts/demo.jsonc", "--fps", "10")]
+    [DataRow("dots stem", "..", "--layout", "layouts/demo.jsonc", "--fps", "10")]
+    [DataRow("missing script", "nothing", "--layout", "layouts/demo.jsonc", "--fps", "10")]
+    [DataRow("missing layout", "demo", "--layout", "layouts/nothing.jsonc", "--fps", "10")]
+    [DataRow("unknown flag", "demo", "--layout", "layouts/demo.jsonc", "--fps", "10", "--fast")]
+    [DataRow("no args")]
+    public void BadArgumentsExitTwoAndLeaveNoTrace(string reason, params string[] args) =>
+        AssertUsageError(Run(args), reason);
+
+    [TestMethod]
+    public void AnUnsetArmadaDirExitsTwo() =>
+        AssertUsageError(Run(Layout, new Dictionary<string, string?> { ["ARMADA_DIR"] = null }), "unset");
+
+    [TestMethod]
+    public void AFailingVersionReadExitsTwo() =>
+        AssertUsageError(Run(Layout, new Dictionary<string, string?> { ["FAKE_VERSION_FAIL"] = "1" }), "version");
+
+    void AssertUsageError((int Status, string Stdout, string Stderr) result, string reason)
     {
-        var fight = new Fight(PlayScript.Parse("select a\n", "x.play"), Temp());
-
-        fight.Play();
-
-        Assert.AreEqual(1, fight.Run.Problems.Count);
-        StringAssert.StartsWith(fight.Run.Problems[0], "x.play line 1: ");
+        Assert.AreEqual(2, result.Status, reason);
+        Assert.AreNotEqual("", result.Stderr.Trim(), reason);
+        Assert.AreEqual(0, Calls, reason);
+        Assert.IsFalse(Directory.Exists(Out(".cache")), reason);
+        Assert.AreEqual(0, LogLines.Length, reason);
     }
 
     [TestMethod]
-    [DataRow(false, true, false, "--play needs Movie Maker")]
-    [DataRow(true, false, false, "--play needs --map")]
-    [DataRow(true, true, true, "--play cannot be combined with --screenshot")]
-    public void ALaunchThatCannotPlayIsAProblem(bool movie, bool map, bool screenshot, string problem) =>
-        StringAssert.StartsWith(PlayRun.LaunchProblem(movie, map, screenshot), problem);
-
-    [TestMethod]
-    public void AMovieFileInAMissingFolderIsAProblemNamingTheFolder()
+    public void AnArmadaDirWithSpacesReachesGodotAsOneArgument()
     {
-        var folder = Path.Combine(Temp(), "duel");
+        Run(Layout);
 
-        StringAssert.Contains(PlayRun.MovieProblem(Path.Combine(folder, "frame.png")), $"'{folder}' does not exist");
+        CollectionAssert.Contains(File.ReadAllLines(Path.Combine(fake, "args")), Armada);
     }
 
     [TestMethod]
-    public void AMovieFileInAnExistingFolderHasNoProblem()
+    public void TwoConcurrentCallsForOneStemRunGodotOnceAndStoreOneEntry()
     {
-        var folder = Temp();
-        Directory.CreateDirectory(folder);
+        var env = new Dictionary<string, string?> { ["FAKE_SLEEP"] = "2" };
+        var calls = new[] { Task.Run(() => Run(Layout, env)), Task.Run(() => Run(Layout, env)) };
+        Task.WaitAll(calls);
+
+        CollectionAssert.AreEqual(new[] { 0, 0 }, calls.Select(c => c.Result.Status).ToArray());
+        Assert.AreEqual(1, Calls);
+        var entry = Directory.GetDirectories(Out(".cache")).Single();
+        CollectionAssert.AreEqual(new[] { "out" }, Directory.GetDirectories(entry).Select(Path.GetFileName).ToArray());
+        Assert.AreEqual("state 1\n", File.ReadAllText(Out("demo/end.txt")));
+    }
+
+    void HoldLock(int pid)
+    {
+        Directory.CreateDirectory(Out(".lock-demo"));
+        File.WriteAllText(Out(".lock-demo/pid"), pid + "\n");
+    }
+
+    [TestMethod]
+    public void ALockOfADeadProcessIsTakenOver()
+    {
+        using var gone = Process.Start("true")!;
+        gone.WaitForExit();
+        HoldLock(gone.Id);
+
+        Assert.AreEqual(0, Run(Layout).Status);
+        Assert.AreEqual(1, Calls);
+    }
+
+    // A mkdir shim first on PATH stands in for a rival call: when the wrapper takes the takeover mutex, the shim
+    // rewrites the stale lock to a live owner, as a rival that took over first would. The live lock must survive.
+    const string MkdirShim = """
+        #!/bin/sh
+        for a; do
+          case "$a" in
+            *.takeover)
+              if [ ! -f "$FAKE_DIR/shimmed" ]; then
+                echo "$FAKE_LIVE_PID" > play-out/.lock-demo/pid
+                : > "$FAKE_DIR/shimmed"
+              fi
+              ;;
+          esac
+        done
+        /bin/mkdir "$@"
+        status=$?
+        if [ "$status" -ne 0 ] && [ -f "$FAKE_DIR/shimmed" ]; then : > "$FAKE_DIR/retried"; fi
+        exit "$status"
+        """;
+
+    [TestMethod]
+    public void ATakeoverKeepsALockThatTurnedLiveAndWaits()
+    {
+        var shims = Path.Combine(root, "shims");
+        Directory.CreateDirectory(shims);
+        File.WriteAllText(Path.Combine(shims, "mkdir"), MkdirShim);
+        File.SetUnixFileMode(
+            Path.Combine(shims, "mkdir"),
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+        );
+        using var gone = Process.Start("true")!;
+        gone.WaitForExit();
+        HoldLock(gone.Id);
+        var live = Environment.ProcessId.ToString();
+        var env = new Dictionary<string, string?>
+        {
+            ["PATH"] = shims + ":" + Environment.GetEnvironmentVariable("PATH"),
+            ["FAKE_LIVE_PID"] = live,
+        };
+        var call = Task.Run(() => Run(Layout, env));
+        // A failed mkdir after the takeover is the retry on the kept lock, after which the call says it waits.
+        var retried = Path.Combine(fake, "retried");
+        for (var i = 0; i < 200 && !File.Exists(retried) && !call.IsCompleted; i++)
+        {
+            Thread.Sleep(50);
+        }
+
+        var survived = File.Exists(retried) && File.ReadAllText(Out(".lock-demo/pid")).Trim() == live;
+        Directory.Delete(Out(".lock-demo"), true);
+        call.Wait();
+
+        Assert.IsTrue(survived, "the live lock was removed");
+        StringAssert.Contains(call.Result.Stderr, "waiting on play-out/.lock-demo");
+    }
+
+    // The takeover race is timing-dependent, so this can pass without the atomic rename on a quiet machine.
+    [TestMethod]
+    public void ConcurrentWaitersOnADeadLockRunGodotOnce()
+    {
+        using var gone = Process.Start("true")!;
+        gone.WaitForExit();
+        HoldLock(gone.Id);
+        var env = new Dictionary<string, string?> { ["FAKE_SLEEP"] = "2" };
+        var calls = Enumerable.Range(0, 6).Select(_ => Task.Run(() => Run(Layout, env))).ToArray();
+        Task.WaitAll(calls);
+
+        Assert.AreEqual(1, Calls);
+        Assert.IsFalse(Directory.EnumerateDirectories(Out("")).Any(d => d.Contains(".dead.")));
+    }
+
+    [TestMethod]
+    public void ACallWaitingOnALiveLockSaysSoAndRunsOnceItIsFree()
+    {
+        HoldLock(Environment.ProcessId);
+        var call = Task.Run(() => Run(Layout));
+        Thread.Sleep(1500);
+        Directory.Delete(Out(".lock-demo"), true);
+
+        Assert.AreEqual(0, call.Result.Status);
+        StringAssert.Contains(
+            call.Result.Stderr,
+            "play-run.sh: waiting on play-out/.lock-demo (remove it if no run is live)"
+        );
+    }
+
+    [TestMethod]
+    public void TheHashIsTakenAfterTheLock()
+    {
+        Run(Layout);
+        HoldLock(Environment.ProcessId);
+        var call = Task.Run(() => Run(Layout));
+        Thread.Sleep(1500);
+        Write("src/Game.cs", "class Game { int changed; }");
+        Directory.Delete(Out(".lock-demo"), true);
+        call.Wait();
+
+        Assert.AreEqual(2, Calls);
+    }
+
+    [TestMethod]
+    public void AnUnwritablePlayOutFailsWithAMessage()
+    {
+        Directory.CreateDirectory(Out(""));
+        File.SetUnixFileMode(Out(""), UnixFileMode.UserRead | UnixFileMode.UserExecute);
         try
         {
-            Assert.IsNull(PlayRun.MovieProblem(Path.Combine(folder, "frame.png")));
+            // Root writes to a folder whatever its mode (container CI), so the fault cannot be staged there.
+            try
+            {
+                File.WriteAllText(Path.Combine(Out(""), "probe"), "");
+                Assert.Inconclusive("the folder stays writable (running as root)");
+            }
+            catch (UnauthorizedAccessException) { }
+
+            var call = Task.Run(() => Run(Layout));
+            var finished = call.Wait(10000);
+
+            Assert.IsTrue(finished, "the call waits forever");
+            Assert.AreNotEqual(0, call.Result.Status);
+            StringAssert.Contains(call.Result.Stderr, "play-out");
+            Assert.AreEqual(0, Calls);
         }
         finally
         {
-            Directory.Delete(folder);
+            File.SetUnixFileMode(Out(""), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
     }
-
-    [TestMethod]
-    public void ALaunchUnderMovieMakerWithAMapAndNoScreenshotHasNoProblem() =>
-        Assert.IsNull(PlayRun.LaunchProblem(true, true, false));
 }

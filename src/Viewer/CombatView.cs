@@ -13,10 +13,11 @@ namespace OpenArmada.Viewer;
 /// <summary>
 /// Draws and sounds the fight on the combat events of the orders node: a beam from the firing hardpoint to its
 /// target for its life, a torpedo along its flight, each with the sprite its ordnance names; the weapon's fire
-/// sound at the firing unit, once per weapon volley; the explosion of a destroyed unit where it was. A shot that
-/// missed is drawn too, aimed beside its target, for its ordnance's life. Everything the install may lack is
-/// read once when the node is built and reported through the CombatArt (INV-0002); a shot or a destruction
-/// without its art still resolves.
+/// sound at the firing unit, once per weapon volley; the explosions of hits and the repair sparks of repairing systems
+/// at their nodes; the small explosions on a dying unit; the explosion of a destroyed unit where it was. A shot that
+/// missed is drawn too, aimed beside its target, for its ordnance's life. Everything the install may lack is read once
+/// when the node is built and reported through the CombatArt (INV-0002); a shot or a destruction without its art still
+/// resolves.
 /// </summary>
 public partial class CombatView : Node3D
 {
@@ -24,6 +25,14 @@ public partial class CombatView : Node3D
     // ordnance's own radius is not read yet.
     const float BeamThickness = 6f;
     const float TorpedoSize = 16f;
+
+    // stand-in: the size of a small explosion's billboard in world units; the game's size is not known.
+    const float SmallExplosionSize = 24f;
+
+    // stand-in: Godot's stereo panning keeps a sound's total power, so a sound straight ahead plays at -3 dB in each
+    // channel, where the game's DirectSound plays it at full level in both (inferred). The lift gives back those 3 dB;
+    // a sound off to one side plays up to 3 dB louder in its near channel than the game plays it.
+    const float PanLiftDb = 3.0103f;
 
     sealed class Drawn
     {
@@ -40,6 +49,13 @@ public partial class CombatView : Node3D
         public Vector3 Direction; // a missed torpedo or pulse: its straight flight
     }
 
+    sealed class Sounding
+    {
+        public required AudioStreamPlayer3D Player;
+        public required PlacedObject? Follows; // the unit it follows; null: it stays where it started
+        public required double MinimumScale;
+    }
+
     readonly CombatArt _art;
     readonly RepeatedFaults _faults = new(Area.Combat);
     readonly CombatWorld _world;
@@ -48,13 +64,14 @@ public partial class CombatView : Node3D
     readonly Dictionary<string, AudioStreamWav> _sounds = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, Node3D> _models = new(StringComparer.OrdinalIgnoreCase);
     readonly List<Drawn> _drawn = new();
+    readonly List<Sounding> _sounding = new();
     readonly GameFileSystem _files;
-    readonly SoundFalloff _falloff;
+    readonly SoundFade _fade;
 
     /// <summary>
     /// Reads every texture, sound, and model the fight can show now, so what fails is reported with the map's
     /// gaps. <c>nodes</c> are the unit nodes of the scene; <c>models</c> build the explosion models, whose problems
-    /// go to <c>gap</c>; <c>falloff</c> is how every fire and explosion sound fades with distance.
+    /// go to <c>gap</c>; <c>fade</c> is how every fire and explosion sound fades with its distance from the camera.
     /// </summary>
     public CombatView(
         GameFileSystem files,
@@ -63,12 +80,12 @@ public partial class CombatView : Node3D
         Dictionary<PlacedObject, Node3D> nodes,
         SodBuilder builder,
         UnitOrders orders,
-        SoundFalloff falloff,
+        SoundFade fade,
         Action<string> gap
     )
     {
         _files = files;
-        _falloff = falloff;
+        _fade = fade;
         _art = art;
         _world = world;
         _nodes = nodes;
@@ -113,6 +130,8 @@ public partial class CombatView : Node3D
             }
         }
 
+        LoadShieldModels(art, builder, gap);
+
         orders.Stepped += OnStep;
     }
 
@@ -153,14 +172,49 @@ public partial class CombatView : Node3D
                     case ShotFired { Shot: var shot }:
                         if (sounded.Add((shot.Shooter, shot.Weapon.Slot)) && At(shot.Shooter.Unit) is { } at)
                         {
-                            PlaySound(shot.Weapon.FireSound, at);
+                            PlaySound(shot.Weapon.FireSound, at, SoundFade.FireMinimumScale, shot.Shooter.Unit);
                         }
 
                         Draw(shot);
 
                         break;
-                    case UnitDestroyed { Unit: var unit }:
+                    case ShieldHitEffect effect:
+                        RaiseShieldEffect(effect);
+
+                        break;
+                    case HullHitSprite sprite:
+                        RaiseHullSprite(sprite);
+
+                        break;
+                    case UnitDestroyed { Unit: var unit, Cause: DestroyCause.Fireball }:
                         Explode(unit);
+
+                        break;
+                    case RepairSpark spark:
+                        ShowAtNode(
+                            RepairSpark.SpriteName,
+                            spark.Unit,
+                            spark.Hardpoint,
+                            spark.Size,
+                            RepairSpark.Seconds
+                        );
+
+                        break;
+                    case HitExplosion explosion:
+                        ShowAtNode(
+                            explosion.Name,
+                            explosion.Unit,
+                            explosion.Hardpoint,
+                            explosion.Size,
+                            HitExplosion.Seconds
+                        );
+
+                        break;
+                    case SmallExplosion { Unit: var dying, Name: var name, Offset: var offset }:
+                        if (At(dying) is { } center)
+                        {
+                            ShowSmallExplosion(name, center + Gd(offset));
+                        }
 
                         break;
                 }
@@ -173,7 +227,7 @@ public partial class CombatView : Node3D
     }
 
     /// <summary>
-    /// Logs the count of repeated presentation faults. Godot exits the children of a node before the node, so this
+    /// Logs the count of repeated presentation and shield-down overlay faults. Godot exits the children of a node before the node, so this
     /// runs before the run-end entry of the AssetBrowserView above the sandbox.
     /// </summary>
     public override void _ExitTree() => _faults.Flush();
@@ -182,11 +236,15 @@ public partial class CombatView : Node3D
     Vector3? At(PlacedObject unit) =>
         _nodes.TryGetValue(unit, out var node) && IsInstanceValid(node) ? node.GlobalPosition : null;
 
+    // The unit's own node; null when it is gone.
+    Node3D? UnitNode(PlacedObject unit) =>
+        _nodes.TryGetValue(unit, out var node) && IsInstanceValid(node) ? node : null;
+
     // The node a shot leaves from: the hardpoint's node, or the unit's own node when the model lacks the hardpoint
     // (reported when built); null when the unit's node is gone.
     Node3D? Source(PlacedObject unit, string name)
     {
-        if (!_nodes.TryGetValue(unit, out var node) || !IsInstanceValid(node))
+        if (UnitNode(unit) is not { } node)
             return null;
 
         return _art.Hardpoint(unit, name) is { } exact && node.FindChild(exact, true, false) is Node3D hardpoint
@@ -198,22 +256,62 @@ public partial class CombatView : Node3D
 
     static Vector3 Gd(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
 
-    void PlaySound(string name, Vector3 at)
+    // Plays the sound at the level the game's fade gives for its distance from the camera eye, positional so it pans;
+    // Godot's own distance fade, cutoff, and filter apply nothing. A sound that starts beyond its maximum distance is
+    // never played. A fire sound follows its unit (`follows`) while the unit's node lives; UpdateSounds keeps the level.
+    void PlaySound(string name, Vector3 at, double minimumScale, PlacedObject? follows)
     {
         if (!_sounds.TryGetValue(name, out var stream)) // only a sound the install holds and Godot decodes is read
+            return;
+        if (GetViewport().GetCamera3D() is not { } camera)
+            return;
+        if (!_fade.StartsAt(camera.GlobalPosition.DistanceTo(at)))
             return;
         var player = new AudioStreamPlayer3D
         {
             Stream = stream,
             Position = at,
-            UnitSize = _falloff.UnitSize,
-            MaxDb = SoundFalloff.MaxDb,
-            AttenuationFilterCutoffHz = SoundFalloff.FilterCutoffHz,
+            VolumeDb = Volume(_fade.VolumeDbAt(Num(at), Num(camera.GlobalPosition), minimumScale)),
+            MaxDb = 6, // Godot's highest cap, above the lift
+            AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.Disabled,
+            MaxDistance = 0,
+            AttenuationFilterDb = 0,
         };
         player.Finished += player.QueueFree;
         AddChild(player);
         player.Play();
+        _sounding.Add(
+            new Sounding
+            {
+                Player = player,
+                Follows = follows,
+                MinimumScale = minimumScale,
+            }
+        );
     }
+
+    // Each frame, every playing sound moves with the unit it follows (it stays at its last place once the unit's node is
+    // gone, 0x5b09e0) and takes the fade's level at its distance from the camera eye, silent beyond its maximum.
+    void UpdateSounds()
+    {
+        _sounding.RemoveAll(s => !IsInstanceValid(s.Player) || s.Player.IsQueuedForDeletion());
+        if (GetViewport().GetCamera3D() is not { } camera)
+            return;
+        foreach (var s in _sounding)
+        {
+            if (s.Follows != null && At(s.Follows) is { } at)
+            {
+                s.Player.Position = at;
+            }
+
+            s.Player.VolumeDb = Volume(
+                _fade.VolumeDbAt(Num(s.Player.Position), Num(camera.GlobalPosition), s.MinimumScale)
+            );
+        }
+    }
+
+    // The player's volume for a fade level: the level with the pan lift, or the silent level as it stands.
+    static float Volume(double db) => (float)(db > SoundFade.SilentDb ? db + PanLiftDb : db);
 
     void Draw(Shot shot)
     {
@@ -313,11 +411,79 @@ public partial class CombatView : Node3D
         d.Root.Position = new Vector3(shot.Position.X, shot.Position.Y, shot.Position.Z);
     }
 
+    // A small explosion of a dying unit: its sprite's flipbook plays once on a billboard at the point; a sprite the
+    // install lacks shows nothing (reported once, CombatArt.AddSmallExplosions).
+    void ShowSmallExplosion(string name, Vector3 at)
+    {
+        if (_art.Sprite(name) is not { } art || Texture(art.Sprite.Texture) is not { } tex)
+            return;
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoTexture = tex,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        SpriteMaterial.Blend(material, art.Sprite.Material);
+        var quad = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = new Vector2(SmallExplosionSize, SmallExplosionSize), Material = material },
+            Position = at,
+        };
+        AddChild(quad);
+        // stand-in: a sprite without a flipbook shows for half a second; the game's duration is not known.
+        var length = art.FrameSeconds > 0 ? art.FrameSeconds * art.Frames.Count : 0.5;
+        var tween = quad.CreateTween();
+        tween.TweenMethod(
+            Callable.From<double>(age => SpriteMaterial.ShowFrame(material, art.Sprite, art.FrameAt(age), tex)),
+            0.0,
+            length,
+            length
+        );
+        tween.TweenCallback(Callable.From(quad.QueueFree));
+    }
+
+    // A sprite effect at a node of a unit, a repair spark or a hit explosion (0x515d50): the sprite's flipbook plays on
+    // a billboard hung from the hardpoint's node, or the unit's own node for a null hardpoint, so it follows the unit,
+    // for `seconds`; it goes with the unit's node. A sprite the install lacks shows nothing (reported once,
+    // CombatArt.AddRepairSparks and CombatArt.AddSmallExplosions).
+    void ShowAtNode(string sprite, PlacedObject unit, string? hardpoint, float size, double seconds)
+    {
+        if (
+            _art.Sprite(sprite) is not { } art
+            || Texture(art.Sprite.Texture) is not { } tex
+            || (hardpoint == null ? UnitNode(unit) : Source(unit, hardpoint)) is not { } node
+        )
+            return;
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoTexture = tex,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        SpriteMaterial.Blend(material, art.Sprite.Material);
+        var width = size * 2; // the size reaches out from the center on each side (0x5975e0)
+        var quad = new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = new Vector2(width, width), Material = material },
+        };
+        node.AddChild(quad);
+        var tween = quad.CreateTween();
+        tween.TweenMethod(
+            Callable.From<double>(age => SpriteMaterial.ShowFrame(material, art.Sprite, art.FrameAt(age), tex)),
+            0.0,
+            seconds,
+            seconds
+        );
+        tween.TweenCallback(Callable.From(quad.QueueFree));
+    }
+
     void Explode(PlacedObject unit)
     {
         if (_art.Explosion(unit) is not { } explosion || At(unit) is not { } at)
             return;
-        PlaySound(explosion.Sound ?? "", at);
+        PlaySound(explosion.Sound ?? "", at, SoundFade.ExplosionMinimumScale, null);
         if (explosion.Model == null || !_models.TryGetValue(explosion.Model, out var template))
             return;
         // Each explosion plays its sprite nodes once from the moment of destruction, on its own clock.
@@ -353,6 +519,8 @@ public partial class CombatView : Node3D
     /// <inheritdoc/>
     public override void _Process(double delta)
     {
+        UpdateShieldEffects();
+        UpdateSounds();
         var live = _world.Shots.ToHashSet();
         _drawn.RemoveAll(d =>
         {

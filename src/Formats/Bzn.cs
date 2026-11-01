@@ -126,6 +126,33 @@ public sealed record MapObject
 
     /// <summary>The file offset of the object's first header token.</summary>
     public required int Offset { get; init; }
+
+    /// <summary>
+    /// The object's starting state; null for full strength. A .bzn read leaves it null; a layout sets it (ADR 0007).
+    /// </summary>
+    public StartingState? Start { get; init; }
+}
+
+/// <summary>
+/// The condition a placed object starts the fight in. Each value left unset is full strength.
+/// </summary>
+public sealed record StartingState
+{
+    /// <summary>The crew as a fraction from 0 to 1 of the class's crewCost; null for the full crew.</summary>
+    public double? Crew { get; init; }
+
+    /// <summary>The shields as a fraction from 0 to 1 of the class's maxHealth; null for full shields.</summary>
+    public double? Shields { get; init; }
+
+    /// <summary>The ship systems that start destroyed, by name, each once.</summary>
+    public IReadOnlyList<string> DestroyedSystems { get; init; } = [];
+
+    /// <summary>
+    /// The world velocity the unit starts with, in units per second; null for none. A layout reads it in its own
+    /// frame (the frame of the object's position) and the sandbox plan hands it on in Godot's frame, as it does the
+    /// position. A unit without thrust coasts from it.
+    /// </summary>
+    public Vector3? Velocity { get; init; }
 }
 
 /// <summary>One of the 9 team records. Fields named Unknown are read but their meaning is not known.</summary>
@@ -161,6 +188,12 @@ public sealed record MapPath
 
     /// <summary>The path's points in file order.</summary>
     public required IReadOnlyList<Vector3> Points { get; init; }
+
+    /// <summary>
+    /// The path's type: the integer after its points in a map's record. An asteroid belt follows a path of type 3
+    /// (0x44e7b0); 0 for a path read from a <c>.pth</c> file, which carries none.
+    /// </summary>
+    public int Type { get; init; }
 }
 
 /// <summary>
@@ -388,10 +421,15 @@ public static class Bzn
             if (n < 0 || n > d.Length / 12)
                 throw new InvalidDataException($"path '{name}' point count {n} does not fit (offset {c.Offset})");
             var raw = c.Next(9, n * 12, "path points").Data;
-            c.Next(0, 4, "path field");
+            var type = BitConverter.ToInt32(c.Next(0, 4, "path type").Data);
             c.Next(5, 4, "path float");
             paths.Add(
-                new MapPath { Name = name, Points = Enumerable.Range(0, n).Select(k => Vec(raw, k * 12)).ToList() }
+                new MapPath
+                {
+                    Name = name,
+                    Points = Enumerable.Range(0, n).Select(k => Vec(raw, k * 12)).ToList(),
+                    Type = type,
+                }
             );
         }
 

@@ -19,6 +19,9 @@ public static class SurfaceMaterial
 {
     static readonly Dictionary<string, Shader> Shaders = new();
 
+    // The blend and culling each shader was built for, so a material can change its lighting model and keep them.
+    static readonly Dictionary<Shader, (BlendState Blend, bool Cull)> Keys = new();
+
     /// <summary>
     /// A new material with the surface's lighting model and colors and the blend of <c>blend</c>, textured when
     /// <c>texture</c> is not null; <c>cull</c> true culls back faces, false draws both sides. Materials with the
@@ -48,6 +51,26 @@ public static class SurfaceMaterial
         mat.SetShaderParameter("diffuse", ToGodot(s.Diffuse));
         mat.SetShaderParameter("specular", ToGodot(s.Specular));
         mat.SetShaderParameter("power", s.Power);
+    }
+
+    /// <summary>
+    /// Draws the material unlit in one color, as the game draws a shield effect through its "shield" lighting
+    /// material (0x5169a0, lighting model 0; 0x5a4200 writes the diffuse color to every vertex with no light term):
+    /// ambient and diffuse become <c>color</c>, the specular goes out, the texture still modulates, and the
+    /// material's blend and culling stay. A model drawn this way, such as a shield effect, calls it on each surface's
+    /// own copy of the material.
+    /// </summary>
+    public static void Colorize(ShaderMaterial mat, Color color)
+    {
+        if (mat.Shader is { } shader && Keys.TryGetValue(shader, out var key))
+        {
+            mat.Shader = ShaderFor(LightingModel.Constant, key.Blend, key.Cull);
+        }
+
+        var rgb = new Vector3(color.R, color.G, color.B);
+        mat.SetShaderParameter("ambient", rgb);
+        mat.SetShaderParameter("diffuse", rgb);
+        mat.SetShaderParameter("specular", Vector3.Zero);
     }
 
     static Vector3 ToGodot(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
@@ -106,6 +129,8 @@ void light() {{
 }}
 ",
         };
+
+        Keys[shader] = (blend, cull);
 
         return Shaders[key] = shader;
     }

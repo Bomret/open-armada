@@ -1,0 +1,33 @@
+# A Klingon bird of prey flies an arc around two Borg spheres on layouts/drift.jsonc, one waypoint every three seconds,
+# until the spheres destroy it. It dies at speed, so it coasts on while it is dying: the dumps during the dying phase
+# show its position still changing, and the shots show the drifting wreck. At --fps 30 the killing hit lands about
+# 2.3 s after the last waypoint and the dying phase lasts 5 s; the dumps and shots fall inside it.
+# Run it with --layout layouts/drift.jsonc; the layout's header comment has the whole command.
+wait 0.2
+select Bop
+scroll down 2
+wait 0.1
+move 2217 -2125
+wait 3
+move 2125 -2217
+wait 3
+shot flying
+move 2000 -2250
+wait 3
+move 1875 -2217
+scroll up 5
+wait 2.8
+dump dying-1
+expect Bop dying = true
+shot dying-1
+wait 1.2
+dump dying-2
+shot dying-2
+wait 1.2
+dump dying-3
+shot dying-3
+wait 1.2
+shot dying-4
+wait 1.3
+dump after
+expect Bop destroyed = true

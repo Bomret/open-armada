@@ -150,7 +150,8 @@ public sealed class Sod
         public IReadOnlyList<Group> Groups = Array.Empty<Group>();
 
         /// <summary>
-        /// True when the stored cull byte is not 0; always false for a 1.2 mesh, which stores no cull byte.
+        /// True when the stored cull byte is 1, the only value the game culls back faces for; always false for a
+        /// 1.2 mesh, which stores no cull byte.
         /// </summary>
         public bool BackfaceCull;
     }
@@ -202,6 +203,49 @@ public sealed class Sod
             Up,
             Front,
             Position;
+    }
+
+    /// <summary>
+    /// The model as the game loads it at <c>scale</c>, a unit class's <c>scaleSOD</c>: each node's position is
+    /// multiplied by the scale, and so are the vertices of each mesh when the scale is not 1. The axes of a node, the
+    /// texture coordinates, and the animation channels stay as stored. A scale of 1 returns this model itself.
+    /// </summary>
+    public Sod Scaled(float scale)
+    {
+        if (scale == 1f)
+            return this;
+
+        return new Sod
+        {
+            Version = Version,
+            TextureMaterials = TextureMaterials,
+            LightingMaterials = LightingMaterials,
+            Nodes = Nodes
+                .Select(n => new Node
+                {
+                    Type = n.Type,
+                    Name = n.Name,
+                    Parent = n.Parent,
+                    Transform = n.Transform with { Position = n.Transform.Position * scale },
+                    Mesh =
+                        n.Mesh == null
+                            ? null
+                            : new Mesh
+                            {
+                                TextureMaterial = n.Mesh.TextureMaterial,
+                                Texture = n.Mesh.Texture,
+                                Vertices = n.Mesh.Vertices.Select(v => v * scale).ToArray(),
+                                TexCoords = n.Mesh.TexCoords,
+                                Groups = n.Mesh.Groups,
+                                BackfaceCull = n.Mesh.BackfaceCull,
+                            },
+                    Emitter = n.Emitter,
+                })
+                .ToList(),
+            Channels = Channels,
+            References = References,
+            Problems = Problems,
+        };
     }
 
     static readonly float[] KnownVersions = { 1.2f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f };
@@ -376,6 +420,68 @@ public sealed class Sod
     /// </summary>
     public bool InParentCycle(Node node) => InParentCycle(Nodes, node);
 
+    Dictionary<Node, int>? _indexes;
+    ILookup<Node, Node>? _children;
+
+    /// <summary>The position of a node in <see cref="Nodes"/>, or -1 for a node the model lacks.</summary>
+    public int IndexOf(Node node)
+    {
+        _indexes ??= Nodes.Select((n, i) => (n, i)).ToDictionary(p => p.n, p => p.i);
+        return _indexes.GetValueOrDefault(node, -1);
+    }
+
+    /// <summary>
+    /// The nodes hung from a node, in model order, as <c>SodBuilder</c> hangs them: a node is the child of the first
+    /// node named by its parent, and a node in a parent cycle is the child of none. Built once per model.
+    /// </summary>
+    public IEnumerable<Node> ChildrenOf(Node node)
+    {
+        if (_children == null)
+        {
+            var first = new Dictionary<string, Node>();
+            foreach (var n in Nodes)
+            {
+                first.TryAdd(n.Name, n);
+            }
+
+            _children = Nodes
+                .Where(n => n.Parent.Length > 0 && first.ContainsKey(n.Parent) && !InParentCycle(n))
+                .ToLookup(n => first[n.Parent]);
+        }
+
+        return _children[node];
+    }
+
+    /// <summary>The nodes below a node at any depth, not the node itself, each once (<see cref="ChildrenOf"/>).</summary>
+    public IEnumerable<Node> Descendants(Node node)
+    {
+        var seen = new HashSet<Node>();
+        var pending = new Stack<Node>(ChildrenOf(node));
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (!seen.Add(current))
+                continue;
+            yield return current;
+            foreach (var child in ChildrenOf(current))
+            {
+                pending.Push(child);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The detail level of a LOD control node that shows: the child whose subtree has the most triangle corners, the
+    /// first of those on a tie; null for a node without children. Every other level is hidden. That the game shows one
+    /// level only is inferred (the view shows the most detailed one).
+    /// </summary>
+    public Node? ShownLodLevel(Node lod) =>
+        ChildrenOf(lod).Select(level => (Node?)level).MaxBy(level => CornerCount(level!));
+
+    int CornerCount(Node node) =>
+        (node.Mesh?.Groups.Sum(g => g.Corners.Length / 3 * 3) ?? 0)
+        + Descendants(node).Sum(n => n.Mesh?.Groups.Sum(g => g.Corners.Length / 3 * 3) ?? 0);
+
     static bool InParentCycle(IReadOnlyList<Node> nodes, Node node)
     {
         var seen = new HashSet<Node>();
@@ -480,7 +586,8 @@ public sealed class Sod
         }
 
         mesh.Groups = groupList;
-        mesh.BackfaceCull = r.ReadByte() != 0;
+        // Armada.exe culls back faces only for the value 1 (README, "SOD format notes").
+        mesh.BackfaceCull = r.ReadByte() == 1;
         // Count + vertex indices, meaning unknown; the spec claims this is always 0 (Zentity.SOD disagrees).
         r.ReadBytes(r.ReadUInt16() * 2);
 

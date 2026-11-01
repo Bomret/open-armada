@@ -215,7 +215,7 @@ public class ViewerLogTests
         ViewerLog.Screenshot(Area.Browser, "out.png", null);
         Assert.AreEqual(1, log.Lines.Count);
         StringAssert.Contains(log.Text, " INFO browser: ");
-        StringAssert.Contains(log.Text, Path.GetFullPath("out.png"));
+        StringAssert.Contains(log.Text, Log.Quote(Path.GetFullPath("out.png")));
     }
 
     [TestMethod]
@@ -238,7 +238,7 @@ public class ViewerLogTests
         ViewerLog.Screenshot(Area.Browser, "out.png", "Cannot open file");
         Assert.AreEqual(1, log.Lines.Count);
         StringAssert.Contains(log.Text, " ERROR browser: ");
-        StringAssert.Contains(log.Text, Path.GetFullPath("out.png"));
+        StringAssert.Contains(log.Text, Log.Quote(Path.GetFullPath("out.png")));
         StringAssert.Contains(log.Text, "Cannot open file");
     }
 }

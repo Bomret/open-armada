@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
@@ -33,16 +34,16 @@ public sealed record ExpectStep : PlayStep
     /// <summary>The unit's name as the script writes it (see <see cref="UnitNames"/>).</summary>
     public required string Unit { get; init; }
 
-    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>destroyed</c>, <c>target</c>, or a system name of <see cref="SystemNames"/>.</summary>
+    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>destroyed</c>, <c>dying</c>, <c>target</c>, or a system name of <see cref="SystemNames"/>.</summary>
     public required string Field { get; init; }
 
-    /// <summary>One of <c>&lt;</c>, <c>&lt;=</c>, <c>=</c>, <c>&gt;=</c>, <c>&gt;</c>; <c>destroyed</c> and <c>target</c> take only <c>=</c>.</summary>
+    /// <summary>One of <c>&lt;</c>, <c>&lt;=</c>, <c>=</c>, <c>&gt;=</c>, <c>&gt;</c>; <c>destroyed</c>, <c>dying</c>, and <c>target</c> take only <c>=</c>.</summary>
     public required string Op { get; init; }
 
     /// <summary>The value as written: a number, <c>true</c> or <c>false</c>, or a unit name or <c>none</c> for <c>target</c>.</summary>
     public required string Value { get; init; }
 
-    /// <summary>The number <see cref="Value"/> reads as, or null for a <c>destroyed</c> or <c>target</c> step.</summary>
+    /// <summary>The number <see cref="Value"/> reads as, or null for a <c>destroyed</c>, <c>dying</c>, or <c>target</c> step.</summary>
     public double? Number =>
         double.TryParse(Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null;
 }
@@ -138,11 +139,20 @@ public sealed record TurnStep : PlayStep
     public required double Pixels { get; init; }
 }
 
-/// <summary><c>shot &lt;name&gt;</c>: writes a screenshot to <c>&lt;name&gt;.png</c> of the script's output folder.</summary>
+/// <summary>
+/// <c>shot &lt;name&gt; [unit [scale]]</c>: writes a screenshot to <c>&lt;name&gt;.png</c> of the script's output folder,
+/// the whole frame or, with a unit, the crop around it (<see cref="PlayTarget.CropOf"/>) enlarged by the scale.
+/// </summary>
 public sealed record ShotStep : PlayStep
 {
     /// <summary>The file stem; it holds no path separator.</summary>
     public required string Name { get; init; }
+
+    /// <summary>The unit's name as the script writes it, or null for the whole frame.</summary>
+    public string? Unit { get; init; }
+
+    /// <summary>The whole-number factor the crop is enlarged by; one or more.</summary>
+    public int Scale { get; init; } = 1;
 }
 
 /// <summary>
@@ -252,7 +262,7 @@ public sealed class PlayScript
     {
         switch (word)
         {
-            case "select" or "attack" or "press" or "shot" when args.Length != 1:
+            case "select" or "attack" or "press" when args.Length != 1:
                 return Wrong(word, 1, args.Length);
             case "select":
                 return (new SelectStep { Line = number, Unit = args[0] }, null);
@@ -261,9 +271,27 @@ public sealed class PlayScript
             case "press":
                 return (new PressStep { Line = number, Key = args[0] }, null);
             case "shot":
-                return NoFileName(args[0])
-                    ? (null, $"'{args[0]}' is no file name")
-                    : (new ShotStep { Line = number, Name = args[0] }, null);
+                if (args.Length is not (1 or 2 or 3))
+                    return (null, $"'shot' takes 1 to 3 arguments, found {args.Length}");
+                if (NoFileName(args[0]))
+                    return (null, $"'{args[0]}' is no file name");
+                var scale = 1;
+                if (
+                    args.Length == 3
+                    && (!int.TryParse(args[2], NumberStyles.None, CultureInfo.InvariantCulture, out scale) || scale < 1)
+                )
+                    return (null, $"'{args[2]}' is not a whole number of one or more");
+
+                return (
+                    new ShotStep
+                    {
+                        Line = number,
+                        Name = args[0],
+                        Unit = args.Length > 1 ? args[1] : null,
+                        Scale = scale,
+                    },
+                    null
+                );
             case "move":
                 if (args.Length != 2)
                     return Wrong(word, 2, args.Length);
@@ -374,7 +402,7 @@ public sealed class PlayScript
         {
             field = system;
         }
-        else if (field is not ("shields" or "crew" or "destroyed" or "target"))
+        else if (field is not ("shields" or "crew" or "destroyed" or "dying" or "target"))
         {
             return (null, $"unknown field '{args[1]}'");
         }
@@ -382,11 +410,11 @@ public sealed class PlayScript
         var op = args[2];
         if (!Ops.Contains(op))
             return (null, $"unknown operator '{op}', use one of < <= = >= >");
-        if (field is "destroyed" or "target")
+        if (field is "destroyed" or "dying" or "target")
         {
             if (op != "=")
                 return (null, $"'{field}' takes only '=', not '{op}'");
-            if (field == "destroyed" && args[3] is not ("true" or "false"))
+            if (field != "target" && args[3] is not ("true" or "false"))
                 return (null, $"'{args[3]}' is not true or false");
         }
         else

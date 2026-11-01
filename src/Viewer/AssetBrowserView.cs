@@ -13,7 +13,7 @@ namespace OpenArmada.Viewer;
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; [--model Fente] [--screenshot out.png]
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --map &lt;name&gt; [--screenshot out.png]   (the map sandbox)
 ///   godot-mono --path . -- --game &lt;Armada dir&gt; --layout &lt;file&gt; [--screenshot out.png]   (the map sandbox, from a layout)
-///   mkdir -p play-out/&lt;stem&gt;; godot-mono --path . --write-movie play-out/&lt;stem&gt;/frame.png --fixed-fps 30 -- --game &lt;Armada dir&gt; --map &lt;name&gt; --play &lt;file&gt;   (a play run)
+///   sh tools/play-run.sh &lt;stem&gt; (--layout &lt;file&gt; | --map &lt;name&gt;) --fps &lt;n&gt;   (a play run of play/&lt;stem&gt;.play, from the repository root)
 ///   godot-mono --headless --path . -- --check --game &lt;Armada dir&gt;
 ///   godot-mono --headless --path . -- --maps --game &lt;Armada dir&gt;   (the map summary of every map)
 /// The game dir can also come from the ARMADA_DIR environment variable. <c>--check</c> wins over <c>--maps</c>,
@@ -31,6 +31,7 @@ public partial class AssetBrowserView : Control
     string? _screenshot;
     int _frames;
     int? _checkCode;
+    bool _playRun;
 
     /// <inheritdoc/>
     public override void _Ready()
@@ -60,7 +61,7 @@ public partial class AssetBrowserView : Control
 
         if (!check && !maps && args.Has("--play"))
         {
-            args.Value("--play"); // likewise: a bare --play is logged here, once
+            args.Value("--play"); // likewise: a bare --play is recorded here, and StartPlayRun logs it once
         }
 
         var source =
@@ -75,9 +76,14 @@ public partial class AssetBrowserView : Control
             $"run start: mode {mode}, install {(game == null ? "none" : Log.Quote(game))} (from {source}), "
                 + $"arguments [{string.Join(", ", userArgs.Select(Log.Quote))}], log {Log.Quote(logFile)}"
         );
-        foreach (var problem in args.Problems)
+        // A play run cannot start with a launch-argument problem, so StartPlayRun logs each one as an ERROR entry
+        // that names the play run that failed to open instead.
+        if (mode != "play")
         {
-            Log.Warn(Area.Run, problem);
+            foreach (var problem in args.Problems)
+            {
+                Log.Warn(Area.Run, problem);
+            }
         }
 
         if (check)
@@ -121,6 +127,7 @@ public partial class AssetBrowserView : Control
 
         if (mode == "play")
         {
+            _playRun = true;
             StartPlayRun(args, game);
 
             return;
@@ -128,14 +135,7 @@ public partial class AssetBrowserView : Control
 
         if (mode is "map" or "layout")
         {
-            var layout = args.Value("--layout");
-            var start = Layout.Start(
-                System.Environment.GetEnvironmentVariable("PWD"),
-                System.Environment.CurrentDirectory
-            );
-            var sandbox = args.Has("--layout")
-                ? MapSandbox.OpenLayout(game, layout == null ? null : Layout.Resolve(layout, start), args.Problems)
-                : MapSandbox.Open(game, args.Value("--map"), args.Problems);
+            var sandbox = OpenSandbox(args, game);
             // The sandbox saves the screenshot; the browser's own _Process must not.
             // This full-window Control would stop every mouse event in the GUI pass, so the sandbox's
             // _UnhandledInput (selection, move orders) would never see a click.
@@ -146,6 +146,16 @@ public partial class AssetBrowserView : Control
             return;
         }
 
+        // The browser's text and lists grow with the window: the UI is laid out for the project's window size and
+        // scaled from there.
+        var window = GetWindow();
+        window.ContentScaleSize = new Vector2I(
+            (int)ProjectSettings.GetSetting("display/window/size/viewport_width"),
+            (int)ProjectSettings.GetSetting("display/window/size/viewport_height")
+        );
+        window.ContentScaleMode = Window.ContentScaleModeEnum.CanvasItems;
+        window.ContentScaleAspect = Window.ContentScaleAspectEnum.Expand;
+
         var registered = AssetKind.Discover();
         var previews = KindPreview.Discover(registered.Select(k => k.Name), out var previewProblems);
         _browser = AssetBrowser.Open(
@@ -154,15 +164,15 @@ public partial class AssetBrowserView : Control
             previews.ToDictionary(p => p.Key, p => AssetBrowser.Showing<Control>(p.Value.Create))
         );
 
-        var split = new HSplitContainer();
+        var split = new HBoxContainer();
         split.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(split);
-        var left = new VBoxContainer { CustomMinimumSize = new Vector2(280, 0) };
+        var left = new VBoxContainer { CustomMinimumSize = new Vector2(160, 0) };
         split.AddChild(left);
-        _kinds = new ItemList { CustomMinimumSize = new Vector2(0, 90) };
-        _assets = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
+        _kinds = new ItemList { SizeFlagsVertical = SizeFlags.ExpandFill };
+        _assets = new ItemList { CustomMinimumSize = new Vector2(220, 0) };
         left.AddChild(_kinds);
-        left.AddChild(_assets);
+        split.AddChild(_assets);
         var startProblems = previewProblems.Concat(args.Problems).ToList();
         if (startProblems.Count > 0)
         {
@@ -240,24 +250,42 @@ public partial class AssetBrowserView : Control
         }
     }
 
-    // Starts a play run of the map sandbox, or logs why it cannot and quits with exit code 1 (INV-0007); the window
-    // never stays open. A run that cannot start is one log entry: a bare --play is the entry the run start wrote,
-    // and a launch problem that comes with it stays unlogged.
+    // Opens the map sandbox of --layout, resolved against the directory the command was started in, or of --map.
+    static MapSandbox OpenSandbox(LaunchArgs args, string? game)
+    {
+        if (!args.Has("--layout"))
+            return MapSandbox.Open(game, args.Value("--map"), args.Problems);
+        var layout = args.Value("--layout");
+        var start = Layout.Start(System.Environment.GetEnvironmentVariable("PWD"), System.Environment.CurrentDirectory);
+
+        return MapSandbox.OpenLayout(game, layout == null ? null : Layout.Resolve(layout, start), args.Problems);
+    }
+
+    // Starts a play run of the map sandbox on a map or a layout, or logs why it cannot and quits with exit code 1
+    // (INV-0007); the window never stays open. Each entry of PlayRun.LaunchErrors is one ERROR entry,
+    // "play run cannot start: <problem>": the launch-argument problems (a flag without a value, or --map with
+    // --layout), which the run start left to this method, or else the launch problem.
     void StartPlayRun(LaunchArgs args, string? game)
     {
-        var problem = PlayRun.LaunchProblem(OS.HasFeature("movie"), args.Has("--map"), args.Has("--screenshot"));
+        var problem = PlayRun.LaunchProblem(
+            OS.HasFeature("movie"),
+            args.Has("--map"),
+            args.Has("--layout"),
+            args.Has("--screenshot")
+        );
         if (problem == null)
         {
             problem = PlayRun.MovieProblem(Engine.GetWriteMoviePath());
         }
 
         var file = args.Value("--play");
-        if (problem != null && file != null)
+        var errors = PlayRun.LaunchErrors(problem, args.Problems);
+        foreach (var error in errors)
         {
-            Log.Error(Area.Run, problem);
+            Log.Error(Area.Run, error);
         }
 
-        if (problem != null || file == null)
+        if (errors.Count > 0 || file == null)
         {
             GetTree().Quit(1);
 
@@ -270,8 +298,8 @@ public partial class AssetBrowserView : Control
             Log.Error(Area.Sandbox, scriptProblem);
         }
 
-        // MapSandbox.Open logs a map that fails to open.
-        var sandbox = MapSandbox.Open(game, args.Value("--map"), args.Problems);
+        // MapSandbox logs a map or a layout that fails to open.
+        var sandbox = OpenSandbox(args, game);
         if (script.Problems.Count > 0 || sandbox.Problem != null)
         {
             GetTree().Quit(1);
@@ -290,6 +318,17 @@ public partial class AssetBrowserView : Control
             Log.Error(Area.Sandbox, $"{script.Path}: play run cannot start, the map sandbox failed to build its scene");
             GetTree().Quit(1);
         }
+    }
+
+    /// <inheritdoc/>
+    public override void _Notification(int what)
+    {
+        // Closing the window quits with exit code 0, which reads as a run that finished. The tree quits after
+        // this notification and keeps the exit code set here.
+        if (what != NotificationWMCloseRequest || !_playRun)
+            return;
+        Log.Error(Area.Sandbox, "play run closed before its last step");
+        GetTree().Quit(PlayRun.ClosedExitCode);
     }
 
     /// <inheritdoc/>

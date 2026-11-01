@@ -8,6 +8,9 @@
   version in `OpenArmada.csproj` (`Godot.NET.Sdk/4.7.2`) must match the installed editor.
 - Game files: an Armada install the user owns, passed as `--game <dir>` or the `ARMADA_DIR` environment
   variable. The repository ships no game content.
+- mise: `mise.toml` pins the .NET SDKs, Godot, Java, Gradle, Python, and Ghidra; `mise install` installs
+  them and `mise tasks` lists the tasks. Under mise, Godot runs as `$GODOT`, and `tools/play-run.sh` uses
+  it through `PLAY_RUN_GODOT`. `ARMADA_DIR` goes in the gitignored `mise.local.toml`.
 - Commands:
   - Tests — see `docs/agents/verification.md`
   - Restore the formatter — `dotnet tool restore` (needs NuGet access the first time)
@@ -19,9 +22,12 @@
   - Unit tests — `dotnet test --project tests/OpenArmada.Tests` (MSTest on Microsoft.Testing.Platform,
     selected in `global.json`)
   - Asset check of an install — `godot-mono --headless --path . -- --check --game "$ARMADA_DIR"`
+  - Measure a sound's level in a play run's WAV — `dotnet run --project tools/WavLevel -- <wav> --from <s> --to <s>`
+  - Dump `Armada.exe` with Ghidra and rebuild the program index — `tools/GhidraDump/` (Ghidra scripts
+    and Python tools); `tools/GhidraDump/README.md` has the runs
 - Formatter: CSharpier `1.3.0`, a local dotnet tool pinned in `dotnet-tools.json`;
   `.csharpierrc.json` sets `printWidth: 120` and leaves every other option at its default. CSharpier
   reads `.gitignore`, so `.godot/`, `bin/`, `obj/`, and `.superdev/` are skipped.
   `// csharpier-ignore` keeps a hand-laid-out fixture, such as a pixel grid, as written.
 - Not wired: no linter or `.editorconfig`.
-- Style prose: none beyond `README.md`.
+- Style prose: `docs/agents/documentation.md`, "Writing standard".

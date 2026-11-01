@@ -239,6 +239,16 @@ public class ModelRulesTests
     }
 
     [TestMethod]
+    public void FrameIsPickedOverTheLengthPlusAPad()
+    {
+        // tex4x4, the shield hit effect's flipbook: 16 frames in 0.5 s, picked over 0.55 s (0x576220, 0x5ccf24)
+        var a = ModelRules.Animation(Flipbook("square", 16, 0.5), 0, out _)!;
+        Assert.AreEqual(new Vector2(0.5f, 0.75f), a.UvOffset(0.49)); // frame 14 of 0..15
+        Assert.AreEqual(new Vector2(0.75f, 0.5f), a.UvOffset(0.38)); // frame 11; 0.38 / 0.5 · 16 would be 12
+        Assert.AreEqual(Vector2.Zero, a.UvOffset(0.5)); // the time loops over the length
+    }
+
+    [TestMethod]
     public void TimeOffsetOfAReferenceShiftsThePhase()
     {
         var a = ModelRules.Animation(Flipbook("column", 4, 2.0), 0.5f, out _)!;

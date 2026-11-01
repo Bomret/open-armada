@@ -1,0 +1,22 @@
+# On layouts/forced-motion.jsonc a black hole lies at (2000, 2000). Drifter, engines destroyed and derelict, starts at rest
+# 100 from the hole's center in the plane, is pulled in, and is swallowed inside the event radius of 70, which shatters it
+# into debris. Mover is ordered to a point 15 short of the spot where Holder stands; it meets Holder's shield surface and
+# the collision separation moves it back out and up, and both rest apart.
+# Dumps: "before" shows Drifter at rest and Mover and Holder 100 apart; "swallowed" shows Drifter destroyed and debris
+# above 0, and Mover on its way with move=<x>,<z>; "contact" and "later" (10 s on) show Mover and Holder at rest apart.
+# Two runs at one frame rate write identical dumps.
+# Run it with --layout layouts/forced-motion.jsonc; the layout's header comment has the whole command.
+# The point is in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 0.2
+dump before
+select Mover
+wait 0.3
+move 2300 -1915
+wait 3
+dump swallowed
+expect Drifter destroyed = true
+wait 5
+dump contact
+expect Mover dying = false
+wait 10
+dump later

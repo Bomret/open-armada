@@ -1,0 +1,17 @@
+# On layouts/push-out-planet.jsonc the stock planet mearth lies at (2500, 2000) and the destroyer Probe 1000 west of it.
+# Probe is ordered to the planet's center. It drives in until it meets the planet and the push-out holds it at the
+# planet's model radius plus its own model radius from the planet's center, with its order open (move=<x>,<z>), as the
+# center lies far outside its tooCloseToTurn.
+# Dumps: "before" shows Probe 1000 from the planet's center; "planet" and "planet-later" (10 s on) show it at the same
+# distance from the center.
+# Run it with --layout layouts/push-out-planet.jsonc; the layout's header comment has the whole command.
+# The point is in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 1
+dump before
+box Probe
+wait 0.3
+move 2500 -2000
+wait 40
+dump planet
+wait 10
+dump planet-later

@@ -15,17 +15,17 @@ public readonly record struct ScreenBox(float Left, float Top, float Right, floa
 /// <summary>A rectangle in screen pixels.</summary>
 public readonly record struct ScreenRect(Vector2 Position, Vector2 Size);
 
-/// <summary>The shield bar of docs/selection-display.md: its gray back, its fill, and the fill color (red, green, blue).</summary>
+/// <summary>The shield bar of docs/rules/selection-display.md: its gray back, its fill, and the fill color (red, green, blue).</summary>
 public readonly record struct ShieldBar(ScreenRect Back, ScreenRect Fill, Vector3 Color);
 
-/// <summary>The crew dot of docs/selection-display.md: where it is drawn and the crew status that colors it.</summary>
+/// <summary>The crew dot of docs/rules/selection-display.md: where it is drawn and the crew status that colors it.</summary>
 public readonly record struct CrewDot(ScreenRect Rect, CrewStatus Status);
 
 /// <summary>A unit that shows the display: its shield bar's opacity and whether it shows the crew dot.</summary>
 public readonly record struct ShownUnit(PlacedObject Unit, double Opacity, bool Dot);
 
 /// <summary>
-/// The hover state of the selection display (docs/selection-display.md, display update 0x499f70), stepped once per
+/// The hover state of the selection display (docs/rules/selection-display.md, display update 0x499f70), stepped once per
 /// frame: the hovered unit, its team as the group key, and the display fade.
 /// </summary>
 public sealed record HoverState
@@ -66,7 +66,7 @@ public sealed record HoverState
 }
 
 /// <summary>
-/// The game's in-world selection display (docs/selection-display.md), placed around a unit's screen box. Sizes are
+/// The game's in-world selection display (docs/rules/selection-display.md), placed around a unit's screen box. Sizes are
 /// game pixels times <c>scale</c>, the display scale of the screen.
 /// </summary>
 public static class SelectionDisplay
@@ -164,7 +164,7 @@ public static class SelectionDisplay
     /// its bottom edge, in the unit's crew status. Null for a unit whose maxHealth is not above 0.
     /// </summary>
     public static CrewDot? CrewDotOf(ScreenBox box, UnitCombatState state, float scale) =>
-        // stand-in: the shield bar's gate; the game's own gate, maximumCrew not 0, always holds (CombatPlan)
+        // stand-in: the shield bar's gate; the game's own gate is maximumCrew (crewCost where missing) not 0
         state.Profile.MaxHealth <= 0
             ? null
             : new CrewDot(

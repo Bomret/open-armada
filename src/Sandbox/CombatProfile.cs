@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using OpenArmada.Assets;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
@@ -57,6 +58,44 @@ public sealed record OrdnanceProfile
     /// is missing.
     /// </summary>
     public required string Sprite { get; init; }
+
+    /// <summary>The geometry of the shield hit effect when the definition names none (0x516b80).</summary>
+    public const string DefaultShieldGeometry = "xshldx01";
+
+    /// <summary>
+    /// The models a shield effect can show, in the game's table order (names at 0x5d2a80, loaded at 0x516a70). A
+    /// <c>shieldGeometryName</c> picks one by name, ignoring case (0x516b90); the game reads before the table for any
+    /// other name.
+    /// </summary>
+    public static readonly IReadOnlyList<string> ShieldGeometries =
+    [
+        "xshldx01",
+        "xshlddie",
+        "wshldadd",
+        "wshldsub",
+        "wcorbrfr",
+        "wshldrmd",
+        "wmanhiem",
+    ];
+
+    /// <summary>The seconds of the shield hit effect when the definition names none (0x4ea15a).</summary>
+    public const float DefaultShieldDuration = 0.8f;
+
+    /// <summary>The <c>ignoreShield</c> flag: a hit of this ordnance raises no shield hit effect (0x4ec22a).</summary>
+    public bool IgnoreShield { get; init; }
+
+    /// <summary>The <c>shieldGeometryName</c>: the model of the shield hit effect (0x4ea4e4).</summary>
+    public string ShieldGeometryName { get; init; } = DefaultShieldGeometry;
+
+    /// <summary>The <c>shieldDuration</c> in seconds: how long a shield hit effect lasts, a beam's too (0x4ea521, 0x4eb3c3).</summary>
+    public float ShieldDuration { get; init; } = DefaultShieldDuration;
+
+    /// <summary>
+    /// The ordnance definition's <c>size</c>: a beam's hull hit sprite is drawn at twice this (0x6173dc, 0x6173e0).
+    /// stand-in: the key is read from the ordnance definition and is 1 when it is missing; the game reads the field of
+    /// the weapon, and which definition holds it is not confirmed.
+    /// </summary>
+    public float Size { get; init; } = 1;
 }
 
 /// <summary>
@@ -121,6 +160,18 @@ public sealed record WeaponProfile
 
     /// <summary>The ordnance definition the weapon's <c>ordName</c> names.</summary>
     public required OrdnanceProfile Ordnance { get; init; }
+
+    /// <summary>
+    /// The <c>special</c> flag (0x5053a0). The dogfight's range and its choice of movement leave a special weapon
+    /// out (0x506e30): its range is not the ship's closing range.
+    /// </summary>
+    public bool Special { get; init; }
+
+    /// <summary>
+    /// The <c>targetLocation</c> flag (0x5053a0): the weapon is aimed at a point, so its ship turns in place toward
+    /// the point and never closes by the dogfight (0x42c9d0).
+    /// </summary>
+    public bool TargetLocation { get; init; }
 }
 
 /// <summary>
@@ -152,6 +203,15 @@ public sealed record SystemProfile
     /// race factors. A repair time of zero means the system does not repair.
     /// </summary>
     public required float RepairTime { get; init; }
+
+    /// <summary>
+    /// The <c>&lt;system&gt;SparkTime</c> in seconds: while the system repairs, it throws a repair spark each time its
+    /// spark clock passes this (0x4683d0). 0.5 when the definition does not set it (0x45fbe0).
+    /// </summary>
+    public float SparkTime { get; init; } = 0.5f;
+
+    /// <summary>The <c>&lt;system&gt;TargetHardpoints</c>: the hardpoints a repair spark of the system shows at (0x460f30).</summary>
+    public IReadOnlyList<string> TargetHardpoints { get; init; } = [];
 }
 
 /// <summary>
@@ -211,9 +271,17 @@ public sealed record CombatProfile
     public required float CrewCost { get; init; }
 
     /// <summary>
-    /// The <c>maximumCrew</c>, the base of the crew ratio. When it is missing or zero, the crew cost, at least 1.
+    /// The <c>maximumCrew</c> (the crew cost where missing), the base of the crew ratio. Where that is 0, the crew
+    /// cost, at least 1, as a stand-in.
     /// </summary>
     public required float MaximumCrew { get; init; }
+
+    /// <summary>
+    /// The game's own maximum crew (0x4601d7): the <c>maximumCrew</c>, or the <c>crewCost</c> where it is missing; 0
+    /// where that is 0 (no stand-in). The damage nodes read this one: the game treats a unit whose maximum crew is 0
+    /// as having a crew ratio of 1 (0x467803).
+    /// </summary>
+    public required float DefinedMaximumCrew { get; init; }
 
     /// <summary>
     /// The ship systems with hit points above zero, in the order engines, life support, weapons, shield generator,
@@ -243,6 +311,18 @@ public sealed record CombatProfile
     /// The <c>fireball</c>: the explosion definition, without <c>.odf</c>, the view shows when the unit is destroyed.
     /// </summary>
     public required string Fireball { get; init; }
+
+    /// <summary>
+    /// The <c>isHero</c> flag, false when the key is missing: a hero unit's dying phase lasts 5.0 s however slow it
+    /// is (0x466090).
+    /// </summary>
+    public bool IsHero { get; init; }
+
+    /// <summary>
+    /// The <c>shieldPad</c>: the model units the longest radius of the shield ellipsoid grows by (0x46a74f, 0x46b8f0);
+    /// <see cref="ShieldEllipsoid.DefaultShieldPad"/> when the key is missing.
+    /// </summary>
+    public float ShieldPad { get; init; } = ShieldEllipsoid.DefaultShieldPad;
 
     /// <summary>
     /// The values of the race the definition's <c>race</c> names; stand-in values when the race is missing.

@@ -68,7 +68,7 @@ The picture of a map that the game's menus show, the map's `.bmp` file.
 _Avoid_: minimap, map thumbnail
 
 **Sprite node**
-A sprite that a sprite table attaches to a model node by name. It has a size, a colour, and an animation, and it faces the camera when the table says so. An explosion model holds only sprite nodes.
+A sprite that a sprite table attaches to a model node by name. It has a size, a color, and an animation, and it faces the camera when the table says so. An explosion model holds only sprite nodes.
 _Avoid_: node sprite, attached sprite
 
 **Sprite table**
@@ -111,7 +111,17 @@ _Avoid_: combat ship, armed ship, fighting unit
 **Asteroid field**
 A map object of class `asteroidfield` whose rocks the engine generates from the field's definition. The map
 stores only the field, not the rocks.
-_Avoid_: asteroid belt, rock field
+_Avoid_: rock field
+
+**Asteroid belt**
+An asteroid field whose record in the map names a path of the map of type 3. The path planner costs the squares along
+the path where it costs a plain field's square around the field.
+_Avoid_: asteroid ring
+
+**Nebula**
+A map object whose definition's `classLabel` is `nebula_obj`. Its area is a sphere of `effectRadius` around its
+position, cut by the plane y = 0. A ship with thrust in it flies under the speed cap of the nebula's kind (1 to 5).
+_Avoid_: gas cloud, fog
 
 **Game constants**
 The named values that the install's `RTS_CFG.h` declares, such as the camera heights and the combat plane.
@@ -159,18 +169,41 @@ The player sets it with a key chord.
 _Avoid_: alert level, stance, combat mode
 
 **Attack order**
-An order that names one hostile unit as the target of a unit with weapons. The unit moves toward the target
-until one of its weapons is within that weapon's range of the target's center, measured from the weapon's
-mount point on the model (see `docs/combat-rules.md`, §Firing). Keep-closing past the closing distance is an
-engine stand-in (see `docs/combat-rules.md`, §Attack order). The order ends when the target is destroyed.
+An order that names one hostile unit as the target of a unit with weapons. The unit moves by path toward the
+target until the gap is within its longest non-special weapon range less 50, then fights the **Dogfight** (see
+`docs/rules/combat-rules.md`, §Attack order). A weapon fires from a hardpoint within that weapon's range of the
+target's center (§Firing). The sandbox ends the order when the target is destroyed or dying (a stand-in:
+`docs/rules/combat-rules.md`, §Attack order).
 _Avoid_: attack command, focus fire
 
+**Move order**
+An order that sends a ship to a point of the combat plane. The ship drives to the point and the order ends
+there. It also ends where the ship stands when a forced motion moves the ship while the ship is within its
+physics definition's `tooCloseToTurn` of the point.
+_Avoid_: move command, go order, waypoint
+
+**Group move**
+A move order given to several selected ships at once. The ships are laid on a grid of cells around the
+clicked point, and each ship goes to its own cell, so no two share a point.
+_Avoid_: formation move (the game's optional mode in which followers trail a leader), group order
+
 **Tether point**
-The point an idle unit at red alert stays near. The unit closes on its pick only while its center is within
-300 units of the point, and moves back to it otherwise (see `docs/combat-rules.md`, §Alert stance). A move
-order sets it to the destination, and a recent hit on the unit or a teammate nearby sets it to where the unit
-stands.
+The point an idle unit stays near. A unit at any alert stance that a forced motion leaves at or beyond its
+`tooCloseToTurn` from the point moves back to it. An idle unit at red closes on its pick only while its center
+is within 300 units of the point, and moves back to it otherwise (see `docs/rules/combat-rules.md`, §Alert
+stance). A move order sets it to the destination, and to where the ship stands when the order ends short of
+it; a recent hit on the unit or a teammate nearby sets it to where the unit stands.
 _Avoid_: home, anchor, leash
+
+**Hold**
+What an idle ship with thrust does at every alert stance: it stays near its tether point and drives back to it
+when a forced motion leaves it at or beyond its `tooCloseToTurn` from the point.
+_Avoid_: guard, station-keeping
+
+**Pick**
+The hostile unit that a unit at red or yellow alert stance chooses by itself as its weapons' target. A pick is
+no order: the unit keeps it while it stays valid and within its search radius.
+_Avoid_: auto-target, target lock
 
 **AI team**
 A team the game's own computer player controls, marked by a per-team flag the game sets outside its
@@ -192,8 +225,108 @@ stays on the map until it is destroyed.
 _Avoid_: dead ship, disabled ship, wreck
 
 **Critical hit**
-A hit that lands on no ship system and not on the hull. It destroys the unit.
+A hit that lands on no ship system and not on the hull. It makes the unit a dying unit.
 _Avoid_: core breach, instant kill
+
+**Dying unit**
+A unit that a critical hit has doomed, or that a black hole has swallowed, and that has not yet left the
+map. It fires nothing and is no valid target, and a dying ship coasts. A doomed unit shows small explosions
+until its timer runs out, then its fireball plays and it leaves the map; a swallowed unit's timer is 0, so it
+leaves on the next tick with no fireball and no small explosions.
+_Avoid_: dead unit, destroyed unit, wreck
+
+**Coasting**
+The motion of a ship that has no thrust: a dying unit, a derelict, or a ship whose engines are
+destroyed. It keeps its velocity and its pitch, yaw, and roll rates, and slows down at a fixed rate.
+_Avoid_: drifting, gliding, inertia
+
+**Flight model**
+The game's rules that move a ship: thrust, drag, and servos turn its orders into pitch, bank, and travel,
+from its physics definition. A ship without thrust coasts within it.
+_Avoid_: kinematic model (the retired stand-in), physics engine, flight controller
+
+**Orientation**
+A ship's facing: the game's pitch, yaw, and roll, composed as yaw about up after pitch about the side axis
+after roll about the forward axis. A unit placed by a map starts from the angles the game reads from the
+placed orientation.
+_Avoid_: heading and bank (the retired kinematic model's two angles)
+
+**Path**
+The points a move order steers a ship through, planned around costly and impassable cells of the map. The
+ship aims at a point a fixed lead distance ahead along it. The first point is the ship and the last the goal.
+_Avoid_: route, waypoints, navigation
+
+**Path planner**
+The game's planner of a path (`docs/rules/path-planning.md`): a quadtree of cell costs over the map, written by the
+asteroid fields, belts, nebulae, black holes, and starbases, searched by an A*, and straightened by a funnel. A goal in
+an impassable cell, off the grid, or with no route has no path, and the ship holds.
+_Avoid_: pathfinder, navmesh
+
+**Dogfight**
+How a ship moves while it attacks within the attack's band (the game's dogfight, 0x42c9d0): it drives at its
+target until the target is within its longest non-special weapon range, then levels out and turns to face it while
+nearly still. A Borg ship does not turn; a ship with a target-location weapon turns in place.
+_Avoid_: attack maneuver, attack run, combat movement
+
+**Forced motion**
+Motion that something other than a ship's own thrust gives it: a black hole's pull, a push-out, or a
+collision separation.
+_Avoid_: knockback, impulse, drift
+
+**Black hole**
+A map object that pulls a ship whose engines are destroyed or that is derelict (dying or not) toward its
+center, and swallows every living unit, ship or station, that reaches its event horizon. A dying ship whose
+engines work is not pulled, although it coasts.
+_Avoid_: gravity well, singularity
+
+**Event horizon**
+The circle of a black hole's `EventRadius` in the plane, around its center. A living unit, ship or station,
+whose center lies inside it is swallowed and ends without a fireball. A hole whose `EventRadius` is 0 has none.
+_Avoid_: core, kill radius
+
+**Push-out**
+The move that takes a ship out of an asteroid field or a planet (every ship that is not derelict and
+not dying), or a ship with thrust out of the ring around a black hole, by position alone.
+_Avoid_: bounce, repulsion
+
+**Collision separation**
+The move that takes two overlapping ships apart by position each tick, each by its share of their
+speeds.
+_Avoid_: collision response, bounce, avoidance (avoidance is the unit AI's steering)
+
+**Debris piece**
+One triangle of a unit's model that flies off and tumbles for a short, random time when the unit ends.
+_Avoid_: chunk, shard, wreckage
+
+**Shield hit effect**
+The shield geometry that flashes around a unit for a moment when a hit lands while its shields are up,
+turned toward the hit and colored from red to green by the shields left.
+_Avoid_: shield flash, shield bubble, impact effect
+
+**Shield ellipsoid**
+The axis-aligned ellipsoid around a unit class's model that its shields fill: shots hit where they enter it,
+and the shield hit effect is sized to it.
+_Avoid_: shield bubble, shield sphere
+
+**Shield-down overlay**
+The shield geometry that stays on a unit while its shield generator is destroyed.
+_Avoid_: shield collapse, shield-die effect
+
+**Damage node**
+A node in a ship model's `damage` group that shows wear: a crew node that shows as the crew falls, or a
+system node that shows while its ship system is destroyed. Its sprite nodes and damage emitters run
+only while it shows.
+_Avoid_: damage layer, damage texture, damage decal
+
+**Damage emitter**
+An emitter node under a damage node that sprays short-lived sprites, such as venting plasma or steam,
+by its sprite table's `@emitter` definition.
+_Avoid_: particle system, smoke emitter
+
+**Repair spark**
+The `xspark` sprite that shows for a second at one of a system's target hardpoints, every `<system>SparkTime`
+seconds while the system repairs.
+_Avoid_: damage spark, system spark
 
 **Crew status**
 The state of a unit's crew against its race's crew levels: green, yellow at or below `crewYellowStatus`,
@@ -249,6 +382,12 @@ _Avoid_: map viewer, 3D preview, game mode
 A text file, authored outside the install, that places objects for the map sandbox the way a map does.
 It is not a map: the game cannot load it, and it has no start positions or overview image.
 _Avoid_: scenario, test map, custom map
+
+**Starting state**
+The condition a layout object starts the fight in: its crew and shields as fractions of its class's
+maximum, and its destroyed ship systems. A unit without one, and every unit of a map, starts at full
+strength.
+_Avoid_: initial damage, preset, handicap
 
 **Preview**
 The asset browser's rendering of one asset, showing that its meaning was understood: a model as the game

@@ -1,0 +1,12 @@
+// An asteroid field (the install's mafield, radius 100) between two Federation destroyers on team 1 in an empty area,
+// for play/push-out.play: Near is ordered to a point at the field's edge and is pushed out of it there; Deep is ordered to
+// a point inside the field, which the path planner has no path to, and holds.
+// Run it with: sh tools/play-run.sh push-out --layout layouts/push-out.jsonc --fps 10
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "mafield", "team": 0, "position": [2000, 0, 2000], "label": "Field" },
+    { "class": "fdestroy", "team": 1, "position": [1500, 0, 2000], "label": "Near" },
+    { "class": "fdestroy", "team": 1, "position": [2500, 0, 2000], "label": "Deep" },
+  ],
+}

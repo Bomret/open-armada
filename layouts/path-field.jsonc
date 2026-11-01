@@ -1,0 +1,11 @@
+// An asteroid field (the install's mafield) between a Federation destroyer on team 1 and its goal in an empty area, for
+// play/path-field.play: the planner costs the field's square (an impassable core of half the belt distance 150 x 0.5, in the
+// install 75, with the cells it touches) and the ship flies around it instead of straight through.
+// Run it with: sh tools/play-run.sh path-field --layout layouts/path-field.jsonc --fps 10
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "mafield", "team": 0, "position": [2000, 0, 2000], "label": "Field" },
+    { "class": "fdestroy", "team": 1, "position": [1500, 0, 2000], "label": "Mover" },
+  ],
+}

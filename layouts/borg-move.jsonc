@@ -1,0 +1,7 @@
+// One Borg sphere on team 1 in an empty area, for play/borg-move.play: a ship with Borg physics flies a move order by a 3D
+// velocity command, never pitches or banks, and turns its yaw toward the order's bearing plus a random quarter turn.
+// Run it with: sh tools/play-run.sh borg-move --layout layouts/borg-move.jsonc --fps 10
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [{ "class": "bcruise1", "team": 1, "position": [2000, 0, 2000], "label": "Sphere" }],
+}

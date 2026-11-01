@@ -18,6 +18,7 @@ public partial class UnitSelection : Node3D
     readonly Dictionary<PlacedObject, Node3D> _nodes;
     readonly Dictionary<PlacedObject, SelectableUnit> _units;
     readonly Dictionary<SelectableUnit, (MeshInstance3D Ring, Label Name)> _marks = new();
+    readonly Dictionary<PlacedObject, Aabb> _lastBoxes = new();
     readonly SelectionBox _box = new() { MouseFilter = Control.MouseFilterEnum.Ignore };
     readonly CanvasLayer _layer = new();
     Vector2? _from;
@@ -89,8 +90,12 @@ public partial class UnitSelection : Node3D
         Select(unit != null ? new[] { unit } : Array.Empty<SelectableUnit>());
     }
 
-    /// <summary>Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected.</summary>
-    public void Remove(PlacedObject unit)
+    /// <summary>
+    /// Takes a dying unit out of the selection: it is deselected and no click or box picks it again. Its node stays in
+    /// the scene, and a click on it picks no unit. Its world box, while its node shows a mesh, is kept as the box it
+    /// has once destroyed. A unit that is not a unit of the scene changes nothing.
+    /// </summary>
+    public void Dismiss(PlacedObject unit)
     {
         if (_units.Remove(unit, out var selectable) && _marks.Remove(selectable, out var mark))
         {
@@ -98,10 +103,19 @@ public partial class UnitSelection : Node3D
             mark.Name.QueueFree();
         }
 
+        if (_nodes.TryGetValue(unit, out var node) && Extent(node) is { } box)
+            _lastBoxes[unit] = box;
+    }
+
+    /// <summary>
+    /// Takes a destroyed unit out of the scene: its node is freed and it is no longer picked or selected. Its world box
+    /// of the last frame its node showed a mesh in stays for <see cref="ScreenBoxOf"/>.
+    /// </summary>
+    public void Remove(PlacedObject unit)
+    {
+        Dismiss(unit);
         if (_nodes.Remove(unit, out var node))
-        {
             node.QueueFree();
-        }
     }
 
     /// <summary>
@@ -115,7 +129,7 @@ public partial class UnitSelection : Node3D
             return null;
         var origin = camera.ProjectRayOrigin(at);
         var direction = camera.ProjectRayNormal(at);
-        // ponytail: the box around the model's meshes is the hit shape (a non-unit object holding the camera
+        // simplicity: the box around the model's meshes is the hit shape (a non-unit object holding the camera
         // in its box uses the entry of its bounding sphere, and blocks nothing when the camera is inside the
         // sphere); a mesh-exact pick if overlaps matter
         var hit = BoxSelect.Nearest(
@@ -144,14 +158,19 @@ public partial class UnitSelection : Node3D
     }
 
     /// <summary>
-    /// The unit's screen box in viewport pixels (docs/selection-display.md); null when the unit is gone, has no
-    /// visible mesh, has a corner behind the camera, or lies wholly off screen.
+    /// The unit's screen box in viewport pixels (docs/rules/selection-display.md); null when the unit has no visible
+    /// mesh, has a corner behind the camera, or lies wholly off screen. A dying unit keeps its node and so its box, and a
+    /// dying unit that shows no mesh, or a destroyed unit, has the world box of the last frame it showed a mesh in, seen
+    /// through the current camera.
     /// </summary>
-    public ScreenBox? ScreenBoxOf(SelectableUnit unit)
+    public ScreenBox? ScreenBoxOf(PlacedObject unit)
     {
         var camera = GetViewport().GetCamera3D();
         // stand-in: the box around the model's meshes in world axes; whether the game's box turns with the unit is unknown
-        if (camera == null || !_nodes.TryGetValue(unit.Object, out var node) || Extent(node) is not { } box)
+        var extent =
+            (_nodes.TryGetValue(unit, out var node) ? Extent(node) : null)
+            ?? (_lastBoxes.TryGetValue(unit, out var last) ? last : null);
+        if (camera == null || extent is not { } box)
             return null;
         var corners = Enumerable
             .Range(0, 8)

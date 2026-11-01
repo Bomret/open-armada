@@ -30,10 +30,18 @@ static class CombatFixtures
         string label = "phaser",
         float speed = 100,
         float omega = 1,
-        float seek = 5
+        float seek = 5,
+        bool ignoreShield = false,
+        string shieldGeometry = OrdnanceProfile.DefaultShieldGeometry,
+        float shieldDuration = OrdnanceProfile.DefaultShieldDuration,
+        float size = 1
     ) =>
         new()
         {
+            IgnoreShield = ignoreShield,
+            ShieldGeometryName = shieldGeometry,
+            ShieldDuration = shieldDuration,
+            Size = size,
             ClassLabel = label,
             DamageBase = TargetValue.Of(damage),
             DamageVariance = TargetValue.Of(variance),
@@ -55,10 +63,14 @@ static class CombatFixtures
         bool crewAffects = false,
         int hardpoints = 1,
         float stopModifier = 0,
-        float toHitStopModifier = 0
+        float toHitStopModifier = 0,
+        bool special = false,
+        bool targetLocation = false
     ) =>
         new()
         {
+            Special = special,
+            TargetLocation = targetLocation,
             Slot = 1,
             Name = "w",
             Hardpoints = Enumerable.Range(1, hardpoints).Select(i => $"hp{i}").ToArray(),
@@ -96,6 +108,7 @@ static class CombatFixtures
             ShieldDelay = shieldDelay,
             CrewCost = crew,
             MaximumCrew = maximumCrew,
+            DefinedMaximumCrew = maximumCrew,
             Systems = systems ?? new List<SystemProfile>(),
             HullHitPercent = hull,
             LifeSupportLoss = lifeSupportLoss,
@@ -105,13 +118,16 @@ static class CombatFixtures
             Race = race ?? Race,
         };
 
-    // A ship system: hit points, hit percent, crew loss percent, repair time (seconds for the whole system).
+    // A ship system: hit points, hit percent, crew loss percent, repair time (seconds for the whole system), spark time,
+    // and target hardpoints.
     public static SystemProfile Sys(
         string name,
         float hitPoints = 5,
         float percent = 10,
         float crewLoss = 0,
-        float repairTime = 10
+        float repairTime = 10,
+        float sparkTime = 0.5f,
+        params string[] targetHardpoints
     ) =>
         new()
         {
@@ -120,6 +136,8 @@ static class CombatFixtures
             HitPercent = percent,
             CrewLoss = crewLoss,
             RepairTime = repairTime,
+            SparkTime = sparkTime,
+            TargetHardpoints = targetHardpoints,
         };
 
     public static PlacedObject Placed(string label, int team, float x, float z = 0) =>

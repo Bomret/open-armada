@@ -2,29 +2,36 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using OpenArmada.Formats;
 
 namespace OpenArmada.Sandbox;
 
 /// <summary>
-/// What the combat world asks a unit's motion to do this tick: nothing (leave the motion alone), stop, move to a
-/// point, or turn in place to face one. Points are (X, Z) in the pose source's frame.
+/// What the combat world asks a unit's flight to do this tick: nothing (follow the move order it has, or brake where it
+/// is), brake where it is, move to a point directly or by path, or fight the dogfight at one. Points are (X, Y, Z) in the pose source's frame.
 /// </summary>
 public enum MoveKind
 {
-    /// <summary>Leave the motion alone.</summary>
+    /// <summary>Leave the flight alone: the unit follows the move order it has, or brakes where it is.</summary>
     None,
 
-    /// <summary>Stop where the unit is.</summary>
+    /// <summary>Stop where the unit is: it brakes to rest and levels out.</summary>
     Stop,
 
-    /// <summary>Move to the point.</summary>
+    /// <summary>Move straight to the point.</summary>
     MoveTo,
 
-    /// <summary>Turn in place to face the point.</summary>
-    Face,
+    /// <summary>Move by path to the point: an attack's closing from beyond the replan distance.</summary>
+    Path,
+
+    /// <summary>Fight the dogfight with the target whose origin is the point (<see cref="FlightModel.Dogfight"/>).</summary>
+    Dogfight,
+
+    /// <summary>Turn in place toward the point at no thrust (<see cref="FlightModel.Pivot"/>).</summary>
+    Pivot,
 }
 
-/// <summary>What the combat world asks a unit's motion to do this tick; X and Z are the point for MoveTo and Face.</summary>
+/// <summary>What the combat world asks a unit's flight to do this tick; X, Y, and Z are the point for every kind but None and Stop.</summary>
 public readonly record struct MoveIntent
 {
     /// <summary>What the motion is to do; <c>default</c> holds <see cref="MoveKind.None"/>.</summary>
@@ -32,6 +39,9 @@ public readonly record struct MoveIntent
 
     /// <summary>The point's X in the pose source's frame.</summary>
     public float X { get; init; }
+
+    /// <summary>The point's height.</summary>
+    public float Y { get; init; }
 
     /// <summary>The point's Z in the pose source's frame.</summary>
     public float Z { get; init; }
@@ -74,6 +84,12 @@ public sealed class UnitCombatState(
 
     /// <summary>Whether the unit moves at all: false for stations and ships without a physics definition.</summary>
     public bool Mobile { get; } = mobile;
+
+    /// <summary>The unit class's shield ellipsoid; null for a model that has none.</summary>
+    public ShieldEllipsoid? Shield { get; init; }
+
+    /// <summary>The radius of the unit's model's bounding sphere, which sizes its repair sparks.</summary>
+    public float ModelRadius { get; init; }
 
     /// <summary>The placed object's team.</summary>
     public int Team => Unit.Team;
@@ -149,8 +165,65 @@ public sealed class UnitCombatState(
         }
     }
 
-    /// <summary>Whether the unit cannot move: derelict, or with its engines destroyed.</summary>
-    public bool Immobile => Derelict || SystemDestroyed(SystemNames.Engines);
+    /// <summary>
+    /// Puts the unit in its starting state, in this order: each listed system the unit has is destroyed at 0 hit
+    /// points by <see cref="DestroySystem"/>; the crew is set to the fraction of crewCost exactly, and a crew below
+    /// one makes the unit derelict with crew 0 and shields 0, as a unit derelict from the start is; then the shields
+    /// are set to the fraction of maxHealth. From there the combat rules run unchanged.
+    /// </summary>
+    public void Begin(StartingState start)
+    {
+        // stand-in: a destroyed system costs no crew here, so the starting crew is the fraction exactly; the game
+        // starts every unit at full strength.
+        foreach (var name in start.DestroyedSystems.Where(Systems.ContainsKey))
+        {
+            Systems[name].HitPoints = 0;
+            DestroySystem(name);
+        }
+
+        if (start.Crew is { } crew)
+        {
+            Crew = crew * Profile.CrewCost;
+        }
+
+        if (Crew < 1)
+        {
+            Derelict = true;
+            Crew = 0;
+            Shields = 0;
+
+            return;
+        }
+
+        if (start.Shields is { } shields)
+        {
+            // stand-in: no shield-down timer, so shields of 0 regain from the first tick.
+            Shields = shields * Profile.MaxHealth;
+        }
+    }
+
+    /// <summary>
+    /// Whether the unit has no thrust and no order moves it: derelict, with its engines destroyed, or dying. The one
+    /// place that decides it.
+    /// </summary>
+    public bool Immobile => Derelict || SystemDestroyed(SystemNames.Engines) || Dying;
+
+    /// <summary>Whether the unit coasts (ADR 0008): a unit that moves at all and has no thrust.</summary>
+    public bool Coasting => Mobile && Immobile;
+
+    /// <summary>
+    /// Whether the unit shows the shield-down overlay: its shield generator is destroyed and it is not derelict
+    /// (created 0x467b70, 0x4679b0; removed 0x467e06 when the generator is back, 0x466e7e when the unit turns derelict;
+    /// created again 0x466f07 when the crew recovers while the generator is still offline). One flag, so a unit never
+    /// has more than one overlay.
+    /// </summary>
+    public bool ShieldDownOverlay => !Derelict && SystemDestroyed(SystemNames.ShieldGenerator);
+
+    /// <summary>
+    /// The unit's flight, which the combat world steps on its ticks and takes its orders into; null for a unit
+    /// whose pose something else drives (a station, or a ship without a physics definition).
+    /// </summary>
+    public FlightModel? Motion { get; init; }
 
     /// <summary>The state of each weapon of the profile, in profile order.</summary>
     public List<WeaponState> Weapons { get; } = profile.Weapons.Select(w => new WeaponState(w)).ToList();
@@ -174,10 +247,16 @@ public sealed class UnitCombatState(
     public UnitCombatState? Order { get; set; }
 
     /// <summary>
-    /// Whether the unit's move intent is red's (closing on its pick, or the return to its tether point) and not a
-    /// player's move order.
+    /// Whether the unit's move intent is red's closing on its pick and not a player's move order or the hold's return
+    /// to the tether point (<see cref="Returning"/>).
     /// </summary>
     public bool AutoMove { get; set; }
+
+    /// <summary>
+    /// Whether the unit drives back to its tether point after something moved it farther than its tooCloseToTurn
+    /// from it (the hold, at every alert stance). It ends on reaching the point, or by a push inside the radius.
+    /// </summary>
+    public bool Returning { get; set; }
 
     /// <summary>The point (X, Z) of the player's move order, until the unit arrives; null without one.</summary>
     public (float X, float Z)? PlayerMove { get; set; }
@@ -188,15 +267,65 @@ public sealed class UnitCombatState(
     /// <summary>What the world asks the unit's motion to do; the default leaves the motion alone.</summary>
     public MoveIntent Intent { get; set; }
 
-    /// <summary>Whether a critical hit destroyed the unit; the world then removes it.</summary>
+    /// <summary>The path an attack's closing built; the world ends it when the attack no longer asks for a path move.</summary>
+    public MovePath? AttackPath { get; set; }
+
+    /// <summary>The order list and replanning of the player's move order, until it ends; null without one.</summary>
+    internal PlannedMove? Planned { get; set; }
+
+    /// <summary>The order list and replanning of the attack's path move; null while the attack asks for none.</summary>
+    internal PlannedMove? AttackMove { get; set; }
+
+    /// <summary>
+    /// Whether the unit has left the world: its dying phase ended. A critical hit makes it a dying unit first
+    /// (<see cref="Dying"/>).
+    /// </summary>
     public bool Destroyed { get; set; }
 
     /// <summary>
-    /// The position at the latest Step call, read once per call: the ticks of the call use it, and the next call
-    /// compares it with the new one to tell a stopped unit from a moving one. Null before the first call.
+    /// Whether a critical hit doomed the unit and it has not yet left the world (a dying unit): a dying ship coasts;
+    /// the unit is no valid target, fires, repairs, regains and loses nothing, and its timer runs (0x468990).
+    /// </summary>
+    public bool Dying { get; set; }
+
+    /// <summary>
+    /// The seconds of the dying phase left; each further damaging hit cuts 0.5 s (0x465100). At or below zero the
+    /// unit leaves on the next tick. Meaningful only while <see cref="Dying"/>.
+    /// </summary>
+    public double DyingRemaining { get; set; }
+
+    /// <summary>
+    /// Whether a black hole swallowed the unit (0x450a40 sets its black-hole death flag). A swallowed unit is dying
+    /// with a timer of 0 and ends without a fireball and without small explosions.
+    /// </summary>
+    public bool Swallowed { get; set; }
+
+    /// <summary>The simulated seconds since the last small explosion on the dying unit, kept on the world's ticks.</summary>
+    public double ExplosionClock { get; set; }
+
+    /// <summary>
+    /// The unit's world velocity in units per second: its flight's velocity as of the latest tick, 0 for a unit
+    /// without motion that has not moved. For a unit whose pose something else drives, its position change over
+    /// the latest Step call (stand-in: the world has no motion of it to read).
+    /// </summary>
+    public Vector3 Velocity { get; set; }
+
+    /// <summary>
+    /// The unit's speed: the length of its <see cref="Velocity"/>, which the dying time (0x466090) and the
+    /// to-hit modifiers read. A push changes no speed; the game reads the velocity (+0x140).
+    /// </summary>
+    public double Speed => Velocity.Length();
+
+    /// <summary>
+    /// The unit's position as of the latest tick of its motion, or for a unit without motion the latest Step
+    /// call. Null before the first Step call.
     /// </summary>
     public Vector3? Position { get; set; }
 
-    /// <summary>Whether the unit did not move since the previous Step call (a unit the world has not yet seen is stopped).</summary>
+    /// <summary>
+    /// Whether the unit is stopped: its speed is below 0.1, the game's own rest threshold of the no-thrust brake (squared 0.01,
+    /// 0x459c46). A unit the world has not yet seen is stopped.
+    /// stand-in: the game's test for the to-hit stop modifiers was not traced.
+    /// </summary>
     public bool Stopped { get; set; } = true;
 }

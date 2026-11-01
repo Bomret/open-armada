@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OpenArmada.Sandbox;
 
@@ -23,14 +24,40 @@ public sealed class PlayRun(
     int _next;
 
     /// <summary>
-    /// The problem with a <c>--play</c> launch, or null when it can start: it needs Movie Maker (which forces a
-    /// fixed time step), a <c>--map</c>, and no <c>--screenshot</c>.
+    /// The exit code of a play run whose window was closed before its last step. It is neither 0 nor 1, the codes
+    /// of a run that ended, so the play-run wrapper never stores it as a result.
     /// </summary>
-    public static string? LaunchProblem(bool movieMaker, bool hasMap, bool hasScreenshot) =>
+    public const int ClosedExitCode = 4;
+
+    /// <summary>
+    /// The problem with a <c>--play</c> launch, or null when it can start: it needs Movie Maker (which forces a
+    /// fixed time step), a <c>--map</c> or a <c>--layout</c>, and no <c>--screenshot</c>. Both a map and a layout
+    /// are the launch arguments' own <c>--layout</c>/<c>--map</c> problem, so this rule adds none for them.
+    /// </summary>
+    public static string? LaunchProblem(bool movieMaker, bool hasMap, bool hasLayout, bool hasScreenshot) =>
         !movieMaker ? "--play needs Movie Maker: start with --write-movie and --fixed-fps"
-        : !hasMap ? "--play needs --map"
+        : !hasMap && !hasLayout ? "--play needs --map or --layout"
         : hasScreenshot ? "--play cannot be combined with --screenshot"
         : null;
+
+    /// <summary>
+    /// The problems that stop a <c>--play</c> launch, each one ERROR entry (INV-0005); none means the run starts.
+    /// The launch-argument problems (a flag without a value, such as a bare <c>--game</c>, or <c>--map</c> with
+    /// <c>--layout</c>) are each returned, and then <c>launchProblem</c> (of <see cref="LaunchProblem"/> or
+    /// <see cref="MovieProblem"/>) is left out, so one cause is never two entries. Without them,
+    /// <c>launchProblem</c> is the one problem when there is one. Every entry reads
+    /// <c>play run cannot start: &lt;problem&gt;</c>: its cause is the play run that failed to open, so it is never
+    /// the text of the WARN entry another mode logs for the same launch-argument problem.
+    /// </summary>
+    public static IReadOnlyList<string> LaunchErrors(string? launchProblem, IReadOnlyList<string> argumentProblems)
+    {
+        IReadOnlyList<string> problems =
+            argumentProblems.Count > 0 ? argumentProblems
+            : launchProblem != null ? [launchProblem]
+            : [];
+
+        return problems.Select(problem => $"play run cannot start: {problem}").ToArray();
+    }
 
     /// <summary>
     /// The problem with the Movie Maker output, or null: Movie Maker opens its PNG and WAV files at engine start

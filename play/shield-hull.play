@@ -1,0 +1,37 @@
+# One Klingon warship fires on a sensor station, which has no shields, on kling1; its beam shows the hull hit sprite at
+# the station. Run it with --map kling1; the README, "Run a play script", has the command.
+scroll up 15
+hold Right 1.4
+hold Down 1.6
+wait 0.2
+select Vorcha6
+attack Sensor5
+wait 0.15
+shot hull-1
+wait 0.15
+shot hull-2
+wait 0.15
+shot hull-3
+wait 0.15
+shot hull-4
+wait 0.15
+shot hull-5
+wait 0.15
+shot hull-6
+wait 0.15
+shot hull-7
+wait 0.15
+shot hull-8
+wait 0.15
+shot hull-9
+wait 0.15
+shot hull-10
+wait 0.15
+shot hull-11
+wait 0.15
+shot hull-12
+wait 0.15
+shot hull-13
+wait 0.15
+shot hull-14
+dump after

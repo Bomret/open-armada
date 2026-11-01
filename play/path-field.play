@@ -1,0 +1,32 @@
+# On layouts/path-field.jsonc a Federation destroyer at (1500, 2000) is ordered to (2500, 2000), straight across an
+# asteroid field at (2000, 2000). The game's path planner costs the field as an impassable square of half the belt distance
+# 150 x 0.5 = 75 around its position (the cells it touches reach 50 further) inside a ring of three times the default cost,
+# so the ship does not fly the straight line: its path bends around the square, and the dumps while it passes show its
+# distance from the line z = 2000 beyond the square's reach (more than 125). Across open space the same order is the
+# straight line (play/move.play).
+# Dumps: "start" (0.2 s) shows the ship at its place with move=none; "driving" (3 s) shows it on its way with
+# move=2500.00,-2000.00; "pass1" to "pass5" (20, 25, 30, 35, and 40 s) show it passing the field 190 off the line
+# z = -2000 (the dump's pos= z is the layout z mirrored): at x 2017 in "pass3" its z is -1810.58, and it is never nearer
+# than 125 to the line between x 1925 and 2075; "arrived" (80 s) shows it within 40 of the point with move=none.
+# Run it with --layout layouts/path-field.jsonc; the layout's header comment has the whole command.
+# The point is in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 0.2
+dump start
+select Mover
+wait 0.3
+move 2500 -2000
+wait 2.5
+dump driving
+wait 17
+dump pass1
+wait 5
+dump pass2
+wait 5
+dump pass3
+wait 5
+dump pass4
+wait 5
+dump pass5
+wait 40
+dump arrived
+shot arrived Mover

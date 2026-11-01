@@ -7,13 +7,17 @@ Target audience: LLMs working in this repo. The folder layout is in `README.md` 
 `OpenArmada.<Folder>`, one namespace per folder of `src/`. For example, `OpenArmada.Formats`. Tests use
 `OpenArmada.Tests`.
 
+Namespaces depend in one direction: `OpenArmada.Formats` and `OpenArmada.Assets` never use `OpenArmada.Sandbox`
+or `OpenArmada.Viewer`. A type that both layers need lives in the lower one. For example, `SystemNames` is in
+`OpenArmada.Formats`. `NamespaceTests` fails on a `using` that breaks the rule.
+
 ## Godot boundary
 
-`src/Formats/`, `src/Assets/`, and `src/Sandbox/` are Godot-free. The test project compiles their source
+`src/Formats/`, `src/Assets/`, `src/Sandbox/`, and `src/Diagnostics/` are Godot-free. The test project compiles their source
 files directly, so the tests run without Godot. A `using Godot` in these folders breaks the test build.
 
-- Put logic that needs no engine in a Godot-free folder and test it there. For example, `ShipMotion`
-  computes a pose, and `MoveOrders` in the viewer only applies the pose to a node.
+- Put logic that needs no engine in a Godot-free folder and test it there. For example, `FlightModel`
+  computes a pose, and `UnitOrders` in the viewer only applies the pose to a node.
 - When Godot-free code needs an engine service, pass it in as a delegate. For example,
   `AssetCheck.Run` takes `GodotDecoders.Check` from the viewer.
 - Only `src/Rendering/` and `src/Viewer/` reference Godot.
@@ -98,10 +102,3 @@ The repository holds no bytes from an install (INV-0001). Build every fixture in
 
 - `TempInstall` builds an install in a temporary folder from path and content pairs.
 - `ZfsBuilder`, `BznBuilder`, and `SodBytes` build binary files in their formats.
-
-## Common pitfalls
-
-- Do not split a large class into `partial` files to manage its size. Extract cohesive
-  responsibilities into separate collaborator types instead. A class that derives from a Godot type
-  is `partial` because the Godot source generator requires it. That use is the only exception.
-- Do not hard-code a value that the install defines (INV-0003).

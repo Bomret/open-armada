@@ -101,8 +101,20 @@ public sealed class CombatArt
     const string NoExplosionSound = "explosion names no sound, the destruction is silent";
     const string MissingExplosionSound = "explosion sound missing from the install, it is not played";
     const string NoExplosionModel = "explosion names no model that the install holds, it shows no model";
+    const string MissingSmallExplosion = "small explosion sprite missing from the sprite tables, it is not drawn";
+    const string MissingRepairSpark = "repair spark sprite missing from the sprite tables, repair sparks are not drawn";
     const string MissingHardpoint = "hardpoint missing from the model, its shots leave from the unit's center";
 
+    const string MissingShieldGeometry = "shield geometry missing from the install, its shield hit effect is not shown";
+    const string NotAShieldGeometry =
+        "shieldGeometryName names no model of the game's shield table, its shield hit effect is not shown";
+    const string MissingShieldDownModel = "shield-down model missing from the install, the overlay is not shown";
+    const string MissingHullSprite = "hull hit sprite missing from the sprite tables, a beam on a hull shows none";
+
+    // The shield-down overlay's geometry (0x467b70).
+    const string ShieldDownModelName = "xshlddie";
+
+    readonly HashSet<string> _shieldGeometries = new(StringComparer.OrdinalIgnoreCase);
     readonly GameFileSystem _files;
     readonly Gaps _gaps = new();
     readonly HashSet<string> _unreadable = new(StringComparer.OrdinalIgnoreCase);
@@ -114,8 +126,14 @@ public sealed class CombatArt
     readonly Dictionary<string, Dictionary<string, string>> _nodesOfModel = new(StringComparer.OrdinalIgnoreCase);
     Dictionary<string, (SpriteTable Table, Sprite Sprite)>? _rows;
 
-    // Per model: each node name, matched without regard to case, to the node's offset in the model.
-    readonly Dictionary<string, Dictionary<string, Vector3>> _offsetsOfModel = new(StringComparer.OrdinalIgnoreCase);
+    // Per model: the model as read; null when it cannot be read.
+    readonly Dictionary<string, Sod?> _sodOfModel = new(StringComparer.OrdinalIgnoreCase);
+
+    // Per model, lowercased, and scale: each node name, matched without regard to case, to the node's offset in the
+    // model loaded at that scale (Sod.Scaled).
+    readonly Dictionary<(string Model, float Scale), Dictionary<string, Vector3>> _offsetsOfModel = new();
+
+    readonly Dictionary<string, float> _shieldRadii = new(StringComparer.OrdinalIgnoreCase);
 
     CombatArt(GameFileSystem files) => _files = files;
 
@@ -133,6 +151,16 @@ public sealed class CombatArt
             foreach (var weapon in profile.Weapons)
             {
                 art.ResolveSprite(weapon, unit);
+                if (!weapon.Ordnance.IgnoreShield)
+                {
+                    art.ResolveShieldGeometry(weapon.Ordnance.ShieldGeometryName, unit);
+                }
+
+                if (weapon.Ordnance.ClassLabel == "phaser")
+                {
+                    art.ResolveHullSprite(unit);
+                }
+
                 if (art.ResolveSound(weapon.FireSound, weapon.Name, NoSound, MissingSound, unit))
                 {
                     art._fireSounds.Add(weapon.FireSound);
@@ -145,6 +173,11 @@ public sealed class CombatArt
                         art._gaps.Add(MissingHardpoint, hardpoint, unit);
                     }
                 }
+            }
+
+            if (profile.Systems.Any(s => s.Name == SystemNames.ShieldGenerator))
+            {
+                art.ResolveShieldDownModel(unit);
             }
 
             if (art.ResolveExplosion(profile.Fireball, unit) is { } explosion)
@@ -163,6 +196,54 @@ public sealed class CombatArt
         return art;
     }
 
+    /// <summary>
+    /// Resolves the seven small explosion sprites of a dying unit and of a hit, <c>systemexpl1</c> to <c>systemexpl7</c>, from the
+    /// sprite tables into <see cref="Sprites"/>; <see cref="Sprite"/> gives each. The sprites the tables lack are one
+    /// gap, logged here as one WARN entry, and are skipped (INV-0002). Call it after <see cref="Build"/>.
+    /// </summary>
+    public void AddSmallExplosions()
+    {
+        _rows ??= SpriteArt.Rows(_files);
+        var missing = false;
+        for (var i = 1; i <= 7; i++)
+        {
+            var name = "systemexpl" + i;
+            if (_rows.TryGetValue(name, out var row))
+            {
+                _sprites[name] = SpriteArt.Of(row.Table, row.Sprite);
+            }
+            else
+            {
+                _gaps.Add(MissingSmallExplosion, name);
+                missing = true;
+            }
+        }
+
+        if (missing)
+        {
+            Log.Warn(Area.Combat, _gaps.Entries.Single(r => r.Cause == MissingSmallExplosion).Text);
+        }
+    }
+
+    /// <summary>
+    /// Resolves the repair spark sprite, <see cref="RepairSpark.SpriteName"/>, from the sprite tables into
+    /// <see cref="Sprites"/>; <see cref="Sprite"/> gives it. A sprite the tables lack is a gap, logged here as one WARN
+    /// entry, and no spark is drawn (INV-0002). Call it after <see cref="Build"/>.
+    /// </summary>
+    public void AddRepairSparks()
+    {
+        _rows ??= SpriteArt.Rows(_files);
+        if (_rows.TryGetValue(RepairSpark.SpriteName, out var row))
+        {
+            _sprites[RepairSpark.SpriteName] = SpriteArt.Of(row.Table, row.Sprite);
+
+            return;
+        }
+
+        _gaps.Add(MissingRepairSpark, RepairSpark.SpriteName);
+        Log.Warn(Area.Combat, _gaps.Entries.Single(r => r.Cause == MissingRepairSpark).Text);
+    }
+
     /// <summary>Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.</summary>
     public IEnumerable<SpriteArt> Sprites => _sprites.Values;
 
@@ -175,6 +256,15 @@ public sealed class CombatArt
     /// <summary>Every explosion model the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
     public IEnumerable<string> ExplosionModels =>
         _explosions.Values.Select(e => e.Model).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The shield hit effect geometries the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
+    public IEnumerable<string> ShieldGeometries => _shieldGeometries;
+
+    /// <summary>
+    /// The shield-down overlay model (<c>xshlddie</c>, without <c>.sod</c>) when a unit has a shield generator and
+    /// the install holds it; else null (a gap when a unit needs it).
+    /// </summary>
+    public string? ShieldDownModel { get; private set; }
 
     /// <summary>The shot sprite of an ordnance's <c>Sprite</c> name; null when it is missing (a gap).</summary>
     public SpriteArt? Sprite(string name) => _sprites.GetValueOrDefault(name);
@@ -196,7 +286,7 @@ public sealed class CombatArt
     public Vector3 HardpointPosition(PlacedObject unit, string name, ShipPose pose)
     {
         // stand-in: a hardpoint the model lacks, or a model that cannot be read, sits at the unit's center.
-        var offset = OffsetsOf(unit.Model).GetValueOrDefault(name);
+        var offset = OffsetsOf(unit.Model, unit.Scale).GetValueOrDefault(name);
 
         return HardpointGeometry.WorldPosition(unit, pose, offset);
     }
@@ -214,6 +304,23 @@ public sealed class CombatArt
         Log.Error(Area.Combat, $"{kind} {name}: {reason}");
     }
 
+    /// <summary>
+    /// The bounding radius of a shield effect geometry (ShieldEllipsoid.BoundingRadius), which the effect divides the
+    /// ellipsoid's radii by (0x516540); 0 for a geometry that cannot be read.
+    /// </summary>
+    public float ShieldGeometryRadius(string name)
+    {
+        if (!_shieldRadii.TryGetValue(name, out var radius))
+        {
+            Load(name);
+            _shieldRadii[name] = radius = _sodOfModel.GetValueOrDefault(name) is { } sod
+                ? ShieldEllipsoid.BoundingRadius(sod, ShieldEllipsoid.SpriteNodeLines(_files))
+                : 0;
+        }
+
+        return radius;
+    }
+
     /// <summary>The gaps found by <see cref="Build"/> and <see cref="Report"/>, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports => _gaps.Entries;
 
@@ -225,28 +332,34 @@ public sealed class CombatArt
         return _nodesOfModel[model];
     }
 
-    // The offsets of a model's nodes by name; none when the model cannot be read.
-    Dictionary<string, Vector3> OffsetsOf(string model)
+    // The offsets of a model's nodes by name, the model loaded at the scale; none when the model cannot be read.
+    Dictionary<string, Vector3> OffsetsOf(string model, float scale)
     {
         Load(model);
+        var key = (model.ToLowerInvariant(), scale);
+        if (!_offsetsOfModel.TryGetValue(key, out var offsets))
+        {
+            _offsetsOfModel[key] = offsets = _sodOfModel[model] is { } sod
+                ? HardpointGeometry.Offsets(sod.Scaled(scale))
+                : new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
+        }
 
-        return _offsetsOfModel[model];
+        return offsets;
     }
 
-    // Reads a model once, filling both per-model caches.
+    // Reads a model once, filling the per-model caches.
     void Load(string model)
     {
         if (_nodesOfModel.ContainsKey(model))
             return;
 
         var nodes = _nodesOfModel[model] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        _offsetsOfModel[model] = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
+        _sodOfModel[model] = null;
         try
         {
-            var sod = Sod.Read(_files.ReadAllBytes(model + ".sod"));
+            var sod = _sodOfModel[model] = Sod.Read(_files.ReadAllBytes(model + ".sod"));
             foreach (var node in sod.Nodes)
                 nodes.TryAdd(node.Name, NodeName.Of(node.Name));
-            _offsetsOfModel[model] = HardpointGeometry.Offsets(sod);
         }
         catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
     }
@@ -270,6 +383,50 @@ public sealed class CombatArt
         }
 
         _sprites[name] = SpriteArt.Of(row.Table, row.Sprite);
+    }
+
+    // The shield hit effect geometry of an ordnance: listed when it is in the game's table and the install holds it,
+    // else a gap with its name. stand-in: a name outside the table shows no effect; the game reads before its table.
+    void ResolveShieldGeometry(string name, PlacedObject unit)
+    {
+        if (!OrdnanceProfile.ShieldGeometries.Contains(name, StringComparer.OrdinalIgnoreCase))
+        {
+            _gaps.Add(NotAShieldGeometry, name, unit);
+        }
+        else if (_files.Find(name + ".sod") == null)
+        {
+            _gaps.Add(MissingShieldGeometry, name, unit);
+        }
+        else
+        {
+            _shieldGeometries.Add(name);
+        }
+    }
+
+    void ResolveShieldDownModel(PlacedObject unit)
+    {
+        if (_files.Find(ShieldDownModelName + ".sod") == null)
+        {
+            _gaps.Add(MissingShieldDownModel, ShieldDownModelName, unit);
+        }
+        else
+        {
+            ShieldDownModel = ShieldDownModelName;
+        }
+    }
+
+    // The hull hit sprite a beam shows on a target without shields: resolved like a shot sprite.
+    void ResolveHullSprite(PlacedObject unit)
+    {
+        _rows ??= SpriteArt.Rows(_files);
+        if (_rows.TryGetValue(HullHitSprite.SpriteName, out var row))
+        {
+            _sprites[HullHitSprite.SpriteName] = SpriteArt.Of(row.Table, row.Sprite);
+        }
+        else
+        {
+            _gaps.Add(MissingHullSprite, HullHitSprite.SpriteName, unit);
+        }
     }
 
     // Whether the install holds the sound; else a gap, `none` for an empty name and `missing` for a name it lacks.

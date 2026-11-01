@@ -1,0 +1,10 @@
+// Two Federation destroyers on team 1, 100 units apart at the centre, for play/damage.play: the left one starts with
+// a tenth of its crew (four crew nodes show against a crew yellow status of 0.5), the right one with its full crew.
+// Run it with: sh tools/play-run.sh damage --layout layouts/damage.jsonc --fps 10
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "fdestroy", "team": 1, "position": [1950, 0, 2000], "label": "Low", "crew": 0.1 },
+    { "class": "fdestroy", "team": 1, "position": [2050, 0, 2000], "label": "Full" },
+  ],
+}

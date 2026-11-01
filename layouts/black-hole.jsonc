@@ -1,0 +1,23 @@
+// A black hole (the install's mblkhole: gravity radius 450, event radius 70, 70 below the plane) with two Federation
+// destroyers on team 1 in an empty area, for play/black-hole.play: Drifter has its engines destroyed and is derelict
+// (crew 0, so its engines cannot repair, as they would in 3.7 s with a crew), starts 470 from the hole's center, outside
+// its gravity radius, with a starting velocity along +X that is 50 degrees off the direction to the hole; it coasts into
+// the radius at about 1.7 s, is pulled, curves toward the hole, and is swallowed at about 20.8 s; Driver has thrust and
+// is ordered to the hole's center, which the path planner has no path to (the hole's square is impassable), and holds.
+// Run it with: sh tools/play-run.sh black-hole --layout layouts/black-hole.jsonc --fps 10
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "mblkhole", "team": 0, "position": [2000, 0, 2000], "label": "Hole" },
+    {
+      "class": "fdestroy",
+      "team": 1,
+      "position": [1701, 0, 2356],
+      "label": "Drifter",
+      "crew": 0,
+      "destroyedSystems": ["Engines"],
+      "velocity": [20, 0, 0],
+    },
+    { "class": "fdestroy", "team": 1, "position": [2500, 0, 2000], "label": "Driver" },
+  ],
+}

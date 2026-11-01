@@ -7,9 +7,10 @@ format notes.
 ## Where to read
 
 - Domain terms: `CONTEXT.md`.
-- Combat rules and their recovered values: `docs/combat-rules.md`.
+- Combat rules and their recovered values: `docs/rules/combat-rules.md`; the rules of single mechanics in `docs/rules/`.
 - The built-in maps, their teams, and which ones start with warships on two teams: `docs/maps.md` for the stock 1.2 install. On any other install, pick a sandbox test map from the `--maps` run (`README.md`, "Summarize the maps of an install").
-- How the game draws a unit's status in the world: `docs/selection-display.md`.
+- How the game draws a unit's status in the world: `docs/rules/selection-display.md`.
+- Where a function, rule, class, or ODF key lives in `Armada.exe`: `docs/rules/program-index.md`.
 - Decisions: `docs/adr/`. Invariants: `docs/invariants.md`.
 - Source layout, controls, the asset check, how to open a layout, and how to run a play script: `README.md`.
 - The log of a run: `godot.log` in Godot's user-data folder; its path per system, entry format, levels, and areas are in `README.md`, "Read the log". The asset check's report appears there and on standard output. After a run, read its `WARN` and `ERROR` entries first.
@@ -19,14 +20,30 @@ format notes.
 
 The path of the local Armada 1.2 install is in `CLAUDE.local.md`, a gitignored file per checkout.
 Read it there, and ask the user for the path when the file is missing. The 1.2 `Armada.exe` has
-the SHA-256 that `docs/combat-rules.md` cites.
+the SHA-256 that `docs/rules/combat-rules.md` cites.
 
-Investigate the game's logic and rules in the `Armada.exe` of that install with REA (the
-`reverse-engineer-anything` skill and the `rea` MCP tools) before you build a rule. Do not guess a
+Investigate the game's logic and rules in the `Armada.exe` of that install before you build a rule. Start
+with `docs/rules/program-index.md`, then read the local dump in `decomp/armada/dump/`, every time. Confirm
+unclear pseudocode against the instructions, in Ghidra on the saved project `decomp/armada/project/` or with
+a disassembler such as `objdump`. `tools/GhidraDump/README.md` says when to use REA (the
+`reverse-engineer-anything` skill and the `rea` MCP tools), how findings reach the project, when a dump run
+is due (it needs the user's yes), and how to build the project and the dump when `decomp/` is missing. After
+an investigation, add or update its routines in the index's topic tables, narrow its Unexplored line, and
+rebuild the index's generated sections (`tools/GhidraDump/README.md`, "Rebuild the program index"), in the
+same commit as the rule note. Do not guess a
 rule or copy one from a fan source. Record each recovered rule in our own words with its address as evidence (ADR 0004,
 INV-0001). Mark a rule that the program does not confirm as **inferred** or **stand-in**.
 
+Write each recovered rule to the file in `docs/rules/` that matches its mechanic, for example a shield effect rule
+to `docs/rules/shield-effects.md`. When no file matches, add one named for the mechanic in kebab case, with the
+header of `docs/rules/shield-effects.md`: a title, the source `Armada.exe` and its SHA-256, and the evidence and
+marking rules.
+
 ## Agent skills
+
+ADR and INV numbers in the superdev seed files of `docs/agents/` (`deployment.md`, `code-management.md`,
+`documentation.md`, `issue-tracker.md`, `knowledge-base.md`) refer to superdev's own records, not to
+`docs/adr/` or `docs/invariants.md`.
 
 ### Slice store
 Codeberg Issues on `bomret/open-armada`, through the `tea` login for `https://codeberg.org`. See `docs/agents/issue-tracker.md`.
@@ -47,7 +64,7 @@ C# style rules in `docs/agents/CODING.md`; the patterns this repo uses in `docs/
 .NET SDK 10 (net8.0) and Godot 4.7.2 .NET; build with `dotnet build OpenArmada.csproj`. Format with CSharpier 1.3.0, a local tool, through `dotnet csharpier format .`. See `docs/agents/toolchain.md`.
 
 ### Verification
-Full: format check, unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: unit tests. Arms the merge green-gate. The first `dotnet tool restore` needs NuGet access. Sandbox Definition-of-Done lines about what a player sees or hears are verified with a play run, whose frames and WAV the agent judges itself. See `docs/agents/verification.md`, which also names the exception.
+Full: format check, unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: the unit tests the changed paths need. The first `dotnet tool restore` needs NuGet access. Sandbox Definition-of-Done lines about what a player sees or hears are verified with a play run, whose frames and WAV the agent judges itself. See `docs/agents/verification.md`, which also names the exception.
 
 ### Deployment
-Posture `manual`, no targets yet. See `docs/agents/deployment.md`.
+Posture `manual`, no targets. See `docs/agents/deployment.md`.

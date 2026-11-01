@@ -5,22 +5,26 @@ using OpenArmada.Rendering;
 
 namespace OpenArmada.Viewer;
 
-/// <summary>A model in its own 3D viewport. Drag to orbit, wheel to zoom.</summary>
+/// <summary>A model in its own 3D viewport. Drag or two-finger swipe to orbit, wheel or pinch to zoom.</summary>
 public partial class ModelPreviewPane : SubViewportContainer
 {
     readonly Node3D _model;
+    readonly Node3D? _world;
     readonly Camera3D _camera = new() { Far = 10000 };
     float _yaw = 0.6f,
         _pitch = -0.35f,
-        _distance;
+        _distance,
+        _framed;
 
     /// <summary>
     /// Keeps <c>model</c> for <see cref="_Ready"/>, which adds it to the pane's own SubViewport with a camera, a light,
-    /// and an environment, and moves it so the box of its visible meshes is centered on the origin.
+    /// and an environment, and moves it so the box of its visible meshes is centered on the origin. <c>world</c>, when
+    /// given, joins the viewport at its origin, for what draws in world space such as damage sprays.
     /// </summary>
-    public ModelPreviewPane(Node3D model)
+    public ModelPreviewPane(Node3D model, Node3D? world = null)
     {
         _model = model;
+        _world = world;
         Stretch = true;
         SizeFlagsHorizontal = SizeFlags.ExpandFill;
         SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -46,9 +50,13 @@ public partial class ModelPreviewPane : SubViewportContainer
         view.AddChild(new DirectionalLight3D { RotationDegrees = new Vector3(-40, -30, 0) });
         view.AddChild(_camera);
         view.AddChild(_model);
+        if (_world != null)
+        {
+            view.AddChild(_world);
+        }
         var bounds = Bounds(_model);
         _model.Position = -bounds.GetCenter();
-        _distance = Math.Max(bounds.Size.Length() * 0.6f, 1f);
+        _distance = _framed = Math.Max(bounds.Size.Length() * 0.6f, 1f);
         UpdateCamera();
     }
 
@@ -77,6 +85,8 @@ public partial class ModelPreviewPane : SubViewportContainer
             -Mathf.Sin(_pitch),
             Mathf.Cos(_yaw) * Mathf.Cos(_pitch)
         );
+        // Zoom stays between a tenth and ten times the distance that frames the model.
+        _distance = Math.Clamp(_distance, _framed * 0.1f, _framed * 10f);
         _camera.Position = dir * _distance;
         _camera.LookAt(Vector3.Zero);
     }
@@ -99,6 +109,17 @@ public partial class ModelPreviewPane : SubViewportContainer
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelDown }:
                 _distance *= 1.1f;
+                UpdateCamera();
+
+                break;
+            case InputEventPanGesture p:
+                _yaw -= p.Delta.X * 0.05f;
+                _pitch = Math.Clamp(_pitch - p.Delta.Y * 0.05f, -1.5f, 1.5f);
+                UpdateCamera();
+
+                break;
+            case InputEventMagnifyGesture g when g.Factor > 0:
+                _distance /= g.Factor;
                 UpdateCamera();
 
                 break;

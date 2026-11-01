@@ -151,12 +151,34 @@ public sealed record AsteroidField
 
     const string MissingKey = "asteroid field value missing or not a number, fields skipped";
     const string MinAboveMax = "asteroid field minimum above maximum, fields skipped";
-    const string BadRadius = "asteroid field radius not above 0, fields skipped";
+    const string BadRadius = "asteroid field radius not a finite number above 0, fields skipped";
+    const string BadCollisionRadius = "asteroid field collisionRadius is no number, the field radius used";
     const string BadCount = "asteroid field count negative or above the bound, fields skipped";
 
     // stand-in: the largest rock count of one field the sandbox plans (the game's limit is not known; 4mama's fields
     // hold up to 4,800 rocks together), which keeps a bad value from allocating without bound.
     const int MaxRocksPerField = 20000;
+
+    // The field definition's collisionRadius (class +0x170, 0x46a470) where it is a number above 0, else 0. stand-in: a
+    // field without one is predicted at its field radius; the game falls back to the model radius, which a field's
+    // object has not been traced to.
+    // A value that is no number is reported (once per class) and counts as 0; one that is a number but not above 0
+    // counts as 0 without a report. stand-in: a non-finite value (infinity, or beyond a float's range) is no number to
+    // the definition reader and is reported so, where the game accepts infinity; flight must stay finite.
+    static float CollisionRadius(ResolvedDefinition d, Gaps gaps, object field)
+    {
+        try
+        {
+            return d.Has("collisionRadius") ? AvoidanceTraits.Usable(d.GetFloat("collisionRadius")) : 0;
+        }
+        catch (DefinitionException)
+        {
+            gaps.Add(BadCollisionRadius, d.Name, field);
+
+            return 0;
+        }
+    }
+
     const string MissingModel = "asteroid model missing, the others used";
     const string NoModel = "no asteroid model left, fields skipped";
 
@@ -164,16 +186,19 @@ public sealed record AsteroidField
     /// The fields of the map, each from its definition (a class whose classLabel is asteroidfield), and the gaps
     /// found: a field with a missing or illegal value is reported and left out, a missing model is reported and
     /// the rest used (INV-0002). Reports are grouped by cause; the count is the number of fields the cause touches.
+    /// The obstacles are the spheres the fields push ships out of: every field whose radius is read, above 0, and
+    /// finite, whether or not its rocks can be drawn.
     /// </summary>
-    public static (IReadOnlyList<AsteroidField> Fields, IReadOnlyList<ReportEntry> Reports) Collect(
-        BznMap map,
-        IReadOnlyDictionary<string, ResolvedDefinition> definitions,
-        Func<string, bool> hasModel
-    )
+    public static (
+        IReadOnlyList<AsteroidField> Fields,
+        IReadOnlyList<ReportEntry> Reports,
+        IReadOnlyList<Obstacle> Obstacles
+    ) Collect(BznMap map, IReadOnlyDictionary<string, ResolvedDefinition> definitions, Func<string, bool> hasModel)
     {
         var gaps = new Gaps();
         var present = ModelNames.Where(hasModel).ToList();
         var fields = new List<AsteroidField>();
+        var obstacles = new List<Obstacle>();
         foreach (var o in map.Objects)
         {
             if (
@@ -204,6 +229,13 @@ public sealed record AsteroidField
             var radius = Read("fieldRadius", d.GetFloat);
             var spin = Read("rotationSpeed", d.GetFloat);
             var orbit = Read("orbitingSpeed", d.GetFloat);
+            var center = new Vector3(o.Position.X, o.Position.Y, -o.Position.Z);
+            var radiusUsable = radius > 0 && float.IsFinite(radius);
+            if (radiusUsable)
+            {
+                obstacles.Add(new Obstacle(center, radius, true, CollisionRadius(d, gaps, o)));
+            }
+
             if (bad)
                 continue;
             if (min < 0 || max < 0 || max > MaxRocksPerField)
@@ -220,7 +252,7 @@ public sealed record AsteroidField
                 continue;
             }
 
-            if (!(radius > 0))
+            if (!radiusUsable)
             {
                 gaps.Add(BadRadius, o.Class, o);
 
@@ -242,7 +274,7 @@ public sealed record AsteroidField
             fields.Add(
                 new AsteroidField
                 {
-                    Center = new Vector3(o.Position.X, o.Position.Y, -o.Position.Z),
+                    Center = center,
                     Min = min,
                     Max = max,
                     Radius = radius,
@@ -254,7 +286,7 @@ public sealed record AsteroidField
             );
         }
 
-        return (fields, gaps.Entries);
+        return (fields, gaps.Entries, obstacles);
     }
 
     // The seed of a field: FNV-1a over the map's own content (its description, mission file, terrain name, and

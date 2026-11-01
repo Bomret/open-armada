@@ -15,7 +15,8 @@ namespace OpenArmada.Sandbox;
 /// Each gap is logged once per cause as a WARN; a definition or constants file that exists but cannot be read is
 /// logged instead as one ERROR per file, with its name and reason (INV-0005, INV-0002).
 /// A value the install lacks takes a stand-in (INV-0003) and is reported when the rules need it; no profile value is
-/// a non-number. MaximumCrew is above zero: a maximumCrew missing or 0 takes the stand-in crewCost, at least 1.
+/// a non-number. MaximumCrew is above zero: a maximumCrew missing defaults to the crewCost as in the game, and a
+/// maximum of 0 takes the stand-in crewCost, at least 1.
 /// </summary>
 public sealed class CombatPlan
 {
@@ -37,6 +38,34 @@ public sealed class CombatPlan
     /// </summary>
     public float SystemHitpointsBonus { get; }
 
+    /// <summary>
+    /// The limits on a unit's debris pieces: the <c>ST3D_CHUNK_*</c> values of ART_CFG.h, which the install's RTS_CFG.h
+    /// includes. A missing file or key takes the game's compiled default and is reported.
+    /// </summary>
+    public DebrisLimits Debris { get; private init; } = DebrisLimits.Default;
+
+    /// <summary>The game's compiled default of <c>FORMATION_SPACING</c> (the 40.0 at 0x5fbc20).</summary>
+    const float DefaultFormationSpacing = 40;
+
+    /// <summary>
+    /// <c>FORMATION_SPACING</c> of RTS_CFG.h: the distance between the cells of a group move's grid. A missing, non-numeric,
+    /// or not positive value takes <see cref="DefaultFormationSpacing"/> and is reported.
+    /// </summary>
+    public float FormationSpacing { get; private init; } = DefaultFormationSpacing;
+
+    /// <summary>
+    /// <c>MAX_PREVENTION_ROTATION</c>: the largest angle of a collision turn, in radians; the game's compiled default
+    /// 0.4 where the install's RTS_CFG.h gives none (reported).
+    /// </summary>
+    public float MaxPreventionRotation { get; private init; } = CombatWorld.DefaultMaxPreventionRotation;
+
+    /// <summary>
+    /// <c>OBSTACLE_AVOIDANCE</c>, <c>COLLISION_LOOK_AHEAD_TIME</c>, and <c>COLLISION_SAFETY_MARGIN</c> of RTS_CFG.h. A
+    /// missing or non-numeric key takes the game's compiled default (<see cref="AvoidanceKeys.Game"/>) and is reported;
+    /// a missing RTS_CFG.h takes all three without a report of their own (the header's is).
+    /// </summary>
+    public AvoidanceKeys Avoidance { get; private init; } = AvoidanceKeys.Stock;
+
     CombatPlan(
         IReadOnlyDictionary<PlacedObject, CombatProfile> profiles,
         IReadOnlyList<ReportEntry> reports,
@@ -53,17 +82,26 @@ public sealed class CombatPlan
     /// <summary>
     /// Reads the profile of every unit whose class <c>plan</c> resolved; other units get none. Each class is read
     /// once, and its gaps are reported for every unit of it. A missing or unreadable RTS_CFG.h, definition, or value
-    /// is a gap with a stand-in.
+    /// is a gap with a stand-in. A unit can move as <see cref="CombatUnit.Mobile"/> says: a Movable ship whose
+    /// physics definition <c>move</c> read; a starting velocity on any other unit is a gap.
     /// </summary>
-    public static CombatPlan Build(GameFileSystem files, SandboxPlan plan, IEnumerable<SelectableUnit> units)
+    public static CombatPlan Build(
+        GameFileSystem files,
+        SandboxPlan plan,
+        IEnumerable<SelectableUnit> units,
+        MovePlan move
+    )
     {
         var gaps = new Gaps();
-        var (protection, bonus) = ReadConstants(files, gaps);
+        var (protection, bonus, spacing, prevention, rts) = ReadConstants(files, gaps);
+        var debris = ReadDebris(files, rts, gaps);
+        var avoidance = ReadAvoidance(rts, gaps);
         var reader = new ProfileReader(files);
         var byClass = new Dictionary<string, (CombatProfile Profile, List<(string Cause, string Name)> Gaps)>(
             StringComparer.OrdinalIgnoreCase
         );
         var profiles = new Dictionary<PlacedObject, CombatProfile>(ReferenceEqualityComparer.Instance);
+        var ships = new HashSet<PlacedObject>(ReferenceEqualityComparer.Instance); // the units that can move
         foreach (var u in units)
         {
             if (!plan.Resolved.TryGetValue(u.Object.Class, out var definition))
@@ -76,10 +114,20 @@ public sealed class CombatPlan
             }
 
             profiles[u.Object] = read.Profile;
+            if (u.Unit is Ship && u.Movable && move.Physics.ContainsKey(u.Object))
+            {
+                ships.Add(u.Object);
+            }
+
             foreach (var (cause, name) in read.Gaps)
             {
                 gaps.Add(cause, name, u.Object);
             }
+        }
+
+        foreach (var (o, profile) in profiles)
+        {
+            StartGaps(o, profile, ships.Contains(o), gaps);
         }
 
         // The plan is complete: each grouped report is one WARN, the same text as its on-screen line. A definition
@@ -90,7 +138,72 @@ public sealed class CombatPlan
             Log.Warn(Area.Combat, report.Text);
         }
 
-        return new CombatPlan(profiles, reports, protection, bonus);
+        return new CombatPlan(profiles, reports, protection, bonus)
+        {
+            Debris = debris,
+            FormationSpacing = spacing,
+            MaxPreventionRotation = prevention,
+            Avoidance = avoidance,
+        };
+    }
+
+    // The avoidance keys of the parsed RTS_CFG.h: a key it lacks, or gives as no finite number, takes the game's compiled
+    // default and is reported once. A null header (reported by ReadConstants) gives the defaults.
+    static AvoidanceKeys ReadAvoidance(GameConstants? constants, Gaps gaps)
+    {
+        var game = AvoidanceKeys.Game;
+        if (constants == null)
+            return game;
+        float Key(string name, float fallback)
+        {
+            if (constants.TryNumber(name, out var v, out _) && float.IsFinite((float)v))
+                return (float)v;
+            gaps.Add($"game constant {name} missing or no number, the game's default {Text(fallback)} used", name);
+
+            return fallback;
+        }
+
+        var enabled = Key("OBSTACLE_AVOIDANCE", 1) != 0;
+
+        return new AvoidanceKeys(
+            enabled,
+            Key("COLLISION_LOOK_AHEAD_TIME", game.LookAheadTime),
+            Key("COLLISION_SAFETY_MARGIN", game.SafetyMargin)
+        );
+    }
+
+    // The parts of a unit's starting state the unit cannot take, each a gap naming the object.
+    static void StartGaps(PlacedObject o, CombatProfile profile, bool mobile, Gaps gaps)
+    {
+        if (o.Start is not { } start)
+            return;
+        var who = $"{o.Label} ({o.Class})";
+        if (start.Velocity != null)
+        {
+            // a unit coasts only without thrust: its crew below one (derelict), or its engines destroyed
+            var engines =
+                start.DestroyedSystems.Contains(SystemNames.Engines)
+                && profile.Systems.Any(s => s.Name == SystemNames.Engines && s.HitPoints > 0);
+            var derelict = (start.Crew ?? 1) * profile.CrewCost < 1;
+            if (!mobile)
+            {
+                gaps.Add("velocity on a unit that cannot move, left unused", who, o);
+            }
+            else if (!engines && !derelict)
+            {
+                gaps.Add("velocity on a unit with thrust, left unused", who, o);
+            }
+        }
+
+        foreach (var name in start.DestroyedSystems.Where(n => profile.Systems.All(s => s.Name != n)))
+        {
+            gaps.Add("destroyed system the class does not have, left out", $"{who}: {name}", o);
+        }
+
+        if (start.Shields > 0 && (start.Crew ?? 1) * profile.CrewCost < 1)
+        {
+            gaps.Add("shields on a unit that starts derelict, shields 0 used", who, o);
+        }
     }
 
     // Marks the causes of an asset that failed to load; each is logged as one ERROR at the failure site.
@@ -99,7 +212,11 @@ public sealed class CombatPlan
     // An asset that failed to load: INV-0005 (ERROR), INV-0002 (name and reason). Called once per asset.
     static void Failed(string asset, Exception e) => Log.Error(Area.Combat, $"{asset}: {e.Message}");
 
-    static (float Protection, float Bonus) ReadConstants(GameFileSystem files, Gaps gaps)
+    // The parsed RTS_CFG.h comes back too, null where it is missing or cannot be read (reported here).
+    static (float Protection, float Bonus, float Spacing, float Prevention, GameConstants? Parsed) ReadConstants(
+        GameFileSystem files,
+        Gaps gaps
+    )
     {
         GameConstants? constants = null;
         try
@@ -130,9 +247,98 @@ public sealed class CombatPlan
             return standIn;
         }
 
+        // stand-in: the game's compiled default (0x5fbc20 before RTS_CFG.h is read), where the install's RTS_CFG.h gives
+        // none or gives one that is no finite number above 0.
+        var spacing = Constant("FORMATION_SPACING", DefaultFormationSpacing);
+        if (!(float.IsFinite(spacing) && spacing > 0))
+        {
+            gaps.Add(
+                $"game constant FORMATION_SPACING is no finite number above 0, stand-in {Text(DefaultFormationSpacing)} used",
+                "FORMATION_SPACING"
+            );
+            spacing = DefaultFormationSpacing;
+        }
+
         // stand-in: no protection by the shields (the whole damage hurts the shields) and no bonus to system hit
         // points, where the install's RTS_CFG.h gives neither.
-        return (Constant("SHIELD_DAMAGE_PROTECTION", 1), Constant("SYSTEM_HITPOINTS_BONUS", 0));
+        // MAX_PREVENTION_ROTATION (0x4453f0): the game's compiled default is 0.4 where the install gives none.
+        return (
+            Constant("SHIELD_DAMAGE_PROTECTION", 1),
+            Constant("SYSTEM_HITPOINTS_BONUS", 0),
+            spacing,
+            Constant("MAX_PREVENTION_ROTATION", CombatWorld.DefaultMaxPreventionRotation),
+            constants
+        );
+    }
+
+    const string ArtFileName = "ART_CFG.h";
+
+    // The debris limits of ART_CFG.h, reached through the #include of the parsed RTS_CFG.h. An RTS_CFG.h that is null
+    // (missing or unreadable, reported by ReadConstants) gives the game's compiled defaults; so is every limit the
+    // install lacks, each reported. An RTS_CFG.h that includes no ART_CFG.h counts as a missing ART_CFG.h.
+    static DebrisLimits ReadDebris(GameFileSystem files, GameConstants? rts, Gaps gaps)
+    {
+        var defaults = DebrisLimits.Default;
+        if (rts == null)
+            return defaults;
+
+        var name = rts.Includes.FirstOrDefault(i => i.Equals(ArtFileName, StringComparison.OrdinalIgnoreCase));
+        GameConstants art;
+        try
+        {
+            if (name == null)
+                throw new System.IO.FileNotFoundException($"{GameConstantsKind.FileName} includes no {ArtFileName}");
+            art = GameConstants.Read(name, files.ReadAllBytes(name));
+        }
+        catch (Exception e) // a header that is missing or cannot be read is a gap, whatever the reason (INV-0002)
+        {
+            if (Log.IsAbsent(e))
+            {
+                gaps.Add($"{ArtFileName} missing, the game's defaults used for its debris limits", e.Message);
+            }
+            else
+            {
+                Failed(ArtFileName, e);
+                gaps.Add($"{ArtFileName} {CannotBeRead}, the game's defaults used for its debris limits", e.Message);
+            }
+
+            return defaults;
+        }
+
+        // A limit that is no finite float counts as missing; one above `most` is reported and takes `most`.
+        float Limit(string key, float standIn, float most = float.MaxValue)
+        {
+            if (!art.TryNumber(key, out var v, out _) || !float.IsFinite((float)v))
+            {
+                gaps.Add(
+                    $"game constant {key} missing or no finite number, the game's default {Text(standIn)} used",
+                    key
+                );
+
+                return standIn;
+            }
+
+            if ((float)v > most)
+            {
+                gaps.Add(
+                    $"game constant {key} {Text((float)v)} above the most the sandbox takes, {Text(most)} used",
+                    key
+                );
+
+                return most;
+            }
+
+            return (float)v;
+        }
+
+        return new DebrisLimits
+        {
+            MaxChunks = (int)Limit("ST3D_CHUNK_MANAGER_MAX_CHUNKS", defaults.MaxChunks, DebrisLimits.MostChunks),
+            Density = Limit("ST3D_CHUNK_DENSITY", defaults.Density, DebrisLimits.MostDensity),
+            MaxLifetime = Limit("ST3D_CHUNK_MAX_LIFETIME", defaults.MaxLifetime),
+            MaxAngularVelocity = Limit("ST3D_CHUNK_MAX_ANGULAR_VELOCITY", defaults.MaxAngularVelocity),
+            MaxVelocity = Limit("ST3D_CHUNK_MAX_VELOCITY", defaults.MaxVelocity),
+        };
     }
 
     static string Text(float f) => f.ToString(CultureInfo.InvariantCulture);
@@ -148,6 +354,9 @@ public sealed class CombatPlan
             (SystemNames.ShieldGenerator, "shieldGenerator"),
             (SystemNames.Sensors, "sensors"),
         };
+
+        // A system's spark time when its definition sets none: the class default (0x45fbe0, system +0x24).
+        const float DefaultSparkTime = 0.5f;
 
         // stand-in: a middling race for a race definition the install lacks: no delay and repair factors,
         // middling crew thresholds.
@@ -174,12 +383,14 @@ public sealed class CombatPlan
         {
             var r = new Values(d, gaps);
             var crewCost = r.Num("crewCost", 1, report: true); // stand-in: one crew
-            var maximumCrew = r.Num("maximumCrew", 0);
+            // the game's rule (0x4601d7): maximumCrew defaults to the crewCost
+            var maximumCrew = r.Num("maximumCrew", crewCost);
+            var definedMaximumCrew = Math.Max(0, maximumCrew);
             if (maximumCrew <= 0)
             {
-                // stand-in: the crew cost, or one, where no maximum crew is given; a ratio over it stays a number
+                // stand-in: the game's maximum is 0 here, but the crew-status ratio over it must stay a number
                 maximumCrew = Math.Max(1, crewCost);
-                r.Gap("maximumCrew missing or 0, stand-in crewCost (at least 1) used");
+                r.Gap("maximumCrew resolves to 0, stand-in crewCost (at least 1) used for the crew ratio");
             }
 
             var systems = new List<SystemProfile>();
@@ -197,6 +408,8 @@ public sealed class CombatPlan
                             HitPercent = r.Num(key + "HitPercent", 0),
                             CrewLoss = r.Num(key + "CrewLoss", 0),
                             RepairTime = r.Num(key + "RepairTime", 0),
+                            SparkTime = r.Num(key + "SparkTime", DefaultSparkTime),
+                            TargetHardpoints = r.List(key + "TargetHardpoints"),
                         }
                     );
                 }
@@ -210,12 +423,15 @@ public sealed class CombatPlan
                 ShieldDelay = r.Num("shieldDelay", 0),
                 CrewCost = crewCost,
                 MaximumCrew = maximumCrew,
+                DefinedMaximumCrew = definedMaximumCrew,
                 Systems = systems,
                 HullHitPercent = r.Num("hullHitPercent", 0),
                 LifeSupportLoss = r.Num("lifeSupportLoss", 0),
                 DefaultGreenAlert = r.Flag("defaultGreenAlert", false),
                 CanAttack = r.Flag("canAttack", true),
                 Fireball = r.Str("fireball"),
+                IsHero = r.Flag("isHero", false),
+                ShieldPad = r.Num("shieldPad", ShieldEllipsoid.DefaultShieldPad),
                 Race = ReadRace(d, r, gaps),
             };
         }
@@ -294,6 +510,8 @@ public sealed class CombatPlan
                         ToHitStopModifier = w.Num("toHitStopModifier", 0),
                         CrewAffectsWeaponDelay = w.Flag("crewAffectsWeaponDelay", false),
                         FireSound = w.Str("fireSound"),
+                        Special = w.Flag("special", false),
+                        TargetLocation = w.Flag("targetLocation", false),
                         Ordnance = new OrdnanceProfile
                         {
                             ClassLabel = o.Str("classLabel"),
@@ -307,6 +525,12 @@ public sealed class CombatPlan
                             OmegaTurn = o.Num("omegaTurn", 0),
                             SeekTime = o.Num("seekTime", 0),
                             Sprite = o.Str("Sprite"),
+                            IgnoreShield = o.Flag("ignoreShield", false),
+                            ShieldGeometryName = o.Str("shieldGeometryName") is { Length: > 0 } geometry
+                                ? geometry
+                                : OrdnanceProfile.DefaultShieldGeometry,
+                            ShieldDuration = o.Num("shieldDuration", OrdnanceProfile.DefaultShieldDuration),
+                            Size = o.Num("size", 1),
                         },
                     }
                 );
@@ -361,7 +585,7 @@ public sealed class CombatPlan
             {
                 var r = new Values(def, gaps);
 
-                // The unit-level weaponYellow and weaponRed are not read: docs/combat-rules.md names the race as
+                // The unit-level weaponYellow and weaponRed are not read: docs/rules/combat-rules.md names the race as
                 // the source of the delay factors.
                 return new RaceValues
                 {

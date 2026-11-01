@@ -180,7 +180,21 @@ public static class Layout
     // asteroid-field seeds are the same on every read.
     static MapObject Object(JsonElement o, string path, int index)
     {
-        Fields(o, path, "class", "team", "position", "label", "right", "up", "front");
+        Fields(
+            o,
+            path,
+            "class",
+            "team",
+            "position",
+            "label",
+            "right",
+            "up",
+            "front",
+            "crew",
+            "shields",
+            "destroyedSystems",
+            "velocity"
+        );
         var name = Text(Required(o, path, "class"), path + ".class");
         if (name.Length == 0)
             throw new LayoutException(path + ".class", "must not be empty");
@@ -215,7 +229,62 @@ public static class Layout
             Prefix = [],
             Tail = [],
             Offset = 0,
+            Start = Start(o, path),
         };
+    }
+
+    // The object's starting state; null when it gives none of the four keys.
+    static StartingState? Start(JsonElement o, string path)
+    {
+        var crew = o.TryGetProperty("crew", out var c) ? Fraction(c, path + ".crew") : (double?)null;
+        var shields = o.TryGetProperty("shields", out var sh) ? Fraction(sh, path + ".shields") : (double?)null;
+        var systems = o.TryGetProperty("destroyedSystems", out var d) ? Systems(d, path + ".destroyedSystems") : null;
+        var velocity = o.TryGetProperty("velocity", out var v) ? Vector(v, path + ".velocity") : (Vector3?)null;
+        if (crew == null && shields == null && systems == null && velocity == null)
+            return null;
+
+        return new StartingState
+        {
+            Crew = crew,
+            Shields = shields,
+            DestroyedSystems = systems ?? [],
+            Velocity = velocity,
+        };
+    }
+
+    // Read as a double, not a float like the other numbers: crew is the fraction times crewCost exactly.
+    static double Fraction(JsonElement e, string path)
+    {
+        if (e.ValueKind != JsonValueKind.Number)
+            throw new LayoutException(path, $"must be a number, not {Kind(e)}");
+        if (!e.TryGetDouble(out var value) || !double.IsFinite(value))
+            throw new LayoutException(path, $"{e.GetRawText()} is not a finite number");
+        if (value is < 0 or > 1)
+            throw new LayoutException(path, $"{e.GetRawText()} is outside 0..1");
+
+        return value;
+    }
+
+    // Distinct names of ship systems, spelled as a play script's expect spells them.
+    static List<string> Systems(JsonElement e, string path)
+    {
+        if (e.ValueKind != JsonValueKind.Array)
+            throw new LayoutException(path, $"must be an array of system names, not {Kind(e)}");
+        var names = new List<string>();
+        foreach (var (item, i) in e.EnumerateArray().Select((item, i) => (item, i)))
+        {
+            var name = Text(item, $"{path}[{i}]");
+            if (!SystemNames.All.Contains(name))
+                throw new LayoutException(
+                    $"{path}[{i}]",
+                    $"'{name}' is no ship system; systems: {string.Join(", ", SystemNames.All)}"
+                );
+            if (names.Contains(name))
+                throw new LayoutException($"{path}[{i}]", $"'{name}' is given twice");
+            names.Add(name);
+        }
+
+        return names;
     }
 
     // An object whose keys are all in allowed, each once; path names it in a problem.

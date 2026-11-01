@@ -60,7 +60,7 @@ Breaks: loudly
 
 Class: behavior
 Concepts: Play run, Play script, State dump
-Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map and one play script write identical state dumps.
+Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map or layout and one play script write identical state dumps.
 Breaks: silently
 Check: a unit test that runs one play script twice against the same sandbox plan and compares the state dumps.
 
@@ -80,6 +80,15 @@ Statement: A preview returns the notes of the asset it shows beside the view it 
 Breaks: silently
 Check: a unit test that scans the preview sources for log calls on notes and for direct `Log.Warn`, `Log.Info`, and `Log.Error` calls, and a unit test that shows one asset through the asset browser and finds each of its notes logged once.
 Paths: src/Viewer/*Preview.cs, src/Assets/AssetBrowser.cs
+
+### INV-0011
+
+Class: architecture
+Concepts: Map sandbox, Combat rules, Dying unit, Coasting, Forced motion, Debris piece, Damage node
+Statement: The map sandbox's combat state and rules live in code without a Godot dependency; which effects a unit shows, its dying phase, its coasting, its forced motion, and its debris pieces are decided there, and the Godot view only draws what that state and its events say.
+Breaks: loudly
+Check: the test project compiles `src/Sandbox` without Godot, so a Godot reference there fails the build of the tests.
+Paths: src/Sandbox/**
 
 ### INV-0012
 

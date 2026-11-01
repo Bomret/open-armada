@@ -66,6 +66,12 @@ public sealed class CombatPlan
     /// </summary>
     public AvoidanceKeys Avoidance { get; private init; } = AvoidanceKeys.Stock;
 
+    /// <summary>
+    /// <c>TRANSPORTER_RANGE</c>, <c>TRANSPORTER_DELAY</c>, <c>TRANSPORTER_ACTION_DELAY</c>, and <c>TRANSPORTER_MAX</c> of
+    /// RTS_CFG.h. A missing or non-numeric value takes its stand-in in <see cref="TransporterValues.Stock"/> and is reported.
+    /// </summary>
+    public TransporterValues Transporter { get; private init; } = TransporterValues.Stock;
+
     CombatPlan(
         IReadOnlyDictionary<PlacedObject, CombatProfile> profiles,
         IReadOnlyList<ReportEntry> reports,
@@ -96,6 +102,7 @@ public sealed class CombatPlan
         var (protection, bonus, spacing, prevention, rts) = ReadConstants(files, gaps);
         var debris = ReadDebris(files, rts, gaps);
         var avoidance = ReadAvoidance(rts, gaps);
+        var transporter = ReadTransporter(rts, gaps);
         var reader = new ProfileReader(files);
         var byClass = new Dictionary<string, (CombatProfile Profile, List<(string Cause, string Name)> Gaps)>(
             StringComparer.OrdinalIgnoreCase
@@ -144,6 +151,7 @@ public sealed class CombatPlan
             FormationSpacing = spacing,
             MaxPreventionRotation = prevention,
             Avoidance = avoidance,
+            Transporter = transporter,
         };
     }
 
@@ -169,6 +177,30 @@ public sealed class CombatPlan
             enabled,
             Key("COLLISION_LOOK_AHEAD_TIME", game.LookAheadTime),
             Key("COLLISION_SAFETY_MARGIN", game.SafetyMargin)
+        );
+    }
+
+    // The transporter constants of the parsed RTS_CFG.h: a value it lacks, or gives as no finite number, takes its stand-in
+    // (INV-0003) and is reported once. A null header (reported by ReadConstants) gives the stand-ins.
+    static TransporterValues ReadTransporter(GameConstants? constants, Gaps gaps)
+    {
+        var stock = TransporterValues.Stock;
+        if (constants == null)
+            return stock;
+        float Key(string name, float standIn)
+        {
+            if (constants.TryNumber(name, out var v, out _) && float.IsFinite((float)v))
+                return (float)v;
+            gaps.Add($"game constant {name} missing or no number, stand-in {Text(standIn)} used", name);
+
+            return standIn;
+        }
+
+        return new TransporterValues(
+            Key("TRANSPORTER_RANGE", stock.Range),
+            Key("TRANSPORTER_DELAY", stock.Delay),
+            Key("TRANSPORTER_ACTION_DELAY", stock.ActionDelay),
+            (int)Key("TRANSPORTER_MAX", stock.Max)
         );
     }
 
@@ -369,6 +401,7 @@ public sealed class CombatPlan
             RepairYellow = 1,
             RepairRed = 1,
             RepairStrength = 1,
+            BoardingStrength = 1,
         };
 
         // Each definition once: the definition, or null with the cause it could not be read.
@@ -596,6 +629,7 @@ public sealed class CombatPlan
                     RepairYellow = r.Num("repairYellow", 1, report: true),
                     RepairRed = r.Num("repairRed", 1, report: true),
                     RepairStrength = r.Num("repairStrength", 1, report: true),
+                    BoardingStrength = BoardingStrength(r),
                 };
             }
             else if (_racesProblem != null)
@@ -613,6 +647,18 @@ public sealed class CombatPlan
             }
 
             return StandInRace;
+        }
+
+        // The race's boardingStrength: 1 where it is missing, as the game's default is (0x4442b0), reported. stand-in: a
+        // value that is no number above 0 also takes 1 and is reported; a defender of strength 0 would divide the fight by 0.
+        static float BoardingStrength(Values race)
+        {
+            var strength = race.Num("boardingStrength", 1, report: true);
+            if (float.IsFinite(strength) && strength > 0)
+                return strength;
+            race.Gap("boardingStrength is no number above 0, stand-in 1 used");
+
+            return 1;
         }
 
         // The race definition is the file races.odf lists as race0, race1, ... whose `name` is the race (the

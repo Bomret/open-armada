@@ -22,10 +22,16 @@ public class CombatPlanTests
     const string Physics = "physicsFile = \"p.odf\"\r\n";
     const string Constants =
         "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\n"
-        + AvoidanceConstants;
+        + AvoidanceConstants
+        + TransporterConstants;
     const string ConstantsWithoutPrevention =
         "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\n"
-        + AvoidanceConstants;
+        + AvoidanceConstants
+        + TransporterConstants;
+
+    // values that differ from the stock ones, so a test sees them read
+    const string TransporterConstants =
+        "float TRANSPORTER_RANGE = 800.0;\r\nfloat TRANSPORTER_DELAY = 2.0;\r\nfloat TRANSPORTER_ACTION_DELAY = 3.0;\r\nint TRANSPORTER_MAX = 7;\r\n";
 
     // the stock install's avoidance keys (RTS_CFG.h lines 272, 276, 280)
     const string AvoidanceConstants =
@@ -35,7 +41,7 @@ public class CombatPlanTests
         + "float ST3D_CHUNK_MAX_ANGULAR_VELOCITY = 5.0;\r\nfloat ST3D_CHUNK_MAX_VELOCITY = 70.0;\r\n";
     const string Race =
         "name = \"federation\"\r\ncrewYellowStatus = 0.4\r\ncrewRedStatus = 0.2\r\nweaponYellow = 1.5\r\n"
-        + "weaponRed = 2.5\r\nrepairYellow = 1.1\r\nrepairRed = 1.2\r\nrepairStrength = 1.5\r\n";
+        + "weaponRed = 2.5\r\nrepairYellow = 1.1\r\nrepairRed = 1.2\r\nrepairStrength = 1.5\r\nboardingStrength = 1.5\r\n";
     const string Beam =
         "classLabel = \"cannon\"\r\nordName = \"beamo\"\r\nshotDelay = 2\r\nrange = 250\r\nhitChance = 0.7\r\n"
         + "\t\"zmama.odf\" 1.0\r\nstopToHitModifier = 0.25\r\nfireSound = \"b.wav\"\r\ncrewAffectsWeaponDelay = 1\r\n";
@@ -112,6 +118,59 @@ public class CombatPlanTests
         );
 
     static CombatProfile ProfileOf((CombatPlan Plan, SelectableUnit[] Units) r) => r.Plan.Profiles[r.Units[0].Object];
+
+    [TestMethod]
+    public void TheTransporterValuesAndTheBoardingStrengthAreReadFromTheInstall()
+    {
+        var r = OneShip("");
+        Assert.AreEqual(new TransporterValues(800, 2, 3, 7), r.Plan.Transporter);
+        Assert.AreEqual(1.5f, ProfileOf(r).Race.BoardingStrength);
+        Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void MissingTransporterValuesAreReportedOnceEachWithTheirStandIns()
+    {
+        var r = Plan(
+            new[] { "s", "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", "#include \"ART_CFG.h\"\r\nfloat TRANSPORTER_RANGE = 800.0;\r\n" + AvoidanceConstants)
+        );
+        Assert.AreEqual(new TransporterValues(800, 1, 1, 5), r.Plan.Transporter);
+        foreach (var name in new[] { "TRANSPORTER_DELAY", "TRANSPORTER_ACTION_DELAY", "TRANSPORTER_MAX" })
+        {
+            var gap = r.Plan.Reports.Single(g => g.Cause.Contains(name));
+            StringAssert.Contains(gap.Cause, "stand-in");
+        }
+    }
+
+    [TestMethod]
+    public void AMissingBoardingStrengthIsOneAndReportedOnce()
+    {
+        var r = Plan(
+            new[] { "s", "s" },
+            new[] { ("s", Ship), ("fed", Race.Replace("boardingStrength = 1.5\r\n", "")) },
+            ("RTS_CFG.h", Constants)
+        );
+        Assert.AreEqual(1f, r.Plan.Profiles[r.Units[0].Object].Race.BoardingStrength);
+        var gap = r.Plan.Reports.Single(g => g.Cause.Contains("boardingStrength"));
+        StringAssert.Contains(gap.Cause, "stand-in 1 used");
+    }
+
+    [TestMethod]
+    public void ABoardingStrengthThatIsNotAboveZeroTakesTheStandInAndIsReported()
+    {
+        var r = OneShip("", ("fed", Race.Replace("boardingStrength = 1.5", "boardingStrength = 0")));
+        Assert.AreEqual(1f, ProfileOf(r).Race.BoardingStrength);
+        Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.Contains("boardingStrength")));
+    }
+
+    [TestMethod]
+    public void TheStandInRaceCarriesABoardingStrength()
+    {
+        var r = Plan(new[] { "s" }, new[] { ("s", Ship), }, ("RTS_CFG.h", Constants), ("addon/races.odf", "numberOfRaces = 0\r\n"));
+        Assert.AreEqual(1f, ProfileOf(r).Race.BoardingStrength);
+    }
 
     [TestMethod]
     public void AWeaponSlotIsPairedWithTheHardpointsOfTheSameNumber()
@@ -528,8 +587,9 @@ public class CombatPlanTests
         var r = Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) }, ("RTS_CFG.h", "int OTHER = 1;\r\n"));
         Assert.AreEqual(1f, r.Plan.ShieldDamageProtection);
         Assert.AreEqual(0f, r.Plan.SystemHitpointsBonus);
-        Assert.AreEqual(7, r.Plan.Reports.Count(g => g.Cause.Contains("game constant")));
+        Assert.AreEqual(11, r.Plan.Reports.Count(g => g.Cause.Contains("game constant"))); // the four TRANSPORTER_ values included
         Assert.AreEqual(40f, r.Plan.FormationSpacing);
+        Assert.AreEqual(TransporterValues.Stock, r.Plan.Transporter);
     }
 
     [TestMethod]

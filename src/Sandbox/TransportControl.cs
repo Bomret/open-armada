@@ -41,9 +41,12 @@ public sealed class TransportControl(
     /// </summary>
     public bool Pressed(KeyChord chord, bool echo)
     {
-        if (echo || !bindings.IsTransport(chord) || selected().Count == 0)
+        if (echo || !bindings.IsTransport(chord))
             return false;
-        var transporting = selected().Where(u => world.State(u)?.Transporting == true).ToList();
+        var units = selected();
+        if (units.Count == 0)
+            return false;
+        var transporting = units.Where(u => world.State(u)?.Transporting == true).ToList();
         if (transporting.Count == 0)
         {
             Pending = true;

@@ -128,8 +128,9 @@ public sealed class PlayInput(
     // The transport chord, then a left click at the unit. Every check runs before the first event.
     string? Transport(string unit)
     {
-        if (bindings.Transport is not { } chord)
-            return "the transport chord is unbound: Input.map or its transport block is missing";
+        if (PlayTarget.TransportChordProblem(bindings.Transport != null) is { } unbound)
+            return unbound;
+        var chord = bindings.Transport!;
         var (point, problem) = Aim(unit, out var target);
         if (point is not { } at)
             return problem;
@@ -143,11 +144,9 @@ public sealed class PlayInput(
                 && CombatRules.TransportOrderOk(source, victim)
             )
             .ToList();
-        if (PlayTarget.TransportProblem(unit, takes) is { } noOrder)
+        var transporting = selection.Selected.Select(s => world.State(s.Object)?.Transporting == true).ToList();
+        if (PlayTarget.TransportProblem(unit, takes, transporting) is { } noOrder)
             return noOrder;
-        // the chord on a transporting unit cancels its transport and enters no mode, so the click would select
-        if (selection.Selected.Any(s => world.State(s.Object)?.Transporting == true))
-            return $"a selected unit is transporting: the transport chord would cancel it, not wait for '{unit}'";
 
         var code = OS.FindKeycodeFromString(chord.Key);
         var key = (Key)(

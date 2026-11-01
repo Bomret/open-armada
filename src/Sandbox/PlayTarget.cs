@@ -54,6 +54,27 @@ public static class PlayTarget
         : takes.Any(t => t) ? null
         : $"no selected unit can take a transport order on '{name}'";
 
+    /// <summary>The problem with a transport step when the chord is unbound (<c>bound</c> false), or null.</summary>
+    public static string? TransportChordProblem(bool bound) =>
+        bound ? null : "the transport chord is unbound: Input.map or its transport block is missing";
+
+    /// <summary>
+    /// <see cref="TransportProblem(string, IReadOnlyCollection{bool})"/>, then the problem with a selected unit that is
+    /// transporting (<c>transporting</c> holds one entry per selected unit): the chord would cancel its transport and
+    /// enter no mode, so the click would select.
+    /// </summary>
+    public static string? TransportProblem(
+        string name,
+        IReadOnlyCollection<bool> takes,
+        IReadOnlyCollection<bool> transporting
+    ) =>
+        TransportProblem(name, takes)
+        ?? (
+            transporting.Any(t => t)
+                ? $"a selected unit is transporting: the transport chord would cancel it, not wait for '{name}'"
+                : null
+        );
+
     /// <summary>
     /// The pixels a <c>shot</c> step aimed at a unit keeps: the unit's screen <c>box</c> grown past each edge by half its
     /// longer side, so effects around the hull such as a fireball or a shield flash stay in it, then every pixel the

@@ -83,7 +83,12 @@ public class TransportTests
     [TestMethod]
     public void ASourceWithNineCrewIsRefusedTheOrderAndOneWithTenTakesIt()
     {
-        var (world, u) = Build(null, new Spec("nine", 1, 0, Crew: 9), new Spec("ten", 1, 0, Crew: 10), new Spec("t", 2, 100));
+        var (world, u) = Build(
+            null,
+            new Spec("nine", 1, 0, Crew: 9),
+            new Spec("ten", 1, 0, Crew: 10),
+            new Spec("t", 2, 100)
+        );
         Assert.IsFalse(world.Transport(u["nine"], u["t"]));
         Assert.IsTrue(world.Transport(u["ten"], u["t"]));
     }
@@ -244,11 +249,7 @@ public class TransportTests
     [TestMethod]
     public void TheTransportWorksForAnArmedSourceAndAStation()
     {
-        var (world, u) = Build(
-            null,
-            new Spec("armed", 1, 0, Weapon: Weapon()),
-            new Spec("t", 1, 100, Crew: 10)
-        );
+        var (world, u) = Build(null, new Spec("armed", 1, 0, Weapon: Weapon()), new Spec("t", 1, 100, Crew: 10));
         world.Transport(u["armed"], u["t"]);
         Assert.AreEqual(1, Run(world, Tick).OfType<PartySent>().Count());
     }
@@ -269,11 +270,7 @@ public class TransportTests
     public void APartyThatMatchesTheCrewExactlyDiesAndLeavesTheTargetDerelict()
     {
         // a * P = d * C: 2 * 5 = 1 * 10
-        var (world, u) = Build(
-            null,
-            new Spec("s", 1, 0, Race: Strong),
-            new Spec("t", 2, 100, Crew: 10)
-        );
+        var (world, u) = Build(null, new Spec("s", 1, 0, Race: Strong), new Spec("t", 2, 100, Crew: 10));
         world.Transport(u["s"], u["t"]);
         var events = Run(world, 1.02);
         var target = world.State(u["t"])!;
@@ -287,11 +284,7 @@ public class TransportTests
     public void AnOverwhelmedTargetChangesTeamAndRaceAndKeepsTheSurvivors()
     {
         // E = (2 / 1) * 5 = 10; survivors = (1 / 2) * (10 - 4) = 3
-        var (world, u) = Build(
-            null,
-            new Spec("s", 1, 0, Race: Strong),
-            new Spec("t", 2, 100, Crew: 4)
-        );
+        var (world, u) = Build(null, new Spec("s", 1, 0, Race: Strong), new Spec("t", 2, 100, Crew: 4));
         world.Transport(u["s"], u["t"]);
         var events = Run(world, 1.02);
         var target = world.State(u["t"])!;
@@ -306,11 +299,7 @@ public class TransportTests
     public void TheDefenderStrengthWeighsTheFight()
     {
         // a = 1, d = 2: E = 2.5, so a target of 2 crew falls and (2 / 1) * (2.5 - 2) = 1 boarder survives
-        var (world, u) = Build(
-            null,
-            new Spec("s", 1, 0),
-            new Spec("t", 2, 100, Crew: 2, Race: Strong)
-        );
+        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 2, 100, Crew: 2, Race: Strong));
         world.Transport(u["s"], u["t"]);
         Run(world, 1.02);
         var target = world.State(u["t"])!;
@@ -321,11 +310,7 @@ public class TransportTests
     [TestMethod]
     public void TheSurvivorsAreCappedAtTheMaximumCrew()
     {
-        var (world, u) = Build(
-            null,
-            new Spec("s", 1, 0, Race: Strong),
-            new Spec("t", 2, 100, Crew: 1, Max: 2)
-        );
+        var (world, u) = Build(null, new Spec("s", 1, 0, Race: Strong), new Spec("t", 2, 100, Crew: 1, Max: 2));
         world.Transport(u["s"], u["t"]);
         Run(world, 1.02);
         Assert.AreEqual(2, world.State(u["t"])!.Crew);
@@ -379,7 +364,9 @@ public class TransportTests
         var before = Run(world, 1.0);
         Assert.AreEqual(0, before.OfType<ShotFired>().Count(e => e.Shot.Target.Unit == u["t"]));
         var after = Run(world, 0.5);
-        Assert.IsTrue(after.OfType<ShotFired>().Any(e => e.Shot.Shooter.Unit == u["mate"] && e.Shot.Target.Unit == u["t"]));
+        Assert.IsTrue(
+            after.OfType<ShotFired>().Any(e => e.Shot.Shooter.Unit == u["mate"] && e.Shot.Target.Unit == u["t"])
+        );
     }
 
     // --- derelicts and friendly targets ---
@@ -451,7 +438,11 @@ public class TransportTests
     [TestMethod]
     public void EveryHostileCycleHoldsTheTargetsShieldsDown()
     {
-        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 2, 100, Crew: 50, Shields: 100, ShieldDelay: 4));
+        var (world, u) = Build(
+            null,
+            new Spec("s", 1, 0),
+            new Spec("t", 2, 100, Crew: 50, Shields: 100, ShieldDelay: 4)
+        );
         world.State(u["t"])!.Shields = 0;
         world.Transport(u["s"], u["t"]);
         world.Step(Tick);
@@ -483,11 +474,7 @@ public class TransportTests
     public void ATargetOutOfRangeCenterToCenterTakesNoPartyAndTheTransportStopsAtTheFirstCycle()
     {
         // the surfaces (radius 400 each) are within range; the centers, 600 apart, are not
-        var (world, u) = Build(
-            null,
-            new Spec("s", 1, 0, Radius: 400),
-            new Spec("t", 1, 600, Crew: 10, Radius: 400)
-        );
+        var (world, u) = Build(null, new Spec("s", 1, 0, Radius: 400), new Spec("t", 1, 600, Crew: 10, Radius: 400));
         Assert.IsTrue(world.Transport(u["s"], u["t"]));
         var events = Run(world, Tick);
         Assert.AreEqual(0, events.OfType<PartySent>().Count());
@@ -596,11 +583,7 @@ public class TransportTests
     [TestMethod]
     public void AMoveAttackOrStopOrderLeavesTheTransportRunning()
     {
-        var (world, u) = Build(
-            null,
-            new Spec("s", 1, 0, Weapon: Weapon()),
-            new Spec("t", 2, 50, Crew: 50)
-        );
+        var (world, u) = Build(null, new Spec("s", 1, 0, Weapon: Weapon()), new Spec("t", 2, 50, Crew: 50));
         var s = world.State(u["s"])!;
         world.Transport(u["s"], u["t"]);
         world.Move(u["s"], 5, 5);
@@ -614,11 +597,7 @@ public class TransportTests
     [TestMethod]
     public void ATransportOrderLeavesTheAttackAndMoveOrdersRunning()
     {
-        var (world, u) = Build(
-            null,
-            new Spec("s", 1, 0, Weapon: Weapon()),
-            new Spec("t", 2, 50, Crew: 50)
-        );
+        var (world, u) = Build(null, new Spec("s", 1, 0, Weapon: Weapon()), new Spec("t", 2, 50, Crew: 50));
         var s = world.State(u["s"])!;
         world.Attack(u["s"], u["t"]);
         world.Transport(u["s"], u["t"]);

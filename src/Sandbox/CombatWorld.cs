@@ -1156,16 +1156,7 @@ public sealed class CombatWorld
             var size = Math.Min(u.Crew, Transporter.Max);
             u.Crew = Math.Max(0, u.Crew - Transporter.Max);
             CombatRules.CheckCrew(u);
-            _parties.Add(
-                new BoardingParty(
-                    u.Unit,
-                    t,
-                    size,
-                    u.Team,
-                    u.Race,
-                    hostile ? Transporter.ActionDelay : 0
-                )
-            );
+            _parties.Add(new BoardingParty(u.Unit, t, size, u.Team, u.Race, hostile ? Transporter.ActionDelay : 0));
             events.Add(new PartySent { Source = u.Unit, Target = t.Unit });
             u.TransportTimer = Transporter.Delay;
             if (u.Derelict || u.Crew / u.Profile.MaximumCrew <= u.Race.CrewRedStatus)

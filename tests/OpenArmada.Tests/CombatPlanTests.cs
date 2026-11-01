@@ -168,7 +168,12 @@ public class CombatPlanTests
     [TestMethod]
     public void TheStandInRaceCarriesABoardingStrength()
     {
-        var r = Plan(new[] { "s" }, new[] { ("s", Ship), }, ("RTS_CFG.h", Constants), ("addon/races.odf", "numberOfRaces = 0\r\n"));
+        var r = Plan(
+            new[] { "s" },
+            new[] { ("s", Ship) },
+            ("RTS_CFG.h", Constants),
+            ("addon/races.odf", "numberOfRaces = 0\r\n")
+        );
         Assert.AreEqual(1f, ProfileOf(r).Race.BoardingStrength);
     }
 

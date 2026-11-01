@@ -59,21 +59,19 @@ public static class PlayTarget
         bound ? null : "the transport chord is unbound: Input.map or its transport block is missing";
 
     /// <summary>
-    /// <see cref="TransportProblem(string, IReadOnlyCollection{bool})"/>, then the problem with a selected unit that is
-    /// transporting (<c>transporting</c> holds one entry per selected unit): the chord would cancel its transport and
-    /// enter no mode, so the click would select.
+    /// The problem with a transport step on <c>name</c> when each entry of <c>transporting</c> says whether one selected
+    /// unit is transporting and each entry of <c>takes</c> whether one selected unit not transporting takes the order, or
+    /// null. A selection of only transporting units fails first: the chord would cancel them, enter no mode, and the
+    /// click would select. Otherwise <see cref="TransportProblem(string, IReadOnlyCollection{bool})"/> answers.
     /// </summary>
     public static string? TransportProblem(
         string name,
         IReadOnlyCollection<bool> takes,
         IReadOnlyCollection<bool> transporting
     ) =>
-        TransportProblem(name, takes)
-        ?? (
-            transporting.Any(t => t)
-                ? $"a selected unit is transporting: the transport chord would cancel it, not wait for '{name}'"
-                : null
-        );
+        transporting.Count > 0 && transporting.All(t => t)
+            ? $"every selected unit is transporting: the transport chord would cancel them, not wait for '{name}'"
+            : TransportProblem(name, takes);
 
     /// <summary>
     /// The pixels a <c>shot</c> step aimed at a unit keeps: the unit's screen <c>box</c> grown past each edge by half its

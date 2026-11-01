@@ -68,14 +68,15 @@ public class PlayTargetTests
     }
 
     [TestMethod]
-    public void ATransportStepFailsOnAnUnboundChordAndOnATransportingSelectedUnit()
+    public void ATransportStepFailsOnAnUnboundChordAndOnASelectionOfOnlyTransportingUnits()
     {
         Assert.IsNull(PlayTarget.TransportChordProblem(true));
         StringAssert.Contains(PlayTarget.TransportChordProblem(false)!, "the transport chord is unbound");
         Assert.IsNull(PlayTarget.TransportProblem("a", [true, true], [false, false]));
+        Assert.IsNull(PlayTarget.TransportProblem("a", [false, true], [true, false]));
         Assert.AreEqual(
-            "a selected unit is transporting: the transport chord would cancel it, not wait for 'a'",
-            PlayTarget.TransportProblem("a", [true, true], [false, true])
+            "every selected unit is transporting: the transport chord would cancel them, not wait for 'a'",
+            PlayTarget.TransportProblem("a", [false, false], [true, true])
         );
         Assert.AreEqual(
             "no unit is selected to transport to 'a'",

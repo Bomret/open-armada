@@ -130,7 +130,7 @@ public sealed class PlayInput(
     {
         if (PlayTarget.TransportChordProblem(bindings.Transport != null) is { } unbound)
             return unbound;
-        var chord = bindings.Transport!;
+        var chord = bindings.Transport!.Value;
         var (point, problem) = Aim(unit, out var target);
         if (point is not { } at)
             return problem;
@@ -139,7 +139,7 @@ public sealed class PlayInput(
         // the world's current states (INV-0012); a unit the world has lost takes no order
         var takes = selection
             .Selected.Select(s =>
-                world.State(s.Object) is { } source
+                world.State(s.Object) is { Transporting: false } source
                 && world.State(target!) is { } victim
                 && CombatRules.TransportOrderOk(source, victim)
             )

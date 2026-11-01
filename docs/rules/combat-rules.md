@@ -442,7 +442,12 @@ unit that is not being destroyed. Hostility, shields, and range are not tested b
 them (below) and every cycle tests them again. The order does not replace the unit's move or attack order, and a
 later move, attack, or stop order does not end the transport; only the transport order without a target (pressing
 the chord again, 0x463593, 0x426cbd to 0x467000), a stop condition, or the loss of the unit does (0x467000, 0x467050,
-0x461df0). The transport starts only when the source has more than `TRANSPORTER_MAX` crew (0x466f70). A target of any
+0x461df0).
+The chord acts per selected unit (0x463593): a unit transporting (+0x4d4) has its transport cancelled (0x470bb0 with
+0xb), and a unit not transporting requests the transport mode (0x471d90 with 5). With a mixed selection the
+transporting units cancel and the mode is entered for the idle ones, and the next left-click on a unit gives the order
+to those units only; a selection of only transporting units cancels and enters no mode. The per-unit loop over the
+selection is **inferred**, not traced. The transport starts only when the source has more than `TRANSPORTER_MAX` crew (0x466f70). A target of any
 of these kinds is valid: a hostile ship or station, a derelict of any team, and an own, allied, or neutral (team 0)
 ship or station. **Stand-in** (**inferred** from the cycle, which stops on a full friendly target): the order refuses a
 live non-hostile target that is at its crew maximum, and refuses the unit itself. A transport order on a unit that

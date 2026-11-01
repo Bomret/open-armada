@@ -174,10 +174,24 @@ public class TransportControlTests
     {
         var r = Standard();
         r.World.Transport(r.Units["a"], r.Units["enemy"]);
-        r.Select("a", "b");
+        r.Select("a");
         Assert.IsTrue(r.Control.Pressed(T, false));
         Assert.IsFalse(r.Transporting("a"));
         Assert.IsFalse(r.Control.Pending);
+    }
+
+    [TestMethod]
+    public void TheChordOnAMixedSelectionCancelsTheTransportingUnitsAndEntersTheModeForTheIdleOnes()
+    {
+        var r = Standard();
+        r.World.Transport(r.Units["a"], r.Units["enemy"]);
+        r.Select("a", "b");
+        Assert.IsTrue(r.Control.Pressed(T, false));
+        Assert.IsFalse(r.Transporting("a"));
+        Assert.IsTrue(r.Control.Pending);
+        Assert.IsTrue(r.Control.Click(r.Units["enemy"]));
+        Assert.IsFalse(r.Transporting("a"));
+        Assert.IsTrue(r.Transporting("b"));
     }
 
     [TestMethod]

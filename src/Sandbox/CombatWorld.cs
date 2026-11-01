@@ -293,6 +293,7 @@ public sealed class CombatWorld
         if (!CombatRules.Hostile(a.Team, t.Team) || a.Weapons.Count == 0)
             return false;
         a.Order = t;
+        a.OrderRelation = CombatRules.RelationOf(a, t);
         a.AutoMove = false;
         a.Returning = false;
         a.PlayerMove = null;
@@ -382,6 +383,21 @@ public sealed class CombatWorld
         state.Intent = default;
         state.Tether = Position(state);
         state.Motion?.EndMove();
+    }
+
+    /// <summary>
+    /// Sets the unit's team and race (INV-0012): the unit's current order is replaced by a stop (the order, the automatic
+    /// move, and the player move end, and the tether point becomes where the unit stands, as <see cref="ClearOrder"/>
+    /// does). Its alert stance, its place in the selection, its motion, its node, and its readout stay. Does nothing for a
+    /// unit that is gone.
+    /// </summary>
+    public void ChangeTeam(PlacedObject unit, int team, RaceValues race)
+    {
+        if (State(unit) is not { } state)
+            return;
+        ClearOrder(unit);
+        state.Team = team;
+        state.Race = race;
     }
 
     /// <summary>
@@ -1128,7 +1144,13 @@ public sealed class CombatWorld
 
         // stand-in: the game keeps a ship without a target-location weapon fighting its own pick after the ordered unit
         // is lost (see AttackIntent)
-        if (u.Order is { Destroyed: true } or { Dying: true })
+        // An attack order keeps its target only while the team relation it stored holds (0x42fb90 checks it, 0x468cd0
+        // computes it): a live target that turns derelict or changes team ends it, and an order given on a derelict keeps it.
+        // The check precedes the range test, so every branch below sees the dropped order.
+        if (
+            u.Order is { Destroyed: true } or { Dying: true }
+            || u.Order is { } ordered && CombatRules.RelationOf(u, ordered) != u.OrderRelation
+        )
         {
             u.Order = null;
             u.Intent = u.Mobile ? new MoveIntent { Kind = MoveKind.Stop } : default;

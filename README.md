@@ -116,7 +116,7 @@ A play script is a text file with one step per line. Blank lines and lines that 
 
 - `wait <seconds>` lets that much simulated time pass. The combat runs meanwhile.
 - `dump <name>` writes a state dump to `play-out/<script name>/<name>.txt`.
-- `expect <unit> <field> <op> <value>` checks one value of a unit's state. The fields are `shields`, `crew`, a system's hit points (`Engines`, `LifeSupport`, `Weapons`, `ShieldGenerator`, or `Sensors`), `destroyed` (`true` or `false`; `true` once the unit has left the map), `dying` (`true` or `false`; `true` from the critical hit until the unit leaves), and `target` (a unit name or `none`). The operators are `<`, `<=`, `=`, `>=`, and `>`; `destroyed`, `dying`, and `target` take only `=`. A number compares to the unit's value exactly, so use `>=` or `<=` for a value that changes.
+- `expect <unit> <field> <op> <value>` checks one value of a unit's state. The fields are `shields`, `crew`, a system's hit points (`Engines`, `LifeSupport`, `Weapons`, `ShieldGenerator`, or `Sensors`), `destroyed` (`true` or `false`; `true` once the unit has left the map), `dying` (`true` or `false`; `true` from the critical hit until the unit leaves), `target` (a unit name or `none`), and `team` (the unit's current team, an integer). The operators are `<`, `<=`, `=`, `>=`, and `>`; `destroyed`, `dying`, `target`, and `team` take only `=`. A number compares to the unit's value exactly, so use `>=` or `<=` for a value that changes.
 
 The input steps reach the sandbox as Godot input events through its own handlers, so they take effect only where a player's click or key would:
 

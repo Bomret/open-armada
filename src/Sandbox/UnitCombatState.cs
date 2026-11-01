@@ -91,8 +91,17 @@ public sealed class UnitCombatState(
     /// <summary>The radius of the unit's model's bounding sphere, which sizes its repair sparks.</summary>
     public float ModelRadius { get; init; }
 
-    /// <summary>The placed object's team.</summary>
-    public int Team => Unit.Team;
+    /// <summary>
+    /// The unit's current team (INV-0012): the placed object's team at the start, then whatever a team change set.
+    /// Every reader of the running sandbox reads this and never the placed object's team.
+    /// </summary>
+    public int Team { get; set; } = unit.Team;
+
+    /// <summary>
+    /// The unit's current race values: the definition's race at the start, then the race a team change set. Crew
+    /// status, weapon reload, and repair read these and never <see cref="Profile"/>'s race.
+    /// </summary>
+    public RaceValues Race { get; set; } = profile.Race;
 
     /// <summary>A unit that starts with crew below one is derelict from the start: no crew, shields down.</summary>
     public double Shields { get; set; } = profile.CrewCost < 1 ? 0 : profile.MaxHealth;
@@ -247,6 +256,12 @@ public sealed class UnitCombatState(
     public UnitCombatState? Order { get; set; }
 
     /// <summary>
+    /// The team relation between the unit and the order's target as of the order (0x4275ee, 0x4275f3); the order
+    /// holds its target only while <see cref="CombatRules.RelationOf"/> still returns it. Meaningful with an order.
+    /// </summary>
+    public TeamRelation OrderRelation { get; set; }
+
+    /// <summary>
     /// Whether the unit's move intent is red's closing on its pick and not a player's move order or the hold's return
     /// to the tether point (<see cref="Returning"/>).
     /// </summary>
@@ -328,4 +343,17 @@ public sealed class UnitCombatState(
     /// stand-in: the game's test for the to-hit stop modifiers was not traced.
     /// </summary>
     public bool Stopped { get; set; } = true;
+}
+
+/// <summary>The team relation between an attacker and its target that an attack order stores (<see cref="CombatRules.RelationOf"/>).</summary>
+public enum TeamRelation
+{
+    /// <summary>The target is derelict.</summary>
+    Derelict,
+
+    /// <summary>The target is live and hostile to the attacker.</summary>
+    Enemy,
+
+    /// <summary>The target is live and no enemy of the attacker.</summary>
+    NotEnemy,
 }

@@ -255,6 +255,19 @@ public class PlayStateTests
         Assert.IsNull(new Scene().Play.Expect(Scene.Expect(unit, field, op, value)));
 
     [TestMethod]
+    public void TheDumpPrintsAndTheTeamExpectationChecksTheCurrentTeam()
+    {
+        var scene = new Scene();
+        scene.StateA.Team = 3;
+        StringAssert.Contains(scene.Play.Dump(), "a team=3 pos=");
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("a", "team", "=", "3")));
+        Assert.AreEqual(
+            "expectation failed: a team: expected = 1, actual 3",
+            scene.Play.Expect(Scene.Expect("a", "team", "=", "1"))
+        );
+    }
+
+    [TestMethod]
     public void ATargetExpectationComparesTheUnitsNotTheirNames()
     {
         var scene = new Scene();

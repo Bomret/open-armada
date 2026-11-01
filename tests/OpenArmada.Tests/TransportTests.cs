@@ -26,7 +26,8 @@ public class TransportTests
         float ShieldDelay = 0,
         RaceValues? Race = null,
         WeaponProfile? Weapon = null,
-        float Radius = 0
+        float Radius = 0,
+        bool Mobile = false
     );
 
     static (CombatWorld World, Dictionary<string, PlacedObject> Units) Build(
@@ -51,7 +52,7 @@ public class TransportTests
                 ),
                 DefinitionName = s.Label + ".odf",
                 Radius = s.Radius,
-                Mobile = false,
+                Mobile = s.Mobile,
             }),
             1,
             () => 0,
@@ -247,11 +248,23 @@ public class TransportTests
     }
 
     [TestMethod]
-    public void TheTransportWorksForAnArmedSourceAndAStation()
+    public void TheTransportWorksForAnArmedSourceAnUnarmedMobileShipAndAStationAndOnAMobileShipTarget()
     {
-        var (world, u) = Build(null, new Spec("armed", 1, 0, Weapon: Weapon()), new Spec("t", 1, 100, Crew: 10));
-        world.Transport(u["armed"], u["t"]);
-        Assert.AreEqual(1, Run(world, Tick).OfType<PartySent>().Count());
+        var (world, u) = Build(
+            null,
+            new Spec("armed", 1, 0, Weapon: Weapon()),
+            new Spec("ship", 1, 0, Mobile: true),
+            new Spec("station", 1, 0, Mobile: false),
+            new Spec("t", 1, 100, Crew: 10),
+            new Spec("shipTarget", 1, 100, Crew: 10, Mobile: true)
+        );
+        foreach (var source in new[] { "armed", "ship", "station" })
+        {
+            Assert.IsTrue(world.Transport(u[source], u["t"]), source);
+        }
+
+        Assert.IsTrue(world.Transport(u["station"], u["shipTarget"]));
+        Assert.AreEqual(3, Run(world, Tick).OfType<PartySent>().Count());
     }
 
     // --- the fight ---
@@ -450,19 +463,20 @@ public class TransportTests
     }
 
     [TestMethod]
-    public void TwoRunsOfOneScriptEndInTheSameState()
+    public void TwoRunsOfOneScriptEndWithTheSameStateDump()
     {
-        double[] Run1()
+        string Run1()
         {
             var (world, u) = Build(null, new Spec("s", 1, 0, Race: Strong), new Spec("t", 2, 100, Crew: 12));
             world.Transport(u["s"], u["t"]);
             Run(world, 4);
-            var t = world.State(u["t"])!;
 
-            return [t.Crew, t.Team, CrewOf(world, u["s"])];
+            return new PlayState(new UnitNames(u.Values), new UnitPoses(u.Values).Pose, world.Units).Dump();
         }
 
-        CollectionAssert.AreEqual(Run1(), Run1());
+        var first = Run1();
+        Assert.AreEqual(first, Run1());
+        StringAssert.Contains(first, "t team=1", "the script ends in a capture, so the dump is not a trivial one");
     }
 
     // --- the stop conditions ---
@@ -576,6 +590,35 @@ public class TransportTests
         Assert.IsTrue(Stopped(events, u["s"]));
         Assert.AreEqual(0, events.OfType<PartySent>().Count());
         Assert.IsFalse(world.State(u["s"])!.Transporting);
+    }
+
+    [TestMethod]
+    public void ARepeatOrderOnTheCurrentTargetReportsNoStopAndNoSecondStart()
+    {
+        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 1, 100, Crew: 10));
+        world.Transport(u["s"], u["t"]);
+        world.Step(Tick);
+        Assert.IsTrue(world.Transport(u["s"], u["t"]));
+        var events = world.Step(Tick);
+        Assert.AreEqual(0, events.OfType<TransportStopped>().Count());
+        Assert.AreEqual(0, events.OfType<TransportStarted>().Count());
+        Assert.IsTrue(world.State(u["s"])!.Transporting);
+    }
+
+    [TestMethod]
+    public void AnOrderFromASourceAtTheTransporterMaximumEndsItsEarlierTransport()
+    {
+        var (world, u) = Build(
+            new TransporterValues(500, 1, 1, 10),
+            new Spec("s", 1, 0),
+            new Spec("t1", 1, 100, Crew: 10),
+            new Spec("t2", 1, 200, Crew: 10)
+        );
+        world.Transport(u["s"], u["t1"]);
+        world.State(u["s"])!.Crew = 10;
+        Assert.IsTrue(world.Transport(u["s"], u["t2"]));
+        Assert.IsFalse(world.State(u["s"])!.Transporting);
+        Assert.IsTrue(Stopped(world.Step(Tick), u["s"]));
     }
 
     // --- orders ---

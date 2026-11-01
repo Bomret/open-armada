@@ -109,13 +109,7 @@ public sealed class PlayInput(
         if (attack)
         {
             // the current teams (INV-0012); a unit the world has lost is hostile to none
-            var hostile = selection
-                .Selected.Select(s =>
-                    world.State(s.Object) is { } shooter
-                    && world.State(target!) is { } victim
-                    && CombatRules.Hostile(shooter.Team, victim.Team)
-                )
-                .ToList();
+            var hostile = selection.Selected.Select(s => world.Hostile(s.Object, target!)).ToList();
             if (PlayTarget.AttackProblem(unit, hostile) is { } notAttack)
                 return notAttack;
         }

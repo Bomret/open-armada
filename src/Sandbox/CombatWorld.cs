@@ -287,6 +287,12 @@ public sealed class CombatWorld
     public UnitCombatState? State(PlacedObject unit) => _units.GetValueOrDefault(unit);
 
     /// <summary>
+    /// Whether the units are hostile by their current teams (INV-0012); a unit the world has lost is hostile to none.
+    /// </summary>
+    public bool Hostile(PlacedObject a, PlacedObject b) =>
+        State(a) is { } x && State(b) is { } y && CombatRules.Hostile(x.Team, y.Team);
+
+    /// <summary>
     /// Gives <c>attacker</c> an attack order on <c>target</c>, replacing its order. Refused (false) when either is gone, the
     /// target is not hostile to the attacker, or the attacker has no weapons.
     /// </summary>
@@ -317,18 +323,23 @@ public sealed class CombatWorld
     /// <summary>
     /// Gives <c>source</c> a transport order on <c>target</c>, true when it is accepted
     /// (<see cref="CombatRules.TransportOrderOk"/>). The source starts transporting only with more than
-    /// <c>TRANSPORTER_MAX</c> crew; its move or attack order runs on.
+    /// <c>TRANSPORTER_MAX</c> crew; its move or attack order runs on. An order on the current target changes nothing;
+    /// an order on another target ends the earlier transport first, whether or not the source can start the new one.
     /// </summary>
     public bool Transport(PlacedObject source, PlacedObject target)
     {
         if (State(source) is not { } s || State(target) is not { } t || !CombatRules.TransportOrderOk(s, t))
             return false;
+        if (s.Transporting && ReferenceEquals(s.TransportTarget, t))
+            return true; // a repeat order on the current target changes nothing and restarts no effect or sound
+
+        // stand-in: an order on a transporting unit ends its earlier transport first, also where the source lacks the
+        // crew to start the new one; the game's handler overwrites the target without a stop
+        StopTransport(s, _queued);
         if (s.Crew <= Transporter.Max)
             return true; // the start needs more crew than one party (0x466f70)
 
-        // stand-in: an order on a transporting unit ends its earlier transport first; the game's handler overwrites the
-        // target without a stop
-        StopTransport(s, _queued);
+
         s.Transporting = true;
         s.TransportTarget = t;
         if (t.Team != s.Team)
@@ -1156,6 +1167,9 @@ public sealed class CombatWorld
             var size = Math.Min(u.Crew, Transporter.Max);
             u.Crew = Math.Max(0, u.Crew - Transporter.Max);
             CombatRules.CheckCrew(u);
+            // the red-status stop below is the game's test right after the party is sent (0x4672d0-0x467300),
+            // (crew - TRANSPORTER_MAX) / maximum crew against crewRedStatus; inferred only: where the game lowers the
+            // source's crew (the subtraction above)
             _parties.Add(new BoardingParty(u.Unit, t, size, u.Team, u.Race, hostile ? Transporter.ActionDelay : 0));
             events.Add(new PartySent { Source = u.Unit, Target = t.Unit });
             u.TransportTimer = Transporter.Delay;

@@ -454,7 +454,8 @@ selection is **inferred**, not traced. The transport starts only when the source
 of these kinds is valid: a hostile ship or station, a derelict of any team, and an own, allied, or neutral (team 0)
 ship or station. **Stand-in** (**inferred** from the cycle, which stops on a full friendly target): the order refuses a
 live non-hostile target that is at its crew maximum, and refuses the unit itself. A transport order on a unit that
-already transports ends the earlier transport first (**stand-in**; the game's handler overwrites the target). Armed
+already transports ends the earlier transport first, also when the source has too little crew to start the new one
+(**stand-in**; the game's handler overwrites the target); an order on the current target changes nothing. Armed
 and unarmed units, ships and stations, all transport: the per-tick transport work (0x465e80 to 0x467050) runs for
 every Craft class.
 

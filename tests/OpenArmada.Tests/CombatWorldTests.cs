@@ -2415,7 +2415,10 @@ public class CombatWorldTests
         world.Attack(a.Object, b.Object);
         world.Step(0.02);
         var pose = poses.Pose(a.Object);
+        var readout = CombatReadout.Line("a", state);
         world.ChangeTeam(a.Object, 3, OtherRace);
+        Assert.IsTrue(world.Units.Contains(state), "the unit stays among the units the selection and readout read");
+        Assert.AreEqual(readout, CombatReadout.Line("a", state), "the readout line is the same");
         Assert.IsNull(state.Order);
         Assert.IsFalse(state.AutoMove);
         Assert.IsNull(state.PlayerMove);
@@ -2424,6 +2427,31 @@ public class CombatWorldTests
         Assert.AreEqual(state.Position ?? default, state.Tether);
         Assert.AreSame(state, world.State(a.Object), "the unit keeps its entry");
         Assert.AreEqual(pose, poses.Pose(a.Object));
+    }
+
+    [TestMethod]
+    public void AnAttackOrderKeepsItsTargetWhenTheTargetMovesFromOneHostileTeamToAnother()
+    {
+        // the order stores the diplomacy value, enemy, not the team number (0x468cd0, 0x42fb90)
+        var a = Fighter("a", 1, 0, Weapon(range: 500));
+        var b = Fighter("b", 2, 300);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+        world.ChangeTeam(b.Object, 3, OtherRace);
+        world.Step(0.02);
+        Assert.AreSame(world.State(b.Object), world.State(a.Object)!.Order);
+    }
+
+    [TestMethod]
+    public void TwoUnitsHostileByTheirCurrentTeamsAreHostileAndAUnitTheWorldLostIsHostileToNone()
+    {
+        var a = Fighter("a", 1, 0);
+        var b = Fighter("b", 2, 10);
+        var world = World(null, a, b);
+        Assert.IsTrue(world.Hostile(a.Object, b.Object));
+        world.ChangeTeam(b.Object, 1, Race);
+        Assert.IsFalse(world.Hostile(a.Object, b.Object));
+        Assert.IsFalse(world.Hostile(a.Object, Placed("gone", 2, 0)));
     }
 
     [TestMethod]

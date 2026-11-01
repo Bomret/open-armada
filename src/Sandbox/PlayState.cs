@@ -72,13 +72,14 @@ public sealed class PlayState
         {
             var pose = _pose(unit);
             var p = pose.Position;
-            var v = _states.TryGetValue(unit, out var moving) ? moving.Velocity : Vector3.Zero;
+            _states.TryGetValue(unit, out var s);
+            var v = s?.Velocity ?? Vector3.Zero;
             text.Append(
                 CultureInfo.InvariantCulture,
-                $"{_names.Name(unit)} team={(_states.TryGetValue(unit, out var held) ? held.Team : unit.Team)} pos={p.X:F2},{p.Y:F2},{p.Z:F2} vel={v.X:F2},{v.Y:F2},{v.Z:F2}"
+                $"{_names.Name(unit)} team={s?.Team ?? unit.Team} pos={p.X:F2},{p.Y:F2},{p.Z:F2} vel={v.X:F2},{v.Y:F2},{v.Z:F2}"
                     + $" pitch={Angle(pose.Pitch)} yaw={Angle(pose.Yaw)} roll={Angle(pose.Roll)}"
             );
-            if (_states.TryGetValue(unit, out var s))
+            if (s != null)
             {
                 text.Append(CultureInfo.InvariantCulture, $" shields={s.Shields:F2} crew={s.Crew:F2}");
                 foreach (var name in SystemNames.All.Where(s.Systems.ContainsKey))

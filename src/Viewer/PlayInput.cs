@@ -131,14 +131,10 @@ public sealed class PlayInput(
         if (PlayTarget.PickProblem(unit, PickedAt(at)) is { } wrongPick)
             return wrongPick;
         // the world's current states (INV-0012); a unit the world has lost takes no order
-        var takes = selection
-            .Selected.Select(s =>
-                world.State(s.Object) is { Transporting: false } source
-                && world.State(target!) is { } victim
-                && CombatRules.TransportOrderOk(source, victim)
-            )
-            .ToList();
-        var transporting = selection.Selected.Select(s => world.State(s.Object)?.Transporting == true).ToList();
+        var (takes, transporting) = PlayTarget.TransportSelection(
+            selection.Selected.Select(s => world.State(s.Object)),
+            world.State(target!)
+        );
         if (PlayTarget.TransportProblem(unit, takes, transporting) is { } noOrder)
             return noOrder;
 

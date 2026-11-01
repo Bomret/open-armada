@@ -54,6 +54,27 @@ public static class PlayTarget
         : takes.Any(t => t) ? null
         : $"no selected unit can take a transport order on '{name}'";
 
+    /// <summary>
+    /// The two lists <see cref="TransportProblem(string, IReadOnlyCollection{bool}, IReadOnlyCollection{bool})"/> reads,
+    /// one entry per selected unit in order: whether it takes a transport order on <c>target</c> (it is not
+    /// transporting, and <see cref="CombatRules.TransportOrderOk"/> accepts the pair; a transporting unit takes none)
+    /// and whether it is transporting. A unit or target the world has lost (null) takes no order and is not transporting.
+    /// </summary>
+    public static (List<bool> Takes, List<bool> Transporting) TransportSelection(
+        IEnumerable<UnitCombatState?> selected,
+        UnitCombatState? target
+    )
+    {
+        var units = selected.ToList();
+
+        return (
+            units
+                .Select(s => s is { Transporting: false } && target != null && CombatRules.TransportOrderOk(s, target))
+                .ToList(),
+            units.Select(s => s?.Transporting == true).ToList()
+        );
+    }
+
     /// <summary>The problem with a transport step when the chord is unbound (<c>bound</c> false), or null.</summary>
     public static string? TransportChordProblem(bool bound) =>
         bound ? null : "the transport chord is unbound: Input.map or its transport block is missing";

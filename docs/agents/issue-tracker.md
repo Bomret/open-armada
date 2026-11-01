@@ -401,7 +401,12 @@ not this store carries a snapshot.
   slice issue exists. Once every slice issue is created, the controller rewrites each slice-id tag into
   `#<n>`, in the same parallel body-patch step **Record a dependency** above uses to write
   `**Depends on:** #<n>` — both need the same resolved indexes and both wait on the same event; a `scope`
-  tag is left as `scope`, and a `docs` tag as `docs`.
+  tag is left as `scope`, and a `docs` tag as `docs`. The rewrite is a body edit through **Edit an issue's
+  body**, and its producer is `node ${CLAUDE_PLUGIN_ROOT}/scripts/scope.js dod-tags --map-file <path>`,
+  the map file holding one `<id> #<n>` pair per slice (ADR 0209). A tag naming several slices becomes
+  `#<n>, #<m>`, never bracketed. The controller types no store tag itself. `dod-tags` refuses, printing
+  nothing, on any unjudged line whose tag `dod-line` cannot read or whose slice id the map lacks, so the
+  gate stops the edit and the anchor body stays as it was.
 
 ## Status workflow (Forgejo has open/closed + labels — no custom states)
 

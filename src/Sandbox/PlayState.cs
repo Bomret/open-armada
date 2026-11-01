@@ -76,7 +76,7 @@ public sealed class PlayState
             var v = s?.Velocity ?? Vector3.Zero;
             text.Append(
                 CultureInfo.InvariantCulture,
-                $"{_names.Name(unit)} team={s?.Team ?? unit.Team} pos={p.X:F2},{p.Y:F2},{p.Z:F2} vel={v.X:F2},{v.Y:F2},{v.Z:F2}"
+                $"{_names.Name(unit)} team={(s != null ? s.Team : unit.Team)} pos={p.X:F2},{p.Y:F2},{p.Z:F2} vel={v.X:F2},{v.Y:F2},{v.Z:F2}"
                     + $" pitch={Angle(pose.Pitch)} yaw={Angle(pose.Yaw)} roll={Angle(pose.Roll)}"
             );
             if (s != null)

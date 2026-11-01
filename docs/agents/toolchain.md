@@ -8,6 +8,9 @@
   version in `OpenArmada.csproj` (`Godot.NET.Sdk/4.7.2`) must match the installed editor.
 - Game files: an Armada install the user owns, passed as `--game <dir>` or the `ARMADA_DIR` environment
   variable. The repository ships no game content.
+- mise: `mise.toml` pins the .NET SDKs, Godot, Java, Gradle, Python, and Ghidra; `mise install` installs
+  them and `mise tasks` lists the tasks. Under mise, Godot runs as `$GODOT`, and `tools/play-run.sh` uses
+  it through `PLAY_RUN_GODOT`. `ARMADA_DIR` goes in the gitignored `mise.local.toml`.
 - Commands:
   - Tests — see `docs/agents/verification.md`
   - Restore the formatter — `dotnet tool restore` (needs NuGet access the first time)

@@ -1,0 +1,86 @@
+# Development tools and tasks. `mise install` installs the tools; `mise tasks` lists the tasks.
+# Per-machine settings, such as ARMADA_DIR, go in the gitignored `mise.local.toml`.
+
+[tools]
+# 10 matches global.json. 8 brings the .NET 8 runtime that the net8.0 tests run on.
+dotnet = ["10.0.402", "8.0.427"]
+# Ghidra and the build of its decompiler. Microsoft's build, because it covers Windows on ARM.
+java = "microsoft-25"
+gradle = "9"
+# program_index.py and rtti_vtables.py.
+python = "3.13"
+
+# Godot .NET build. The version must match Godot.NET.Sdk in OpenArmada.csproj and GODOT below.
+[tools."github:godotengine/godot-builds"]
+version = "4.7.2-stable"
+version_prefix = ""
+
+[tools."github:godotengine/godot-builds".platforms]
+macos-arm64 = { asset_pattern = "Godot_v*-stable_mono_macos.universal.zip" }
+macos-x64 = { asset_pattern = "Godot_v*-stable_mono_macos.universal.zip" }
+linux-x64 = { asset_pattern = "Godot_v*-stable_mono_linux_x86_64.zip" }
+linux-arm64 = { asset_pattern = "Godot_v*-stable_mono_linux_arm64.zip" }
+windows-x64 = { asset_pattern = "Godot_v*-stable_mono_win64.zip" }
+windows-arm64 = { asset_pattern = "Godot_v*-stable_mono_windows_arm64.zip" }
+
+# Ghidra 12.1.x, the release line REA accepts. bin_path puts analyzeHeadless on PATH.
+[tools."github:NationalSecurityAgency/ghidra"]
+version = "12.1.4_build"
+version_prefix = "Ghidra_"
+asset_pattern = "ghidra_*_PUBLIC_*.zip"
+strip_components = 1
+bin_path = "support"
+
+[env]
+# The name of the Godot executable, which differs per platform.
+GODOT = """{% if os() == 'macos' %}Godot\
+{% elif os() == 'windows' %}Godot_v4.7.2-stable_mono_{{ arch(x64='win64', arm64='windows_arm64') }}_console.exe\
+{% else %}Godot_v4.7.2-stable_mono_linux.{{ arch(x64='x86_64', arm64='arm64') }}{% endif %}"""
+# tools/play-run.sh runs this Godot in place of godot-mono.
+PLAY_RUN_GODOT = "{{ env.GODOT }}"
+
+[tasks.restore]
+description = "Restore the formatter"
+run = "dotnet tool restore"
+
+[tasks.format]
+description = "Format the C# code"
+depends = ["restore"]
+run = "dotnet csharpier format ."
+
+[tasks.build]
+description = "Build the C# project"
+run = "dotnet build OpenArmada.csproj"
+
+[tasks.test]
+description = "Run the unit tests"
+run = "dotnet test --project tests/OpenArmada.Tests"
+
+[tasks.check]
+description = "Full verification: format check, unit tests, build, asset check (needs ARMADA_DIR)"
+depends = ["restore"]
+run = [
+  "dotnet csharpier check .",
+  "dotnet test --project tests/OpenArmada.Tests",
+  "dotnet build OpenArmada.csproj",
+  "{{ env.GODOT }} --headless --path . -- --check --game \"${ARMADA_DIR:?set ARMADA_DIR to an Armada install}\"",
+]
+
+[tasks.assets]
+description = "Run the asset check (needs ARMADA_DIR)"
+depends = ["build"]
+run = "{{ env.GODOT }} --headless --path . -- --check --game \"${ARMADA_DIR:?set ARMADA_DIR to an Armada install}\""
+
+[tasks.browser]
+description = "Open the asset browser (needs ARMADA_DIR)"
+depends = ["build"]
+run = "{{ env.GODOT }} --path . -- --game \"${ARMADA_DIR:?set ARMADA_DIR to an Armada install}\""
+
+[tasks.editor]
+description = "Open the project in the Godot editor"
+depends = ["build"]
+run = "{{ env.GODOT }} --path . --editor"
+
+[tasks.index]
+description = "Rebuild the generated sections of the program index"
+run = "python -I tools/GhidraDump/program_index.py docs/rules/program-index.md decomp/armada/dump"

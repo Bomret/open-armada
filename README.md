@@ -10,6 +10,10 @@ Status: prototype. A map sandbox opens one map as a live 3D scene. An asset brow
 - .NET SDK 10 (pinned in `global.json`; the project targets `net8.0`)
 - An installed copy of Star Trek: Armada, or its GOG installer unpacked as described below
 
+[mise](https://mise.jdx.dev) can install the tools instead: `mise install` reads `mise.toml`, and
+`mise tasks` lists the build, test, check, and run tasks. Put `ARMADA_DIR` in a gitignored
+`mise.local.toml` under `[env]`.
+
 ## Use the GOG installer
 
 The GOG installer is an Inno Setup file. `innoextract` unpacks it on macOS or Linux without running it:

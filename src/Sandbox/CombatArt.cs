@@ -111,6 +111,11 @@ public sealed class CombatArt
     const string MissingShieldDownModel = "shield-down model missing from the install, the overlay is not shown";
     const string MissingHullSprite = "hull hit sprite missing from the sprite tables, a beam on a hull shows none";
 
+    const string MissingTransportEffect = "transport effect sprite missing from the sprite tables, it is not drawn";
+    const string MissingTransportSound = "transport sound missing from the install, it is not played";
+    const string MissingBoardingSound = "boarding sound missing from the install, it is not played";
+    const string MissingTransportVoice = "transport voice line missing from the install, it is not played";
+
     // The shield-down overlay's geometry (0x467b70).
     const string ShieldDownModelName = "xshlddie";
 
@@ -118,6 +123,12 @@ public sealed class CombatArt
     readonly GameFileSystem _files;
     readonly Gaps _gaps = new();
     readonly HashSet<string> _unreadable = new(StringComparer.OrdinalIgnoreCase);
+
+    // The units that hold the transport effect, and the sounds AddTransport resolved (null: the install lacks it).
+    readonly HashSet<PlacedObject> _effects = new(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<PlacedObject, string> _voices = new(ReferenceEqualityComparer.Instance);
+    string? _transportSound;
+    string? _boardingSound;
     readonly Dictionary<string, SpriteArt> _sprites = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> _fireSounds = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<PlacedObject, ExplosionArt> _explosions = new(ReferenceEqualityComparer.Instance);
@@ -244,13 +255,130 @@ public sealed class CombatArt
         Log.Warn(Area.Combat, _gaps.Entries.Single(r => r.Cause == MissingRepairSpark).Text);
     }
 
+    /// <summary>
+    /// Resolves what a transport shows and plays: the <c>xtransport</c> sprite, <c>transprt.wav</c>, <c>msboard.wav</c>,
+    /// and the <c>eventTransport</c> voice line of each unit that names one and is no starbase (0x426d26..0x426d4c).
+    /// Each one the install lacks is a gap, logged here as one WARN entry per cause, and its cue is left out
+    /// (INV-0002). A definition that names no voice line is no gap. Call it after <see cref="Build"/>.
+    /// </summary>
+    public void AddTransport(
+        IEnumerable<(PlacedObject Unit, CombatProfile Profile)> units,
+        IEnumerable<PlacedObject> starbases
+    )
+    {
+        _rows ??= SpriteArt.Rows(_files);
+        if (_rows.TryGetValue(TransportCue.EffectSprite, out var row))
+        {
+            _sprites[TransportCue.EffectSprite] = SpriteArt.Of(row.Table, row.Sprite);
+        }
+        else
+        {
+            _gaps.Add(MissingTransportEffect, TransportCue.EffectSprite);
+        }
+
+        _transportSound = ResolveFile(TransportCue.TransportSound, MissingTransportSound);
+        _boardingSound = ResolveFile(TransportCue.BoardingSound, MissingBoardingSound);
+        var stations = starbases.ToHashSet();
+        foreach (var (unit, profile) in units)
+        {
+            // stand-in: the game plays the voice for the local player's team only (0x470680); the sandbox orders every team
+            if (profile.TransportVoice.Length > 0 && !stations.Contains(unit))
+            {
+                if (ResolveFile(profile.TransportVoice, MissingTransportVoice) is { } voice)
+                {
+                    _voices[unit] = voice;
+                }
+            }
+        }
+
+        foreach (
+            var cause in new[]
+            {
+                MissingTransportEffect,
+                MissingTransportSound,
+                MissingBoardingSound,
+                MissingTransportVoice,
+            }
+        )
+        {
+            if (_gaps.Entries.SingleOrDefault(r => r.Cause == cause) is { } report)
+            {
+                Log.Warn(Area.Combat, report.Text);
+            }
+        }
+    }
+
+    /// <summary>
+    /// What a view shows or plays for a combat event of a transport or a capture; nothing for any other event. The
+    /// effect is on one unit at a time (0x46db90 attaches it only to a unit holding none), so a second source adds
+    /// none to a target that holds one, and a stop takes the source's and the target's off (0x467000, 0x467050): the
+    /// first stop of a target removes its effect while a second source boards on. A cue is left out for a thing the
+    /// install lacks.
+    /// </summary>
+    public IReadOnlyList<TransportCue> TransportCues(CombatEvent e)
+    {
+        var cues = new List<TransportCue>();
+        switch (e)
+        {
+            case TransportStarted { Source: var source, Target: var target }:
+                if (_sprites.ContainsKey(TransportCue.EffectSprite))
+                {
+                    foreach (var unit in new[] { source, target })
+                    {
+                        if (_effects.Add(unit))
+                        {
+                            cues.Add(new TransportCue(CueKind.EffectOn, unit));
+                        }
+                    }
+                }
+
+                if (_voices.TryGetValue(source, out var voice))
+                {
+                    cues.Add(new TransportCue(CueKind.Sound, source, voice));
+                }
+
+                break;
+            case TransportStopped { Source: var source, Target: var target }:
+                foreach (var unit in new[] { source, target })
+                {
+                    if (_effects.Remove(unit))
+                    {
+                        cues.Add(new TransportCue(CueKind.EffectOff, unit));
+                    }
+                }
+
+                break;
+            case PartySent { Source: var source, Target: var target } when _transportSound != null:
+                cues.Add(new TransportCue(CueKind.Sound, source, _transportSound));
+                cues.Add(new TransportCue(CueKind.Sound, target, _transportSound));
+
+                break;
+            case BoardingFight { Target: var target } when _boardingSound != null:
+                cues.Add(new TransportCue(CueKind.Sound, target, _boardingSound));
+
+                break;
+            case UnitCaptured { Unit: var unit, Team: var team }:
+                cues.Add(new TransportCue(CueKind.Recolor, unit, "", team));
+
+                break;
+            case UnitDestroyed { Unit: var unit }:
+                _effects.Remove(unit); // the effect goes with the unit's node
+
+                break;
+        }
+
+        return cues;
+    }
+
     /// <summary>Every sprite, every sound (fire and explosion), and every explosion model the fight can show, each once.</summary>
     public IEnumerable<SpriteArt> Sprites => _sprites.Values;
 
-    /// <summary>Every fire and explosion sound the install holds, each once (ignoring case).</summary>
+    /// <summary>Every fire, explosion, and transport sound the install holds, each once (ignoring case).</summary>
     public IEnumerable<string> Sounds =>
         _fireSounds
             .Concat(_explosions.Values.Select(e => e.Sound).OfType<string>())
+            .Concat(new[] { _transportSound, _boardingSound }.OfType<string>())
+            .Concat(_voices.Values)
             .Distinct(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Every explosion model the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
@@ -427,6 +555,16 @@ public sealed class CombatArt
         {
             _gaps.Add(MissingHullSprite, HullHitSprite.SpriteName, unit);
         }
+    }
+
+    // The sound's name when the install holds it; else a gap with its name, and null.
+    string? ResolveFile(string name, string missing)
+    {
+        if (_files.Find(name) != null)
+            return name;
+        _gaps.Add(missing, name);
+
+        return null;
     }
 
     // Whether the install holds the sound; else a gap, `none` for an empty name and `missing` for a name it lacks.

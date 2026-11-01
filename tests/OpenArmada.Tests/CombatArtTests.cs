@@ -567,4 +567,195 @@ public class CombatArtTests
         StringAssert.Contains(log.Lines.Single(), " ERROR combat: sound ph.wav: bad RIFF header");
         StringAssert.Contains(art.Reports.Single().Text, "sound cannot be decoded");
     }
+
+    // --- transport and capture feedback (0x466f70, 0x467050, 0x55f750, 0x46e030) ---
+
+    static readonly PlacedObject Boarder = Placed("boarder", 1, 0);
+    static readonly PlacedObject Rival = Placed("rival", 1, 10);
+    static readonly PlacedObject Prize = Placed("prize", 2, 20);
+
+    // An install with the sprite table (xtransport among its rows) and the transport sounds, minus what the test leaves out.
+    GameFileSystem TransportInstall(bool effect = true, bool transprt = true, bool msboard = true) =>
+        new(
+            temp.MakeInstall(
+                new[] { ("Sprites/weapon.spr", effect ? Sprites + "xtransport tex4 0 0 32 32\n" : Sprites) }
+                    .Concat(transprt ? new[] { ("addon/transprt.wav", "x") } : [])
+                    .Concat(msboard ? new[] { ("addon/msboard.wav", "x") } : [])
+                    .Append(("addon/picard.wav", "x"))
+                    .ToArray()
+            )
+        );
+
+    static CombatArt TransportArt(GameFileSystem files, string voice = "", PlacedObject[]? starbases = null)
+    {
+        var units = new[] { (Boarder, Profile() with { TransportVoice = voice }), (Prize, Profile()) };
+        var art = CombatArt.Build(files, units);
+        art.AddTransport(units, starbases ?? []);
+
+        return art;
+    }
+
+    // The gaps of the transport art; Build's own gaps (a unit without a fireball) are left out.
+    static ReportEntry[] TransportGaps(CombatArt art) =>
+        art.Reports.Where(r => r.Cause.Contains("transport") || r.Cause.Contains("boarding")).ToArray();
+
+    static TransportCue[] Cues(CombatArt art, params CombatEvent[] events) =>
+        events.SelectMany(art.TransportCues).ToArray();
+
+    static TransportStarted Start(PlacedObject source, PlacedObject target) =>
+        new() { Source = source, Target = target };
+
+    static TransportStopped Stop(PlacedObject source, PlacedObject target) =>
+        new() { Source = source, Target = target };
+
+    static PartySent Party() => new() { Source = Boarder, Target = Prize };
+
+    static BoardingFight Fight() => new() { Source = Boarder, Target = Prize };
+
+    [TestMethod]
+    public void ATransportAttachesTheEffectToSourceAndTargetAndItsStopTakesBothOff()
+    {
+        var art = TransportArt(TransportInstall());
+
+        CollectionAssert.AreEqual(
+            new[] { new TransportCue(CueKind.EffectOn, Boarder), new TransportCue(CueKind.EffectOn, Prize) },
+            Cues(art, Start(Boarder, Prize))
+        );
+        CollectionAssert.AreEqual(
+            new[] { new TransportCue(CueKind.EffectOff, Boarder), new TransportCue(CueKind.EffectOff, Prize) },
+            Cues(art, Stop(Boarder, Prize))
+        );
+        Assert.IsNotNull(art.Sprite(TransportCue.EffectSprite));
+        Assert.AreEqual(0, TransportGaps(art).Length);
+    }
+
+    [TestMethod]
+    public void ASecondSourceAddsNoEffectToTheTargetAndTheFirstStopRemovesTheTargetsEffect()
+    {
+        var art = TransportArt(TransportInstall());
+        Cues(art, Start(Boarder, Prize));
+
+        CollectionAssert.AreEqual(new[] { new TransportCue(CueKind.EffectOn, Rival) }, Cues(art, Start(Rival, Prize)));
+        CollectionAssert.AreEqual(
+            new[] { new TransportCue(CueKind.EffectOff, Boarder), new TransportCue(CueKind.EffectOff, Prize) },
+            Cues(art, Stop(Boarder, Prize))
+        );
+        // the second source goes on boarding without the target's effect; its own goes with its stop
+        CollectionAssert.AreEqual(new[] { new TransportCue(CueKind.EffectOff, Rival) }, Cues(art, Stop(Rival, Prize)));
+    }
+
+    [TestMethod]
+    public void AnEffectOnADestroyedUnitIsDroppedWithIt()
+    {
+        var art = TransportArt(TransportInstall());
+        Cues(art, Start(Boarder, Prize));
+        Cues(art, new UnitDestroyed { Unit = Prize, Cause = DestroyCause.Fireball });
+
+        // the destroyed target holds none, so a later stop takes nothing off it
+        CollectionAssert.AreEqual(
+            new[] { new TransportCue(CueKind.EffectOff, Boarder) },
+            Cues(art, Stop(Boarder, Prize))
+        );
+    }
+
+    [TestMethod]
+    public void EveryPartySoundsTheTransportSoundAtSourceAndTargetAndAFightTheBoardingSoundAtTheTarget()
+    {
+        var art = TransportArt(TransportInstall());
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new TransportCue(CueKind.Sound, Boarder, "transprt.wav"),
+                new TransportCue(CueKind.Sound, Prize, "transprt.wav"),
+            },
+            Cues(art, Party())
+        );
+        CollectionAssert.AreEqual(new[] { new TransportCue(CueKind.Sound, Prize, "msboard.wav") }, Cues(art, Fight()));
+        CollectionAssert.Contains(art.Sounds.ToArray(), "transprt.wav");
+        CollectionAssert.Contains(art.Sounds.ToArray(), "msboard.wav");
+    }
+
+    [TestMethod]
+    public void ALandingThatIsNoFightSoundsNoBoardingSound()
+    {
+        // a friendly transfer or a derelict raises no BoardingFight, and a capture alone is silent
+        var art = TransportArt(TransportInstall());
+
+        Assert.AreEqual(
+            0,
+            Cues(
+                    art,
+                    new UnitCaptured
+                    {
+                        Unit = Prize,
+                        Source = Boarder,
+                        Team = 1,
+                    }
+                )
+                .Count(c => c.Kind == CueKind.Sound)
+        );
+    }
+
+    [TestMethod]
+    public void ATransportOrderPlaysTheOrderingHeroUnitsVoiceLine()
+    {
+        var art = TransportArt(TransportInstall(), "picard.wav");
+
+        CollectionAssert.Contains(
+            Cues(art, Start(Boarder, Prize)),
+            new TransportCue(CueKind.Sound, Boarder, "picard.wav")
+        );
+        CollectionAssert.Contains(art.Sounds.ToArray(), "picard.wav");
+        Assert.AreEqual(0, TransportGaps(art).Length);
+    }
+
+    [TestMethod]
+    public void AUnitWithoutAVoiceLineOrAStarbasePlaysNoneAndNothingIsReported()
+    {
+        var plain = TransportArt(TransportInstall());
+        var station = TransportArt(TransportInstall(), "picard.wav", [Boarder]);
+
+        Assert.IsFalse(Cues(plain, Start(Boarder, Prize)).Any(c => c.Kind == CueKind.Sound));
+        Assert.IsFalse(Cues(station, Start(Boarder, Prize)).Any(c => c.Kind == CueKind.Sound));
+        Assert.AreEqual(0, TransportGaps(plain).Length);
+        Assert.AreEqual(0, TransportGaps(station).Length);
+    }
+
+    [TestMethod]
+    public void AVoiceLineTheInstallLacksIsReportedOnceWithoutAnyCueForIt()
+    {
+        var art = TransportArt(TransportInstall(), "nosuch.wav");
+
+        Assert.IsFalse(Cues(art, Start(Boarder, Prize)).Any(c => c.Kind == CueKind.Sound));
+        CollectionAssert.AreEqual(new[] { "nosuch.wav" }, TransportGaps(art).Single().Names.ToArray());
+    }
+
+    [TestMethod]
+    public void AMissingEffectOrSoundIsOneGapEachAndTheTransportGoesOn()
+    {
+        var art = TransportArt(TransportInstall(effect: false, transprt: false, msboard: false));
+
+        Assert.AreEqual(3, TransportGaps(art).Length);
+        CollectionAssert.AreEquivalent(
+            new[] { "xtransport", "transprt.wav", "msboard.wav" },
+            TransportGaps(art).SelectMany(r => r.Names).ToArray()
+        );
+        Assert.AreEqual(0, Cues(art, Start(Boarder, Prize), Party(), Fight()).Length);
+    }
+
+    [TestMethod]
+    public void ACaptureRecolorsTheCapturedUnitToTheTeamItJoined() =>
+        CollectionAssert.AreEqual(
+            new[] { new TransportCue(CueKind.Recolor, Prize, "", 1) },
+            Cues(
+                TransportArt(TransportInstall()),
+                new UnitCaptured
+                {
+                    Unit = Prize,
+                    Source = Boarder,
+                    Team = 1,
+                }
+            )
+        );
 }

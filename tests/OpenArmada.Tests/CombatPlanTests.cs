@@ -465,6 +465,13 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void ProfileReadsTheTransportVoiceLineAndHasNoneWithoutTheKey()
+    {
+        Assert.AreEqual("picard.wav", ProfileOf(OneShip("eventTransport = \"picard.wav\"\r\n")).TransportVoice);
+        Assert.AreEqual("", ProfileOf(OneShip("")).TransportVoice);
+    }
+
+    [TestMethod]
     public void ProfileHoldsShieldsCrewAndRaceValuesFromTheInstall()
     {
         var r = OneShip("canAttack = 0\r\ndefaultGreenAlert = 1\r\nfireball = \"fb\"\r\nlifeSupportLoss = 5\r\n");

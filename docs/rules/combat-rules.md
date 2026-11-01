@@ -523,6 +523,30 @@ selection rejects the unit and its attack orders drop it. A new attack order on 
 from the set; so does the unit's team change (the owner change zeroes the set). Stopping the transport does not (0x467000
 and 0x467050 do not write the set). The game skips the set for an AI team; no team of the sandbox is one.
 
+**Feedback** (0x466f70, 0x46db90, 0x467000, 0x467050, 0x55f750, 0x462d40, 0x46e030). None of it has a team filter, so
+every player sees and hears it.
+
+- *Effect.* The `xtransport` sprite (row of `Sprites/weapon.spr`, a billboard) is attached once when the transport starts
+  (0x466f70 through 0x46db90, name `xtransport`), to the source and to the target, each only if it holds no effect
+  (+0xdc is 0). It is not attached again per party. A stop clears the handle on both (0x467000, 0x467050). A target
+  boarded by two sources therefore holds one effect, attached by the first, and the first source to stop clears it while
+  the second keeps boarding and does not attach another. **Stand-in**: clearing the handle removes the drawn effect (the
+  game's release of the effect object was not found); an effect on a destroyed unit goes with the unit; the billboard
+  is as wide as the unit's model and loops its flipbook, since the game's size and timing are not recovered.
+- *Sounds.* `transprt.wav` plays at the source and at the target for every party sent (0x5aff40 from 0x467050). `msboard.wav`
+  plays at the target for every fight against a live hostile unit, won or lost (0x55f750); a derelict or a friendly
+  transfer has none. A sound the install lacks is reported once. The 1.2 install's `msboard.wav` holds only silence
+  (every sample is the 8-bit zero level), so the fight is soundless there.
+- *Voice.* After a transport order the ordering unit's `eventTransport` line plays (0x462d40 with event 8; the keys are
+  read in 0x5ab750), unless the unit is derelict or a starbase (0x426d26 to 0x426d4c); a definition without the key plays
+  none and is no problem. Only hero definitions set it. **Stand-in**: the game plays it only when the unit's team is
+  the local player's (0x470680) and throttles repeats to one per second (0x5ab7d0); the sandbox orders every team, so
+  every team counts, and the throttle is not built.
+- *Team color.* The team join (0x46e030, called from the owner change) copies the new team's colors into the unit,
+  from the color table by the team record (+0x174..+0x190). The captured unit takes the team-color slot of its new team,
+  mapped as the map plan maps a team to a slot, and only that unit changes. That the renderer reads the fields at once
+  is **inferred**.
+
 **Stations** follow the same rules as ships (they share 0x465e80, 0x467050, 0x55f750, and 0x46dff0).
 
 **Not built**: special transport (command 12, Shift+T), the recrew command, the AI's auto-transport (0x429920), the

@@ -566,6 +566,21 @@ public class SandboxPlanTests
     }
 
     [TestMethod]
+    public void SlotOfATeamIsTheSlotItsMapRecordGivesAndReportsNothingMore()
+    {
+        var map = MapOf(Ship(team: 2));
+        map.TeamColors = new[] { 0, 0, 30, 0, 9, 0, 0, 0, 0 };
+        var plan = Plan(map, Fbattle, "fdreadnought");
+        var reported = plan.Reports.Count;
+
+        Assert.AreEqual(9, plan.SlotOf(4));
+        Assert.AreEqual(2, plan.SlotOf(2)); // the unusable record 30: the team's own slot
+        Assert.AreEqual(8, plan.SlotOf(8)); // a record of 0: the team's own slot
+        Assert.AreEqual(0, plan.SlotOf(40)); // a team beyond the records and the slots
+        Assert.AreEqual(reported, plan.Reports.Count);
+    }
+
+    [TestMethod]
     public void ObjectsOfOneModelOnDifferentTeamsGetDifferentSlots()
     {
         var plan = Plan(MapOf(Ship(team: 1), Ship(team: 2)), Fbattle, "fdreadnought");

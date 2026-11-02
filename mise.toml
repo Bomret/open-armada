@@ -76,6 +76,23 @@ description = "Open the asset browser (needs ARMADA_DIR)"
 depends = ["build"]
 run = "{{ env.GODOT }} --path . -- --game \"{{ env.ARMADA_DIR }}\""
 
+[tasks.map]
+description = "Open a map in the map sandbox (needs ARMADA_DIR)"
+depends = ["build"]
+usage = 'arg "<map>" help="Map name from the install bzn folder, such as 2duel"'
+run = "{{ env.GODOT }} --path . -- --game \"{{ env.ARMADA_DIR }}\" --map \"${usage_map}\""
+
+[tasks.layout]
+description = "Open a layout file in the map sandbox (needs ARMADA_DIR)"
+depends = ["build"]
+usage = 'arg "<file>" help="Layout file, such as layouts/two-ships.jsonc"'
+run = "{{ env.GODOT }} --path . -- --game \"{{ env.ARMADA_DIR }}\" --layout \"${usage_file}\""
+
+[tasks.maps]
+description = "Print a summary of every map in the install (needs ARMADA_DIR)"
+depends = ["build"]
+run = "{{ env.GODOT }} --headless --path . -- --maps --game \"{{ env.ARMADA_DIR }}\""
+
 [tasks.editor]
 description = "Open the project in the Godot editor"
 depends = ["build"]

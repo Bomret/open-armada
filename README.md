@@ -12,7 +12,8 @@ Status: prototype. A map sandbox opens one map as a live 3D scene. An asset brow
 
 [mise](https://mise.jdx.dev) can install the tools instead: `mise install` reads `mise.toml`, and
 `mise tasks` lists the build, test, check, and run tasks. Put `ARMADA_DIR` in a gitignored
-`mise.local.toml` under `[env]`.
+`mise.local.toml` under `[env]`. `mise run map 2duel` opens a map, `mise run layout <file>` opens a layout, and
+`mise run maps` prints the map summaries.
 
 ## Use the GOG installer
 

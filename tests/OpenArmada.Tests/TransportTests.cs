@@ -345,10 +345,10 @@ public class TransportTests
     [TestMethod]
     public void ACapturedUnitKeepsItsAlertAndItsOwnTransport()
     {
-        // E = 8 * 5 = 40 against the 35 crew left after its own party; at 30 or less its red-status stop would end it
+        // E = 12 * 5 = 60 against the 35 crew left after its own party; at 30 or less its red-status stop would end it
         var (world, u) = Build(
             null,
-            new Spec("s", 1, 0, Race: Race with { BoardingStrength = 8 }),
+            new Spec("s", 1, 0, Race: Race with { BoardingStrength = 12 }),
             new Spec("t", 2, 100, Crew: 40, Max: 40, Weapon: Weapon()),
             new Spec("v", 2, 200, Crew: 50)
         );

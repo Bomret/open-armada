@@ -148,7 +148,8 @@ and dying.
 | 0x4685c0 | Craft_RepairAll | The full-repair path (0x468760) | unknown | game | — | [combat-rules](combat-rules.md#not-known) |
 | 0x468a60 | Craft_HitNode | The node a shot hits: the hit location's target hardpoint nearest the firing hardpoint, else the model root | confirmed | game | class +0x358–+0x3b8 | [combat-rules](combat-rules.md#hit-explosion) |
 | 0x468990 | Craft_BeginDying | Marks the unit as being destroyed | confirmed | game | — | [combat-rules](combat-rules.md#dying-units) |
-| 0x467050 | Craft_TransportCycle | The per-tick transport work: counts the cycle timer down, sends a boarding party (0x55f620), and stops the transport once (crew − `TRANSPORTER_MAX`) / maximum crew is at or below the race's `crewRedStatus` | confirmed | game | crew +0x4d8, maximum crew +0x4c8, race `crewRedStatus` +0x208; test at 0x4672d0–0x467300 | [combat-rules](combat-rules.md#transport-and-boarding) |
+| 0x467050 | Craft_TransportCycle | The per-tick transport work: counts the cycle timer down, sends a boarding party (0x55f620), and stops the transport once (crew after this party − `TRANSPORTER_MAX`) / maximum crew is at or below the race's `crewRedStatus`, so the next party would reach red | confirmed | game | crew +0x4d8, maximum crew +0x4c8, race `crewRedStatus` +0x208; test at 0x4672d0–0x467300 | [combat-rules](combat-rules.md#transport-and-boarding) |
+| 0x4674d0 | Craft_TakeCrew | Takes a boarding party's crew from the source: unless the source is derelict (+0x4dc) or its maximum crew (+0x4c8) is not above 0, subtracts the party size from the crew (+0x4d8, no floor) and calls 0x466ca0; returns the smaller of the old crew and the party size | confirmed | game | crew +0x4d8, derelict +0x4dc, maximum crew +0x4c8; called by 0x55f620 at the party's creation | [combat-rules](combat-rules.md#transport-and-boarding) |
 | 0x466f70 | Craft_StartTransport | Starts a transport: attaches the `xtransport` effect to the source and the target, adds the source's team to the target's boarding block | confirmed | game | `xtransport`, `TRANSPORTER_MAX` test | [combat-rules](combat-rules.md#transport-and-boarding) |
 | 0x46db90 | Craft_AttachEffect | Attaches a named effect to a unit only when it holds none (+0xdc is 0) | confirmed | game | name `xtransport`; handle +0xdc | [combat-rules](combat-rules.md#transport-and-boarding) |
 | 0x46e030 | Craft_JoinTeam | The team join of the owner change: copies the new team's colors into the unit (+0x174..+0x190) and zeroes the boarding block | confirmed | game | color table 0x633ac8 | [combat-rules](combat-rules.md#transport-and-boarding) |
@@ -813,6 +814,7 @@ Built from the topic tables by `tools/GhidraDump/program_index.py`; do not edit 
 | 0x466ca0 | Craft_OnCrewChanged | inferred | Ships (Craft) |
 | 0x466f70 | Craft_StartTransport | confirmed | Ships (Craft) |
 | 0x467050 | Craft_TransportCycle | confirmed | Ships (Craft) |
+| 0x4674d0 | Craft_TakeCrew | confirmed | Ships (Craft) |
 | 0x4675d0 | Craft_ShareSystemDamage | inferred | Ships (Craft) |
 | 0x467620 | Craft_PassSystemDamage | inferred | Ships (Craft) |
 | 0x4677b0 | Craft_UpdateDamageNodes | confirmed | Ships (Craft) |

@@ -541,15 +541,35 @@ public class TransportTests
     }
 
     [TestMethod]
-    public void TheTransportStopsOnceTheSourcesCrewAfterAPartyIsAtOrBelowRedStatus()
+    public void TheTransportStopsWhenTheNextPartyWouldTakeTheSourceToRedStatus()
     {
-        // 40 -> 35 -> 30 -> 25 of 100; the red status is 0.25
+        // maximum 100, red status 0.25: 40 -> 35 -> 30; the next party would leave 25, so it stops with 30
         var (world, u) = Build(null, new Spec("s", 1, 0, Crew: 40), new Spec("t", 1, 100, Crew: 10));
         world.Transport(u["s"], u["t"]);
         var events = Run(world, 5);
-        Assert.AreEqual(3, events.OfType<PartySent>().Count());
+        Assert.AreEqual(2, events.OfType<PartySent>().Count());
         Assert.IsTrue(Stopped(events, u["s"]));
-        Assert.AreEqual(25, CrewOf(world, u["s"]));
+        Assert.AreEqual(30, CrewOf(world, u["s"]));
+    }
+
+    [TestMethod]
+    public void ASmallSourceStopsAfterOnePartyWithOneOfTheNextPartysCrewLeft()
+    {
+        // maximum 20, red status 0.2, 10 crew: one party leaves 5; the next would leave 0, which is at red
+        var red = Race with
+        {
+            CrewRedStatus = 0.2f,
+        };
+        var (world, u) = Build(
+            null,
+            new Spec("s", 1, 0, Crew: 10, Max: 20, Race: red),
+            new Spec("t", 1, 100, Crew: 10)
+        );
+        world.Transport(u["s"], u["t"]);
+        var events = Run(world, 5);
+        Assert.AreEqual(1, events.OfType<PartySent>().Count());
+        Assert.IsTrue(Stopped(events, u["s"]));
+        Assert.AreEqual(5, CrewOf(world, u["s"]));
     }
 
     [TestMethod]

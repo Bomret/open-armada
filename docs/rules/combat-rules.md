@@ -480,11 +480,12 @@ recovered; the engine's tick is the world tick). At or below zero a transporting
    source left below one crew is derelict (0x55f620, 0x4674d0, 0x466ca0). A party onto a hostile target lands after
    `TRANSPORTER_ACTION_DELAY`; onto any other target on the next tick. Any other target stops the transport.
 5. The cycle timer is set to `TRANSPORTER_DELAY`.
-6. The transport stops when the source's crew after the party, over its maximum crew, is at or below its race's
-   `crewRedStatus` (0x467050). The test runs right after the party is sent (0x4672d0–0x467300): (crew −
-   `TRANSPORTER_MAX`) / maximum crew against the race's `crewRedStatus`. Neither 0x467050 before the test nor the
-   party's constructor 0x55f620 writes the source's crew, so the crew operand is the crew before this party leaves and
-   the test counts the party just sent. **Inferred**: where the source's crew is lowered was not found.
+6. The transport stops when the next party would take the source to its race's `crewRedStatus` (0x467050): the
+   source's crew after this party, less `TRANSPORTER_MAX`, over its maximum crew, is at or below `crewRedStatus`. The
+   test runs right after the party is sent (0x4672d0–0x467300). The party's constructor 0x55f620 calls 0x4674d0,
+   which has already lowered the source's crew by the party (step 4), so the crew operand is the crew after this
+   party and the test looks one party ahead. A maximum of 100 and a red status of 0.25 stop once the crew is at or
+   below 30, never below 20.
 
 The first party leaves on the first tick after the order, because the timer starts at or below zero and keeps
 counting while the unit is idle. **Stand-in**: a party lands once its delay has elapsed (the game lands it when its

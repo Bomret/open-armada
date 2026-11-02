@@ -485,7 +485,8 @@ recovered; the engine's tick is the world tick). At or below zero a transporting
    test runs right after the party is sent (0x4672d0–0x467300). The party's constructor 0x55f620 calls 0x4674d0,
    which has already lowered the source's crew by the party (step 4), so the crew operand is the crew after this
    party and the test looks one party ahead. A maximum of 100 and a red status of 0.25 stop once the crew is at or
-   below 30, never below 20.
+   below 30. After each party the crew stays above `crewRedStatus` × maximum crew (here 25), except that the first
+   party can leave less when the source starts low (22 → 17, 10 → 5; more than 9 is all the order needs).
 
 The first party leaves on the first tick after the order, because the timer starts at or below zero and keeps
 counting while the unit is idle. **Stand-in**: a party lands once its delay has elapsed (the game lands it when its

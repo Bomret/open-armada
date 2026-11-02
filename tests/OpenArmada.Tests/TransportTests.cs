@@ -345,7 +345,7 @@ public class TransportTests
     [TestMethod]
     public void ACapturedUnitKeepsItsAlertAndItsOwnTransport()
     {
-        // E = 12 * 5 = 60 against the 35 crew left after its own party; at 30 or less its red-status stop would end it
+        // E = 12 * 5 = 60 against the 35 crew left after its own party; at 15 or less (maximum 40, red status 0.25) its red-status stop would end it
         var (world, u) = Build(
             null,
             new Spec("s", 1, 0, Race: Race with { BoardingStrength = 12 }),
@@ -550,6 +550,18 @@ public class TransportTests
         Assert.AreEqual(2, events.OfType<PartySent>().Count());
         Assert.IsTrue(Stopped(events, u["s"]));
         Assert.AreEqual(30, CrewOf(world, u["s"]));
+    }
+
+    [TestMethod]
+    public void ASourceJustAboveTheRedStatusLineSendsOnePartyAndStopsAtTheLine()
+    {
+        // maximum 100, red status 0.25, 30 crew: one party leaves 25, the next would leave 20, so it stops with 25
+        var (world, u) = Build(null, new Spec("s", 1, 0, Crew: 30), new Spec("t", 1, 100, Crew: 10));
+        world.Transport(u["s"], u["t"]);
+        var events = Run(world, 5);
+        Assert.AreEqual(1, events.OfType<PartySent>().Count());
+        Assert.IsTrue(Stopped(events, u["s"]));
+        Assert.AreEqual(25, CrewOf(world, u["s"]));
     }
 
     [TestMethod]

@@ -8,7 +8,7 @@ using OpenArmada.Formats;
 namespace OpenArmada.Sandbox;
 
 /// <summary>
-/// The key chords of the install's Input.map that set an alert stance: the <c>green</c>, <c>yellow</c>, and <c>red</c> blocks. A
+/// The key chords of the install's Input.map that set an alert stance: the <c>green</c>, <c>yellow</c>, and <c>red</c> blocks, and the chord of the transport order: the <c>transport</c> block. A
 /// block's <c>+ keyboard X</c> line names the key; <c>+ keyboard Shift</c> (or Control, Alt) a modifier that must be held. A
 /// modifier the block does not require with <c>+</c> must not be held.
 /// stand-in: how the game matches a chord with extra modifiers held is not traced; the match is exact.
@@ -35,21 +35,15 @@ public sealed class AlertBindings
         }
         catch (Exception e)
         {
-            var text = $"Input.map cannot be read, so the alert keys are unbound: {e.Message}";
+            var text = $"Input.map cannot be read, so the alert and transport keys are unbound: {e.Message}";
             Log.Error(Area.Combat, text);
             gap(text);
 
             return bindings;
         }
 
-        foreach (
-            var (section, stance) in new[]
-            {
-                ("green", AlertStance.Green),
-                ("yellow", AlertStance.Yellow),
-                ("red", AlertStance.Red),
-            }
-        )
+        // The chord of the section's block; a block without a key goes to the gap and leaves its order unbound.
+        KeyChord? Chord(string section, string what)
         {
             var lines = map
                 .Entries.Where(e =>
@@ -64,29 +58,52 @@ public sealed class AlertBindings
                 // a malformed line of the block is the likely cause, so the gap names it
                 var cause = map.Notes.Where(n => n.EndsWith($"in block '{section}'", StringComparison.Ordinal));
                 var text =
-                    $"Input.map has no keyboard binding for '{section}' alert, so that key is unbound"
+                    $"Input.map has no keyboard binding for '{section}' {what}, so that key is unbound"
                     + string.Concat(cause.Select(n => $" ({n})"));
                 Log.Warn(Area.Combat, text);
                 gap(text);
 
-                continue;
+                return null;
             }
 
             bool Held(string modifier) =>
                 lines.Any(e => e.Sign == "+" && e.Value.Equals(modifier, StringComparison.OrdinalIgnoreCase));
-            bindings._chords[
-                new KeyChord
-                {
-                    Key = key.Value.ToUpperInvariant(),
-                    Shift = Held("Shift"),
-                    Control = Held("Control"),
-                    Alt = Held("Alt"),
-                }
-            ] = stance;
+
+            return new KeyChord
+            {
+                Key = key.Value.ToUpperInvariant(),
+                Shift = Held("Shift"),
+                Control = Held("Control"),
+                Alt = Held("Alt"),
+            };
         }
+
+        foreach (
+            var (section, stance) in new[]
+            {
+                ("green", AlertStance.Green),
+                ("yellow", AlertStance.Yellow),
+                ("red", AlertStance.Red),
+            }
+        )
+        {
+            if (Chord(section, "alert") is { } chord)
+                bindings._chords[chord] = stance;
+        }
+
+        // inferred: the transport block's key is the key of the transport order; the game's reader of Input.map is
+        // not traced to the button.
+        bindings.Transport = Chord("transport", "order");
 
         return bindings;
     }
+
+    /// <summary>The chord of the transport order; null when Input.map or its <c>transport</c> block is missing.</summary>
+    public KeyChord? Transport { get; private set; }
+
+    /// <summary>Whether the chord is the transport chord.</summary>
+    public bool IsTransport(KeyChord pressed) =>
+        Transport is { } t && t == pressed with { Key = pressed.Key.ToUpperInvariant() };
 
     /// <summary>The stance the chord sets; null when it is bound to none.</summary>
     public AlertStance? For(KeyChord pressed) =>

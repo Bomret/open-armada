@@ -112,6 +112,12 @@ public sealed class SandboxPlan
     /// <summary>The map's bounds in the map's own frame (Z not mirrored).</summary>
     public MapBounds Bounds { get; }
 
+    /// <summary>
+    /// The team-color slot a team takes (0x46e030), mapped the way the plan maps the team of each object. A team
+    /// whose record is unusable gets the stand-in slot with no report: the plan reported it when it placed objects.
+    /// </summary>
+    public Func<int, int> SlotOf { get; }
+
     /// <summary>The asteroid fields to fill with rocks (a field with a missing or illegal value is reported and absent).</summary>
     public IReadOnlyList<AsteroidField> Fields { get; }
 
@@ -183,9 +189,11 @@ public sealed class SandboxPlan
         IReadOnlyDictionary<string, ResolvedDefinition> resolved,
         IReadOnlyList<Nebula> nebulae,
         IReadOnlyList<NebulaKind> nebulaKinds,
-        IReadOnlyList<AsteroidSite> asteroidSites
+        IReadOnlyList<AsteroidSite> asteroidSites,
+        Func<int, int> slotOf
     )
     {
+        SlotOf = slotOf;
         _fieldObstacles = fieldObstacles;
         BlackHoles = blackHoles;
         Nebulae = nebulae;
@@ -347,7 +355,8 @@ public sealed class SandboxPlan
             definitions.Found,
             nebulae,
             nebulaKinds,
-            sites
+            sites,
+            team => Slot(map, team, new Gaps())
         );
     }
 

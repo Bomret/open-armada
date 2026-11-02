@@ -43,7 +43,8 @@ public class PlayScriptTests
                 "turn -40",
                 "shot after",
                 "shot close kbattle58",
-                "shot closer enemy#2 3"
+                "shot closer enemy#2 3",
+                "transport enemy#3"
             ),
             "x.play"
         );
@@ -67,11 +68,13 @@ public class PlayScriptTests
         Assert.AreEqual(("close", "kbattle58", 1), (close.Name, close.Unit, close.Scale));
         var closer = (ShotStep)script.Steps[12];
         Assert.AreEqual(("closer", "enemy#2", 3), (closer.Name, closer.Unit, closer.Scale));
+        Assert.AreEqual("enemy#3", ((TransportStep)script.Steps[13]).Unit);
     }
 
     [TestMethod]
     [DataRow("select", "'select' takes 1 argument, found 0")]
     [DataRow("attack a b", "'attack' takes 1 argument, found 2")]
+    [DataRow("transport", "'transport' takes 1 argument, found 0")]
     [DataRow("move 1", "'move' takes 2 arguments, found 1")]
     [DataRow("move 1 x", "'x' is not a number")]
     [DataRow("box", "'box' takes 4 numbers or one or more unit names, found 0 arguments")]
@@ -118,6 +121,9 @@ public class PlayScriptTests
     [DataRow("expect a destroyed = maybe", "'maybe' is not true or false")]
     [DataRow("expect a dying < true", "'dying' takes only '=', not '<'")]
     [DataRow("expect a dying = maybe", "'maybe' is not true or false")]
+    [DataRow("expect a team < 1", "'team' takes only '=', not '<'")]
+    [DataRow("expect a team = 1.5", "'1.5' is not an integer")]
+    [DataRow("expect a team = red", "'red' is not an integer")]
     public void AnUnreadableLineIsOneProblemNamingTheFileAndTheLine(string line, string reason)
     {
         var script = PlayScript.Parse($"wait 1\n{line}\n", "play/x.play");

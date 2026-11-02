@@ -1,0 +1,27 @@
+# The transport feedback for the cases play/transport-feedback.play leaves out (docs/rules/combat-rules.md, transport
+# feedback), one case after another on layouts/transport-cases.jsonc, 3 seconds apart (each transport runs on until its
+# target is full or it is cancelled, so later windows of the WAV hold the earlier parties too): the hero ship (Hero, kmartok) speaks its eventTransport line at its order and a destroyer with none (Plain) is
+# silent and reports no gap; transprt.wav plays at every party, the derelict (captured) and friendly (crew added) ones
+# included; msboard.wav plays only at a fight with a live hostile target, which none of these is. The targets of the hero
+# and no-hero cases are neutral ships, so no unit fires. Each dump shows the end state of its case.
+# Run it with --layout layouts/transport-cases.jsonc; the layout's header comment has the whole command.
+wait 0.5
+select Hero
+transport HeroPrize
+wait 3
+dump hero
+select Plain
+transport PlainPrize
+wait 3
+dump plain
+select DerelictBoarder
+transport Wreck
+wait 3
+dump derelict
+expect Wreck team = 1
+expect Wreck crew > 0
+select FriendBoarder
+transport Ally
+wait 3
+dump friendly
+expect Ally crew > 4

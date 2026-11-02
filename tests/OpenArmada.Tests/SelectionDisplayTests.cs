@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Sandbox;
@@ -142,11 +143,33 @@ public class SelectionDisplayTests
     static readonly PlacedObject D0 = Placed("d0", 0, 30);
     static readonly PlacedObject[] Units = { A1, B1, C2, D0 };
 
+    // The teams the world holds: each unit's placed team until a test changes it.
+    static readonly Dictionary<PlacedObject, int> Teams = Units.ToDictionary(u => u, u => u.Team);
+
+    static int Team(PlacedObject unit) => Teams[unit];
+
     static HoverState Hover(PlacedObject? pick, double delta = 0.1, HoverState? from = null) =>
-        (from ?? new HoverState()).Step(pick, Units, delta);
+        (from ?? new HoverState()).Step(pick, Units, delta, Team);
 
     static ShownUnit[] Shown(HoverState hover, params PlacedObject[] selected) =>
-        SelectionDisplay.Shown(hover, Units, selected).ToArray();
+        SelectionDisplay.Shown(hover, Units, selected, Team).ToArray();
+
+    [TestMethod]
+    public void AUnitWhoseTeamChangedIsAMemberOfItsNewTeam()
+    {
+        var mover = Placed("m1", 1, 50);
+        var units = new[] { A1, C2, mover };
+        int Now(PlacedObject u) => u == mover ? 2 : u.Team;
+        var hover = new HoverState().Step(C2, units, 0.1, Now);
+        hover = hover.Step(C2, units, 0.3, Now);
+        Assert.AreEqual(2, hover.Team);
+        CollectionAssert.AreEqual(
+            new[] { new ShownUnit(C2, 1, false), new ShownUnit(mover, 0.3, false) },
+            SelectionDisplay.Shown(hover, units, Array.Empty<PlacedObject>(), Now).ToArray()
+        );
+        var asMover = new HoverState().Step(mover, units, 0.1, Now);
+        Assert.AreEqual(2, asMover.Team);
+    }
 
     [TestMethod]
     public void WithNoHoveredUnitNoUnitIsShownSelectedOrNot()
@@ -176,10 +199,10 @@ public class SelectionDisplayTests
     public void AHoveredUnitOfTeamZeroShowsOnlyItsOwnBar()
     {
         var zero = Placed("e0", 0, 40);
-        var hover = new HoverState().Step(D0, new[] { A1, D0, zero }, 0.1);
+        var hover = new HoverState().Step(D0, new[] { A1, D0, zero }, 0.1, u => u.Team);
         CollectionAssert.AreEqual(
             new[] { new ShownUnit(D0, 1, false) },
-            SelectionDisplay.Shown(hover, new[] { A1, D0, zero }, Array.Empty<PlacedObject>()).ToArray()
+            SelectionDisplay.Shown(hover, new[] { A1, D0, zero }, Array.Empty<PlacedObject>(), u => u.Team).ToArray()
         );
     }
 
@@ -277,11 +300,11 @@ public class SelectionDisplayTests
     public void ARemovedUnitEndsTheHoverOnThatFrameAndItsTeamIsNoLongerTheKey()
     {
         var hover = Hover(A1, 0.5, Hover(A1));
-        hover = hover.Step(null, new[] { B1, C2, D0 }, 0.01);
+        hover = hover.Step(null, new[] { B1, C2, D0 }, 0.01, Team);
         Assert.IsNull(hover.Hovered);
         Assert.AreEqual(0, hover.Team);
         Assert.AreEqual(0, hover.Fade);
-        Assert.AreEqual(0, SelectionDisplay.Shown(hover, new[] { B1, C2, D0 }, new[] { B1 }).Count());
+        Assert.AreEqual(0, SelectionDisplay.Shown(hover, new[] { B1, C2, D0 }, new[] { B1 }, Team).Count());
     }
 
     [TestMethod]

@@ -46,6 +46,55 @@ public static class PlayTarget
         : $"'{name}' is not hostile to every selected unit";
 
     /// <summary>
+    /// The problem with a transport step on <c>name</c> when each entry of <c>takes</c> says whether one selected unit
+    /// takes a transport order on it, or null when at least one does. Nothing selected takes none.
+    /// </summary>
+    public static string? TransportProblem(string name, IReadOnlyCollection<bool> takes) =>
+        takes.Count == 0 ? $"no unit is selected to transport to '{name}'"
+        : takes.Any(t => t) ? null
+        : $"no selected unit can take a transport order on '{name}'";
+
+    /// <summary>
+    /// The two lists <see cref="TransportProblem(string, IReadOnlyCollection{bool}, IReadOnlyCollection{bool})"/> reads,
+    /// one entry per selected unit in order: whether it takes a transport order on <c>target</c> (it is not
+    /// transporting, and <see cref="CombatRules.TransportOrderOk"/> accepts the pair; a transporting unit takes none)
+    /// and whether it is transporting. A unit or target the world has lost (null) takes no order and is not transporting.
+    /// </summary>
+    public static (List<bool> Takes, List<bool> Transporting) TransportSelection(
+        IEnumerable<UnitCombatState?> selected,
+        UnitCombatState? target
+    )
+    {
+        var units = selected.ToList();
+
+        return (
+            units
+                .Select(s => s is { Transporting: false } && target != null && CombatRules.TransportOrderOk(s, target))
+                .ToList(),
+            units.Select(s => s?.Transporting == true).ToList()
+        );
+    }
+
+    /// <summary>The problem with a transport step when the chord is unbound (<c>bound</c> false), or null.</summary>
+    public static string? TransportChordProblem(bool bound) =>
+        bound ? null : "the transport chord is unbound: Input.map or its transport block is missing";
+
+    /// <summary>
+    /// The problem with a transport step on <c>name</c> when each entry of <c>transporting</c> says whether one selected
+    /// unit is transporting and each entry of <c>takes</c> whether one selected unit not transporting takes the order, or
+    /// null. A selection of only transporting units fails first: the chord would cancel them, enter no mode, and the
+    /// click would select. Otherwise <see cref="TransportProblem(string, IReadOnlyCollection{bool})"/> answers.
+    /// </summary>
+    public static string? TransportProblem(
+        string name,
+        IReadOnlyCollection<bool> takes,
+        IReadOnlyCollection<bool> transporting
+    ) =>
+        transporting.Count > 0 && transporting.All(t => t)
+            ? $"every selected unit is transporting: the transport chord would cancel them, not wait for '{name}'"
+            : TransportProblem(name, takes);
+
+    /// <summary>
     /// The pixels a <c>shot</c> step aimed at a unit keeps: the unit's screen <c>box</c> grown past each edge by half its
     /// longer side, so effects around the hull such as a fireball or a shield flash stay in it, then every pixel the
     /// grown box touches, clipped to <c>viewport</c>. The box lies at least partly inside the viewport.

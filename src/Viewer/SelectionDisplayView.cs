@@ -34,9 +34,12 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
         // simplicity: the hover pick walks every placed object's meshes each frame (O(objects × meshes)); skip
         // it while neither the mouse nor the camera moved, or cache the pick, when maps grow large.
         var pick = hoverPoint() is { } point ? selection.UnitAt(point)?.Object : null;
-        _hover = _hover.Step(pick, selection.Units.Select(u => u.Object), delta);
+        _hover = _hover.Step(pick, selection.Units.Select(u => u.Object), delta, TeamOf);
         _canvas.QueueRedraw();
     }
+
+    // A unit's current team (INV-0012); a unit the world no longer holds belongs to no team.
+    int TeamOf(PlacedObject unit) => world.State(unit)?.Team ?? 0;
 
     // Units are looked up afresh each frame: a destroyed unit is simply no longer listed.
     void Paint()
@@ -45,7 +48,7 @@ public partial class SelectionDisplayView(UnitSelection selection, CombatWorld w
         var scale = DisplayServer.ScreenGetScale(DisplayServer.WindowGetCurrentScreen());
         var units = selection.Units.Select(u => u.Object).ToList();
         var selected = selection.Selected.Select(u => u.Object);
-        foreach (var shown in SelectionDisplay.Shown(_hover, units, selected))
+        foreach (var shown in SelectionDisplay.Shown(_hover, units, selected, TeamOf))
         {
             if (world.State(shown.Unit) is not { } state || selection.ScreenBoxOf(shown.Unit) is not { } box)
                 continue;

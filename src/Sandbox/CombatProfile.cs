@@ -244,6 +244,12 @@ public sealed record RaceValues
 
     /// <summary>The <c>repairStrength</c>: a factor on every system's repair time per hit point.</summary>
     public required float RepairStrength { get; init; }
+
+    /// <summary>
+    /// The <c>boardingStrength</c> (0x4442b0): the weight of the race's boarders in a boarding fight; 1 where the
+    /// definition gives none, as the game does.
+    /// </summary>
+    public float BoardingStrength { get; init; } = 1;
 }
 
 /// <summary>
@@ -317,6 +323,12 @@ public sealed record CombatProfile
     /// is (0x466090).
     /// </summary>
     public bool IsHero { get; init; }
+
+    /// <summary>
+    /// The <c>eventTransport</c> voice line (the 8th event key, 0x5ab750): the sound played when the unit is ordered to
+    /// transport; empty when the definition names none (only hero units do).
+    /// </summary>
+    public string TransportVoice { get; init; } = "";
 
     /// <summary>
     /// The <c>shieldPad</c>: the model units the longest radius of the shield ellipsoid grows by (0x46a74f, 0x46b8f0);

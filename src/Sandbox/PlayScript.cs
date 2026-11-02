@@ -34,16 +34,16 @@ public sealed record ExpectStep : PlayStep
     /// <summary>The unit's name as the script writes it (see <see cref="UnitNames"/>).</summary>
     public required string Unit { get; init; }
 
-    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>destroyed</c>, <c>dying</c>, <c>target</c>, or a system name of <see cref="SystemNames"/>.</summary>
+    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, or a system name of <see cref="SystemNames"/>.</summary>
     public required string Field { get; init; }
 
-    /// <summary>One of <c>&lt;</c>, <c>&lt;=</c>, <c>=</c>, <c>&gt;=</c>, <c>&gt;</c>; <c>destroyed</c>, <c>dying</c>, and <c>target</c> take only <c>=</c>.</summary>
+    /// <summary>One of <c>&lt;</c>, <c>&lt;=</c>, <c>=</c>, <c>&gt;=</c>, <c>&gt;</c>; <c>destroyed</c>, <c>dying</c>, <c>target</c>, and <c>team</c> take only <c>=</c>.</summary>
     public required string Op { get; init; }
 
-    /// <summary>The value as written: a number, <c>true</c> or <c>false</c>, or a unit name or <c>none</c> for <c>target</c>.</summary>
+    /// <summary>The value as written: a number, <c>true</c> or <c>false</c>, an integer for <c>team</c>, or a unit name or <c>none</c> for <c>target</c>.</summary>
     public required string Value { get; init; }
 
-    /// <summary>The number <see cref="Value"/> reads as, or null for a <c>destroyed</c>, <c>dying</c>, or <c>target</c> step.</summary>
+    /// <summary>The number <see cref="Value"/> reads as, or null for a <c>destroyed</c>, <c>dying</c>, <c>target</c>, or <c>team</c> step.</summary>
     public double? Number =>
         double.TryParse(Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null;
 }
@@ -57,6 +57,13 @@ public sealed record SelectStep : PlayStep
 
 /// <summary><c>attack &lt;unit&gt;</c>: a right click at the unit's projected screen point.</summary>
 public sealed record AttackStep : PlayStep
+{
+    /// <summary>The unit's name as the script writes it.</summary>
+    public required string Unit { get; init; }
+}
+
+/// <summary><c>transport &lt;unit&gt;</c>: the transport chord, then a left click at the unit's projected screen point.</summary>
+public sealed record TransportStep : PlayStep
 {
     /// <summary>The unit's name as the script writes it.</summary>
     public required string Unit { get; init; }
@@ -262,8 +269,10 @@ public sealed class PlayScript
     {
         switch (word)
         {
-            case "select" or "attack" or "press" when args.Length != 1:
+            case "select" or "attack" or "transport" or "press" when args.Length != 1:
                 return Wrong(word, 1, args.Length);
+            case "transport":
+                return (new TransportStep { Line = number, Unit = args[0] }, null);
             case "select":
                 return (new SelectStep { Line = number, Unit = args[0] }, null);
             case "attack":
@@ -402,7 +411,7 @@ public sealed class PlayScript
         {
             field = system;
         }
-        else if (field is not ("shields" or "crew" or "destroyed" or "dying" or "target"))
+        else if (field is not ("shields" or "crew" or "destroyed" or "dying" or "target" or "team"))
         {
             return (null, $"unknown field '{args[1]}'");
         }
@@ -410,11 +419,16 @@ public sealed class PlayScript
         var op = args[2];
         if (!Ops.Contains(op))
             return (null, $"unknown operator '{op}', use one of < <= = >= >");
-        if (field is "destroyed" or "dying" or "target")
+        if (field is "destroyed" or "dying" or "target" or "team")
         {
             if (op != "=")
                 return (null, $"'{field}' takes only '=', not '{op}'");
-            if (field != "target" && args[3] is not ("true" or "false"))
+            if (field == "team")
+            {
+                if (!int.TryParse(args[3], NumberStyles.None, CultureInfo.InvariantCulture, out _))
+                    return (null, $"'{args[3]}' is not an integer");
+            }
+            else if (field != "target" && args[3] is not ("true" or "false"))
                 return (null, $"'{args[3]}' is not true or false");
         }
         else

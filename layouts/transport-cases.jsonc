@@ -1,0 +1,26 @@
+// Four pairs, 150 units apart in Z, for play/transport-cases.play: a Federation destroyer and a derelict Klingon
+// destroyer (Wreck: the party lands with no fight and captures it), a Federation destroyer and a friendly Klingon
+// destroyer of team 1 (Ally: the party joins its crew), a Klingon hero ship (kmartok, which names an eventTransport voice
+// line) and a neutral destroyer (HeroPrize), and a Klingon destroyer with no voice line and a neutral one (PlainPrize).
+// The neutral targets (team 0) are hostile to no one, so nothing fires and the run stays quiet.
+// Run it with: sh tools/play-run.sh transport-cases --layout layouts/transport-cases.jsonc --fps 30
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "fdestroy", "team": 1, "position": [1950, 0, 1775], "label": "DerelictBoarder" },
+    {
+      "class": "kdestroy",
+      "team": 2,
+      "position": [2050, 0, 1775],
+      "label": "Wreck",
+      "crew": 0,
+      "shields": 0,
+    },
+    { "class": "fdestroy", "team": 1, "position": [1950, 0, 1925], "label": "FriendBoarder" },
+    { "class": "kdestroy", "team": 1, "position": [2050, 0, 1925], "label": "Ally", "crew": 0.1 },
+    { "class": "kmartok", "team": 1, "position": [1950, 0, 2075], "label": "Hero" },
+    { "class": "kdestroy", "team": 0, "position": [2050, 0, 2075], "label": "HeroPrize", "crew": 0.1 },
+    { "class": "kdestroy", "team": 1, "position": [1950, 0, 2225], "label": "Plain" },
+    { "class": "kdestroy", "team": 0, "position": [2050, 0, 2225], "label": "PlainPrize", "crew": 0.1 },
+  ],
+}

@@ -144,6 +144,12 @@ The game's rules that turn a weapon's fire into hits, shield loss, crew loss, sy
 destruction, recovered from the game's program and restated in our own words.
 _Avoid_: damage model, combat formulas
 
+**Team**
+The player a unit belongs to, numbered as the map numbers its teams. A unit starts on the team the map
+places it on; a capture moves it to another team. Hostility, targeting, selection, the selection display,
+and the state dump read the unit's current team.
+_Avoid_: owner, side, faction
+
 **Hostile**
 A unit of another team than the unit judging it, team 0 excepted. Team 0 is neutral and hostile to no one.
 _Avoid_: enemy unit, opponent
@@ -169,6 +175,31 @@ target until the gap is within its longest non-special weapon range less 50, the
 target's center (§Firing). The sandbox ends the order when the target is destroyed or dying (a stand-in:
 `docs/rules/combat-rules.md`, §Attack order).
 _Avoid_: attack command, focus fire
+
+**Transport order**
+An order that names a source unit and a target unit. The source stays where it is and sends **Boarding parties**
+to the target while the target is within the transporter range, center to center (`docs/rules/combat-rules.md`,
+§Transport and boarding). Armed and unarmed ships and stations take it. It does not replace a move or attack
+order, and a move, attack, or stop order does not end it; only a cancel or a stop condition does.
+_Avoid_: boarding order, beam order
+
+**Boarding party**
+The crew one transport cycle takes from its source and lands on the target after the action delay (at once on a
+friendly target). It carries the team and race its source had when it was sent, and lands whatever happens to the
+source. On a hostile crew it fights by the **Combat rules**' boarding formula; on a friendly unit it adds crew.
+_Avoid_: away team, boarders, landing party
+
+**Boarding block**
+What a team that started boarding a unit of another team holds against it: the team's automatic target selection
+rejects the unit and its attack orders drop it, until the team orders an attack on the unit or the unit changes
+team. Stopping the transport does not lift it.
+_Avoid_: boarding lock, target ban
+
+**Capture**
+The change of a hostile unit's team and race to a boarding party's, when the party outnumbers the unit's crew or
+reaches a hostile derelict. The survivors become the unit's crew; the unit keeps its alert stance and its own
+transport, and stops its current order. A neutral (team 0) unit is never captured.
+_Avoid_: takeover, hijack, conversion
 
 **Move order**
 An order that sends a ship to a point of the combat plane. The ship drives to the point and the order ends

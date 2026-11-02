@@ -165,16 +165,57 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         AddChild(orders);
         AddChild(new UnitReadout(selection, orders.Combat));
         AddChild(new SelectionDisplayView(selection, orders.Combat, HoverPoint));
-        AddChild(new AlertKeys(AlertBindings.Read(files, gap => AddGap(gap)), selection, orders.Combat));
+        var bindings = AlertBindings.Read(files, gap => AddGap(gap));
+        AddChild(new AlertKeys(bindings, selection, orders.Combat));
+        // after the orders node, so the transport mode sees a right-click first
+        var transport = new TransportControl(
+            orders.Combat,
+            bindings,
+            () => selection.Selected.Select(u => u.Object).ToList()
+        );
+        AddChild(new TransportInput(transport, selection, files, gap => AddGap(gap)));
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.
         art = CombatArt.Build(files, orders.Combat.Units.Select(u => (u.Unit, u.Profile)));
         art.AddSmallExplosions();
         art.AddRepairSparks();
+        art.AddTransport(
+            orders.Combat.Units.Select(u => (u.Unit, u.Profile)),
+            selection.Units.Where(u => u.Unit is Station).Select(u => u.Object)
+        );
         var fade = SoundFade.Read(files);
         _gaps.AddRange(fade.Reports.Select(r => r.Text));
-        AddChild(new CombatView(files, art, orders.Combat, nodes, builder, orders, fade.Fade, gap => AddGap(gap)));
+        // Gives the unit's node the team color of the team's slot (0x46e030) and no other unit's: each of its meshes is
+        // swapped for the mesh of the same node in a copy of the model built in that slot, whose team materials carry
+        // the color. Units sharing the old template keep its meshes. A model the slot cannot build leaves the unit as
+        // it is (reported by Instance).
+        void Recolor(PlacedObject unit, int newTeam)
+        {
+            if (!nodes.TryGetValue(unit, out var node) || !IsInstanceValid(node))
+                return;
+            if (Instance(files, builder, team, unit.Model, unit.Scale, plan.SlotOf(newTeam)) is not { } donor)
+                return;
+            var meshes = Meshes(donor)
+                .Where(m => m.HasMeta(SodBuilder.SodIndexMeta))
+                .ToDictionary(m => (int)m.GetMeta(SodBuilder.SodIndexMeta), m => m.Mesh);
+            foreach (var mesh in Meshes(node))
+            {
+                if (
+                    mesh.HasMeta(SodBuilder.SodIndexMeta)
+                    && meshes.TryGetValue((int)mesh.GetMeta(SodBuilder.SodIndexMeta), out var recolored)
+                )
+                {
+                    mesh.Mesh = recolored;
+                }
+            }
+
+            donor.Free();
+        }
+
+        AddChild(
+            new CombatView(files, art, orders.Combat, nodes, builder, orders, fade.Fade, Recolor, gap => AddGap(gap))
+        );
         _gaps.AddRange(art.Reports.Select(r => r.Text));
         AddChild(
             new DamageSprayView(
@@ -224,7 +265,16 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 () => orders.Combat.Debris.Count
             );
             var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
-            var input = new PlayInput(this, names, selection, nodes, (float)_rig.CombatPlaneHeight, folder);
+            var input = new PlayInput(
+                this,
+                names,
+                selection,
+                orders.Combat,
+                bindings,
+                nodes,
+                (float)_rig.CombatPlaneHeight,
+                folder
+            );
             AddChild(new PlayKeys(input));
             AddChild(new PlayDriver(new PlayRun(play, state, folder, input.Run)));
         }
@@ -271,6 +321,10 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             return null;
         }
     }
+
+    // The mesh instances under the node, at any depth.
+    static IEnumerable<MeshInstance3D> Meshes(Node3D node) =>
+        node.FindChildren("*", nameof(MeshInstance3D), true, false).Cast<MeshInstance3D>();
 
     // The object's model at its class's scale; null when the model was not read.
     Sod? ModelOf(PlacedObject o) => _sods.TryGetValue(o.Model, out var sod) ? Scaled(sod, o.Scale) : null;

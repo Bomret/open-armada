@@ -19,6 +19,8 @@ public sealed class PlayInput(
     Node host,
     UnitNames names,
     UnitSelection selection,
+    CombatWorld world,
+    AlertBindings bindings,
     IReadOnlyDictionary<PlacedObject, Node3D> nodes,
     float planeHeight,
     string outputFolder
@@ -38,6 +40,8 @@ public sealed class PlayInput(
                 return Click(select.Unit, MouseButton.Left);
             case AttackStep attack:
                 return Click(attack.Unit, MouseButton.Right, attack: true);
+            case TransportStep transport:
+                return Transport(transport.Unit);
             case MoveStep move:
                 return Move(move);
             case BoxRectStep box:
@@ -104,12 +108,47 @@ public sealed class PlayInput(
             return wrongPick;
         if (attack)
         {
-            var hostile = selection.Selected.Select(s => CombatRules.Hostile(s.Object.Team, target!.Team)).ToList();
+            // the current teams (INV-0012); a unit the world has lost is hostile to none
+            var hostile = selection.Selected.Select(s => world.Hostile(s.Object, target!)).ToList();
             if (PlayTarget.AttackProblem(unit, hostile) is { } notAttack)
                 return notAttack;
         }
 
         ClickAt(button, at);
+
+        return null;
+    }
+
+    // The transport chord, then a left click at the unit. Every check runs before the first event.
+    string? Transport(string unit)
+    {
+        if (PlayTarget.TransportChordProblem(bindings.Transport != null) is { } unbound)
+            return unbound;
+        var chord = bindings.Transport!.Value;
+        var (point, problem) = Aim(unit, out var target);
+        if (point is not { } at)
+            return problem;
+        if (PlayTarget.PickProblem(unit, PickedAt(at)) is { } wrongPick)
+            return wrongPick;
+        // the world's current states (INV-0012); a unit the world has lost takes no order
+        var (takes, transporting) = PlayTarget.TransportSelection(
+            selection.Selected.Select(s => world.State(s.Object)),
+            world.State(target!)
+        );
+        if (PlayTarget.TransportProblem(unit, takes, transporting) is { } noOrder)
+            return noOrder;
+
+        var code = OS.FindKeycodeFromString(chord.Key);
+        var key = (Key)(
+            (long)code
+            | (chord.Shift ? (long)KeyModifierMask.MaskShift : 0)
+            | (chord.Control ? (long)KeyModifierMask.MaskCtrl : 0)
+            | (chord.Alt ? (long)KeyModifierMask.MaskAlt : 0)
+        );
+        Press(key, true);
+        Press(key, false);
+        Input.FlushBufferedEvents();
+        ClickAt(MouseButton.Left, at);
 
         return null;
     }

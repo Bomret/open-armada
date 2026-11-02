@@ -72,13 +72,14 @@ public sealed class PlayState
         {
             var pose = _pose(unit);
             var p = pose.Position;
-            var v = _states.TryGetValue(unit, out var moving) ? moving.Velocity : Vector3.Zero;
+            _states.TryGetValue(unit, out var s); // no state before the combat world exists: the placed team stands
+            var v = s?.Velocity ?? Vector3.Zero;
             text.Append(
                 CultureInfo.InvariantCulture,
-                $"{_names.Name(unit)} team={unit.Team} pos={p.X:F2},{p.Y:F2},{p.Z:F2} vel={v.X:F2},{v.Y:F2},{v.Z:F2}"
+                $"{_names.Name(unit)} team={(s != null ? s.Team : unit.Team)} pos={p.X:F2},{p.Y:F2},{p.Z:F2} vel={v.X:F2},{v.Y:F2},{v.Z:F2}"
                     + $" pitch={Angle(pose.Pitch)} yaw={Angle(pose.Yaw)} roll={Angle(pose.Roll)}"
             );
-            if (_states.TryGetValue(unit, out var s))
+            if (s != null)
             {
                 text.Append(CultureInfo.InvariantCulture, $" shields={s.Shields:F2} crew={s.Crew:F2}");
                 foreach (var name in SystemNames.All.Where(s.Systems.ContainsKey))
@@ -140,6 +141,11 @@ public sealed class PlayState
             case "dying":
                 actual = Flag(state.Dying);
                 holds = actual == step.Value;
+
+                break;
+            case "team":
+                actual = state.Team.ToString(CultureInfo.InvariantCulture);
+                holds = state.Team == int.Parse(step.Value, CultureInfo.InvariantCulture); // the parser accepts only an integer here
 
                 break;
             case "target":

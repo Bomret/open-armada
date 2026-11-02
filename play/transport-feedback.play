@@ -1,0 +1,28 @@
+# What a transport and a capture show and sound like (docs/rules/combat-rules.md, transport feedback). A Federation
+# destroyer boards a crippled Klingon destroyer (Prize) while a second Klingon destroyer of the model (Bystander) stands
+# beside it. Shots: no effect before the order; the xtransport effect on source and target while the transport runs;
+# the Prize in the Federation team color after the capture and the Bystander in its old color; no effect after the
+# transport is cancelled with the chord. The WAV holds transprt.wav at each party and msboard.wav at the fight.
+# Run it with --layout layouts/transport-feedback.jsonc; the layout's header comment has the whole command.
+wait 0.5
+select Boarder
+press Shift+G
+shot before-boarder Boarder 2
+shot before-prize Prize 2
+shot before-bystander Bystander 2
+transport Prize
+wait 0.4
+shot during-boarder Boarder 2
+shot during-prize Prize 2
+wait 4
+dump captured
+shot captured-prize Prize 2
+shot captured-bystander Bystander 2
+shot captured-boarder Boarder 2
+press T
+wait 0.4
+shot after-boarder Boarder 2
+shot after-prize Prize 2
+dump after
+expect Prize team = 1
+expect Bystander team = 2

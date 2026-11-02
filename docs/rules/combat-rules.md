@@ -2,7 +2,8 @@
 
 The rules by which the game turns weapon fire into hits, shield loss, crew loss, system damage, and
 destruction (ADR 0004). They cover beam weapons (`classLabel` `cannon`), torpedo launchers (`launcher`),
-shields, ship systems, crew, derelicts, and repair. Special weapons and boarding are not covered.
+shields, ship systems, crew, derelicts, repair, and the transport and boarding of units. Special weapons, recrew,
+AI transports, the vision and counts of a captured starbase, and Borg assimilation are not covered.
 
 The rules were recovered from `Armada.exe` of the 1.2 install (SHA-256
 `c5f32464c6b4322469d79ba19d33f26fde67b5c06ca2ee24a071cd67a52a88b5`) and are restated here in our own
@@ -52,8 +53,7 @@ definition that sets `defaultGreenAlert = 1` starts at green (0x425bcf, 0x4266bd
   the point takes that height (**stand-in**), so a move that ends short of its goal returns the ship to the band's
   middle. The
   engine stops the closing when the stance leaves red (**stand-in**); the return is the hold below, which no
-  stance ends. A player's attack order
-  keeps a derelict target.
+  stance ends. A player's attack order keeps its target by its stored team relation (see Attack order).
 
   A recent hit moves the tether point. When a shot landed less than one second ago (0x46e640 compares the
   time since the hit, recorded by 0x46e340, against 1.0; strictly less) on the idle unit itself or on a unit
@@ -93,7 +93,10 @@ A unit with no weapons picks no target. Otherwise, at red or yellow (0x42ff80):
 4. Otherwise the nearest valid target within the radius is taken.
 
 A target is valid when it is a hostile unit, not being destroyed (a dying unit is being destroyed), and not
-derelict (0x42faa0). The game
+derelict (0x42faa0), and the unit's team is not boarding it (the boarding block, 0x42fb31; see "Transport and
+boarding"). An attack order is no pick: it keeps its target by the team relation it stored, so an order
+given on a derelict keeps it and an order on a live hostile unit drops it when the unit turns derelict (see Attack
+order, 0x42fb90, 0x468cd0). The game
 also requires that the target is visible to the unit's team; the engine has no fog of war, so every
 unit is visible (**stand-in**).
 
@@ -188,8 +191,20 @@ R as above:
   target-location weapon (0x46eac0(2)); a ship without a target-location weapon continues the fight at its own pick
   and ends the order only when no pick is left (0x429016). **Stand-in:** the engine ends the order at once, and the
   unit becomes idle, when the target is destroyed or dying, for every ship; a dying target counts as destroyed. A
-  derelict target keeps the order, so an attack order can finish off a derelict. A player's attack order on a dying
-  unit is refused.
+  player's attack order on a dying unit is refused.
+- **The stored team relation** (0x4275ee, 0x4275f3 write it; 0x42fb90 checks it; 0x468cd0 computes it). The order
+  stores the relation between the attacker's team and the target's at the moment it is given: 1 for a derelict target,
+  otherwise the attacker's team's diplomacy value toward the target's team (0x4493f0, the team's table at +0x2c), never
+  the target's team number. It keeps its target only while that value still holds, so a target that moves to another
+  team the attacker's team holds the same value toward keeps the order. Which diplomacy value an enemy team holds was
+  not read: were it 1, a live enemy that turns derelict would keep the order. A live target that
+  turns derelict, or that changes team so that the relation differs (it joins the attacker's team, say), ends the order
+  (**inferred** that the order ends as the destroyed-target order does; the game drops the target in 0x42fb90). An order
+  given on a derelict keeps it, so an attack order can finish off a derelict, until the derelict is destroyed or its
+  relation changes (a revived or captured unit). The check runs every tick, so it applies out of range as well. A team
+  change of the attacker itself replaces its order with a stop (0x46dff0, 0x46eac0).
+- The order also ends when the attacker's team is boarding the target (the boarding block, 0x42fb90; see "Transport and
+  boarding"), until the team gives a new attack order on it.
 - A unit without weapons does not accept the order.
 
 ## Firing
@@ -414,6 +429,136 @@ engine always makes it derelict (**stand-in**).
 A unit is destroyed only by a critical hit, which makes it a dying unit first. Losing every system or the
 shields does not destroy it.
 
+## Transport and boarding
+
+A unit moves crew to another unit by transporter. A transport has a source and a target; the source sends
+**boarding parties**, which add crew to a friendly target, fight a hostile one, and capture it when they win.
+
+**Values.** `TRANSPORTER_RANGE`, `TRANSPORTER_DELAY`, `TRANSPORTER_ACTION_DELAY`, and `TRANSPORTER_MAX` come from
+`RTS_CFG.h` (loaded at 0x44621f to 0x446294; the stock install gives 500, 1, 1, 5). Each race's `boardingStrength`
+comes from its race definition (0x4442b0); the game's default is 1.0. **Stand-in**: a missing constant takes the stock
+install's value, a missing or non-positive `boardingStrength` takes 1.0, and the stand-in race carries 1.0; each is
+reported once.
+
+**The order** (dispatch 0x426cb8). The ordering unit needs more than 9 crew (0x5ca860). The target must be a crewed
+unit that is not being destroyed. **Stand-in**: the order also refuses a live hostile target whose absolute shields
+are above 0.01, the cursor test's shield part (below), so a click on such a unit gives no order and changes no unit.
+Range is not tested by the order; every cycle tests it. The order does not replace the unit's move or attack order, and a
+later move, attack, or stop order does not end the transport; only the transport order without a target (pressing
+the chord again, 0x463593, 0x426cbd to 0x467000), a stop condition, or the loss of the unit does (0x467000, 0x467050,
+0x461df0).
+The chord acts per selected unit (0x463593): a unit transporting (+0x4d4) has its transport cancelled (0x470bb0 with
+0xb), and a unit not transporting requests the transport mode (0x471d90 with 5). With a mixed selection the
+transporting units cancel and the mode is entered for the idle ones, and the next left-click on a unit gives the order
+to those units only; a selection of only transporting units cancels and enters no mode. The per-unit loop over the
+selection is **inferred**, not traced. The transport starts only when the source has more than `TRANSPORTER_MAX` crew (0x466f70). A target of any
+of these kinds is valid: a hostile ship or station whose shields are down, a derelict of any team, and an own, allied, or neutral (team 0)
+ship or station. **Stand-in** (**inferred** from the cycle, which stops on a full friendly target): the order refuses a
+live non-hostile target that is at its crew maximum, and refuses the unit itself. A transport order on a unit that
+already transports ends the earlier transport first, also when the source has too little crew to start the new one
+(**stand-in**; the game's handler overwrites the target); an order on the current target changes nothing. Armed
+and unarmed units, ships and stations, all transport: the per-tick transport work (0x465e80 to 0x467050) runs for
+every Craft class.
+
+**The cursor test** (0x4664e0, mode 5). A unit refuses the target when the target is not a crewed unit, the source's
+crew is 9 or fewer, the target is hostile and its absolute shields are above 0.01, or the center-to-center distance is
+above `TRANSPORTER_RANGE`. The engine exposes this as one function. **Stand-in**: the sandbox's order applies every
+part but the range, adding the friendly-full part above. The cursor applies the order's test and the range (center
+to center, at most `TRANSPORTER_RANGE`, as the cycle measures it), so a target out of range shows the no-transport
+cursor and still takes the order. The cycle tests the shield fraction instead (below); the two
+differ and both are kept. The Manheim-state test of the hover is not built (no such state in the sandbox).
+
+**The cycle** (0x467050). The source never moves for a transport; a unit out of range takes the order and stops at its
+first cycle (**inferred** from 0x4318a0 and 0x467050). The cycle timer counts down on every tick (the game's tick is not
+recovered; the engine's tick is the world tick). At or below zero a transporting unit runs the cycle:
+
+1. It stops when it is destroyed, dying, or derelict (0x467050; checked every tick here, **stand-in**).
+2. It stops when the target is gone, destroyed, or farther than `TRANSPORTER_RANGE` center to center (squared
+   comparison, at most; never the weapons' surface distance).
+3. A hostile target whose shield fraction (current shields over maximum, 0 for a maximum of 0) is above 0.01 stops the
+   transport. A hostile target whose shields are down gets its shield-down time set to its `shieldDelay` (0x4c4), so
+   every boarding cycle holds its shields down.
+4. A hostile target, or a non-hostile one below its crew maximum, takes one party of `TRANSPORTER_MAX` crew. The
+   source loses the full `TRANSPORTER_MAX` crew; the party is the smaller of that and the crew the source had, and a
+   source left below one crew is derelict (0x55f620, 0x4674d0, 0x466ca0). A party onto a hostile target lands after
+   `TRANSPORTER_ACTION_DELAY`; onto any other target on the next tick. Any other target stops the transport.
+5. The cycle timer is set to `TRANSPORTER_DELAY`.
+6. The transport stops when the next party would take the source to its race's `crewRedStatus` (0x467050): the
+   source's crew after this party, less `TRANSPORTER_MAX`, over its maximum crew, is at or below `crewRedStatus`. The
+   test runs right after the party is sent (0x4672d0–0x467300). The party's constructor 0x55f620 calls 0x4674d0,
+   which has already lowered the source's crew by the party (step 4), so the crew operand is the crew after this
+   party and the test looks one party ahead. A maximum of 100 and a red status of 0.25 stop once the crew is at or
+   below 30. After each party the crew stays above `crewRedStatus` × maximum crew (here 25), except that the first
+   party can leave less when the source starts low (22 → 17, 10 → 5; more than 9 is all the order needs).
+
+The first party leaves on the first tick after the order, because the timer starts at or below zero and keeps
+counting while the unit is idle. **Stand-in**: a party lands once its delay has elapsed (the game lands it when its
+timer falls below 0, at most one tick later); every time is in world ticks, so the frame rate changes nothing.
+
+**A party in flight** (0x55f620, 0x55f750). A party carries the team and race its source had when it was sent and
+reads nothing of its source afterwards, so it lands whatever happened to the source. **Stand-in**: a party onto a
+target that is dying is lost, as one onto a destroyed target is (the game tests that the target is found).
+
+**The landing** (0x55f750). A party is lost when its target has a maximum crew below one (a unit without crew).
+
+- *A derelict target*: when the party's team is the target's team, crew is added (capped at the maximum) and the
+  target takes the party's race. When the party's team is hostile to the target's, the target is captured with the party
+  as its crew. Any other party (a neutral team on either side) only adds crew. A derelict that reaches one crew or more
+  ends its derelict state. There is no fight and no boarding sound.
+- *A target that is not hostile*: the party's crew is added up to the target's maximum. The overflow stays in the
+  party and is lost (**inferred**: nothing reads it afterwards). No fight, no sound.
+- *A hostile target*: with the party size `P`, the target's crew `C`, the party race's `boardingStrength` `a`, and the
+  target race's `d`, the party's strength in defender crew is `E = (a / d) · P`. The target loses `E` crew (an amount
+  that can exceed `C`; crew below one makes it derelict). When `E` is at most `C` the party dies; otherwise its survivors
+  are `(d / a) · (E − C)` in attacker crew. The boundary `a · P = d · C` is the party dying. There is no randomness
+  (none is called in 0x55f750, 0x467050, 0x466f70, or 0x55f620). The fight is reported (the game plays `msboard.wav`
+  at the target).
+
+**Capture** (0x55f750, 0x46dff0). A hostile target whose crew fell to zero with survivors left, or a hostile derelict a
+party reaches, joins the party's team and race: the unit's current order is replaced by a stop (0x46eac0), its race
+becomes the party's, and its crew is the survivors, capped at its maximum; below one crew it stays derelict on the new
+team. The unit keeps its alert stance (**inferred**: no code in the owner change writes the stance), its place in
+the selection (**inferred**; nothing in the owner-change path touches a selection), and its own outgoing transport
+(0x46eac0 does not touch the transporting flag, 0x4d4): its next party is sent with the new team and race. A neutral
+(team 0) unit is never captured (0x449490 is false for team 0). The capture of a starbase gives vision and is counted
+(0x5619a0, 0x449560); neither is built.
+
+**The boarding block** (0x466f70, 0x42fb31, 0x42fb90, 0x427616, 0x46e030). When a transport starts on a unit of another
+team, the source's team is added to the unit's do-not-auto-target set. While it is in the set, that team's automatic
+selection rejects the unit and its attack orders drop it. A new attack order on the unit by that team removes the team
+from the set; so does the unit's team change (the owner change zeroes the set). Stopping the transport does not (0x467000
+and 0x467050 do not write the set). The game skips the set for an AI team; no team of the sandbox is one.
+
+**Feedback** (0x466f70, 0x46db90, 0x467000, 0x467050, 0x55f750, 0x462d40, 0x46e030). None of it has a team filter, so
+every player sees and hears it.
+
+- *Effect.* The `xtransport` sprite (row of `Sprites/weapon.spr`, a billboard) is attached once when the transport starts
+  (0x466f70 through 0x46db90, name `xtransport`), to the source and to the target, each only if it holds no effect
+  (+0xdc is 0). It is not attached again per party. A stop clears the handle on both (0x467000, 0x467050). A target
+  boarded by two sources therefore holds one effect, attached by the first, and the first source to stop clears it while
+  the second keeps boarding and does not attach another. **Stand-in**: clearing the handle removes the drawn effect (the
+  game's release of the effect object was not found); an effect on a destroyed unit goes with the unit; the billboard
+  is as wide as the unit's model and loops its flipbook, since the game's size and timing are not recovered.
+- *Sounds.* `transprt.wav` plays at the source and at the target for every party sent (0x5aff40 from 0x467050). `msboard.wav`
+  plays at the target for every fight against a live hostile unit, won or lost (0x55f750); a derelict or a friendly
+  transfer has none. A sound the install lacks is reported once. The 1.2 install's `msboard.wav` holds only silence
+  (every sample is the 8-bit zero level), so the fight is soundless there.
+- *Voice.* After a transport order the ordering unit's `eventTransport` line plays, also when the unit has too
+  little crew to start the transport (0x462d40 with event 8; the keys are
+  read in 0x5ab750), unless the unit is derelict or a starbase (0x426d26 to 0x426d4c); a definition without the key plays
+  none and is no problem. Only hero definitions set it. **Stand-in**: the game plays it only when the unit's team is
+  the local player's (0x470680) and throttles repeats to one per second (0x5ab7d0); the sandbox orders every team, so
+  every team counts, and the throttle is not built.
+- *Team color.* The team join (0x46e030, called from the owner change) copies the new team's colors into the unit,
+  from the color table by the team record (+0x174..+0x190). The captured unit takes the team-color slot of its new team,
+  mapped as the map plan maps a team to a slot, and only that unit changes. That the renderer reads the fields at once
+  is **inferred**.
+
+**Stations** follow the same rules as ships (they share 0x465e80, 0x467050, 0x55f750, and 0x46dff0).
+
+**Not built**: special transport (command 12, Shift+T), the recrew command, the AI's auto-transport (0x429920), the
+vision and counts of a captured starbase, and Borg assimilation.
+
 ## Dying units
 
 A critical hit makes the unit a **dying unit** instead of removing it (0x468990 sets the being-destroyed
@@ -626,8 +771,6 @@ sets 1.5; the sandbox draws its rocks at their stored size.
   point 0x4304e0 a target-location ship's dogfight turns toward without an ordered unit, and the retreat thresholds of 0x4292d0.
 - Whether anything gives an attack back that the stop order of a no-path target ended (an AI or player re-issue, or the
   target field +0x1c4; `docs/rules/path-planning.md`, "The order list and the replans").
-- Whether a player's attack order drops a target that turns derelict. The game's side check (0x42fb90,
-  `task+0x110`) suggests it may, but the writer of that field was not found.
 - What the `targetEnemyCraft` and `targetEnemyBuildings` keys do.
 - The flight of pulse phaser shots and the class behind poleron torpedoes.
 - The officer factor in repair, and the full-repair path at 0x468760.

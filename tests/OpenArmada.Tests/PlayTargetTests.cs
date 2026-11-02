@@ -57,6 +57,63 @@ public class PlayTargetTests
     }
 
     [TestMethod]
+    public void ATransportNeedsASelectionWithAUnitThatTakesTheOrder()
+    {
+        Assert.IsNull(PlayTarget.TransportProblem("a", [true, false]));
+        Assert.AreEqual("no unit is selected to transport to 'a'", PlayTarget.TransportProblem("a", []));
+        Assert.AreEqual(
+            "no selected unit can take a transport order on 'a'",
+            PlayTarget.TransportProblem("a", [false, false])
+        );
+    }
+
+    [TestMethod]
+    public void ATransportStepFailsOnAnUnboundChordAndOnASelectionOfOnlyTransportingUnits()
+    {
+        Assert.IsNull(PlayTarget.TransportChordProblem(true));
+        StringAssert.Contains(PlayTarget.TransportChordProblem(false)!, "the transport chord is unbound");
+        Assert.IsNull(PlayTarget.TransportProblem("a", [true, true], [false, false]));
+        Assert.IsNull(PlayTarget.TransportProblem("a", [false, true], [true, false]));
+        Assert.AreEqual(
+            "every selected unit is transporting: the transport chord would cancel them, not wait for 'a'",
+            PlayTarget.TransportProblem("a", [false, false], [true, true])
+        );
+        Assert.AreEqual("no unit is selected to transport to 'a'", PlayTarget.TransportProblem("a", [], []));
+    }
+
+    [TestMethod]
+    public void ATransportingSelectedUnitIsNoTakerSoAMixedSelectionWhereOnlyItCouldTakeTheOrderFails()
+    {
+        var idleTooSmall = CombatFixtures.State(CombatFixtures.Profile(crew: 5));
+        var transporting = CombatFixtures.State(CombatFixtures.Profile(crew: 100));
+        transporting.Transporting = true;
+        var target = CombatFixtures.State(CombatFixtures.Profile(), team: 2);
+
+        var (takes, flags) = PlayTarget.TransportSelection([idleTooSmall, transporting], target);
+
+        CollectionAssert.AreEqual(new[] { false, false }, takes);
+        CollectionAssert.AreEqual(new[] { false, true }, flags);
+        Assert.AreEqual(
+            "no selected unit can take a transport order on 'a'",
+            PlayTarget.TransportProblem("a", takes, flags)
+        );
+    }
+
+    [TestMethod]
+    public void AnIdleUnitThatCanTransportTakesTheOrderAndAUnitTheWorldLostTakesNone()
+    {
+        var idle = CombatFixtures.State(CombatFixtures.Profile(crew: 100));
+        var target = CombatFixtures.State(CombatFixtures.Profile(), team: 2);
+        target.Shields = 0; // the order refuses a hostile whose shields are up
+
+        var (takes, flags) = PlayTarget.TransportSelection([idle, null], target);
+
+        CollectionAssert.AreEqual(new[] { true, false }, takes);
+        CollectionAssert.AreEqual(new[] { false, false }, flags);
+        CollectionAssert.AreEqual(new[] { false }, PlayTarget.TransportSelection([idle], null).Takes);
+    }
+
+    [TestMethod]
     public void ACropReachesHalfTheBoxsLongerSidePastEachEdgeRoundedOutward()
     {
         // a box 40 wide and 20 high pads by 20 on each side

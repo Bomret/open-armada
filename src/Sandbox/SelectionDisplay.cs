@@ -36,8 +36,8 @@ public sealed record HoverState
     /// <summary>The hovered unit; null when there is none.</summary>
     public PlacedObject? Hovered { get; init; }
 
-    /// <summary>The group key: the hovered unit's team, 0 without a hovered unit.</summary>
-    public int Team => Hovered?.Team ?? 0;
+    /// <summary>The group key: the hovered unit's current team, 0 without a hovered unit.</summary>
+    public int Team { get; init; }
 
     /// <summary>The display fade, from 0 to 1.</summary>
     public double Fade { get; init; }
@@ -49,14 +49,19 @@ public sealed record HoverState
     /// The state after a frame of <c>delta</c> seconds whose pick found <c>pick</c> (null: no unit). A pick hovers its
     /// unit at once; without one the hovered unit stays until the hold has passed. A hovered unit that is not among
     /// <c>units</c> (destroyed or removed) ends the hover on this frame. The fade starts over at 0 when the group
-    /// key changes and otherwise grows by <c>delta</c> up to 1.
+    /// key changes and otherwise grows by <c>delta</c> up to 1. <c>teamOf</c> reads a unit's current team (INV-0012).
     /// </summary>
-    public HoverState Step(PlacedObject? pick, IEnumerable<PlacedObject> units, double delta)
+    public HoverState Step(
+        PlacedObject? pick,
+        IEnumerable<PlacedObject> units,
+        double delta,
+        Func<PlacedObject, int> teamOf
+    )
     {
         var (hovered, lost) = pick != null ? (pick, 0.0) : (Hovered, Lost + delta);
         if (hovered != null && (lost >= Hold || !units.Contains(hovered)))
             hovered = null;
-        var next = this with { Hovered = hovered, Lost = lost };
+        var next = this with { Hovered = hovered, Lost = lost, Team = hovered == null ? 0 : teamOf(hovered) };
 
         return next with
         {
@@ -81,12 +86,13 @@ public static class SelectionDisplay
     /// The units that show the display (0x49b6a0), each once in the order of <c>units</c>: the hovered unit at
     /// opacity 1, and every other unit of its team at the display fade; a hovered unit of team 0 is shown alone. A
     /// shown unit that is selected also shows its crew dot, at the display fade. Nothing is shown without a hovered
-    /// unit, whatever is selected (INV-0006).
+    /// unit, whatever is selected (INV-0006). <c>teamOf</c> reads a unit's current team (INV-0012).
     /// </summary>
     public static IEnumerable<ShownUnit> Shown(
         HoverState hover,
         IEnumerable<PlacedObject> units,
-        IEnumerable<PlacedObject> selected
+        IEnumerable<PlacedObject> selected,
+        Func<PlacedObject, int> teamOf
     )
     {
         if (hover.Hovered is not { } hovered)
@@ -94,7 +100,7 @@ public static class SelectionDisplay
         var chosen = selected.ToHashSet();
         foreach (var unit in units)
         {
-            if (unit == hovered || (hover.Team != 0 && unit.Team == hover.Team))
+            if (unit == hovered || (hover.Team != 0 && teamOf(unit) == hover.Team))
                 yield return new ShownUnit(unit, unit == hovered ? 1 : hover.Fade, chosen.Contains(unit));
         }
     }

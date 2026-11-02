@@ -147,6 +147,7 @@ public partial class UnitOrders : Node3D
         )
         {
             MaxPreventionRotation = combat.MaxPreventionRotation,
+            Transporter = combat.Transporter,
             Band = band,
             Avoidance = combat.Avoidance,
             // a planet's radius is its model's bounding radius (+0x60), the same value a ship's radius is
@@ -207,7 +208,7 @@ public partial class UnitOrders : Node3D
         var moving = new List<PlacedObject>();
         foreach (var unit in _selection.Selected)
         {
-            if (clicked != null && CombatRules.Hostile(unit.Object.Team, clicked.Object.Team))
+            if (clicked != null && _world.Hostile(unit.Object, clicked.Object))
             {
                 _world.Attack(unit.Object, clicked.Object); // refused for a unit without weapons: it ignores the click
 

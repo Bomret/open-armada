@@ -171,8 +171,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         var transport = new TransportControl(
             orders.Combat,
             bindings,
-            () => selection.Selected.Select(u => u.Object).ToList(),
-            u => orders.Pose(u).Position
+            () => selection.Selected.Select(u => u.Object).ToList()
         );
         AddChild(new TransportInput(transport, selection, files, gap => AddGap(gap)));
 

@@ -323,7 +323,7 @@ public sealed class CombatWorld
     /// <summary>
     /// Gives <c>source</c> a transport order on <c>target</c>, true when it is accepted
     /// (<see cref="CombatRules.TransportOrderOk"/>). The source starts transporting only with more than
-    /// <c>TRANSPORTER_MAX</c> crew; its move or attack order runs on. An order on the current target changes nothing;
+    /// <c>TRANSPORTER_MAX</c> crew (else it reports <see cref="TransportOrdered"/>); its move or attack order runs on. An order on the current target changes nothing;
     /// an order on another target ends the earlier transport first, whether or not the source can start the new one.
     /// </summary>
     public bool Transport(PlacedObject source, PlacedObject target)
@@ -337,7 +337,10 @@ public sealed class CombatWorld
         // crew to start the new one; the game's handler overwrites the target without a stop
         StopTransport(s, _queued);
         if (s.Crew <= Transporter.Max)
+        {
+            _queued.Add(new TransportOrdered { Source = source, Target = target }); // the order's voice line still plays
             return true; // the start needs more crew than one party (0x466f70)
+        }
 
         s.Transporting = true;
         s.TransportTarget = t;

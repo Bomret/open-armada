@@ -104,6 +104,7 @@ public class PlayTargetTests
     {
         var idle = CombatFixtures.State(CombatFixtures.Profile(crew: 100));
         var target = CombatFixtures.State(CombatFixtures.Profile(), team: 2);
+        target.Shields = 0; // the order refuses a hostile whose shields are up
 
         var (takes, flags) = PlayTarget.TransportSelection([idle, null], target);
 

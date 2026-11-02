@@ -441,8 +441,9 @@ install's value, a missing or non-positive `boardingStrength` takes 1.0, and the
 reported once.
 
 **The order** (dispatch 0x426cb8). The ordering unit needs more than 9 crew (0x5ca860). The target must be a crewed
-unit that is not being destroyed. Hostility, shields, and range are not tested by the order itself; the cursor tests
-them (below) and every cycle tests them again. The order does not replace the unit's move or attack order, and a
+unit that is not being destroyed. **Stand-in**: the order also refuses a live hostile target whose absolute shields
+are above 0.01, the cursor test's shield part (below), so a click on such a unit gives no order and changes no unit.
+Range is not tested by the order; every cycle tests it. The order does not replace the unit's move or attack order, and a
 later move, attack, or stop order does not end the transport; only the transport order without a target (pressing
 the chord again, 0x463593, 0x426cbd to 0x467000), a stop condition, or the loss of the unit does (0x467000, 0x467050,
 0x461df0).
@@ -451,7 +452,7 @@ The chord acts per selected unit (0x463593): a unit transporting (+0x4d4) has it
 transporting units cancel and the mode is entered for the idle ones, and the next left-click on a unit gives the order
 to those units only; a selection of only transporting units cancels and enters no mode. The per-unit loop over the
 selection is **inferred**, not traced. The transport starts only when the source has more than `TRANSPORTER_MAX` crew (0x466f70). A target of any
-of these kinds is valid: a hostile ship or station, a derelict of any team, and an own, allied, or neutral (team 0)
+of these kinds is valid: a hostile ship or station whose shields are down, a derelict of any team, and an own, allied, or neutral (team 0)
 ship or station. **Stand-in** (**inferred** from the cycle, which stops on a full friendly target): the order refuses a
 live non-hostile target that is at its crew maximum, and refuses the unit itself. A transport order on a unit that
 already transports ends the earlier transport first, also when the source has too little crew to start the new one
@@ -461,8 +462,9 @@ every Craft class.
 
 **The cursor test** (0x4664e0, mode 5). A unit refuses the target when the target is not a crewed unit, the source's
 crew is 9 or fewer, the target is hostile and its absolute shields are above 0.01, or the center-to-center distance is
-above `TRANSPORTER_RANGE`. The engine exposes this as one function; the order itself applies the first, second, and
-(by the **stand-in** above) friendly-full parts only. The cycle tests the shield fraction instead (below); the two
+above `TRANSPORTER_RANGE`. The engine exposes this as one function. **Stand-in**: the sandbox's order applies every
+part but the range, adding the friendly-full part above, and the cursor follows the order, so a target out of range
+that the order accepts shows the transport cursor. The cycle tests the shield fraction instead (below); the two
 differ and both are kept. The Manheim-state test of the hover is not built (no such state in the sandbox).
 
 **The cycle** (0x467050). The source never moves for a transport; a unit out of range takes the order and stops at its
@@ -540,7 +542,8 @@ every player sees and hears it.
   plays at the target for every fight against a live hostile unit, won or lost (0x55f750); a derelict or a friendly
   transfer has none. A sound the install lacks is reported once. The 1.2 install's `msboard.wav` holds only silence
   (every sample is the 8-bit zero level), so the fight is soundless there.
-- *Voice.* After a transport order the ordering unit's `eventTransport` line plays (0x462d40 with event 8; the keys are
+- *Voice.* After a transport order the ordering unit's `eventTransport` line plays, also when the unit has too
+  little crew to start the transport (0x462d40 with event 8; the keys are
   read in 0x5ab750), unless the unit is derelict or a starbase (0x426d26 to 0x426d4c); a definition without the key plays
   none and is no problem. Only hero definitions set it. **Stand-in**: the game plays it only when the unit's team is
   the local player's (0x470680) and throttles repeats to one per second (0x5ab7d0); the sandbox orders every team, so

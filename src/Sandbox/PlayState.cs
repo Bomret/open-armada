@@ -72,7 +72,7 @@ public sealed class PlayState
         {
             var pose = _pose(unit);
             var p = pose.Position;
-            _states.TryGetValue(unit, out var s);
+            _states.TryGetValue(unit, out var s); // no state before the combat world exists: the placed team stands
             var v = s?.Velocity ?? Vector3.Zero;
             text.Append(
                 CultureInfo.InvariantCulture,

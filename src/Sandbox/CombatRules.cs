@@ -39,9 +39,10 @@ public static class CombatRules
 
     /// <summary>
     /// Whether a transport order from <c>source</c> on <c>target</c> is accepted (0x426cb8): the target is another live
-    /// unit with crew (its maximum crew at least 1), and the source has more than 9 crew. The spec adds that a live
-    /// non-hostile target is below its crew maximum (the game's hover does not test that: **inferred** from the
-    /// cycle, which stops on a full friendly target). Neither range nor shields are tested.
+    /// unit with crew (its maximum crew at least 1), and the source has more than 9 crew. A live hostile target's
+    /// absolute shields are at most 0.01 (the cursor test, 0x4664e0). The spec adds that a live non-hostile target is
+    /// below its crew maximum (the game's hover does not test that: **inferred** from the cycle, which stops on a full
+    /// friendly target). Range is not tested: a target out of range takes the order and the cycle stops it.
     /// </summary>
     public static bool TransportOrderOk(UnitCombatState source, UnitCombatState target) =>
         source != target
@@ -51,17 +52,14 @@ public static class CombatRules
         && !target.Dying
         && target.Profile.DefinedMaximumCrew >= 1
         && source.Crew > OrderCrewAbove
-        && (target.Derelict || Hostile(source.Team, target.Team) || target.Crew < target.Profile.DefinedMaximumCrew);
-
-    /// <summary>
-    /// The validity test of the transport cursor (0x4664e0), for <c>distance</c> center to center: the order is
-    /// accepted (<see cref="TransportOrderOk"/>), the target is within <c>range</c>, and a hostile target's absolute
-    /// shields are at most 0.01.
-    /// </summary>
-    public static bool CanTransportTo(UnitCombatState source, UnitCombatState target, double distance, double range) =>
-        TransportOrderOk(source, target)
-        && distance <= range
-        && !(Hostile(source.Team, target.Team) && target.Shields > CursorShieldsAbove);
+        && (
+            target.Derelict
+            || (
+                Hostile(source.Team, target.Team)
+                    ? target.Shields <= CursorShieldsAbove
+                    : target.Crew < target.Profile.DefinedMaximumCrew
+            )
+        );
 
     /// <summary>
     /// The chance that a shot at <c>target</c> hits: hitChance plus the modifiers that apply. The slow modifiers are

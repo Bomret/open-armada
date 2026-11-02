@@ -62,7 +62,7 @@ public class TransportControlTests
             _ => { }
         );
         Rig? rig = null;
-        var control = new TransportControl(world, bindings, () => rig!.Selected, u => u.Position);
+        var control = new TransportControl(world, bindings, () => rig!.Selected);
         rig = new Rig
         {
             World = world,
@@ -248,7 +248,11 @@ public class TransportControlTests
         r.Control.Pressed(T, false);
         Assert.AreEqual(TransportCursor.Transport, r.Control.Cursor(r.Units["enemy"]));
         Assert.AreEqual(TransportCursor.NoTransport, r.Control.Cursor(r.Units["full"]), "a full friendly unit");
-        Assert.AreEqual(TransportCursor.NoTransport, r.Control.Cursor(r.Units["far"]), "beyond the range");
+        Assert.AreEqual(
+            TransportCursor.Transport,
+            r.Control.Cursor(r.Units["far"]),
+            "beyond the range, the order accepts it"
+        );
         Assert.AreEqual(TransportCursor.NoTransport, r.Control.Cursor(r.Units["shielded"]), "a hostile with shields");
         Assert.AreEqual(TransportCursor.Default, r.Control.Cursor(null), "no unit under the cursor");
     }

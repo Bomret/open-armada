@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 
 namespace OpenArmada.Sandbox;
 
@@ -27,8 +26,7 @@ public enum TransportCursor
 public sealed class TransportControl(
     CombatWorld world,
     AlertBindings bindings,
-    Func<IReadOnlyList<PlacedObject>> selected,
-    Func<PlacedObject, Vector3> positionOf
+    Func<IReadOnlyList<PlacedObject>> selected
 )
 {
     List<PlacedObject> _waiting = [];
@@ -102,7 +100,7 @@ public sealed class TransportControl(
 
     /// <summary>
     /// The cursor over <c>hovered</c> (null for no unit): <see cref="TransportCursor.Transport"/> while the mode is
-    /// pending and <see cref="CombatRules.CanTransportTo"/> accepts the unit for a waiting unit, which is the game's merge
+    /// pending and <see cref="CombatRules.TransportOrderOk"/> accepts the unit for a waiting unit (range is not tested), which is the game's merge
     /// of the per-unit answers (0x4318a0); <see cref="TransportCursor.NoTransport"/> over any other unit.
     /// </summary>
     public TransportCursor Cursor(PlacedObject? hovered)
@@ -111,11 +109,7 @@ public sealed class TransportControl(
             return TransportCursor.Default;
         if (world.State(hovered) is not { } target)
             return TransportCursor.NoTransport;
-        var range = world.Transporter.Range;
-        var ok = _waiting.Any(u =>
-            world.State(u) is { } source
-            && CombatRules.CanTransportTo(source, target, Vector3.Distance(positionOf(u), positionOf(hovered)), range)
-        );
+        var ok = _waiting.Any(u => world.State(u) is { } source && CombatRules.TransportOrderOk(source, target));
 
         return ok ? TransportCursor.Transport : TransportCursor.NoTransport;
     }

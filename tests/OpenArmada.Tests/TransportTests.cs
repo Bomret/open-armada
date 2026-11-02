@@ -106,6 +106,7 @@ public class TransportTests
         var events = Run(world, 2);
         Assert.AreEqual(0, events.OfType<PartySent>().Count());
         Assert.AreEqual(0, events.OfType<TransportStarted>().Count());
+        Assert.AreEqual(1, events.OfType<TransportOrdered>().Count(), "the order's voice line plays");
     }
 
     [TestMethod]
@@ -150,26 +151,34 @@ public class TransportTests
     }
 
     [TestMethod]
-    public void TheCursorTestRefusesAHostileTargetWithShieldsAboveOneHundredth()
+    public void TheOrderRefusesAHostileTargetWithShieldsAboveOneHundredth()
     {
         var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 2, 100, Shields: 100));
         var (s, t) = (world.State(u["s"])!, world.State(u["t"])!);
-        Assert.IsFalse(CombatRules.CanTransportTo(s, t, 100, 500));
+        Assert.IsFalse(CombatRules.TransportOrderOk(s, t));
         t.Shields = 0.01;
-        Assert.IsTrue(CombatRules.CanTransportTo(s, t, 100, 500));
+        Assert.IsTrue(CombatRules.TransportOrderOk(s, t));
         t.Shields = 0.011;
-        Assert.IsFalse(CombatRules.CanTransportTo(s, t, 100, 500));
+        Assert.IsFalse(CombatRules.TransportOrderOk(s, t));
     }
 
     [TestMethod]
-    public void TheCursorTestChecksRangeAndTheSourceCrew()
+    public void AClickOnAShieldedHostileGivesNoOrderAndChangesNoUnit()
     {
-        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 2, 100));
-        var (s, t) = (world.State(u["s"])!, world.State(u["t"])!);
-        Assert.IsTrue(CombatRules.CanTransportTo(s, t, 500, 500));
-        Assert.IsFalse(CombatRules.CanTransportTo(s, t, 500.5, 500));
-        s.Crew = 9;
-        Assert.IsFalse(CombatRules.CanTransportTo(s, t, 100, 500));
+        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 2, 100, Shields: 100));
+        Assert.IsFalse(world.Transport(u["s"], u["t"]));
+        var events = world.Step(Tick);
+        Assert.AreEqual(0, events.OfType<TransportStarted>().Count());
+        Assert.AreEqual(0, events.OfType<TransportOrdered>().Count());
+        Assert.IsFalse(world.State(u["s"])!.Transporting);
+        Assert.AreEqual(0, world.State(u["t"])!.BoardedBy.Count);
+    }
+
+    [TestMethod]
+    public void TheOrderAcceptsAShieldedDerelict()
+    {
+        var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 2, 100, Crew: 0, Shields: 100));
+        Assert.IsTrue(world.Transport(u["s"], u["t"]));
     }
 
     // --- the cycle ---
@@ -509,8 +518,9 @@ public class TransportTests
         int Parties(float shields)
         {
             var (world, u) = Build(null, new Spec("s", 1, 0), new Spec("t", 2, 100, Shields: 100));
-            world.State(u["t"])!.Shields = shields;
+            world.State(u["t"])!.Shields = 0; // the order refuses a raised shield; the cycle tests the fraction
             world.Transport(u["s"], u["t"]);
+            world.State(u["t"])!.Shields = shields;
 
             return Run(world, Tick).OfType<PartySent>().Count();
         }

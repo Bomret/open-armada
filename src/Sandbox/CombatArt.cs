@@ -329,6 +329,13 @@ public sealed class CombatArt
                 }
 
                 break;
+            case TransportOrdered { Source: var source }:
+                if (_voices.TryGetValue(source, out var orderVoice))
+                {
+                    cues.Add(new TransportCue(CueKind.Sound, source, orderVoice));
+                }
+
+                break;
             case TransportStopped { Source: var source, Target: var target }:
                 foreach (var unit in new[] { source, target })
                 {

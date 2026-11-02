@@ -85,6 +85,19 @@ public sealed record TransportStarted : CombatEvent
     public required PlacedObject Target { get; init; }
 }
 
+/// <summary>
+/// An accepted transport order that starts no transport, since the source has no more than <c>TRANSPORTER_MAX</c> crew:
+/// the order's voice line plays and nothing else.
+/// </summary>
+public sealed record TransportOrdered : CombatEvent
+{
+    /// <summary>The ordered unit.</summary>
+    public required PlacedObject Source { get; init; }
+
+    /// <summary>The unit the order aims at.</summary>
+    public required PlacedObject Target { get; init; }
+}
+
 /// <summary>A transport ended, by a cancel, a stop condition, or the loss of one of its units.</summary>
 public sealed record TransportStopped : CombatEvent
 {

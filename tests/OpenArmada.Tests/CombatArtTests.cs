@@ -716,6 +716,17 @@ public class CombatArtTests
     }
 
     [TestMethod]
+    public void AnOrderThatStartsNoTransportPlaysTheVoiceLineAndNoEffect()
+    {
+        var art = TransportArt(TransportInstall(), "picard.wav");
+
+        CollectionAssert.AreEqual(
+            new[] { new TransportCue(CueKind.Sound, Boarder, "picard.wav") },
+            Cues(art, new TransportOrdered { Source = Boarder, Target = Prize })
+        );
+    }
+
+    [TestMethod]
     public void AUnitWithoutAVoiceLineOrAStarbasePlaysNoneAndNothingIsReported()
     {
         var plain = TransportArt(TransportInstall());

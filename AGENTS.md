@@ -46,16 +46,16 @@ ADR and INV numbers in the superdev seed files of `docs/agents/` (`deployment.md
 `docs/adr/` or `docs/invariants.md`.
 
 ### Slice store
-Codeberg Issues on `bomret/open-armada`, through the `tea` login for `https://codeberg.org`. See `docs/agents/issue-tracker.md`.
+GitHub Issues on `Bomret/open-armada`, through the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Code host
-Codeberg (`bomret/open-armada`) through `tea`; scopes open as draft pull requests into `main`. See `docs/agents/code-management.md`.
+GitHub (`Bomret/open-armada`) through `gh`; scopes open as draft pull requests into `main`. See `docs/agents/code-management.md`.
 
 ### Documentation
 In-repo `AGENTS.md` hierarchy, controlled writing standard, American English. See `docs/agents/documentation.md`.
 
 ### Knowledge base
-Codeberg wiki of `bomret/open-armada`, staged locally and sent by `/superdev:publish-kb`. See `docs/agents/knowledge-base.md`.
+GitHub wiki of `Bomret/open-armada` (git repository `Bomret/open-armada.wiki`), staged locally and sent by `/superdev:publish-kb`. See `docs/agents/knowledge-base.md`.
 
 ### Coding
 C# style rules in `docs/agents/CODING.md`; the patterns this repo uses in `docs/agents/CODING_PATTERNS.md`.

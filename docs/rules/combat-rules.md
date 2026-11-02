@@ -463,8 +463,9 @@ every Craft class.
 **The cursor test** (0x4664e0, mode 5). A unit refuses the target when the target is not a crewed unit, the source's
 crew is 9 or fewer, the target is hostile and its absolute shields are above 0.01, or the center-to-center distance is
 above `TRANSPORTER_RANGE`. The engine exposes this as one function. **Stand-in**: the sandbox's order applies every
-part but the range, adding the friendly-full part above, and the cursor follows the order, so a target out of range
-that the order accepts shows the transport cursor. The cycle tests the shield fraction instead (below); the two
+part but the range, adding the friendly-full part above. The cursor applies the order's test and the range (center
+to center, at most `TRANSPORTER_RANGE`, as the cycle measures it), so a target out of range shows the no-transport
+cursor and still takes the order. The cycle tests the shield fraction instead (below); the two
 differ and both are kept. The Manheim-state test of the hover is not built (no such state in the sandbox).
 
 **The cycle** (0x467050). The source never moves for a transport; a unit out of range takes the order and stops at its

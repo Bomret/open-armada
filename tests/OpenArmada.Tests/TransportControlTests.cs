@@ -248,13 +248,19 @@ public class TransportControlTests
         r.Control.Pressed(T, false);
         Assert.AreEqual(TransportCursor.Transport, r.Control.Cursor(r.Units["enemy"]));
         Assert.AreEqual(TransportCursor.NoTransport, r.Control.Cursor(r.Units["full"]), "a full friendly unit");
-        Assert.AreEqual(
-            TransportCursor.Transport,
-            r.Control.Cursor(r.Units["far"]),
-            "beyond the range, the order accepts it"
-        );
+        Assert.AreEqual(TransportCursor.NoTransport, r.Control.Cursor(r.Units["far"]), "beyond TRANSPORTER_RANGE");
         Assert.AreEqual(TransportCursor.NoTransport, r.Control.Cursor(r.Units["shielded"]), "a hostile with shields");
         Assert.AreEqual(TransportCursor.Default, r.Control.Cursor(null), "no unit under the cursor");
+    }
+
+    [TestMethod]
+    public void TheCursorIsTransportAtExactlyTheRangeAndNoTransportJustBeyond()
+    {
+        var r = Build(true, new Spec("a", 1, 0), new Spec("edge", 2, 500), new Spec("beyond", 2, 500.5f));
+        r.Select("a");
+        r.Control.Pressed(T, false);
+        Assert.AreEqual(TransportCursor.Transport, r.Control.Cursor(r.Units["edge"]), "at TRANSPORTER_RANGE");
+        Assert.AreEqual(TransportCursor.NoTransport, r.Control.Cursor(r.Units["beyond"]), "past TRANSPORTER_RANGE");
     }
 
     [TestMethod]

@@ -100,7 +100,8 @@ public sealed class TransportControl(
 
     /// <summary>
     /// The cursor over <c>hovered</c> (null for no unit): <see cref="TransportCursor.Transport"/> while the mode is
-    /// pending and <see cref="CombatRules.TransportOrderOk"/> accepts the unit for a waiting unit (range is not tested), which is the game's merge
+    /// pending and <see cref="CombatRules.TransportOrderOk"/> accepts the unit for a waiting unit and it is within
+    /// <c>TRANSPORTER_RANGE</c> of that unit (the game's cursor test, 0x4664e0), which is the game's merge
     /// of the per-unit answers (0x4318a0); <see cref="TransportCursor.NoTransport"/> over any other unit.
     /// </summary>
     public TransportCursor Cursor(PlacedObject? hovered)
@@ -109,7 +110,11 @@ public sealed class TransportControl(
             return TransportCursor.Default;
         if (world.State(hovered) is not { } target)
             return TransportCursor.NoTransport;
-        var ok = _waiting.Any(u => world.State(u) is { } source && CombatRules.TransportOrderOk(source, target));
+        var ok = _waiting.Any(u =>
+            world.State(u) is { } source
+            && CombatRules.TransportOrderOk(source, target)
+            && world.WithinTransporterRange(source, target)
+        );
 
         return ok ? TransportCursor.Transport : TransportCursor.NoTransport;
     }

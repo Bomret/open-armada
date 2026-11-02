@@ -287,6 +287,13 @@ public sealed class CombatWorld
     public UnitCombatState? State(PlacedObject unit) => _units.GetValueOrDefault(unit);
 
     /// <summary>
+    /// Whether <c>target</c> is within <c>TRANSPORTER_RANGE</c> of <c>source</c>, center to center: the range a transport
+    /// cycle and the transport cursor test (0x4664e0) both apply.
+    /// </summary>
+    public bool WithinTransporterRange(UnitCombatState source, UnitCombatState target) =>
+        Vector3.DistanceSquared(Position(source), Position(target)) <= Transporter.Range * Transporter.Range;
+
+    /// <summary>
     /// Whether the units are hostile by their current teams (INV-0012); a unit the world has lost is hostile to none.
     /// </summary>
     public bool Hostile(PlacedObject a, PlacedObject b) =>
@@ -1131,7 +1138,6 @@ public sealed class CombatWorld
     // cycle timer counts down in every tick; at or below zero a transporting unit checks its target and sends a party.
     void RunTransports(List<CombatEvent> events)
     {
-        var range = Transporter.Range * Transporter.Range;
         foreach (var u in _units.Values.ToList())
         {
             u.TransportTimer -= Tick;
@@ -1151,7 +1157,7 @@ public sealed class CombatWorld
             if (
                 t.Destroyed
                 || t.Dying
-                || Vector3.DistanceSquared(Position(u), Position(t)) > range
+                || !WithinTransporterRange(u, t)
                 || hostile && shields > BoardingShieldFraction
                 || !hostile && t.Crew >= t.Profile.DefinedMaximumCrew
             )

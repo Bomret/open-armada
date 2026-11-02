@@ -22,7 +22,7 @@ the `gh` CLI (see *Tooling* below).
   `in-review`, `blocked`, plus the `behavior`/`mechanical`/`docs` set) once with
   `POST /repos/Bomret/open-armada/labels` before the first `/plan` run. GitHub's docs don't specify how an
   unknown label name is handled on create, so creating them explicitly keeps the outcome from depending on
-  it. Labels are addressed **by name** here, unlike Forgejo's ids, so nothing forces the lookup that would
+  it. Labels are addressed **by name**, so nothing forces the lookup that would
   otherwise catch a missing one.
 
 ## Field mapping (plan-contract → GitHub)

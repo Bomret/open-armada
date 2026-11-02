@@ -323,8 +323,9 @@ public sealed class CombatWorld
     /// <summary>
     /// Gives <c>source</c> a transport order on <c>target</c>, true when it is accepted
     /// (<see cref="CombatRules.TransportOrderOk"/>). The source starts transporting only with more than
-    /// <c>TRANSPORTER_MAX</c> crew (else it reports <see cref="TransportOrdered"/>); its move or attack order runs on. An order on the current target changes nothing;
-    /// an order on another target ends the earlier transport first, whether or not the source can start the new one.
+    /// <c>TRANSPORTER_MAX</c> crew (else it reports <see cref="TransportOrdered"/>); its move or attack order runs on.
+    /// An order on the current target changes nothing; an order on another target ends the earlier transport first,
+    /// whether or not the source can start the new one.
     /// </summary>
     public bool Transport(PlacedObject source, PlacedObject target)
     {

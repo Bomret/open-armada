@@ -27,7 +27,8 @@ public class TransportTests
         RaceValues? Race = null,
         WeaponProfile? Weapon = null,
         float Radius = 0,
-        bool Mobile = false
+        bool Mobile = false,
+        string RaceName = ""
     );
 
     static (CombatWorld World, Dictionary<string, PlacedObject> Units) Build(
@@ -48,7 +49,8 @@ public class TransportTests
                     shieldDelay: s.ShieldDelay,
                     crew: s.Crew,
                     maximumCrew: s.Max,
-                    race: s.Race
+                    race: s.Race,
+                    raceName: s.RaceName
                 ),
                 DefinitionName = s.Label + ".odf",
                 Radius = s.Radius,
@@ -409,6 +411,52 @@ public class TransportTests
     }
 
     [TestMethod]
+    public void ACapturedUnitTakesTheCaptorsRaceNameAndKeepsItsOwnDefinition()
+    {
+        var (world, u) = Build(
+            null,
+            new Spec("s", 1, 0, Race: Strong, RaceName: "fed"),
+            new Spec("t", 2, 100, Crew: 0, Max: 80, RaceName: "klingon")
+        );
+        world.Transport(u["s"], u["t"]);
+        Run(world, 1.02);
+        var target = world.State(u["t"])!;
+        Assert.AreEqual("fed", target.RaceName);
+        Assert.AreEqual(80, target.Profile.MaximumCrew);
+        Assert.AreEqual("klingon", target.Profile.RaceName);
+    }
+
+    [TestMethod]
+    public void ARecapturedUnitTakesTheNewCaptorsRaceName()
+    {
+        var (world, u) = Build(
+            null,
+            new Spec("b", 3, 0, Race: Strong, RaceName: "borg"),
+            new Spec("f", 1, 200, Race: Strong, RaceName: "fed"),
+            new Spec("t", 2, 100, Crew: 0, RaceName: "klingon")
+        );
+        world.Transport(u["b"], u["t"]);
+        Run(world, 1.02);
+        Assert.AreEqual("borg", world.State(u["t"])!.RaceName);
+        world.Transport(u["f"], u["t"]);
+        Run(world, 1.02);
+        Assert.AreEqual("fed", world.State(u["t"])!.RaceName);
+    }
+
+    [TestMethod]
+    public void APartyOntoAnOwnTeamDerelictSetsItsRaceName()
+    {
+        var (world, u) = Build(
+            null,
+            new Spec("s", 1, 0, Race: Strong, RaceName: "fed"),
+            new Spec("t", 1, 100, Crew: 0, RaceName: "klingon")
+        );
+        world.Transport(u["s"], u["t"]);
+        Run(world, 2 * Tick);
+        Assert.AreEqual("fed", world.State(u["t"])!.RaceName);
+    }
+
+    [TestMethod]
     public void APartyOntoAnOwnTeamDerelictAddsCrewEndsItsDerelictStateAndSetsItsRace()
     {
         var (world, u) = Build(null, new Spec("s", 1, 0, Race: Strong), new Spec("t", 1, 100, Crew: 0));
@@ -715,7 +763,7 @@ public class TransportTests
         var (world, u) = Build(null, new Spec("s", 1, 0, Race: Strong), new Spec("t", 2, 100, Crew: 4));
         world.Transport(u["s"], u["t"]);
         world.Step(Tick);
-        world.ChangeTeam(u["s"], 3, Weak);
+        world.ChangeTeam(u["s"], 3, "", Weak);
         Run(world, 1.0);
         var target = world.State(u["t"])!;
         Assert.AreEqual(1, target.Team);
@@ -734,7 +782,7 @@ public class TransportTests
         world.Transport(u["s"], u["t"]);
         world.Step(Tick);
         world.Transport(u["t"], u["v"]); // t sends in tick 2 (a hostile derelict lands 50 ticks later)
-        world.ChangeTeam(u["t"], 3, Weak); // t changes team before its party is sent
+        world.ChangeTeam(u["t"], 3, "", Weak); // t changes team before its party is sent
         Run(world, 1.1);
         var v = world.State(u["v"])!;
         Assert.AreEqual(3, v.Team);
@@ -795,7 +843,7 @@ public class TransportTests
         world.State(u["other"])!.Destroyed = true; // mate holds no other pick, so only the block can keep it off t
         world.Transport(u["s"], u["t"]);
         world.Step(Tick);
-        world.ChangeTeam(u["t"], 4, CombatFixtures.Race);
+        world.ChangeTeam(u["t"], 4, "", CombatFixtures.Race);
         Assert.IsTrue(ShotsAt(Run(world, 3), u["mate"], u["t"]) > 0);
     }
 

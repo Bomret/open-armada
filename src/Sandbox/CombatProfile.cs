@@ -340,4 +340,10 @@ public sealed record CombatProfile
     /// The values of the race the definition's <c>race</c> names; stand-in values when the race is missing.
     /// </summary>
     public required RaceValues Race { get; init; }
+
+    /// <summary>
+    /// The definition's <c>race</c> name, which a unit's current race name starts from (0x46dff0 +0x1a4); empty when
+    /// the key is missing.
+    /// </summary>
+    public string RaceName { get; init; } = "";
 }

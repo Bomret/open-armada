@@ -2363,7 +2363,7 @@ public class CombatWorldTests
         var (world, x, y, z) = ThreeFighters();
         world.Step(0.02);
         Assert.AreEqual(y.Object, world.State(x.Object)!.Target?.Unit);
-        world.ChangeTeam(y.Object, 1, Race);
+        world.ChangeTeam(y.Object, 1, "", Race);
         world.Step(0.02);
         Assert.AreEqual(y.Object, world.State(z.Object)!.Target?.Unit, "a former teammate picks it");
         Assert.AreNotEqual(y.Object, world.State(x.Object)!.Target?.Unit, "a new teammate does not");
@@ -2373,7 +2373,7 @@ public class CombatWorldTests
     public void ATeamChangedUnitsWeaponsStopFiringAtItsNewTeammatesAndFireAtItsNewEnemies()
     {
         var (world, x, y, z) = ThreeFighters();
-        world.ChangeTeam(y.Object, 1, Race);
+        world.ChangeTeam(y.Object, 1, "", Race);
         var events = world.Step(0.02);
         Assert.AreEqual(
             0,
@@ -2396,7 +2396,7 @@ public class CombatWorldTests
         var state = world.State(a.Object)!;
         state.Crew = 40; // ratio 0.4: yellow by the fixture race, red by the other
         Assert.AreEqual(CrewStatus.Yellow, CombatRules.CrewStatusOf(state));
-        world.ChangeTeam(a.Object, 3, OtherRace);
+        world.ChangeTeam(a.Object, 3, "", OtherRace);
         Assert.AreEqual(CrewStatus.Red, CombatRules.CrewStatusOf(state));
         Assert.AreEqual(2 * 7, CombatRules.ReloadDelay(state.Weapons[0].Profile, state), 1e-9);
         state.Systems["Weapons"].HitPoints = 0;
@@ -2416,7 +2416,7 @@ public class CombatWorldTests
         world.Step(0.02);
         var pose = poses.Pose(a.Object);
         var readout = CombatReadout.Line("a", state);
-        world.ChangeTeam(a.Object, 3, OtherRace);
+        world.ChangeTeam(a.Object, 3, "", OtherRace);
         Assert.IsTrue(world.Units.Contains(state), "the unit stays among the units the selection and readout read");
         Assert.AreEqual(readout, CombatReadout.Line("a", state), "the readout line is the same");
         Assert.IsNull(state.Order);
@@ -2437,7 +2437,7 @@ public class CombatWorldTests
         var b = Fighter("b", 2, 300);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        world.ChangeTeam(b.Object, 3, OtherRace);
+        world.ChangeTeam(b.Object, 3, "", OtherRace);
         world.Step(0.02);
         Assert.AreSame(world.State(b.Object), world.State(a.Object)!.Order);
     }
@@ -2449,7 +2449,7 @@ public class CombatWorldTests
         var b = Fighter("b", 2, 10);
         var world = World(null, a, b);
         Assert.IsTrue(world.Hostile(a.Object, b.Object));
-        world.ChangeTeam(b.Object, 1, Race);
+        world.ChangeTeam(b.Object, 1, "", Race);
         Assert.IsFalse(world.Hostile(a.Object, b.Object));
         Assert.IsFalse(world.Hostile(a.Object, Placed("gone", 2, 0)));
     }
@@ -2460,7 +2460,7 @@ public class CombatWorldTests
         var a = Fighter("a", 1, 0);
         var b = Fighter("b", 1, 10);
         var world = World(out var poses, null, a, b);
-        world.ChangeTeam(a.Object, 2, OtherRace);
+        world.ChangeTeam(a.Object, 2, "", OtherRace);
         Assert.AreEqual(2, world.State(a.Object)!.Team);
         Assert.AreEqual(1, world.State(b.Object)!.Team);
         Assert.AreNotSame(world.State(a.Object), world.State(b.Object));
@@ -2500,7 +2500,7 @@ public class CombatWorldTests
         var b = Fighter("b", 2, 300);
         var world = World(null, a, b);
         world.Attack(a.Object, b.Object);
-        world.ChangeTeam(b.Object, 1, Race);
+        world.ChangeTeam(b.Object, 1, "", Race);
         world.Step(0.02);
         Assert.IsNull(world.State(a.Object)!.Order);
     }

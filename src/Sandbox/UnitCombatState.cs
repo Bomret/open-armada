@@ -300,6 +300,9 @@ public sealed class UnitCombatState(
     /// </summary>
     public double TransportTimer { get; set; }
 
+    /// <summary>The special weapon the unit has running; null while it has none.</summary>
+    public SpecialWeaponOrder? SpecialOrder { get; set; }
+
     /// <summary>
     /// The teams that started boarding this unit and have not since ordered an attack on it (the boarding block,
     /// 0x466f70, 0x427616): their automatic selection rejects the unit and their attack orders drop it. A team change of

@@ -175,6 +175,37 @@ public sealed record WeaponProfile
 }
 
 /// <summary>
+/// A special-weapon order's weapon: a <c>toggleweapon</c> with the <c>special</c> flag whose ordnance is the Holding
+/// Beam (<c>holding_bm</c>). The weapon's button slot is the F-key the player orders it with (<c>fire_special_N</c>).
+/// </summary>
+public sealed record SpecialWeaponProfile
+{
+    /// <summary>The weapon definition's <c>buttonSlot</c>: the special weapon key's number.</summary>
+    public required int Slot { get; init; }
+
+    /// <summary>The weapon definition's <c>range</c>: a target must be within it for the beam to start.</summary>
+    public required float Range { get; init; }
+
+    /// <summary>The ordnance's <c>specialEnergyCost</c> (+0x34, 0x4ea1e0): spent once at the start, then per second while on.</summary>
+    public required float EnergyCost { get; init; }
+
+    /// <summary>The ordnance's <c>targetRange</c>.</summary>
+    public required float TargetRange { get; init; }
+
+    /// <summary>The ordnance's <c>lifeSpan</c>.</summary>
+    public required float LifeSpan { get; init; }
+
+    /// <summary>The ordnance's <c>boardingSize</c>: the crew of one boarding party.</summary>
+    public required float BoardingSize { get; init; }
+
+    /// <summary>The ordnance's <c>boardingInterval</c>: the seconds between boarding parties.</summary>
+    public required float BoardingInterval { get; init; }
+
+    /// <summary>The ordnance's <c>boardingDelay</c>: the seconds before the first boarding party.</summary>
+    public required float BoardingDelay { get; init; }
+}
+
+/// <summary>
 /// One of the five ship systems that a unit has. Absent from a profile when its definition gives it no hit points.
 /// </summary>
 public sealed record SystemProfile
@@ -263,6 +294,12 @@ public sealed record CombatProfile
     /// readable definition, is left out.
     /// </summary>
     public required IReadOnlyList<WeaponProfile> Weapons { get; init; }
+
+    /// <summary>
+    /// The unit's special weapons the player orders (the Holding Beam). Empty for a unit with none; a toggle weapon
+    /// with another ordnance class is left out.
+    /// </summary>
+    public IReadOnlyList<SpecialWeaponProfile> SpecialWeapons { get; init; } = [];
 
     /// <summary>The <c>maxHealth</c>: the shield maximum. A unit has no hull hit points.</summary>
     public required float MaxHealth { get; init; }

@@ -91,7 +91,7 @@ from `Armada.exe`'s `.rdata`), so the push runs when (r + ship radius)² is abov
 A push-out goes through the push route, so a ship ordered to a point inside a planet, or to one at a field's edge, and
 left within `tooCloseToTurn` of it by the push ends its order and stops at the edge; one held off farther rests at the
 edge with its order open, with no back and forth: it stays on the ring at the same distance from the center and slides
-slowly along it (`play/push-out.play`, a field; `play/push-out-planet.play`, a planet). A ship that moves no more than
+slowly along it (`PushOutTests`, a field and a planet). A ship that moves no more than
 1 unit in 12 whole seconds of this has its path dropped and planned again to its order's first point, the ship's
 position at order time, so it leaves the ring toward that point and plans to the goal again once it is within the lead
 distance of it (the stuck rule, `docs/rules/path-planning.md`, "The order list and the replans"). A planet is no obstacle to the

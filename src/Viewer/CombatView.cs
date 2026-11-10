@@ -138,6 +138,27 @@ public partial class CombatView : Node3D
         LoadShieldModels(art, builder, gap);
 
         orders.Stepped += OnStep;
+        orders.Skipped += OnSkipped;
+    }
+
+    // The events of ticks a fast-forward ran without drawing: only the cues that last are applied (the transport effect
+    // on or off, a captured unit's new team color); the shots, hits, explosions, and sounds of that time are not shown.
+    void OnSkipped(IReadOnlyList<CombatEvent> events)
+    {
+        foreach (var e in events)
+        {
+            try
+            {
+                foreach (var cue in _art.TransportCues(e).Where(c => c.Kind != CueKind.Sound))
+                {
+                    Apply(cue);
+                }
+            }
+            catch (Exception ex) // a failure of one event's presentation never stops the fight (INV-0002)
+            {
+                _faults.Report($"combat presentation failed: {ex.Message}");
+            }
+        }
     }
 
     ImageTexture? Texture(string name)

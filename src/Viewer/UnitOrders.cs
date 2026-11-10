@@ -165,6 +165,30 @@ public partial class UnitOrders : Node3D
     /// <summary>Raised with the events of each frame's step, before a destroyed unit's node leaves the scene.</summary>
     public event Action<IReadOnlyList<CombatEvent>>? Stepped;
 
+    /// <summary>
+    /// Raised at the start of a frame with the events of the ticks <see cref="Skip"/> ran since the last frame, before
+    /// <see cref="Stepped"/>; none of them was drawn.
+    /// </summary>
+    public event Action<IReadOnlyList<CombatEvent>>? Skipped;
+
+    readonly List<CombatEvent> _skipped = [];
+
+    /// <summary>
+    /// Steps the combat world by <c>seconds</c> without drawing (a play script's <c>fast-forward</c>). The next frame
+    /// raises the events through <see cref="Skipped"/> and draws the units where the world left them.
+    /// </summary>
+    public void Skip(double seconds)
+    {
+        try
+        {
+            _skipped.AddRange(_world.Step(seconds));
+        }
+        catch (Exception e) // a failure of one skipped tick never stops the sandbox (INV-0002)
+        {
+            _faults.Report($"combat step failed: {e.Message}");
+        }
+    }
+
     // Half the longest side of the box around the model's meshes, as the selection's picks take it; 0 without meshes.
     // stand-in: the unit radius is read from the mesh box; the game's collision radius is not known.
     static float Radius(Node3D node) =>
@@ -291,6 +315,20 @@ public partial class UnitOrders : Node3D
     public override void _Process(double delta)
     {
         // A failure of one frame's combat never stops the sandbox (INV-0002); the next frame goes on.
+        if (_skipped.Count > 0)
+        {
+            var skipped = _skipped.ToList();
+            _skipped.Clear();
+            try
+            {
+                Skipped?.Invoke(skipped);
+            }
+            catch (Exception e)
+            {
+                _faults.Report($"combat step failed: {e.Message}");
+            }
+        }
+
         IReadOnlyList<CombatEvent> events = [];
         try
         {

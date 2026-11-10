@@ -66,7 +66,9 @@ or none.
 Movie Maker decouples simulated time from the wall clock. Each frame advances the game by exactly
 `1 / <fps>` seconds, and the next frame starts as soon as the last one is written. A run's wall-clock
 time is therefore its frame count times the cost of one frame: a cheap scene runs faster than real
-time, and an expensive one slower. The recorded frames and audio play at real speed either way.
+time, and an expensive one slower. The recorded frames and audio play at real speed either way. Most of a
+frame's cost is Movie Maker's PNG encoding, which grows with what the frame shows: a frame of a small layout
+encodes in about 20 ms, one of a stock map or a screen-filling planet in 150 to 700 ms.
 
 Verify each line with the smallest layout that shows it. A play run on a stock map is slow under
 Movie Maker, and a long fight there can take hours.
@@ -74,6 +76,11 @@ Movie Maker, and a long fight there can take hours.
 - Place only the units the line needs, close together, so the opening camera shows them and no
   camera step is needed.
 - Keep the script short, with few frames: wait only as long as the event needs.
+- Reach a later state with `fast-forward until <unit> <field> <op> <value> max <seconds>` instead of a long `wait`:
+  it runs the combat world without drawing, so its time costs no frames. It shows and plays nothing of the skipped
+  time, so keep a `wait` across what the line is about.
+- Leave to the unit tests a line about unit state alone, such as a position, a velocity, or an order: a play run checks
+  what a player sees or hears.
 - Use a stock map (`--map <map>`) only when the line is about that map.
 - Look through the checked-in layouts in `layouts/` first, and reuse one that fits.
 - Write a new layout whenever one serves the check better. Put it in `layouts/` and commit it with the
@@ -108,32 +115,23 @@ The checked-in play scripts, the layout or map each runs on, and the mechanics e
 | `black-hole.play` | `layouts/black-hole.jsonc` | A derelict ship pulled in and swallowed; a ship with thrust ordered into the hole's impassable square, holding at its start; the hole's model turning |
 | `borg-move.play` | `layouts/borg-move.jsonc` | A Borg ship's move order: its 3D velocity, no pitch or roll, its yaw toward the bearing plus a quarter turn |
 | `coast.play` | `layouts/coast.jsonc` | A ship with destroyed engines coasting from its starting velocity |
-| `collision.play` | `layouts/collision.jsonc` | Collision separation ending a move order; both ships at rest apart |
 | `damage.play` | `layouts/damage.jsonc` | Damage nodes of a ship with a tenth of its crew |
 | `destroy.play` | `layouts/destroy.jsonc` | A unit destroyed: dying, its explosions and fireball, its sound |
 | `drift.play` | `layouts/drift.jsonc` | A dying bird of prey coasting on |
-| `emitters.play` | `layouts/emitters.jsonc` | Damage emitters spraying plasma and steam |
-| `forced-motion.play` | `layouts/forced-motion.jsonc` | Black hole pull and swallow and collision separation in one run |
+| `emitters.play` | `layouts/emitters.jsonc` | Damage emitters spraying plasma and steam; repair sparks of repairing systems; a damage emitter stopping once its system is whole |
 | `group-move.play` | `layouts/group-move.jsonc` | A group move: each ship's own cell |
 | `hit-explosion.play` | `layouts/hit-explosion.jsonc` | System hit explosions at a hit's node |
 | `map-black-hole.play` | `--map borg4` | A stock map with a black hole and asteroid fields |
-| `move.play` | `layouts/move.jsonc` | A move order while driving and after arrival |
 | `nebula.play` | `layouts/nebula.jsonc` | A ship slowed in a row of nebulae and its path bending out of the row |
 | `path-field.play` | `layouts/path-field.jsonc` | A move order's path around an asteroid field |
-| `push-out.play` | `layouts/push-out.jsonc` | Push-out from an asteroid field |
-| `push-out-planet.play` | `layouts/push-out-planet.jsonc` | Push-out from a planet |
 | `scale.play` | `layouts/scale.jsonc` | A model drawn at its `scaleSOD` |
-| `shield.play` | `--map kling4` | Shield hit effects and the hull hit sprite |
 | `shield-hit.play` | `layouts/shield-hit.jsonc` | Shield hit effects of beams and torpedoes on both sides |
-| `shield-hull.play` | `--map kling1` | The hull hit sprite on a unit without shields |
-| `shield-red.play` | `--map kling4` | Shield hit colors as shields fall; the shield-down overlay |
+| `shield-hull.play` | `layouts/destroy.jsonc` | The hull hit sprite on a unit without shields |
+| `shield-red.play` | `layouts/shield-red.jsonc` | Shield hit colors by shield fraction; the shield-down overlay |
 | `sound-fade.play` | `layouts/sound-fade.jsonc` | A fireball fading as the camera pans away, silent beyond its maximum distance, heard again on return |
 | `sound-fade-start.play` | `layouts/sound-fade.jsonc` | A fireball that starts beyond its maximum distance, never heard |
-| `sparks.play` | `layouts/emitters.jsonc` | Repair sparks of repairing systems |
-| `transport.play` | `layouts/transport.jsonc` | A destroyer ordered to transport (key, then click) boards and captures a crippled hostile ship; its team changes |
 | `transport-feedback.play` | `layouts/transport-feedback.jsonc` | The transport effect on source and target while the transport runs and not after a cancel; the transport sound; the captured ship in its new team color beside a ship of its model in the old one |
 | `transport-cases.play` | `layouts/transport-cases.jsonc` | The transport to a derelict ship (captured) and to a friendly ship (crew added); the hero ship's voice line at its order and a ship with none silent; the transport sound at each party |
-| `vent-fade.play` | `layouts/emitters.jsonc` | A damage emitter stopping once its system is whole |
 
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
 

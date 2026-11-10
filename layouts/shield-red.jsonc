@@ -1,0 +1,23 @@
+// Three Klingon destroyers on team 2 and four Federation destroyers on team 1, 200 units apart at the centre, for
+// play/shield-red.play: High starts with full shields, Mid with half, and Low with 0.15 of its maximum, so each hit's
+// shield effect shows green, yellow, and red; Down starts with its shield generator destroyed and shows the
+// shield-down overlay.
+// Run it with: sh tools/play-run.sh shield-red --layout layouts/shield-red.jsonc --fps 30
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "kdestroy", "team": 2, "position": [1900, 0, 1850], "label": "AtkHigh" },
+    { "class": "kdestroy", "team": 2, "position": [1900, 0, 1950], "label": "AtkMid" },
+    { "class": "kdestroy", "team": 2, "position": [1900, 0, 2050], "label": "AtkLow" },
+    { "class": "fdestroy", "team": 1, "position": [2100, 0, 1850], "label": "High" },
+    { "class": "fdestroy", "team": 1, "position": [2100, 0, 1950], "label": "Mid", "shields": 0.5 },
+    { "class": "fdestroy", "team": 1, "position": [2100, 0, 2050], "label": "Low", "shields": 0.15 },
+    {
+      "class": "fdestroy",
+      "team": 1,
+      "position": [2100, 0, 2150],
+      "label": "Down",
+      "destroyedSystems": ["ShieldGenerator"],
+    },
+  ],
+}

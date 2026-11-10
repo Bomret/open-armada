@@ -41,7 +41,8 @@ public class CombatPlanTests
         + "float ST3D_CHUNK_MAX_ANGULAR_VELOCITY = 5.0;\r\nfloat ST3D_CHUNK_MAX_VELOCITY = 70.0;\r\n";
     const string Race =
         "name = \"federation\"\r\ncrewYellowStatus = 0.4\r\ncrewRedStatus = 0.2\r\nweaponYellow = 1.5\r\n"
-        + "weaponRed = 2.5\r\nrepairYellow = 1.1\r\nrepairRed = 1.2\r\nrepairStrength = 1.5\r\nboardingStrength = 1.5\r\n";
+        + "weaponRed = 2.5\r\nrepairYellow = 1.1\r\nrepairRed = 1.2\r\nrepairStrength = 1.5\r\nboardingStrength = 1.5\r\n"
+        + "crewAccumulationRate = 3.5\r\nplanetCrewAccumulationModifier = 1.5\r\n";
     const string Beam =
         "classLabel = \"cannon\"\r\nordName = \"beamo\"\r\nshotDelay = 2\r\nrange = 250\r\nhitChance = 0.7\r\n"
         + "\t\"zmama.odf\" 1.0\r\nstopToHitModifier = 0.25\r\nfireSound = \"b.wav\"\r\ncrewAffectsWeaponDelay = 1\r\n";
@@ -126,6 +127,14 @@ public class CombatPlanTests
         Assert.AreEqual(new TransporterValues(800, 2, 3, 7), r.Plan.Transporter);
         Assert.AreEqual(1.5f, ProfileOf(r).Race.BoardingStrength);
         Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void TheCrewAccumulationRateAndItsPlanetModifierAreReadFromTheRace()
+    {
+        var race = ProfileOf(OneShip("")).Race;
+        Assert.AreEqual(3.5f, race.CrewAccumulationRate);
+        Assert.AreEqual(1.5f, race.PlanetCrewAccumulationModifier);
     }
 
     [TestMethod]

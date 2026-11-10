@@ -702,6 +702,8 @@ public sealed class CombatPlan
                     RepairRed = r.Num("repairRed", 1, report: true),
                     RepairStrength = r.Num("repairStrength", 1, report: true),
                     BoardingStrength = BoardingStrength(r),
+                    CrewAccumulationRate = r.Num("crewAccumulationRate", 0),
+                    PlanetCrewAccumulationModifier = r.Num("planetCrewAccumulationModifier", 0),
                 };
             }
             else if (_racesProblem != null)

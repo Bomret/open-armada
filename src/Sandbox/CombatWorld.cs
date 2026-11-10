@@ -480,6 +480,12 @@ public sealed class CombatWorld
                 continue;
             }
 
+            if (!order.Started)
+            {
+                order.Started = true;
+                events.Add(new SpecialWeaponStarted { Unit = u.Unit, Weapon = order.Weapon });
+            }
+
             u.SpecialEnergy = Math.Max(0, u.SpecialEnergy - drain);
             if (assimilates)
             {

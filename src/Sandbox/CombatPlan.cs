@@ -11,7 +11,8 @@ namespace OpenArmada.Sandbox;
 /// <summary>
 /// The combat profile of every unit of a map, read once from the install, with the gaps found while
 /// reading (INV-0002: a gap is reported with its cause once and the map still opens). Beam (<c>cannon</c>) and
-/// torpedo (<c>launcher</c>) weapons are read; special weapons are out of scope and skipped without a gap.
+/// torpedo (<c>launcher</c>) weapons are read, and the Holding Beam (a <c>special</c> <c>toggleweapon</c>) as a
+/// <see cref="SpecialWeaponProfile"/>; every other special weapon is skipped without a gap.
 /// Each gap is logged once per cause as a WARN; a definition or constants file that exists but cannot be read is
 /// logged instead as one ERROR per file, with its name and reason (INV-0005, INV-0002).
 /// A value the install lacks takes a stand-in (INV-0003) and is reported when the rules need it; no profile value is
@@ -22,6 +23,8 @@ public sealed class CombatPlan
 {
     const string BeamClass = "cannon";
     const string TorpedoClass = "launcher";
+    const string ToggleClass = "toggleweapon";
+    const string HoldingBeamClass = "holding_bm";
 
     /// <summary>One entry per unit of the plan, by the placed object itself (not by value).</summary>
     public IReadOnlyDictionary<PlacedObject, CombatProfile> Profiles { get; }
@@ -449,10 +452,12 @@ public sealed class CombatPlan
             }
 
             var raceName = r.Str("race");
+            var specials = new List<SpecialWeaponProfile>();
 
             return new CombatProfile
             {
-                Weapons = ReadWeapons(d, r, gaps),
+                Weapons = ReadWeapons(d, r, gaps, specials),
+                SpecialWeapons = specials,
                 MaxHealth = r.Num("maxHealth", 0, report: true),
                 ShieldRate = r.Num("shieldRate", 0, report: true),
                 ShieldDelay = r.Num("shieldDelay", 0),
@@ -478,7 +483,8 @@ public sealed class CombatPlan
         IReadOnlyList<WeaponProfile> ReadWeapons(
             ResolvedDefinition d,
             Values unit,
-            List<(string Cause, string Name)> gaps
+            List<(string Cause, string Name)> gaps,
+            List<SpecialWeaponProfile> specials
         )
         {
             var weapons = new List<WeaponProfile>();
@@ -511,7 +517,8 @@ public sealed class CombatPlan
                     w.Gap("classLabel missing, weapon left out");
                 }
 
-                if (label != BeamClass && label != TorpedoClass)
+                var special = label == ToggleClass && w.Flag("special", false);
+                if (label != BeamClass && label != TorpedoClass && !special)
                     continue;
                 var ordName = w.Str("ordName");
                 if (ordName.Length == 0)
@@ -525,6 +532,29 @@ public sealed class CombatPlan
                 if (ordnance == null)
                     continue;
                 var o = new Values(ordnance, gaps);
+                if (special)
+                {
+                    // only the Holding Beam is an order the sandbox runs; another special weapon is left out without a gap
+                    if (o.Str("classLabel") == HoldingBeamClass)
+                    {
+                        specials.Add(
+                            new SpecialWeaponProfile
+                            {
+                                Slot = (int)w.Num("buttonSlot", 0, report: true),
+                                Range = w.Num("range", 0, report: true),
+                                EnergyCost = o.Num("specialEnergyCost", 0, report: true),
+                                TargetRange = o.Num("targetRange", 0),
+                                LifeSpan = o.Num("lifeSpan", 0),
+                                BoardingSize = o.Num("boardingSize", 0),
+                                BoardingInterval = o.Num("boardingInterval", 0),
+                                BoardingDelay = o.Num("boardingDelay", 0),
+                            }
+                        );
+                    }
+
+                    continue;
+                }
+
                 var hardpoints = unit.List($"weaponHardpoints{n}");
                 if (hardpoints.Count == 0)
                 {

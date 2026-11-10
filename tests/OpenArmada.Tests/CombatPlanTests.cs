@@ -208,6 +208,40 @@ public class CombatPlanTests
         Assert.IsTrue(weapons.Single(w => w.Slot == 2).TargetLocation);
     }
 
+    const string HoldWeapon =
+        "classLabel = \"toggleweapon\"\r\nordName = \"holdo\"\r\nbuttonSlot = 4\r\nrange = 300\r\nspecial = 1\r\n";
+    const string HoldOrd =
+        "classLabel = \"holding_bm\"\r\nspecialEnergyCost = 50\r\nlifeSpan = 30\r\ntargetRange = 310\r\n"
+        + "boardingDelay = 1.5\r\nboardingInterval = 2\r\nboardingSize = 20\r\n";
+
+    [TestMethod]
+    public void ASpecialToggleWeaponWithTheHoldingBeamIsReadWithItsOrdnance()
+    {
+        var r = OneShip("weapon1 = \"hold\"\r\n", ("hold", HoldWeapon), ("holdo", HoldOrd));
+        var hold = ProfileOf(r).SpecialWeapons.Single();
+        Assert.AreEqual(
+            (4, 300f, 50f, 310f, 30f),
+            (hold.Slot, hold.Range, hold.EnergyCost, hold.TargetRange, hold.LifeSpan)
+        );
+        Assert.AreEqual((20f, 2f, 1.5f), (hold.BoardingSize, hold.BoardingInterval, hold.BoardingDelay));
+        Assert.AreEqual(0, ProfileOf(r).Weapons.Count);
+        Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void AToggleWeaponThatIsNotSpecialOrNotTheHoldingBeamIsLeftOutWithoutAGap()
+    {
+        var r = OneShip(
+            "weapon1 = \"plain\"\r\nweapon2 = \"other\"\r\n",
+            ("plain", HoldWeapon.Replace("special = 1", "special = 0")),
+            ("other", HoldWeapon.Replace("holdo", "othero")),
+            ("holdo", HoldOrd),
+            ("othero", HoldOrd.Replace("holding_bm", "tractor_bm"))
+        );
+        Assert.AreEqual(0, ProfileOf(r).SpecialWeapons.Count);
+        Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
     [TestMethod]
     public void OrdnanceWithoutShieldKeysUsesTheDefaultGeometryAndDuration()
     {

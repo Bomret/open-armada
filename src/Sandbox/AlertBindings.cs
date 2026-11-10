@@ -8,7 +8,7 @@ using OpenArmada.Formats;
 namespace OpenArmada.Sandbox;
 
 /// <summary>
-/// The key chords of the install's Input.map that set an alert stance: the <c>green</c>, <c>yellow</c>, and <c>red</c> blocks, and the chord of the transport order: the <c>transport</c> block. A
+/// The key chords of the install's Input.map that set an alert stance: the <c>green</c>, <c>yellow</c>, and <c>red</c> blocks, the chord of the transport order: the <c>transport</c> block, and the chords of the special weapons: the <c>fire_special_1</c> to <c>fire_special_6</c> blocks. A
 /// block's <c>+ keyboard X</c> line names the key; <c>+ keyboard Shift</c> (or Control, Alt) a modifier that must be held. A
 /// modifier the block does not require with <c>+</c> must not be held.
 /// stand-in: how the game matches a chord with extra modifiers held is not traced; the match is exact.
@@ -17,7 +17,11 @@ public sealed class AlertBindings
 {
     static readonly string[] Modifiers = { "Shift", "Control", "Alt" };
 
+    // The special weapon keys of Input.map: fire_special_1 to fire_special_6.
+    const int SpecialSlots = 6;
+
     readonly Dictionary<KeyChord, AlertStance> _chords = new();
+    readonly Dictionary<int, KeyChord> _special = new();
 
     AlertBindings() { }
 
@@ -35,7 +39,8 @@ public sealed class AlertBindings
         }
         catch (Exception e)
         {
-            var text = $"Input.map cannot be read, so the alert and transport keys are unbound: {e.Message}";
+            var text =
+                $"Input.map cannot be read, so the alert, transport, and special weapon keys are unbound: {e.Message}";
             Log.Error(Area.Combat, text);
             gap(text);
 
@@ -95,8 +100,32 @@ public sealed class AlertBindings
         // not traced to the button.
         bindings.Transport = Chord("transport", "order");
 
+        // inferred: the fire_special_N block's key fires the special weapon whose button slot is N (the reference
+        // Input.map has six, F1 to F6).
+        for (var slot = 1; slot <= SpecialSlots; slot++)
+        {
+            if (Chord($"fire_special_{slot}", "special weapon") is { } special)
+                bindings._special[slot] = special;
+        }
+
         return bindings;
     }
+
+    /// <summary>The slot (1 to 6) whose <c>fire_special_N</c> chord is pressed; null when the chord is bound to none.</summary>
+    public int? SpecialSlot(KeyChord pressed)
+    {
+        var chord = pressed with { Key = pressed.Key.ToUpperInvariant() };
+        foreach (var (slot, bound) in _special)
+        {
+            if (bound == chord)
+                return slot;
+        }
+
+        return null;
+    }
+
+    /// <summary>The chord of <c>fire_special_N</c>; null when Input.map or that block is missing.</summary>
+    public KeyChord? SpecialChord(int slot) => _special.TryGetValue(slot, out var chord) ? chord : null;
 
     /// <summary>The chord of the transport order; null when Input.map or its <c>transport</c> block is missing.</summary>
     public KeyChord? Transport { get; private set; }

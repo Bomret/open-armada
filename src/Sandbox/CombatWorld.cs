@@ -362,6 +362,94 @@ public sealed class CombatWorld
         return true;
     }
 
+    /// <summary>
+    /// The player's order of the special weapon on button slot <c>slot</c> (the F-key's number) for <c>unit</c>, true when
+    /// it took effect. A weapon that runs on that slot is turned off with no refund (the target is not read). Otherwise
+    /// the weapon starts, spending its cost once, when the unit has the weapon, holds at least its cost in special
+    /// energy, and <c>target</c> is an enemy ship (not a station, not dying, not the unit's team) within the weapon's range
+    /// (the Holding Beam's target test, 0x4ddd30). Nothing else changes.
+    /// </summary>
+    /// <remarks>
+    /// stand-in: a unit runs one special weapon at a time, so an order for another slot while one runs starts nothing; a
+    /// move, attack, or stop order leaves a running weapon on (only the end conditions of <see cref="RunSpecials"/>, the
+    /// ordering again, and a team change end it): the game's handling of these orders was not traced.
+    /// </remarks>
+    public bool SpecialWeapon(PlacedObject unit, int slot, PlacedObject? target)
+    {
+        if (State(unit) is not { Destroyed: false, Dying: false } u)
+            return false;
+        if (u.SpecialOrder is { } running)
+        {
+            if (running.Weapon.Slot != slot)
+                return false;
+            u.SpecialOrder = null; // ordering the slot again turns it off, with no refund
+
+            return true;
+        }
+
+        var weapon = u.Profile.SpecialWeapons.FirstOrDefault(w => w.Slot == slot);
+        if (weapon == null || u.SpecialEnergy < weapon.EnergyCost || target == null || State(target) is not { } t)
+            return false;
+        if (
+            t == u
+            || t.Dying
+            || !CombatRules.Hostile(u.Team, t.Team)
+            || _avoidance[t].Starbase
+            || Vector3.DistanceSquared(Position(u), Position(t)) > weapon.Range * weapon.Range
+        )
+            return false;
+        u.SpecialEnergy -= weapon.EnergyCost;
+        u.SpecialOrder = new SpecialWeaponOrder(weapon, t);
+
+        return true;
+    }
+
+    // The beam ends when the target is out of the weapon's range times this (0x5d0148).
+    const float BeamLeaveRange = 1.33f;
+
+    // One tick of every running special weapon. It ends, with the energy as it stands, when its unit or its target is
+    // destroyed (stand-in: a dying unit counts as destroyed, as for a boarding party), the target has joined the unit's
+    // team, the target is beyond the range times 1.33, or the energy cannot cover the tick's drain (the cost times the
+    // tick: 0x509160, 0x4ddf80). Otherwise it drains and holds its target.
+    void RunSpecials()
+    {
+        foreach (var u in _units.Values.Where(u => u.SpecialOrder != null).ToList())
+        {
+            var order = u.SpecialOrder!;
+            var target = order.Target;
+            var range = order.Weapon.Range * BeamLeaveRange;
+            var drain = order.Weapon.EnergyCost * Tick;
+            if (
+                u.Dying
+                || target.Destroyed
+                || target.Dying
+                || target.Team == u.Team
+                || Vector3.DistanceSquared(Position(u), Position(target)) > range * range
+                || u.SpecialEnergy + Epsilon < drain
+            )
+            {
+                u.SpecialOrder = null;
+
+                continue;
+            }
+
+            u.SpecialEnergy = Math.Max(0, u.SpecialEnergy - drain);
+            Hold(order);
+        }
+    }
+
+    // The Holding Beam's hold: the target's position and heading are what they were on the first tick of the beam (0x4ddd30).
+    // A target without a flight of its own has its pose driven from outside and is not held.
+    void Hold(SpecialWeaponOrder order)
+    {
+        if (order.Target.Motion is not { } motion)
+            return;
+        var held = order.Held ??= motion.Pose;
+        motion.Push(held.Position - motion.Pose.Position);
+        motion.SetAngles(held.Pitch, held.Yaw, held.Roll);
+        order.Target.Position = _poses.Record(order.Target.Unit, motion).Position;
+    }
+
     /// <summary>Ends the unit's transport (0x467000); its move or attack order runs on.</summary>
     public void CancelTransport(PlacedObject source)
     {
@@ -465,14 +553,15 @@ public sealed class CombatWorld
     /// <summary>
     /// Sets the unit's team and race (INV-0012): the unit's current order is replaced by a stop (the order, the automatic
     /// move, and the player move end, and the tether point becomes where the unit stands, as <see cref="ClearOrder"/>
-    /// does). Its alert stance, its place in the selection, its motion, its node, its readout, and its own transport stay;
-    /// the teams that were boarding it lose their boarding block. Does nothing for a unit that is gone.
+    /// does), and its running special weapon ends. Its alert stance, its place in the selection, its motion, its node, its
+    /// readout, and its own transport stay; the teams that were boarding it lose their boarding block. Does nothing for a unit that is gone.
     /// </summary>
     public void ChangeTeam(PlacedObject unit, int team, string raceName, RaceValues race)
     {
         if (State(unit) is not { } state)
             return;
         ClearOrder(unit);
+        state.SpecialOrder = null; // a captured shooter's weapon ends
         state.Team = team;
         state.RaceName = raceName; // the owner change writes the race name with the race (0x46dff0 +0x1a4)
         state.Race = race;
@@ -1013,6 +1102,7 @@ public sealed class CombatWorld
         RunMotions();
         PullShips();
         SeparateShips();
+        RunSpecials();
         foreach (var u in _units.Values.ToList())
         {
             if (u.Destroyed)

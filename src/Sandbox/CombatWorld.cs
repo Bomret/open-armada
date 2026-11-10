@@ -1028,6 +1028,7 @@ public sealed class CombatWorld
 
             Fire(u, events);
             CombatRules.RegainShields(u, Tick);
+            CombatRules.RegainSpecialEnergy(u, Tick);
             CombatRules.Sustain(u, Tick);
             Spark(u, events); // before the repair of the tick, as 0x4683d0 sparks before it adds hit points
             CombatRules.Repair(u, Tick);

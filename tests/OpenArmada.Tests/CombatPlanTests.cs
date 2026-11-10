@@ -472,6 +472,24 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void ProfileReadsTheSpecialEnergyMaximumAndRate()
+    {
+        var p = ProfileOf(OneShip("maxSpecialEnergy = 1000\r\nspecialEnergyRate = 10\r\n"));
+        Assert.AreEqual(1000f, p.MaxSpecialEnergy);
+        Assert.AreEqual(10f, p.SpecialEnergyRate);
+    }
+
+    [TestMethod]
+    public void ADefinitionWithNoSpecialEnergyHasNoneAndNoGap()
+    {
+        var r = OneShip("");
+        var p = ProfileOf(r);
+        Assert.AreEqual(0f, p.MaxSpecialEnergy);
+        Assert.AreEqual(0f, p.SpecialEnergyRate);
+        Assert.IsFalse(r.Plan.Reports.Any(g => g.Cause.Contains("pecialEnergy")));
+    }
+
+    [TestMethod]
     public void ProfileHoldsShieldsCrewAndRaceValuesFromTheInstall()
     {
         var r = OneShip("canAttack = 0\r\ndefaultGreenAlert = 1\r\nfireball = \"fb\"\r\nlifeSupportLoss = 5\r\n");

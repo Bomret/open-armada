@@ -363,6 +363,22 @@ never shows one. The state dump's `shieldDown` field is the unit state's overlay
 the map keeps its last value. **Stand-in**: nothing in the engine raises a derelict unit's crew again, so
 the overlay's return on crew recovery applies only to a state set from outside.
 
+## Special energy
+
+Every unit of every race carries special energy, read from its definition: `maxSpecialEnergy` is the maximum (class
++0xd8, 0x46a470) and `specialEnergyRate` is the points regained per second (class +0x224, 0x45fea0). A definition
+with neither has 0 and 0, with no gap reported, and its unit has no special energy.
+
+Each sandbox tick adds the tick's seconds times the rate while the unit is below the maximum and clamps the result
+to the maximum (0x466bf0, 0x46f020). The gain is linear in time, so a span of seconds ends at the same value at any
+tick length, and the value never exceeds the maximum.
+
+The state dump's `special=<current>/<maximum>` and `expect <unit> special <op> <value>` read it.
+
+**Stand-in**: a unit starts with its special energy at the maximum; the exe's start value is not yet read. The
+regain runs for every unit that has not left the map, derelict and dying ones included; the exe's conditions on it are
+not yet read.
+
 ## Ship systems
 
 Each of the five ship systems has the definition's `enginesHitPoints`, `lifeSupportHitPoints`,

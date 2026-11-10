@@ -411,7 +411,9 @@ public sealed class PlayScript
         {
             field = system;
         }
-        else if (field is not ("shields" or "crew" or "destroyed" or "dying" or "target" or "team" or "race"))
+        else if (
+            field is not ("shields" or "crew" or "special" or "destroyed" or "dying" or "target" or "team" or "race")
+        )
         {
             return (null, $"unknown field '{args[1]}'");
         }

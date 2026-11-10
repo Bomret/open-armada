@@ -329,4 +329,17 @@ public static class CombatRules
         unit.ShieldDown -= down;
         unit.Shields = Math.Min(unit.Profile.MaxHealth, unit.Shields + unit.Profile.ShieldRate * (seconds - down));
     }
+
+    /// <summary>
+    /// Regains special energy for <c>seconds</c>: the rate per second while below the maximum, clamped to the
+    /// maximum (0x466bf0, 0x46f020). Linear in the time, so the result does not depend on the tick length.
+    /// </summary>
+    public static void RegainSpecialEnergy(UnitCombatState unit, double seconds)
+    {
+        if (unit.SpecialEnergy < unit.Profile.MaxSpecialEnergy)
+            unit.SpecialEnergy = Math.Min(
+                unit.Profile.MaxSpecialEnergy,
+                unit.SpecialEnergy + unit.Profile.SpecialEnergyRate * seconds
+            );
+    }
 }

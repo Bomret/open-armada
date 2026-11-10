@@ -346,4 +346,16 @@ public sealed record CombatProfile
     /// the key is missing.
     /// </summary>
     public string RaceName { get; init; } = "";
+
+    /// <summary>
+    /// The <c>maxSpecialEnergy</c>: the unit's special energy maximum (class +0xd8, 0x46a470); 0 when the definition
+    /// names none.
+    /// </summary>
+    public float MaxSpecialEnergy { get; init; }
+
+    /// <summary>
+    /// The <c>specialEnergyRate</c>: the special energy regained per second (class +0x224, 0x45fea0); 0 when the
+    /// definition names none.
+    /// </summary>
+    public float SpecialEnergyRate { get; init; }
 }

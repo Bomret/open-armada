@@ -42,6 +42,8 @@ public sealed class PlayInput(
                 return Click(attack.Unit, MouseButton.Right, attack: true);
             case TransportStep transport:
                 return Transport(transport.Unit);
+            case SpecialStep special:
+                return Special(special);
             case MoveStep move:
                 return Move(move);
             case BoxRectStep box:
@@ -138,6 +140,39 @@ public sealed class PlayInput(
         if (PlayTarget.TransportProblem(unit, takes, transporting) is { } noOrder)
             return noOrder;
 
+        PressChord(chord);
+        ClickAt(MouseButton.Left, at);
+
+        return null;
+    }
+
+    // The special weapon key of the slot, then a left click at the unit when the step names one; the key alone turns a
+    // running weapon off. Every check runs before the first event.
+    string? Special(SpecialStep step)
+    {
+        if (bindings.SpecialChord(step.Slot) is not { } chord)
+            return $"the special weapon key {step.Slot} is unbound (a missing Input.map or fire_special_{step.Slot} block)";
+        Vector2? at = null;
+        if (step.Unit is { } unit)
+        {
+            var (point, problem) = Aim(unit, out _);
+            if (point is not { } aimed)
+                return problem;
+            if (PlayTarget.PickProblem(unit, PickedAt(aimed)) is { } wrongPick)
+                return wrongPick;
+            at = aimed;
+        }
+
+        PressChord(chord);
+        if (at is { } click)
+            ClickAt(MouseButton.Left, click);
+
+        return null;
+    }
+
+    // A key press and release of the chord, flushed at once so a click after it reaches the handlers in file order.
+    static void PressChord(KeyChord chord)
+    {
         var code = OS.FindKeycodeFromString(chord.Key);
         var key = (Key)(
             (long)code
@@ -148,9 +183,6 @@ public sealed class PlayInput(
         Press(key, true);
         Press(key, false);
         Input.FlushBufferedEvents();
-        ClickAt(MouseButton.Left, at);
-
-        return null;
     }
 
     void ClickAt(MouseButton button, Vector2 at)

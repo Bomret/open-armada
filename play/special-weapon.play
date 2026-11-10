@@ -1,0 +1,29 @@
+# A Borg cube holds a Klingon destroyer with its Holding Beam. Both ships are set to green alert so nothing fires. The
+# destroyer is given a move order, then the cube is selected and F4 is pressed and the destroyer clicked (the special step).
+# The cube's special energy falls from its 1000 by the 50 cost and 50 a second less the 10 it regains; the destroyer's
+# position and yaw in the dumps stay what they were at the first dump while the beam runs. `special 4` alone turns the beam
+# off with no refund, the energy stops falling, and the destroyer drives on.
+# Run it with --layout layouts/special-weapon.jsonc; the layout's header comment has the whole command.
+# The move point is in the frame of the dump's pos= field, whose z is the layout z mirrored.
+wait 0.5
+select Victim
+press Shift+G
+move 2300 -2000
+select Cube
+press Shift+G
+expect Cube special >= 1000
+special 4 Victim
+wait 0.5
+dump held1
+expect Cube special < 960
+expect Cube special > 900
+wait 3
+dump held2
+expect Cube special < 850
+special 4
+wait 0.1
+dump off
+expect Cube special > 700
+wait 3
+dump after
+expect Cube special > 700

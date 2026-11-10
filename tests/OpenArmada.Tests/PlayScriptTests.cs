@@ -131,9 +131,15 @@ public class PlayScriptTests
         "fast-forward until a move = none for 30",
         "'fast-forward' takes 'until <unit> <field> <op> <value> max <seconds>'"
     )]
-    [DataRow("fast-forward until a move = none max 0", "'0' is not a number of seconds above zero")]
-    [DataRow("fast-forward until a move = none max soon", "'soon' is not a number of seconds above zero")]
-    [DataRow("fast-forward until a move = none max 3600.5", "'3600.5' is more than 3600 seconds")]
+    [DataRow("fast-forward until a move = none max 0", "'0' is not a number of seconds above zero and at most 3600")]
+    [DataRow(
+        "fast-forward until a move = none max soon",
+        "'soon' is not a number of seconds above zero and at most 3600"
+    )]
+    [DataRow(
+        "fast-forward until a move = none max 3600.5",
+        "'3600.5' is not a number of seconds above zero and at most 3600"
+    )]
     [DataRow("fast-forward until a hull > 1 max 5", "unknown field 'hull'")]
     public void AnUnreadableLineIsOneProblemNamingTheFileAndTheLine(string line, string reason)
     {

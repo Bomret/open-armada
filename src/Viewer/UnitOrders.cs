@@ -171,29 +171,14 @@ public partial class UnitOrders : Node3D
     /// </summary>
     public event Action<IReadOnlyList<CombatEvent>>? Skipped;
 
-    readonly List<CombatEvent> _skipped = [];
+    readonly SkippedTicks _skipped = new();
 
     /// <summary>
     /// Steps the combat world by <c>seconds</c> without drawing (a play script's <c>fast-forward</c>). The next frame
     /// raises the events through <see cref="Skipped"/> and draws the units where the world left them. Returns null, or
-    /// the problem when the step failed; the failure is reported as a frame's is and never throws (INV-0002).
+    /// the problem when the step failed, which the play run reports; it never throws.
     /// </summary>
-    public string? Skip(double seconds)
-    {
-        try
-        {
-            _skipped.AddRange(_world.Step(seconds));
-
-            return null;
-        }
-        catch (Exception e)
-        {
-            var problem = $"combat step failed: {e.Message}";
-            _faults.Report(problem);
-
-            return problem;
-        }
-    }
+    public string? Skip(double seconds) => _skipped.Run(() => _world.Step(seconds));
 
     // Half the longest side of the box around the model's meshes, as the selection's picks take it; 0 without meshes.
     // stand-in: the unit radius is read from the mesh box; the game's collision radius is not known.
@@ -321,10 +306,9 @@ public partial class UnitOrders : Node3D
     public override void _Process(double delta)
     {
         // A failure of one frame's combat never stops the sandbox (INV-0002); the next frame goes on.
-        if (_skipped.Count > 0)
+        var skipped = _skipped.Take();
+        if (skipped.Count > 0)
         {
-            var skipped = _skipped.ToList();
-            _skipped.Clear();
             Skipped?.Invoke(skipped); // the handler reports its own faults (CombatView.OnSkipped)
         }
 

@@ -427,10 +427,11 @@ public sealed class PlayScript
     {
         if (args.Length != 7 || args[0] != "until" || args[5] != "max")
             return (null, "'fast-forward' takes 'until <unit> <field> <op> <value> max <seconds>'");
-        if (!Number(args[6], out var seconds) || seconds <= 0)
-            return (null, $"'{args[6]}' is not a number of seconds above zero");
-        if (seconds > FastForwardStep.MostSeconds)
-            return (null, $"'{args[6]}' is more than {FastForwardStep.MostSeconds} seconds");
+        if (!Number(args[6], out var seconds) || seconds is <= 0 or > FastForwardStep.MostSeconds)
+            return (
+                null,
+                $"'{args[6]}' is not a number of seconds above zero and at most {FastForwardStep.MostSeconds}"
+            );
         var (until, problem) = ParseExpect(args[1..5], number);
         if (until == null)
             return (null, problem);

@@ -79,8 +79,10 @@ Movie Maker, and a long fight there can take hours.
 - Reach a later state with `fast-forward until <unit> <field> <op> <value> max <seconds>` instead of a long `wait`:
   it runs the combat world without drawing, so its time costs no frames. It shows and plays nothing of the skipped
   time, so keep a `wait` across what the line is about.
-- Leave to the unit tests a line about unit state alone, such as a position, a velocity, or an order: a play run checks
-  what a player sees or hears.
+- Leave to the unit tests a line about unit state that a unit test reaches, such as a rule of the flight model, a
+  push, or an arrival. A play run on unit state alone is for what only the player's input decides, such as the orders
+  a click or a box selection gives (`group-move.play`, `path-field.play`, `borg-move.play`, `nebula.play`); a play run
+  otherwise checks what a player sees or hears.
 - Use a stock map (`--map <map>`) only when the line is about that map.
 - Look through the checked-in layouts in `layouts/` first, and reuse one that fits.
 - Write a new layout whenever one serves the check better. Put it in `layouts/` and commit it with the

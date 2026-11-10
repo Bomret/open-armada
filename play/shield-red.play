@@ -1,6 +1,6 @@
-# Three birds of prey fire on three Federation destroyers on layouts/shield-red.jsonc. Each hit's shield effect takes
-# the color (1 - s, s, 0) of its target's shield fraction s when it spawns: High (full shields) shows green, Mid (half)
-# yellow, and Low (0.15) red-orange. Down starts with its shield generator destroyed and shows the shield-down overlay
+# Three Klingon birds of prey fire on three Federation destroyers on layouts/shield-red.jsonc. Each hit's shield effect
+# takes the color (1 - s, s, 0) of its target's shield fraction s when it spawns: High (full shields) shows green, Mid
+# (half) yellow, and Low (0.15) red-orange. Down starts with its shield generator destroyed and shows the shield-down overlay
 # (the dump's shieldDown=true). The first hits land at about 0.85 s.
 # Run it with --layout layouts/shield-red.jsonc; the layout's header comment has the whole command.
 wait 0.2

@@ -21,7 +21,7 @@ public class CombatPlanTests
 
     const string Physics = "physicsFile = \"p.odf\"\r\n";
     const string Constants =
-        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\n"
+        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\nint cfgMaxCrew = 5000;\r\n"
         + AvoidanceConstants
         + TransporterConstants;
     const string ConstantsWithoutPrevention =
@@ -129,6 +129,14 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void TheCrewPoolCapIsCfgMaxCrewAndTheStockValueWithoutIt()
+    {
+        Assert.AreEqual(5000, OneShip("").Plan.CrewPoolCap);
+        var r = Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) }, ("RTS_CFG.h", ConstantsWithoutPrevention));
+        Assert.AreEqual(CombatWorld.DefaultCrewPoolCap, r.Plan.CrewPoolCap);
+    }
+
+    [TestMethod]
     public void MissingTransporterValuesAreReportedOnceEachWithTheirStandIns()
     {
         var r = Plan(
@@ -224,6 +232,34 @@ public class CombatPlanTests
             (hold.Slot, hold.Range, hold.EnergyCost, hold.TargetRange, hold.LifeSpan)
         );
         Assert.AreEqual((20f, 2f, 1.5f), (hold.BoardingSize, hold.BoardingInterval, hold.BoardingDelay));
+        Assert.AreEqual(0, ProfileOf(r).Weapons.Count);
+        Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void AnAutoAssimilatorIsReadWithItsRateRangeAndCostAndNoDuration()
+    {
+        var r = OneShip(
+            "weapon1 = \"assim\"\r\n",
+            ("assim", HoldWeapon.Replace("holdo", "assimo").Replace("buttonSlot = 4", "buttonSlot = 3")),
+            (
+                "assimo",
+                "classLabel = \"borgbore\"\r\nspecialEnergyCost = 8\r\nspecialValue = 5\r\nattackRange = 400\r\n"
+                    + "duration = 9\r\n"
+            )
+        );
+        var assimilator = ProfileOf(r).SpecialWeapons.Single();
+        Assert.AreEqual(
+            (SpecialWeaponKind.AutoAssimilator, 3, 400f, 8f, 5f, 0f),
+            (
+                assimilator.Kind,
+                assimilator.Slot,
+                assimilator.Range,
+                assimilator.EnergyCost,
+                assimilator.CrewRate,
+                assimilator.LifeSpan
+            )
+        );
         Assert.AreEqual(0, ProfileOf(r).Weapons.Count);
         Assert.AreEqual(0, r.Plan.Reports.Count);
     }

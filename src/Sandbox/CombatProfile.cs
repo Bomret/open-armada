@@ -174,16 +174,39 @@ public sealed record WeaponProfile
     public bool TargetLocation { get; init; }
 }
 
+/// <summary>The special weapons the sandbox runs, by the <c>classLabel</c> of the weapon's ordnance.</summary>
+public enum SpecialWeaponKind
+{
+    /// <summary>The Holding Beam (<c>holding_bm</c>): holds the target and sends boarding parties.</summary>
+    HoldingBeam,
+
+    /// <summary>The Auto-Assimilator (<c>borgbore</c>): moves the target's crew to the shooter.</summary>
+    AutoAssimilator,
+}
+
 /// <summary>
 /// A special-weapon order's weapon: a <c>toggleweapon</c> with the <c>special</c> flag whose ordnance is the Holding
-/// Beam (<c>holding_bm</c>). The weapon's button slot is the F-key the player orders it with (<c>fire_special_N</c>).
+/// Beam (<c>holding_bm</c>) or the Auto-Assimilator (<c>borgbore</c>). The weapon's button slot is the F-key the player
+/// orders it with (<c>fire_special_N</c>).
 /// </summary>
 public sealed record SpecialWeaponProfile
 {
+    /// <summary>The weapon the ordnance makes; the Holding Beam unless set.</summary>
+    public SpecialWeaponKind Kind { get; init; } = SpecialWeaponKind.HoldingBeam;
+
+    /// <summary>
+    /// The Auto-Assimilator's <c>specialValue</c> (ordnance +0x110, 0x4ea1e0): the crew it moves per second; 0 for the
+    /// Holding Beam.
+    /// </summary>
+    public float CrewRate { get; init; }
+
     /// <summary>The weapon definition's <c>buttonSlot</c>: the special weapon key's number.</summary>
     public required int Slot { get; init; }
 
-    /// <summary>The weapon definition's <c>range</c>: a target must be within it for the beam to start.</summary>
+    /// <summary>
+    /// The weapon definition's <c>range</c>: a target must be within it for the beam to start. The Auto-Assimilator's is
+    /// the ordnance's <c>attackRange</c> (+0x120, 0x4da590).
+    /// </summary>
     public required float Range { get; init; }
 
     /// <summary>The ordnance's <c>specialEnergyCost</c> (+0x34, 0x4ea1e0): spent once at the start, then per second while on.</summary>

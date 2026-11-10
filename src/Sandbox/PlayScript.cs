@@ -34,7 +34,7 @@ public sealed record ExpectStep : PlayStep
     /// <summary>The unit's name as the script writes it (see <see cref="UnitNames"/>).</summary>
     public required string Unit { get; init; }
 
-    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, <c>race</c>, or a system name of <see cref="SystemNames"/>.</summary>
+    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>special</c>, <c>pool</c> (the crew pool of the unit's team), <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, <c>race</c>, or a system name of <see cref="SystemNames"/>.</summary>
     public required string Field { get; init; }
 
     /// <summary>One of <c>&lt;</c>, <c>&lt;=</c>, <c>=</c>, <c>&gt;=</c>, <c>&gt;</c>; <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, and <c>race</c> take only <c>=</c>.</summary>
@@ -443,7 +443,18 @@ public sealed class PlayScript
             field = system;
         }
         else if (
-            field is not ("shields" or "crew" or "special" or "destroyed" or "dying" or "target" or "team" or "race")
+            field
+            is not (
+                "shields"
+                or "crew"
+                or "special"
+                or "pool"
+                or "destroyed"
+                or "dying"
+                or "target"
+                or "team"
+                or "race"
+            )
         )
         {
             return (null, $"unknown field '{args[1]}'");

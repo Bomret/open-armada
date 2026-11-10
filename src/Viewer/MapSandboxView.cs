@@ -268,7 +268,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 orders.Pose,
                 orders.Combat.Units.ToList(),
                 ModelOf,
-                () => orders.Combat.Debris.Count
+                () => orders.Combat.Debris.Count,
+                () => orders.Combat.CrewPools
             );
             var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
             var input = new PlayInput(

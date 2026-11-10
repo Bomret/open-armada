@@ -274,6 +274,45 @@ public sealed class CombatWorld
         }
     }
 
+    /// <summary>
+    /// The cap of each team's crew pool: <c>cfgMaxCrew</c> of RTS_CFG.h (team record +0x24, set by 0x448c60 from the
+    /// config read at 0x4453f0). Stand-in 99999, the stock install's value, where the plan read none.
+    /// </summary>
+    public double CrewPoolCap { get; init; } = DefaultCrewPoolCap;
+
+    /// <summary>The stock install's <c>cfgMaxCrew</c>, the cap stand-in.</summary>
+    public const double DefaultCrewPoolCap = 99999;
+
+    readonly SortedDictionary<int, CrewPool> _pools = new();
+
+    /// <summary>
+    /// The crew pool of each team a unit has belonged to, by team, in team order (<see cref="CrewPool"/>). A team no
+    /// surplus has reached reads as an empty pool at the cap; the read changes nothing.
+    /// </summary>
+    public IReadOnlyDictionary<int, CrewPool> CrewPools
+    {
+        get
+        {
+            var pools = new SortedDictionary<int, CrewPool>(_pools);
+            foreach (var u in _units.Values)
+            {
+                pools.TryAdd(u.Team, new CrewPool(CrewPoolCap));
+            }
+
+            return pools;
+        }
+    }
+
+    CrewPool PoolOf(int team)
+    {
+        if (!_pools.TryGetValue(team, out var pool))
+        {
+            _pools[team] = pool = new CrewPool(CrewPoolCap);
+        }
+
+        return pool;
+    }
+
     /// <summary>The live debris pieces, the oldest first.</summary>
     public IReadOnlyList<DebrisPiece> Debris => _debris.Pieces;
 
@@ -413,14 +452,16 @@ public sealed class CombatWorld
     // One tick of every running special weapon. It ends, with the energy as it stands, when its unit or its target is
     // destroyed (stand-in: a dying unit counts as destroyed, as for a boarding party), the target has joined the unit's
     // team, the target is beyond the range times 1.33, or the energy cannot cover the tick's drain (the cost times the
-    // tick: 0x509160, 0x4ddf80). Otherwise it drains and holds its target.
+    // tick: 0x509160, 0x4ddf80; for an Assimilator that is the end at a special energy of zero, 0x4da8f0), or an
+    // Assimilator's target has no defined maximum crew or is derelict. Otherwise it drains and holds its target.
     void RunSpecials(List<CombatEvent> events)
     {
         foreach (var u in _units.Values.Where(u => u.SpecialOrder != null).ToList())
         {
             var order = u.SpecialOrder!;
             var target = order.Target;
-            var range = order.Weapon.Range * BeamLeaveRange;
+            var assimilates = order.Weapon.Kind == SpecialWeaponKind.AutoAssimilator;
+            var range = order.Weapon.Range * (assimilates ? 1 : BeamLeaveRange);
             var drain = order.Weapon.EnergyCost * Tick;
             if (
                 u.Dying
@@ -429,6 +470,9 @@ public sealed class CombatWorld
                 || target.Team == u.Team
                 || Vector3.DistanceSquared(Position(u), Position(target)) > range * range
                 || u.SpecialEnergy + Epsilon < drain
+                || (
+                    assimilates && (target.Derelict || _avoidance[u].Starbase || target.Profile.DefinedMaximumCrew <= 0)
+                )
             )
             {
                 u.SpecialOrder = null;
@@ -437,8 +481,35 @@ public sealed class CombatWorld
             }
 
             u.SpecialEnergy = Math.Max(0, u.SpecialEnergy - drain);
-            Hold(order);
-            Board(u, order, events);
+            if (assimilates)
+            {
+                Assimilate(u, order);
+            }
+            else
+            {
+                Hold(order);
+                Board(u, order, events);
+            }
+        }
+    }
+
+    // The Auto-Assimilator's tick (0x563740 case 7): min(tick x specialValue, the target's crew) leaves the target (crew
+    // below one makes it derelict, 0x467390, 0x466ca0). The shooter takes it up to its maximum crew (0x467570) and the
+    // rest goes to its team's pool, which holds at most its cap; crew beyond that is lost. The target keeps its team and
+    // race: the drain never captures.
+    void Assimilate(UnitCombatState shooter, SpecialWeaponOrder order)
+    {
+        var target = order.Target;
+        var amount = Math.Min(Tick * order.Weapon.CrewRate, target.Crew);
+        if (amount <= 0)
+            return;
+        target.Crew -= amount;
+        CombatRules.CheckCrew(target);
+        var room = Math.Max(0, shooter.Profile.DefinedMaximumCrew - shooter.Crew);
+        Receive(shooter, Math.Min(amount, room));
+        if (amount > room)
+        {
+            PoolOf(shooter.Team).Add(amount - room);
         }
     }
 

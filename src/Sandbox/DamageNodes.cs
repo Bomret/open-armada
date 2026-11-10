@@ -14,8 +14,10 @@ public static class DamageNodes
 {
     // The ship systems' damage nodes by name, matched whole and ignoring case (class init 0x45fea0, names at
     // 0x600518..0x600548). The stock models name the shield generator's node `shield`, which never matches, as in the game.
-    // `borg` is the game's seventh name; it shows on a ship of the race named `borg` (0x601240). Assimilation is out of
-    // scope for the sandbox, so a unit's `borg` node stays hidden; the asset browser shows it on request.
+    // `borg` is the game's seventh name; it shows on a unit whose current race is the race named `borg` (0x601240).
+    // The comparison ignores case (stand-in: the game's string compare was not traced).
+    const string BorgRace = "borg";
+
     static readonly (string Node, string System)[] SystemNodes =
     [
         ("engines", SystemNames.Engines),
@@ -51,7 +53,10 @@ public static class DamageNodes
         var defined = unit.Profile.DefinedMaximumCrew;
         var ratio = yellow > 0 ? (defined > 0 ? unit.Crew / defined : 1) / yellow : double.PositiveInfinity;
 
-        return ShowingNodes(model, ratio, unit.SystemDestroyed, borg: false);
+        // the unit's current race against the race named borg (0x4677b0 compares +0x1a4, string 0x601240)
+        var borg = string.Equals(unit.RaceName, BorgRace, StringComparison.OrdinalIgnoreCase);
+
+        return ShowingNodes(model, ratio, unit.SystemDestroyed, borg);
     }
 
     /// <summary>

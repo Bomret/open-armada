@@ -432,7 +432,7 @@ public class TransportTests
         var (world, u) = Build(
             null,
             new Spec("b", 3, 0, Race: Strong, RaceName: "borg"),
-            new Spec("f", 1, 200, Race: Strong, RaceName: "fed"),
+            new Spec("f", 1, 200, Race: Strong with { BoardingStrength = 8 }, RaceName: "fed"),
             new Spec("t", 2, 100, Crew: 0, RaceName: "klingon")
         );
         world.Transport(u["b"], u["t"]);

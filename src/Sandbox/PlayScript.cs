@@ -69,6 +69,19 @@ public sealed record TransportStep : PlayStep
     public required string Unit { get; init; }
 }
 
+/// <summary>
+/// <c>special &lt;slot&gt; [&lt;unit&gt;]</c>: the special weapon key of the slot (<c>fire_special_N</c>), then, with a unit, a
+/// left click at the unit's projected screen point. Without a unit it is the key alone, which turns a running weapon off.
+/// </summary>
+public sealed record SpecialStep : PlayStep
+{
+    /// <summary>The special weapon key's number, 1 to 6.</summary>
+    public required int Slot { get; init; }
+
+    /// <summary>The unit's name as the script writes it; null for the key alone.</summary>
+    public string? Unit { get; init; }
+}
+
 /// <summary><c>move &lt;x&gt; &lt;z&gt;</c>: a right click at the screen point of a point of the combat plane.</summary>
 public sealed record MoveStep : PlayStep
 {
@@ -273,6 +286,24 @@ public sealed class PlayScript
                 return Wrong(word, 1, args.Length);
             case "transport":
                 return (new TransportStep { Line = number, Unit = args[0] }, null);
+            case "special":
+                if (args.Length is not (1 or 2))
+                    return (null, $"'special' takes 1 or 2 arguments, found {args.Length}");
+                if (
+                    !int.TryParse(args[0], NumberStyles.None, CultureInfo.InvariantCulture, out var slot)
+                    || slot is < 1 or > 6
+                )
+                    return (null, $"'{args[0]}' is not a special weapon key number from 1 to 6");
+
+                return (
+                    new SpecialStep
+                    {
+                        Line = number,
+                        Slot = slot,
+                        Unit = args.Length > 1 ? args[1] : null,
+                    },
+                    null
+                );
             case "select":
                 return (new SelectStep { Line = number, Unit = args[0] }, null);
             case "attack":

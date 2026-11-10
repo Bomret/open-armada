@@ -244,7 +244,7 @@ public class AutoAssimilatorTests
     }
 
     [TestMethod]
-    public void AShooterThatIsAStarbaseDrainsNothing()
+    public void AShooterThatIsAStarbaseStartsNothingAndSpendsNoEnergy()
     {
         var borg = Borg("borg", 1, 0);
         var ship = Ship("ship", 2, 100);
@@ -263,7 +263,8 @@ public class AutoAssimilatorTests
             () => 0,
             (_, _, pose) => pose.Position
         );
-        world.SpecialWeapon(borg.Object, 3, ship.Object);
+        Assert.IsFalse(world.SpecialWeapon(borg.Object, 3, ship.Object));
+        Assert.AreEqual(1000, world.State(borg.Object)!.SpecialEnergy, 1e-6);
         world.Step(1);
         Assert.AreEqual(12, Crew(world, ship), 1e-6);
     }

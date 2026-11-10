@@ -416,7 +416,8 @@ public sealed class CombatWorld
     /// it took effect. A weapon that runs on that slot is turned off with no refund (the target is not read). Otherwise
     /// the weapon starts, spending its cost once, when the unit has the weapon, holds at least its cost in special
     /// energy, and <c>target</c> is an enemy ship (not a station, not dying, not the unit's team) within the weapon's range
-    /// (the Holding Beam's target test, 0x4ddd30). Nothing else changes.
+    /// (the Holding Beam's target test, 0x4ddd30); an Auto-Assimilator also needs a unit that is not a station (the end
+    /// test of 0x4da8f0, applied at the start). Nothing else changes.
     /// </summary>
     /// <remarks>
     /// stand-in: a unit runs one special weapon at a time, so an order for another slot while one runs starts nothing; a
@@ -446,6 +447,7 @@ public sealed class CombatWorld
             || t.Dying
             || !CombatRules.Hostile(u.Team, t.Team)
             || _avoidance[t].Starbase
+            || (weapon.Kind == SpecialWeaponKind.AutoAssimilator && _avoidance[u].Starbase)
             || Vector3.DistanceSquared(Position(u), Position(t)) > weapon.Range * weapon.Range
         )
             return false;
@@ -465,7 +467,8 @@ public sealed class CombatWorld
     // destroyed (stand-in: a dying unit counts as destroyed, as for a boarding party), the target has joined the unit's
     // team, the target is beyond the range times 1.33, or the energy cannot cover the tick's drain (the cost times the
     // tick: 0x509160, 0x4ddf80; for an Assimilator that is the end at a special energy of zero, 0x4da8f0), or an
-    // Assimilator's target has no defined maximum crew or is derelict. Otherwise it drains and holds its target.
+    // Assimilator's target has no defined maximum crew or is derelict, or an Assimilator's shooter is a starbase (the
+    // exe's test is the shooter's ship flag, 0x4da8f0). Otherwise it drains and holds its target.
     void RunSpecials(List<CombatEvent> events)
     {
         foreach (var u in _units.Values.Where(u => u.SpecialOrder != null).ToList())

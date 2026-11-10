@@ -453,7 +453,8 @@ not traced); the model's length axis is its Z axis and it spans from its origin 
 The plan reads the weapon's `buttonSlot` (3 for the Borg Assimilator) and the ordnance's `specialEnergyCost`
 (+0x34, 0x4ea1e0), `specialValue` (+0x110, 0x4ea1e0: the crew moved per second) and `attackRange` (+0x120, 0x4da590,
 the weapon's reach). The ordnance's `duration` is not read: Armada.exe's loader has no such key (0x4da590). The order,
-its start (an enemy ship within the reach, the energy to cover the cost, spent once), its energy drain, and its
+its start (an enemy ship within the reach, the energy to cover the cost, spent once; a shooter that is not a ship
+starts nothing and spends nothing), its energy drain, and its
 ending by a second order, by the shooter's capture, or by the target's destruction are the Holding Beam's (see above);
 the start's range is `attackRange`.
 

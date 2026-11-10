@@ -449,8 +449,9 @@ makes it derelict, 0x466ca0). The shooter takes the crew up to its maximum crew 
 crew pool, up to the pool's cap, and crew beyond the cap is lost. The target keeps its team and race: the drain never
 captures it, and no crew is created. The tick is fixed, so the drained total over a span is the same at any frame rate.
 
-**End** (0x4da8f0). The weapon ends when the target is derelict, or of the shooter's team, or beyond `attackRange`, when the
-shooter is not a ship, and when the shooter's special energy ratio reaches zero. **Stand-in**: the crew below one that
+**End** (0x4da8f0). The weapon ends when the target is derelict or has no defined maximum crew, or of the shooter's team, or beyond `attackRange`, when the
+shooter is not a ship, and when the shooter's special energy ratio reaches zero. **Stand-in**: the energy end is the tick's drain exceeding the energy left (a cost of 0 never ends it) and the
+no-defined-crew end follows the drain's own test; the crew below one that
 leaves with the derelict (`CombatRules.CheckCrew`) is lost, so the crew across units and pools never grows but can shrink by
 that fraction; the end of range is the `attackRange` itself (the Holding Beam's 1.33 factor, 0x5d0148, belongs to its
 beam); a dying unit counts as destroyed, as for the Holding Beam.
@@ -458,7 +459,7 @@ beam); a dying unit counts as destroyed, as for the Holding Beam.
 ## Crew pool
 
 Each team has a crew pool in its team record (+0x20, the cap at +0x24; the record of 0x448f30, built by 0x448d50).
-The sandbox's combat world holds one pool per team a unit has belonged to. The cap is `cfgMaxCrew` of RTS_CFG.h (set into
+The sandbox's combat world holds one pool per team a unit has belonged to (a team no surplus has reached reads as an empty pool at the cap). The cap is `cfgMaxCrew` of RTS_CFG.h (set into
 every team record by 0x448c60 from the config read at 0x4453f0). The Auto-Assimilator adds the crew its shooter cannot
 hold (0x563740 case 7: the pool becomes the smaller of the cap and the pool plus the surplus). **Stand-in**: every pool
 starts at 0 (the game starts it at a share of `cfgStartingCrew`, 0x448d50), and the cap is 99999, the stock value, where

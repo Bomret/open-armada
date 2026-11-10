@@ -16,12 +16,12 @@
 # Dumps: "before" (0.2 s) shows Drifter at its start, outside the radius, with velocity (19.60, 0, 0); "outside" (1.6 s)
 # shows it 451 from the center, still outside, with velocity (16.64, 0, 0) from coasting; "entered" (1.8 s) shows the first
 # velocity the pull gave it, (18.61, -0.62, 3.16), turned off +X toward the center; "bend" (2.4 s) shows it turning further,
-# (14.38, -2.68, 13.64); "edge" (20.2 s) shows it at 82 from the center in the plane at the settled velocity
-# (11.56, -3.15, 16.01); each with its engines still destroyed. "swallowed" (21.2 s) shows it destroyed with debris above
-# 0; "ring" and "later" show Driver at its start (2500, 2000) with move=none and not dying.
-# Shots "outside", "entered", "bend" and "edge" crop Drifter, "swallowed" is the whole frame, and "ring" crops Driver;
-# "spin0" and "spin1" are whole frames 49.0 s apart (0.2 s and 49.2 s): the hole's model has turned by Rotation x 49 s
-# between them.
+# (14.38, -2.68, 13.64). The fast-forward then runs the world, undrawn, to the tick Drifter is swallowed: "edge" shows it
+# dying, 69.6 from the center in the plane at the settled velocity (11.56, -3.15, 16.01), with its engines still
+# destroyed. "swallowed" (0.2 s later) shows it destroyed with debris above 0, and Driver at its start (2500, 2000) with
+# move=none and not dying.
+# Shots "outside", "entered" and "bend" crop Drifter, and "ring" crops Driver; "spin0" (0.2 s) and "swallowed" (at about
+# 21 s of world time) are whole frames: the hole's model has turned by Rotation x the world time between them.
 # Run it with --layout layouts/black-hole.jsonc; the layout's header comment has the whole command.
 # The points are in the frame of the dump's pos= field, whose z is the layout z mirrored.
 wait 0.2
@@ -39,17 +39,12 @@ shot entered Drifter
 wait 0.6
 dump bend
 shot bend Drifter
-wait 17.8
+fast-forward until Drifter dying = true max 20
 dump edge
-shot edge Drifter
-wait 1
+wait 0.2
 dump swallowed
 expect Drifter destroyed = true
 expect Driver dying = false
+expect Driver move = none
 shot swallowed
-wait 18
-dump ring
 shot ring Driver
-wait 10
-dump later
-shot spin1

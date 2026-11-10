@@ -124,6 +124,23 @@ public class PlayScriptTests
     [DataRow("expect a team < 1", "'team' takes only '=', not '<'")]
     [DataRow("expect a team = 1.5", "'1.5' is not an integer")]
     [DataRow("expect a team = red", "'red' is not an integer")]
+    [DataRow("expect a move < open", "'move' takes only '=', not '<'")]
+    [DataRow("expect a move = 100,200", "'100,200' is not open or none")]
+    [DataRow("fast-forward a move = none", "'fast-forward' takes 'until <unit> <field> <op> <value> max <seconds>'")]
+    [DataRow(
+        "fast-forward until a move = none for 30",
+        "'fast-forward' takes 'until <unit> <field> <op> <value> max <seconds>'"
+    )]
+    [DataRow("fast-forward until a move = none max 0", "'0' is not a number of seconds above zero and at most 3600")]
+    [DataRow(
+        "fast-forward until a move = none max soon",
+        "'soon' is not a number of seconds above zero and at most 3600"
+    )]
+    [DataRow(
+        "fast-forward until a move = none max 3600.5",
+        "'3600.5' is not a number of seconds above zero and at most 3600"
+    )]
+    [DataRow("fast-forward until a hull > 1 max 5", "unknown field 'hull'")]
     public void AnUnreadableLineIsOneProblemNamingTheFileAndTheLine(string line, string reason)
     {
         var script = PlayScript.Parse($"wait 1\n{line}\n", "play/x.play");
@@ -139,6 +156,19 @@ public class PlayScriptTests
 
         Assert.AreEqual("dying", step.Field);
         Assert.AreEqual("true", step.Value);
+    }
+
+    [TestMethod]
+    public void AFastForwardStepHoldsItsConditionAsAnExpectationAndItsMostSeconds()
+    {
+        var step = (FastForwardStep)
+            PlayScript.Parse("fast-forward until Mover move = none max 30", "x.play").Steps.Single();
+
+        Assert.AreEqual(30, step.MaxSeconds);
+        Assert.AreEqual("Mover", step.Until.Unit);
+        Assert.AreEqual("move", step.Until.Field);
+        Assert.AreEqual("none", step.Until.Value);
+        Assert.AreEqual(1, step.Until.Line);
     }
 
     [TestMethod]

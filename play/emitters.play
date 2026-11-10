@@ -1,15 +1,41 @@
-# Two Federation destroyers on layouts/emitters.jsonc: Venting starts with its engines and life support destroyed, so its
-# plasma and steam damage emitters spray; Intact is undamaged. The dump names the damage nodes each model shows; the
-# shots, a fraction of a second apart, show the spray build up.
+# Two Federation destroyers on layouts/emitters.jsonc: Venting starts with its engines and life support destroyed;
+# Intact is undamaged.
+# - Spray: Venting's plasma and steam damage emitters spray. The dumps name the damage nodes each model shows; the
+#   "spray" shots, a fraction of a second apart, show the spray build up.
+# - Sparks: both of Venting's systems repair and throw a repair spark at one of their target hardpoints every half
+#   second, the first at 0.52 s; Intact is whole and throws none. Each spark shows for one second ("sparks" shots).
+# - Vent fade: the engines are whole again first, at about 7.5 s: the plasma vent then stops spraying, and its last
+#   particles fly on and fade within their lifespan, while the steam vent of life support still sprays. After the
+#   spray shots the fast-forward runs the world, undrawn, until the engines are nearly whole (9 of 10 hit points); the
+#   "fade" shots then show the vent stop, and the "vent" dumps show when the engines are whole.
 # Run it with --layout layouts/emitters.jsonc; the layout's header comment has the whole command.
 scroll up 20
 wait 0.3
 shot spray-1
 dump d1
-wait 0.5
+wait 0.4
+shot sparks-1
+wait 0.1
 shot spray-2
-wait 0.5
+wait 0.2
+shot sparks-2
+wait 0.3
 shot spray-3
-wait 1.5
+wait 0.3
+shot sparks-3
+wait 1.2
 shot spray-4
 dump d2
+fast-forward until Venting Engines >= 9 max 10
+wait 0.3
+shot fade-1
+dump vent-1
+wait 1
+shot fade-2
+dump vent-2
+wait 1
+shot fade-3
+dump vent-3
+wait 1.5
+shot fade-4
+dump vent-4

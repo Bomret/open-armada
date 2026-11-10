@@ -12,7 +12,8 @@ Status: prototype. A map sandbox opens one map as a live 3D scene. An asset brow
 
 [mise](https://mise.jdx.dev) can install the tools instead: `mise install` reads `mise.toml`, and
 `mise tasks` lists the build, test, check, and run tasks. Put `ARMADA_DIR` in a gitignored
-`mise.local.toml` under `[env]`.
+`mise.local.toml` under `[env]`. `mise run map 2duel` opens a map, `mise run layout <file>` opens a layout, and
+`mise run maps` prints the map summaries.
 
 ## Use the GOG installer
 
@@ -94,7 +95,7 @@ A layout is one JSON object. `//` and `/* */` comments and trailing commas are a
 
 Every number is finite. A layout that cannot be read gives one problem that names the full path of the file and either the 1-based line or the JSON path of the faulty value, such as `layout '/home/me/a.jsonc': objects[2].team: team 9 is outside 0..8`. The sandbox opens no scene and shows the problem. A layout problem is reported with or without an install.
 
-`layouts/two-ships.jsonc` is a checked-in example: two hostile destroyers 1000 units apart. `layouts/destroy.jsonc` holds the warship and the sensor station of `play/destroy.play`. `layouts/damage.jsonc` holds the two destroyers of `play/damage.play`, one with a tenth of its crew. `layouts/sound-fade.jsonc` holds the units of `layouts/destroy.jsonc` on a wider map, for `play/sound-fade.play` and `play/sound-fade-start.play`. `layouts/emitters.jsonc` holds the two destroyers of `play/emitters.play`, one with its engines and life support destroyed so that its damage emitters spray. `layouts/transport.jsonc` holds the two destroyers of `play/transport.play`: a Federation one that captures a crippled Klingon one.
+`layouts/two-ships.jsonc` is a checked-in example: two hostile destroyers 1000 units apart. `layouts/destroy.jsonc` holds the warship and the sensor station of `play/destroy.play`. `layouts/damage.jsonc` holds the two destroyers of `play/damage.play`, one with a tenth of its crew. `layouts/sound-fade.jsonc` holds the units of `layouts/destroy.jsonc` on a wider map, for `play/sound-fade.play` and `play/sound-fade-start.play`. `layouts/emitters.jsonc` holds the two destroyers of `play/emitters.play`, one with its engines and life support destroyed so that its damage emitters spray. `layouts/shield-red.jsonc` holds three attackers and four Federation destroyers at full, half, and low shields and with a destroyed shield generator, for `play/shield-red.play`.
 
 ## Run a play script
 
@@ -117,7 +118,8 @@ A play script is a text file with one step per line. Blank lines and lines that 
 
 - `wait <seconds>` lets that much simulated time pass. The combat runs meanwhile.
 - `dump <name>` writes a state dump to `play-out/<script name>/<name>.txt`.
-- `expect <unit> <field> <op> <value>` checks one value of a unit's state. The fields are `shields`, `crew`, a system's hit points (`Engines`, `LifeSupport`, `Weapons`, `ShieldGenerator`, or `Sensors`), `destroyed` (`true` or `false`; `true` once the unit has left the map), `dying` (`true` or `false`; `true` from the critical hit until the unit leaves), `target` (a unit name or `none`), and `team` (the unit's current team, an integer). The operators are `<`, `<=`, `=`, `>=`, and `>`; `destroyed`, `dying`, `target`, and `team` take only `=`. A number compares to the unit's value exactly, so use `>=` or `<=` for a value that changes.
+- `expect <unit> <field> <op> <value>` checks one value of a unit's state. The fields are `shields`, `crew`, a system's hit points (`Engines`, `LifeSupport`, `Weapons`, `ShieldGenerator`, or `Sensors`), `destroyed` (`true` or `false`; `true` once the unit has left the map), `dying` (`true` or `false`; `true` from the critical hit until the unit leaves), `target` (a unit name or `none`), `team` (the unit's current team, an integer), and `move` (`open` while the player's move order is open, else `none`). The operators are `<`, `<=`, `=`, `>=`, and `>`; `destroyed`, `dying`, `target`, `team`, and `move` take only `=`. A number compares to the unit's value exactly, so use `>=` or `<=` for a value that changes.
+- `fast-forward until <unit> <field> <op> <value> max <seconds>` runs the combat world tick by tick (0.02 s) within one frame, without drawing, until the condition holds; the condition is an `expect` without its step word (`fast-forward until Mover move = none max 60`); `max` is at most 3600. A condition that holds already runs no tick. The skipped time is in no frame and not in the WAV, and the run's clock does not count it, so a `wait` after the step counts drawn time from where the step ran. The units show where the world left them from the next frame on, so put a `wait` before a `shot`. Of the shots, hits, explosions, and sounds of the skipped time, none is shown or heard; a transport's effect and a captured unit's team color are. Use it instead of a long `wait` for state the line needs at the end, not for what a player sees or hears during it.
 
 The input steps reach the sandbox as Godot input events through its own handlers, so they take effect only where a player's click or key would:
 
@@ -143,7 +145,7 @@ Each unit line of a state dump that has combat state (not `state=none`) ends wit
 
 The combat random source is seeded with a fixed number and the asteroids animate on frame time, so two runs of one map or layout and one script at one frame rate write byte-identical dumps (INV-0008). Runs at different frame rates can differ: a step takes effect at a frame and the asteroids animate on frame time. The combat itself runs fixed ticks of 0.02 s and carries the rest of a frame to the next, so the outcome of each tick does not depend on the frame rate (`FrameRateTests`).
 
-Each problem is one `ERROR` log entry that names the script and the line, and, for a failed `expect`, the expected and the actual value. A problem is a script that is missing, a line that cannot be read, a unit that cannot be found, a failed expectation, an input step that fails as above, throws, or names a key or a modifier Godot does not know, or a dump or screenshot that cannot be written. The run then quits with exit code 1. A run that finishes quits with exit code 0. Closing the window before the run finishes logs one `ERROR` entry, `play run closed before its last step`, and quits with exit code 4.
+Each problem is one `ERROR` log entry that names the script and the line, and, for a failed `expect`, the expected and the actual value. A problem is a script that is missing, a line that cannot be read, a unit that cannot be found, a failed expectation, a `fast-forward` whose condition does not hold after its `max` seconds (the problem names the seconds and the expected and actual value) or cannot be asked, a combat step that fails during a `fast-forward`, an input step that fails as above, throws, or names a key or a modifier Godot does not know, or a dump or screenshot that cannot be written. The run then quits with exit code 1. A run that finishes quits with exit code 0. Closing the window before the run finishes logs one `ERROR` entry, `play run closed before its last step`, and quits with exit code 4.
 
 `play/destroy.play` is the worked example. On `layouts/destroy.jsonc`, a Vor'cha-class warship destroys a sensor station; the script takes screenshots before the fight, while the station is dying, and across the explosion, dumps the state before, during, and after, expects the station dying and then destroyed. Run it with `--layout layouts/destroy.jsonc`; the layout's header comment has the whole command.
 
@@ -154,28 +156,22 @@ The other checked-in play scripts. Each script's header comment describes the ru
 | `black-hole.play` | `layouts/black-hole.jsonc` | A derelict ship pulled in and swallowed; a ship with thrust ordered into the hole's impassable square, holding at its start; the hole's model turning |
 | `borg-move.play` | `layouts/borg-move.jsonc` | A Borg ship's move order: its 3D velocity, no pitch or roll, its yaw toward the bearing plus a quarter turn |
 | `coast.play` | `layouts/coast.jsonc` | A ship with destroyed engines coasting from its starting velocity |
-| `collision.play` | `layouts/collision.jsonc` | Collision separation ending a move order; both ships at rest apart |
 | `damage.play` | `layouts/damage.jsonc` | Damage nodes of a ship with a tenth of its crew |
 | `drift.play` | `layouts/drift.jsonc` | A dying bird of prey coasting on |
-| `emitters.play` | `layouts/emitters.jsonc` | Damage emitters spraying plasma and steam |
-| `forced-motion.play` | `layouts/forced-motion.jsonc` | Black hole pull and swallow and collision separation in one run |
+| `emitters.play` | `layouts/emitters.jsonc` | Damage emitters spraying plasma and steam; repair sparks of repairing systems; a damage emitter stopping once its system is whole |
 | `group-move.play` | `layouts/group-move.jsonc` | A group move: each ship's own cell |
 | `hit-explosion.play` | `layouts/hit-explosion.jsonc` | System hit explosions at a hit's node |
 | `map-black-hole.play` | `--map borg4` | A stock map with a black hole and asteroid fields |
-| `move.play` | `layouts/move.jsonc` | A move order while driving and after arrival |
 | `nebula.play` | `layouts/nebula.jsonc` | A ship slowed in a row of nebulae and its path bending out of the row |
 | `path-field.play` | `layouts/path-field.jsonc` | A move order's path around an asteroid field |
-| `push-out.play` | `layouts/push-out.jsonc` | Push-out from an asteroid field |
-| `push-out-planet.play` | `layouts/push-out-planet.jsonc` | Push-out from a planet |
 | `scale.play` | `layouts/scale.jsonc` | A model drawn at its `scaleSOD` |
-| `shield.play` | `--map kling4` | Shield hit effects and the hull hit sprite |
 | `shield-hit.play` | `layouts/shield-hit.jsonc` | Shield hit effects of beams and torpedoes on both sides |
-| `shield-hull.play` | `--map kling1` | The hull hit sprite on a unit without shields |
-| `shield-red.play` | `--map kling4` | Shield hit colors as shields fall; the shield-down overlay |
+| `shield-hull.play` | `layouts/destroy.jsonc` | The hull hit sprite on a unit without shields |
+| `shield-red.play` | `layouts/shield-red.jsonc` | Shield hit colors by shield fraction; the shield-down overlay |
 | `sound-fade.play` | `layouts/sound-fade.jsonc` | A fireball fading as the camera pans away, silent beyond its maximum distance, heard again on return |
 | `sound-fade-start.play` | `layouts/sound-fade.jsonc` | A fireball that starts beyond its maximum distance, never heard |
-| `sparks.play` | `layouts/emitters.jsonc` | Repair sparks of repairing systems |
-| `vent-fade.play` | `layouts/emitters.jsonc` | A damage emitter stopping once its system is whole |
+| `transport-feedback.play` | `layouts/transport-feedback.jsonc` | The transport effect on source and target while the transport runs and not after a cancel; the transport sound; the captured ship in its new team color beside a ship of its model in the old one |
+| `transport-cases.play` | `layouts/transport-cases.jsonc` | The transport to a derelict ship (captured) and to a friendly ship (crew added); the hero ship's voice line at its order and a ship with none silent; the transport sound at each party |
 
 ## Measure the sound of a play run
 

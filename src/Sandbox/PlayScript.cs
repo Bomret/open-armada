@@ -34,18 +34,37 @@ public sealed record ExpectStep : PlayStep
     /// <summary>The unit's name as the script writes it (see <see cref="UnitNames"/>).</summary>
     public required string Unit { get; init; }
 
-    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, or a system name of <see cref="SystemNames"/>.</summary>
+    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, <c>move</c>, or a system name of <see cref="SystemNames"/>.</summary>
     public required string Field { get; init; }
 
-    /// <summary>One of <c>&lt;</c>, <c>&lt;=</c>, <c>=</c>, <c>&gt;=</c>, <c>&gt;</c>; <c>destroyed</c>, <c>dying</c>, <c>target</c>, and <c>team</c> take only <c>=</c>.</summary>
+    /// <summary>One of <c>&lt;</c>, <c>&lt;=</c>, <c>=</c>, <c>&gt;=</c>, <c>&gt;</c>; <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, and <c>move</c> take only <c>=</c>.</summary>
     public required string Op { get; init; }
 
-    /// <summary>The value as written: a number, <c>true</c> or <c>false</c>, an integer for <c>team</c>, or a unit name or <c>none</c> for <c>target</c>.</summary>
+    /// <summary>The value as written: a number, <c>true</c> or <c>false</c>, an integer for <c>team</c>, a unit name or <c>none</c> for <c>target</c>, or <c>open</c> or <c>none</c> for <c>move</c>.</summary>
     public required string Value { get; init; }
 
-    /// <summary>The number <see cref="Value"/> reads as, or null for a <c>destroyed</c>, <c>dying</c>, <c>target</c>, or <c>team</c> step.</summary>
+    /// <summary>The number <see cref="Value"/> reads as, or null for a <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>move</c>, or <c>team</c> step.</summary>
     public double? Number =>
         double.TryParse(Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null;
+}
+
+/// <summary>
+/// <c>fast-forward until &lt;unit&gt; &lt;field&gt; &lt;op&gt; &lt;value&gt; max &lt;seconds&gt;</c>: steps the combat world tick by
+/// tick within one frame, without drawing, until the condition (an <c>expect</c> without its step word) holds.
+/// </summary>
+public sealed record FastForwardStep : PlayStep
+{
+    /// <summary>The condition the step runs the world to.</summary>
+    public required ExpectStep Until { get; init; }
+
+    /// <summary>
+    /// The highest <see cref="MaxSeconds"/> a script may give: an hour of world time, so a condition that never holds
+    /// ends the run in bounded time.
+    /// </summary>
+    public const double MostSeconds = 3600;
+
+    /// <summary>The most world seconds the step runs; more than zero and at most <see cref="MostSeconds"/>.</summary>
+    public required double MaxSeconds { get; init; }
 }
 
 /// <summary><c>select &lt;unit&gt;</c>: a left click at the unit's projected screen point.</summary>
@@ -257,6 +276,8 @@ public sealed class PlayScript
                 return (new DumpStep { Line = number, Name = args[0] }, null);
             case "expect":
                 return ParseExpect(args, number);
+            case "fast-forward":
+                return ParseFastForward(args, number);
             default:
                 return ParseInput(words[0], args, number);
         }
@@ -401,6 +422,31 @@ public sealed class PlayScript
         return (new BoxUnitsStep { Line = number, Units = args }, null);
     }
 
+    // fast-forward until <unit> <field> <op> <value> max <seconds>: the condition reads as an expect's four arguments.
+    static (PlayStep?, string?) ParseFastForward(string[] args, int number)
+    {
+        if (args.Length != 7 || args[0] != "until" || args[5] != "max")
+            return (null, "'fast-forward' takes 'until <unit> <field> <op> <value> max <seconds>'");
+        if (!Number(args[6], out var seconds) || seconds is <= 0 or > FastForwardStep.MostSeconds)
+            return (
+                null,
+                $"'{args[6]}' is not a number of seconds above zero and at most {FastForwardStep.MostSeconds}"
+            );
+        var (until, problem) = ParseExpect(args[1..5], number);
+        if (until == null)
+            return (null, problem);
+
+        return (
+            new FastForwardStep
+            {
+                Line = number,
+                Until = (ExpectStep)until,
+                MaxSeconds = seconds,
+            },
+            null
+        );
+    }
+
     static (PlayStep?, string?) ParseExpect(string[] args, int number)
     {
         if (args.Length != 4)
@@ -411,7 +457,7 @@ public sealed class PlayScript
         {
             field = system;
         }
-        else if (field is not ("shields" or "crew" or "destroyed" or "dying" or "target" or "team"))
+        else if (field is not ("shields" or "crew" or "destroyed" or "dying" or "target" or "team" or "move"))
         {
             return (null, $"unknown field '{args[1]}'");
         }
@@ -419,7 +465,7 @@ public sealed class PlayScript
         var op = args[2];
         if (!Ops.Contains(op))
             return (null, $"unknown operator '{op}', use one of < <= = >= >");
-        if (field is "destroyed" or "dying" or "target" or "team")
+        if (field is "destroyed" or "dying" or "target" or "team" or "move")
         {
             if (op != "=")
                 return (null, $"'{field}' takes only '=', not '{op}'");
@@ -427,6 +473,11 @@ public sealed class PlayScript
             {
                 if (!int.TryParse(args[3], NumberStyles.None, CultureInfo.InvariantCulture, out _))
                     return (null, $"'{args[3]}' is not an integer");
+            }
+            else if (field == "move")
+            {
+                if (args[3] is not ("open" or "none"))
+                    return (null, $"'{args[3]}' is not open or none");
             }
             else if (field != "target" && args[3] is not ("true" or "false"))
                 return (null, $"'{args[3]}' is not true or false");

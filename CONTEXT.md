@@ -202,19 +202,19 @@ transport, and stops its current order. A neutral (team 0) unit is never capture
 _Avoid_: takeover, hijack, conversion
 
 **Assimilation**
-A **Capture** by a Borg boarding party: the unit's race becomes `borg`, so its `borg` overlay shows. It is no
-separate mechanic.
+A **Capture** by a Borg boarding party: the unit's race becomes `borg`, so its `borg` overlay shows.
 _Avoid_: borgification, conversion
 
 **Special-weapon order**
 A special weapon a unit has running on a target, from the player's order until an end condition or a second order for
-the weapon's slot. The weapon is its special-weapon profile (slot, range, energy cost, and the effect's model and
-sound); a unit runs one at a time. Shapes: `SpecialWeaponOrder`, `SpecialWeaponProfile`.
+the weapon's slot. The weapons are the Holding Beam and the Auto-Assimilator. Each has a profile of slot, range,
+energy cost, and the effect's model and sound. A unit runs one at a time. Shapes: `SpecialWeaponOrder`,
+`SpecialWeaponProfile`.
 _Avoid_: toggle order, beam order
 
 **Special energy**
-A unit's reserve for special weapons, read from its definition for every race: it refills to its maximum at its
-rate, a special weapon starts only when the unit holds the weapon's cost, and the weapon drains it while on.
+A unit's reserve for special weapons, read from its definition for every race. It refills to its maximum at its
+rate. A special weapon starts only when the unit holds the weapon's cost. The weapon drains it while on.
 _Avoid_: energy, mana, power
 
 **Crew pool**

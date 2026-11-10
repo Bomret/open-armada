@@ -2,9 +2,10 @@
 
 The rules by which the game turns weapon fire into hits, shield loss, crew loss, system damage, and
 destruction (ADR 0004). They cover beam weapons (`classLabel` `cannon`), torpedo launchers (`launcher`),
-shields, ship systems, crew, derelicts, repair, the transport and boarding of units, and the special-weapon order
-with the Holding Beam's hold and boarding. Other special weapons, recrew, AI transports, and the vision and counts
-of a captured starbase are not covered.
+shields, ship systems, crew, derelicts, repair, the transport and boarding of units, and the special-weapon order.
+The order covers the Holding Beam's hold and boarding, the Auto-Assimilator's crew drain, the special energy, the crew
+pool with the starbase fill, and the beam effect. Recrew, AI transports, and the vision and counts of a captured starbase
+are not covered.
 
 The rules were recovered from `Armada.exe` of the 1.2 install (SHA-256
 `c5f32464c6b4322469d79ba19d33f26fde67b5c06ca2ee24a071cd67a52a88b5`) and are restated here in our own
@@ -399,95 +400,102 @@ right-click copy the transport order's, and the key of the `fire_special_N` bloc
 `buttonSlot` is N; the game's key dispatch was not traced.
 
 **Start.** The beam starts only when the unit holds at least the weapon's cost in special energy and the target is an
-enemy ship: a unit of a team hostile to the unit's, no station, not dying, not the unit itself (+0xbc bit 0x8 marks the
-Holding Beam's targets, 0x4ddd30; **stand-in**: a unit whose definition sets `is_starbase` stands for a target without that
-flag, since the flag's link to `is_starbase` was not traced), within the weapon's `range`, measured center to center. It spends the cost once. A target
-that is friendly, neutral, a station, out of range, or the unit itself starts nothing and spends nothing.
+enemy ship. An enemy ship is a unit of a team hostile to the unit's. It is no station, is not dying, and is not the unit
+itself. It lies within the weapon's `range`, measured center to center. The flag +0xbc bit 0x8 marks the Holding Beam's
+targets (0x4ddd30). **Stand-in**: a unit whose definition sets `is_starbase` stands for a target without that flag, since
+the flag's link to `is_starbase` was not traced. The start spends the cost once. A target that is friendly, neutral, a
+station, out of range, or the unit itself starts nothing and spends nothing.
 
 **Drain.** Each sandbox tick, while the beam runs, takes the cost times the tick's seconds (0x509160, 0x4ddf80). When the
 energy cannot cover a tick's drain the beam ends with the energy as it stands, so the energy never goes below zero. The
 world runs on fixed ticks, so the beam ends on the same tick at any frame rate. The regain of special energy (see "Special
-energy") runs beside the drain; whether the exe regains while a weapon runs was not traced (**stand-in**).
+energy") runs beside the drain. **Stand-in**: whether the exe regains while a weapon runs was not traced.
 
-**End.** The beam also ends when its target is destroyed or joins the unit's team, when the target is beyond the weapon's
-`range` times 1.33 (0x5d0148), and when its unit is destroyed or captured (a team change clears it, as it clears the order).
-**Stand-in**: a dying unit counts as destroyed for both ends, as for a boarding party; a unit runs one special weapon at a
-time, so the key of another slot starts nothing while one runs; a move, attack, or stop order leaves a running beam on, since
-the game's handling of those orders was not traced.
+**End.** The beam also ends in three cases. Its target is destroyed or joins the unit's team. The target is beyond the
+weapon's `range` times 1.33 (0x5d0148). Its unit is destroyed or captured (a team change clears it, as it clears the
+order). **Stand-in**: a dying unit counts as destroyed for both ends, as for a boarding party. A unit runs one special
+weapon at a time, so the key of another slot starts nothing while one runs. A move, attack, or stop order leaves a running
+beam on, since the game's handling of those orders was not traced.
 
 **Hold.** On the first tick the beam runs, the sandbox records the target's position and heading (pitch, yaw, roll). Each
 tick the beam runs, the target's position and heading are reset to them (0x4ddd30). The target's velocity and order stay, so
 when the beam ends the ship moves on from where it was held. **Stand-in**: the velocity a held ship builds under its order
-carries into the release, since the exe's treatment of the velocity during the hold was not traced. A target without a flight
-of its own is not held.
+carries into the release, since the exe's treatment of the velocity during the hold was not traced. A target without a
+flight of its own is not held.
 
 **Boarding.** On the first tick the beam runs (the first hit) a timer starts at the ordnance's `boardingDelay` (1 s for the
-cube), and each tick it counts down by the tick's seconds. When it falls below zero (a timer at exactly zero sends nothing, so the first party leaves on the tick after 1 s), while the target's defined maximum crew
-is above 0 and the shooter's crew is at least `boardingSize` + 5 (0x5ca8ac), the beam sends one ordinary boarding party of
-`boardingSize` crew (20 for the cube) from the shooter, and the timer resets to `boardingInterval` (1 s). The party is the
-transport's (see "Transport and boarding"): it takes its crew from the shooter and carries the shooter's team and race
-(0x55f620 with race 0 and team -1, from 0x4ddd30), but it lands at once, with no delay and no test of the target's shields,
-which it leaves as they were. It fights and captures by the boarding rule (0x55f750, 0x46dff0): a party that outnumbers the
-crew gives the ship the shooter's team and race, so a Borg shooter assimilates it (the race `borg` shows the `borg` overlay),
-and the beam ends because the target has joined the shooter's team. The timer runs on the fixed ticks, so a step of any
-length sends the same parties. **Inferred**: when the crew conditions fail the timer stays below zero and the next tick tests
-them again. **Stand-in**: the ordnance's `lifeSpan` (30 s) does not end the beam, since whether the exe ends the beam by it
-was not traced; the end conditions and the energy end it.
+cube). Each tick it counts down by the tick's seconds. A timer at exactly zero sends nothing, so the first party leaves
+on the tick after 1 s. The beam sends one ordinary boarding party when the timer falls below zero, the target's defined
+maximum crew is above 0, and the shooter's crew is at least `boardingSize` + 5 (0x5ca8ac). The party has `boardingSize`
+crew (20 for the cube), taken from the shooter. The timer then resets to `boardingInterval` (1 s). The party is the
+transport's (see "Transport and boarding"). It carries the shooter's team and race (0x55f620 with race 0 and team -1,
+from 0x4ddd30). It lands at once, with no delay and no test of the target's shields, which it leaves as they were. It
+fights and captures by the boarding rule (0x55f750, 0x46dff0). A party that outnumbers the crew gives the ship the
+shooter's team and race, so a Borg shooter assimilates it (the race `borg` shows the `borg` overlay). The beam then ends
+because the target has joined the shooter's team. The timer runs on the fixed ticks, so a step of any length sends the
+same parties. **Inferred**: when the crew conditions fail the timer stays below zero and the next tick tests them
+again. **Stand-in**: the ordnance's `lifeSpan` (30 s) does not end the beam, since whether the exe ends the beam by it
+was not traced. The end conditions and the energy end it.
 
-**Effect.** Each special weapon shows a beam model and plays a fire sound; the Holding Beam and the Auto-Assimilator
+**Effect.** Each special weapon shows a beam model and plays a fire sound. The Holding Beam and the Auto-Assimilator
 (see below) share the rule. The model is the ordnance's `shotGeometry` (`wholdbm.sod` for the Holding Beam, `wborgbor.sod`
-for the Auto-Assimilator) and the sound is the weapon definition's `fireSound` (`swbhb.wav`, `swbauto.wav`). While the
-weapon runs, the model sits at the firing hardpoint, turned toward the target's center, and scaled `radiusScale` across
-and the distance over `lengthScale` along its length axis (the ordnance's +0x128 and +0x124 as 0x4ddf80 reads them for
-the Holding Beam each tick, and 0x4da7a0 for the Auto-Assimilator): the model's length is `lengthScale`, so the beam
-spans exactly the distance. The beam goes when the weapon ends. The fire sound plays once, when the weapon starts (its
-first tick runs). A model or sound that the install lacks or the game's decoders cannot read is a gap and the weapon
-works without it. **Stand-in**: the hardpoint is the nearest to the target at the start, among the weapon's
-`weaponHardpoints`, or the unit's center when it has none (the game's hardpoint choice, `param_1[0x43]` of 0x4ddf80, was
-not traced); the model's length axis is its Z axis and it spans from its origin (inferred from the scale rule).
+for the Auto-Assimilator). The sound is the weapon definition's `fireSound` (`swbhb.wav`, `swbauto.wav`). While the
+weapon runs, the model sits at the firing hardpoint and turns toward the target's center. It is scaled `radiusScale`
+across and the distance over `lengthScale` along its length axis. The exe reads these as the ordnance's +0x128 and
++0x124 (0x4ddf80 each tick for the Holding Beam, 0x4da7a0 for the Auto-Assimilator). The model's length is
+`lengthScale`, so the beam spans exactly the distance. The beam goes when the weapon ends. The fire sound plays once,
+when the weapon starts (its first tick runs). A model or sound that the install lacks or the game's decoders cannot
+read is a gap, and the weapon works without it. **Stand-in**: the hardpoint is the nearest to the target at the start,
+among the weapon's `weaponHardpoints`, or the unit's center when it has none. The game's hardpoint choice
+(`param_1[0x43]` of 0x4ddf80) was not traced. The model's length axis is its Z axis and it spans from its origin
+(inferred from the scale rule).
 
 **Not built yet**: the drones the beam sends aboard as models, and the other special weapons.
 
 ### The Auto-Assimilator
 
-The plan reads the weapon's `buttonSlot` (3 for the Borg Assimilator) and the ordnance's `specialEnergyCost`
-(+0x34, 0x4ea1e0), `specialValue` (+0x110, 0x4ea1e0: the crew moved per second) and `attackRange` (+0x120, 0x4da590,
-the weapon's reach). The ordnance's `duration` is not read: Armada.exe's loader has no such key (0x4da590). The order,
-its start (an enemy ship within the reach, the energy to cover the cost, spent once; a shooter that is not a ship
-starts nothing and spends nothing), its energy drain, and its
-ending by a second order, by the shooter's capture, or by the target's destruction are the Holding Beam's (see above);
-the start's range is `attackRange`.
+The plan reads the weapon's `buttonSlot` (3 for the Borg Assimilator) and three ordnance keys. `specialEnergyCost`
+is at +0x34 (0x4ea1e0). `specialValue` is at +0x110 (0x4ea1e0) and is the crew moved per second. `attackRange` is at
++0x120 (0x4da590) and is the weapon's reach. The ordnance's `duration` is not read: Armada.exe's loader has no such key
+(0x4da590). The order is the Holding Beam's (see above). So are the start, the energy drain, and the ending by a
+second order, by the shooter's capture, or by the target's destruction. The start needs an enemy ship within the reach
+and the energy to cover the cost, spent once. The start's range is `attackRange`. A shooter that is a starbase
+starts nothing and spends nothing.
 
 **Drain.** Each sandbox tick, while the weapon runs, `min(tick x specialValue, the target's crew)` leaves the target
-(0x563740 case 7, through 0x467390: a target of a maximum crew above 0 that is not derelict; its crew below one
-makes it derelict, 0x466ca0). The shooter takes the crew up to its maximum crew (0x467570); the rest goes to its team's
-crew pool, up to the pool's cap, and crew beyond the cap is lost. The target keeps its team and race: the drain never
+(0x563740 case 7, through 0x467390). The target has a maximum crew above 0 and is not derelict. A crew below one makes
+it derelict (0x466ca0). The shooter takes the crew up to its maximum crew (0x467570). The rest goes to its team's crew
+pool, up to the pool's cap, and crew beyond the cap is lost. The target keeps its team and race: the drain never
 captures it, and no crew is created. The tick is fixed, so the drained total over a span is the same at any frame rate.
 
-**End** (0x4da8f0). The weapon ends when the target is derelict or has no defined maximum crew, or of the shooter's team, or beyond `attackRange`, when the
-shooter is not a ship, and when the shooter's special energy ratio reaches zero. **Stand-in**: the energy end is the tick's drain exceeding the energy left (a cost of 0 never ends it) and the
-no-defined-crew end follows the drain's own test; the crew below one that
-leaves with the derelict (`CombatRules.CheckCrew`) is lost, so the crew across units and pools never grows but can shrink by
-that fraction; the end of range is the `attackRange` itself (the Holding Beam's 1.33 factor, 0x5d0148, belongs to its
-beam); a dying unit counts as destroyed, as for the Holding Beam.
+**End** (0x4da8f0). The weapon ends in these cases. The target is derelict, has no defined maximum crew, or is of the
+shooter's team. The target is beyond `attackRange`. The shooter's special energy ratio reaches zero. The weapon also
+ends if its shooter is a starbase, which cannot occur, because a starbase never starts it. **Stand-in**: the energy
+end is the tick's drain exceeding the energy left, and a cost of 0 never ends it. The no-defined-crew end follows the
+drain's own test. The crew below one that leaves with the derelict (`CombatRules.CheckCrew`) is lost, so the crew
+across units and pools never grows but can shrink by that fraction. The end of range is the `attackRange` itself, since
+the Holding Beam's 1.33 factor (0x5d0148) belongs to its beam. A dying unit counts as destroyed, as for the Holding
+Beam.
 
 ## Crew pool
 
 Each team has a crew pool in its team record (+0x20, the cap at +0x24; the record of 0x448f30, built by 0x448d50).
-The sandbox's combat world holds one pool per team a unit has belonged to (a team no surplus has reached reads as an empty pool at the cap). The cap is `cfgMaxCrew` of RTS_CFG.h (set into
-every team record by 0x448c60 from the config read at 0x4453f0). The Auto-Assimilator adds the crew its shooter cannot
-hold (0x563740 case 7: the pool becomes the smaller of the cap and the pool plus the surplus). **Stand-in**: every pool
-starts at 0 (the game starts it at a share of `cfgStartingCrew`, 0x448d50), and the cap is 99999, the stock value, where
-the install's RTS_CFG.h has no `cfgMaxCrew`. The state dump has a line `pool team=<n> crew=<crew>/<cap>` per team and
-`expect <unit> pool <op> <number>` reads the pool of the unit's team.
+The sandbox's combat world holds one pool per team a unit has belonged to. A team no surplus has reached reads as an
+empty pool at the cap. The cap is `cfgMaxCrew` of RTS_CFG.h (set into every team record by 0x448c60 from the config
+read at 0x4453f0). The Auto-Assimilator adds the crew its shooter cannot hold (0x563740 case 7: the pool becomes the
+smaller of the cap and the pool plus the surplus). **Stand-in**: every pool starts at 0, where the game starts it at a
+share of `cfgStartingCrew` (0x448d50). The cap is 99999, the stock value, where the install's RTS_CFG.h has no
+`cfgMaxCrew`. The state dump has a line `pool team=<n> crew=<crew>/<cap>` per team. `expect <unit> pool <op> <number>`
+reads the pool of the unit's team.
 
 **Starbase fill.** Each tick each live starbase adds the tick's seconds times its race's `crewAccumulationRate` (race
-+0x20c) times `planetCrewAccumulationModifier` (+0x210) to the pool of its current team, up to the cap (0x45f830; the
-race values are read by 0x4442b0). A Borg Nexus (3.5 × 1.5) adds 5.25 crew per second. A captured starbase fills its
-new team's pool at the race it now has, and its old team's pool stops gaining from it. The fill runs per world tick, so the
-amount over a span is the same at any step length. **Stand-in**: a starbase is a unit whose definition sets `is_starbase`
-to a number other than 0 (not traced in 0x45f830); a derelict starbase fills like any other, a destroyed or dying one
-does not; a race with no `crewAccumulationRate` or `planetCrewAccumulationModifier` has 0 for it, unreported.
++0x20c) times `planetCrewAccumulationModifier` (+0x210) to the pool of its current team, up to the cap (0x45f830). The
+race values are read by 0x4442b0. A Borg Nexus (3.5 × 1.5) adds 5.25 crew per second. A captured starbase fills its
+new team's pool at the race it now has, and its old team's pool stops gaining from it. The fill runs per world tick, so
+the amount over a span is the same at any step length. **Stand-in**: a starbase is a unit whose definition sets
+`is_starbase` to a number other than 0 (not traced in 0x45f830). A derelict starbase fills like any other. A destroyed
+or dying one does not. A race with no `crewAccumulationRate` or `planetCrewAccumulationModifier` has 0 for it,
+unreported.
 
 ## Ship systems
 

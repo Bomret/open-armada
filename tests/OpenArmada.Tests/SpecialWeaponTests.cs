@@ -339,12 +339,14 @@ public class SpecialWeaponTests
         var ship = Ship("ship", 2, 100);
         var world = World(cube, ship);
         world.SpecialWeapon(cube.Object, 4, ship.Object);
-        world.Step(0.98);
-        Assert.AreEqual(100, Crew(world, cube));
-        world.Step(0.04);
+        world.Step(1.0);
+        Assert.AreEqual(100, Crew(world, cube), "the timer reaching zero sends nothing: the party needs it below zero");
+        world.Step(0.02);
         Assert.AreEqual(80, Crew(world, cube), 1e-9);
         Assert.AreEqual(80, Crew(world, ship), 1e-9);
-        world.Step(1);
+        world.Step(1.0);
+        Assert.AreEqual(80, Crew(world, cube), 1e-9);
+        world.Step(0.04);
         Assert.AreEqual(60, Crew(world, cube), 1e-9);
         Assert.AreEqual(60, Crew(world, ship), 1e-9);
         Assert.AreEqual(100, world.State(ship.Object)!.Shields, "the party leaves the shields as they were");
@@ -389,6 +391,21 @@ public class SpecialWeaponTests
         Assert.AreEqual(1, state.Team);
         Assert.AreEqual("borg", state.RaceName);
         Assert.IsNull(world.State(cube.Object)!.SpecialOrder);
+        var model = new Formats.Sod
+        {
+            Version = 1.8f,
+            Nodes =
+            [
+                new Formats.Sod.Node { Name = "root", Parent = "" },
+                new Formats.Sod.Node { Name = "damage", Parent = "root" },
+                new Formats.Sod.Node { Name = "borg", Parent = "damage" },
+            ],
+        };
+        CollectionAssert.AreEqual(
+            new[] { "borg" },
+            DamageNodes.ShowingNodes(model, state).Select(n => n.Name).ToArray(),
+            "the captured ship shows the borg overlay"
+        );
     }
 
     [TestMethod]
@@ -410,6 +427,6 @@ public class SpecialWeaponTests
         }
 
         Assert.AreEqual(1, left.Distinct().Count(), string.Join(", ", left));
-        Assert.AreEqual(900, left[0], 1e-9, "five parties of twenty from a thousand");
+        Assert.AreEqual(920, left[0], 1e-9, "four parties of twenty from a thousand: ticks 51, 102, 153, 204 of 250");
     }
 }

@@ -400,7 +400,8 @@ right-click copy the transport order's, and the key of the `fire_special_N` bloc
 
 **Start.** The beam starts only when the unit holds at least the weapon's cost in special energy and the target is an
 enemy ship: a unit of a team hostile to the unit's, no station, not dying, not the unit itself (+0xbc bit 0x8 marks the
-Holding Beam's targets, 0x4ddd30), within the weapon's `range`, measured center to center. It spends the cost once. A target
+Holding Beam's targets, 0x4ddd30; **stand-in**: a unit whose definition sets `is_starbase` stands for a target without that
+flag, since the flag's link to `is_starbase` was not traced), within the weapon's `range`, measured center to center. It spends the cost once. A target
 that is friendly, neutral, a station, out of range, or the unit itself starts nothing and spends nothing.
 
 **Drain.** Each sandbox tick, while the beam runs, takes the cost times the tick's seconds (0x509160, 0x4ddf80). When the
@@ -421,7 +422,7 @@ carries into the release, since the exe's treatment of the velocity during the h
 of its own is not held.
 
 **Boarding.** On the first tick the beam runs (the first hit) a timer starts at the ordnance's `boardingDelay` (1 s for the
-cube), and each tick it counts down by the tick's seconds. When it falls below zero, while the target's defined maximum crew
+cube), and each tick it counts down by the tick's seconds. When it falls below zero (a timer at exactly zero sends nothing, so the first party leaves on the tick after 1 s), while the target's defined maximum crew
 is above 0 and the shooter's crew is at least `boardingSize` + 5 (0x5ca8ac), the beam sends one ordinary boarding party of
 `boardingSize` crew (20 for the cube) from the shooter, and the timer resets to `boardingInterval` (1 s). The party is the
 transport's (see "Transport and boarding"): it takes its crew from the shooter and carries the shooter's team and race

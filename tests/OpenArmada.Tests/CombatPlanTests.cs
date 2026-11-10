@@ -610,8 +610,13 @@ public class CombatPlanTests
     [TestMethod]
     public void ProfileHoldsShieldsCrewAndRaceValuesFromTheInstall()
     {
-        var r = OneShip("canAttack = 0\r\ndefaultGreenAlert = 1\r\nfireball = \"fb\"\r\nlifeSupportLoss = 5\r\n");
+        var r = OneShip(
+            "canAttack = 0\r\ndefaultGreenAlert = 1\r\nfireball = \"fb\"\r\nlifeSupportLoss = 5\r\n"
+                + "maxSpecialEnergy = 1000\r\nspecialEnergyRate = 10\r\n"
+        );
         var p = ProfileOf(r);
+        Assert.AreEqual(1000f, p.MaxSpecialEnergy);
+        Assert.AreEqual(10f, p.SpecialEnergyRate);
         Assert.AreEqual(900f, p.MaxHealth);
         Assert.AreEqual(5f, p.ShieldRate);
         Assert.AreEqual(3f, p.ShieldDelay);

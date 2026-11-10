@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Godot;
 using OpenArmada.Diagnostics;
@@ -66,7 +67,7 @@ public partial class CombatView
         if (
             _world.State(started.Unit)?.SpecialOrder is not { } order
             || !ReferenceEquals(order.Weapon, started.Weapon)
-            || !_models.TryGetValue(StripSod(started.Weapon.Geometry), out var template)
+            || !_models.TryGetValue(Path.GetFileNameWithoutExtension(started.Weapon.Geometry), out var template)
             || At(order.Target.Unit) is not { } target
             || BeamSource(started.Unit, started.Weapon, target) is not { } source
         )
@@ -75,17 +76,21 @@ public partial class CombatView
         var root = new Node3D();
         root.AddChild(template.Duplicate());
         AddChild(root);
-        _beams[started.Unit] = new BeamShown
+        // an order that ends and a new one that starts within one frame leave the old beam to be freed here
+        if (_beams.Remove(started.Unit, out var old))
+        {
+            old.Root.QueueFree();
+        }
+
+        var beam = new BeamShown
         {
             Order = order,
             Root = root,
             Source = source,
         };
-        PlaceBeam(_beams[started.Unit]);
+        _beams[started.Unit] = beam;
+        PlaceBeam(beam);
     }
-
-    static string StripSod(string geometry) =>
-        geometry.EndsWith(".sod", StringComparison.OrdinalIgnoreCase) ? geometry[..^4] : geometry;
 
     // stand-in: the beam leaves from the weapon's hardpoint nearest the target when it starts; the game's choice is not
     // traced. A weapon without a hardpoint the model holds leaves from the unit's own node.

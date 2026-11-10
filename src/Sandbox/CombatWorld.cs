@@ -439,6 +439,8 @@ public sealed class CombatWorld
         var weapon = u.Profile.SpecialWeapons.FirstOrDefault(w => w.Slot == slot);
         if (weapon == null || u.SpecialEnergy < weapon.EnergyCost || target == null || State(target) is not { } t)
             return false;
+        // stand-in: the exe's test is the ship flag (+0xbc bit 0x8) of the target; a unit with is_starbase stands for a
+        // target without it
         if (
             t == u
             || t.Dying
@@ -542,7 +544,7 @@ public sealed class CombatWorld
         order.BoardingTimer = timer;
         var target = order.Target;
         if (
-            timer > Epsilon
+            timer > -Epsilon // a timer at zero has not fallen below it (the party leaves one tick later)
             || target.Profile.DefinedMaximumCrew <= 0
             || shooter.Crew < weapon.BoardingSize + BoardingCrewReserve
         )

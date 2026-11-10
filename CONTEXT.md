@@ -206,6 +206,12 @@ A **Capture** by a Borg boarding party: the unit's race becomes `borg`, so its `
 separate mechanic.
 _Avoid_: borgification, conversion
 
+**Special-weapon order**
+A special weapon a unit has running on a target, from the player's order until an end condition or a second order for
+the weapon's slot. The weapon is its special-weapon profile (slot, range, energy cost, and the effect's model and
+sound); a unit runs one at a time. Shapes: `SpecialWeaponOrder`, `SpecialWeaponProfile`.
+_Avoid_: toggle order, beam order
+
 **Special energy**
 A unit's reserve for special weapons, read from its definition for every race: it refills to its maximum at its
 rate, a special weapon starts only when the unit holds the weapon's cost, and the weapon drains it while on.

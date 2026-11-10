@@ -826,6 +826,46 @@ public class CombatRulesTests
         Assert.AreEqual(100, target.Shields, 1e-6);
     }
 
+    static UnitCombatState Energetic(float max, float rate) =>
+        State(Profile(maxSpecialEnergy: max, specialEnergyRate: rate));
+
+    [TestMethod]
+    public void SpecialEnergyStartsAtTheMaximum()
+    {
+        Assert.AreEqual(1000, Energetic(1000, 10).SpecialEnergy, 1e-6);
+    }
+
+    [TestMethod]
+    public void SpecialEnergyRegainsTheRatePerSecondAndNeverExceedsTheMaximum()
+    {
+        var unit = Energetic(1000, 10);
+        unit.SpecialEnergy = 900;
+        CombatRules.RegainSpecialEnergy(unit, 5);
+        Assert.AreEqual(950, unit.SpecialEnergy, 1e-6);
+        CombatRules.RegainSpecialEnergy(unit, 10);
+        Assert.AreEqual(1000, unit.SpecialEnergy, 1e-6);
+    }
+
+    [TestMethod]
+    public void AUnitWithNoSpecialEnergyStaysAtZero()
+    {
+        var unit = Energetic(0, 0);
+        CombatRules.RegainSpecialEnergy(unit, 10);
+        Assert.AreEqual(0, unit.SpecialEnergy, 1e-6);
+    }
+
+    [DataTestMethod]
+    [DataRow(30)]
+    [DataRow(60)]
+    public void SpecialEnergyRegainOverTenSecondsIsTheSameAtAnyTickRate(int ticksPerSecond)
+    {
+        var unit = Energetic(1000, 10);
+        unit.SpecialEnergy = 500;
+        for (var i = 0; i < 10 * ticksPerSecond; i++)
+            CombatRules.RegainSpecialEnergy(unit, 1.0 / ticksPerSecond);
+        Assert.AreEqual(600, unit.SpecialEnergy, 1e-3);
+    }
+
     [TestMethod]
     public void ShieldsRegainNothingWhileDownAndTheRestOfAStepAfterwards()
     {

@@ -21,7 +21,7 @@ public class CombatPlanTests
 
     const string Physics = "physicsFile = \"p.odf\"\r\n";
     const string Constants =
-        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\n"
+        "#include \"ART_CFG.h\"\r\nfloat SHIELD_DAMAGE_PROTECTION = 0.5;\r\nint SYSTEM_HITPOINTS_BONUS = 2;\r\nfloat FORMATION_SPACING = 100.0;\r\nfloat MAX_PREVENTION_ROTATION = 0.6;\r\nint cfgMaxCrew = 5000;\r\n"
         + AvoidanceConstants
         + TransporterConstants;
     const string ConstantsWithoutPrevention =
@@ -41,7 +41,8 @@ public class CombatPlanTests
         + "float ST3D_CHUNK_MAX_ANGULAR_VELOCITY = 5.0;\r\nfloat ST3D_CHUNK_MAX_VELOCITY = 70.0;\r\n";
     const string Race =
         "name = \"federation\"\r\ncrewYellowStatus = 0.4\r\ncrewRedStatus = 0.2\r\nweaponYellow = 1.5\r\n"
-        + "weaponRed = 2.5\r\nrepairYellow = 1.1\r\nrepairRed = 1.2\r\nrepairStrength = 1.5\r\nboardingStrength = 1.5\r\n";
+        + "weaponRed = 2.5\r\nrepairYellow = 1.1\r\nrepairRed = 1.2\r\nrepairStrength = 1.5\r\nboardingStrength = 1.5\r\n"
+        + "crewAccumulationRate = 3.5\r\nplanetCrewAccumulationModifier = 1.5\r\n";
     const string Beam =
         "classLabel = \"cannon\"\r\nordName = \"beamo\"\r\nshotDelay = 2\r\nrange = 250\r\nhitChance = 0.7\r\n"
         + "\t\"zmama.odf\" 1.0\r\nstopToHitModifier = 0.25\r\nfireSound = \"b.wav\"\r\ncrewAffectsWeaponDelay = 1\r\n";
@@ -129,6 +130,22 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void TheCrewAccumulationRateAndItsPlanetModifierAreReadFromTheRace()
+    {
+        var race = ProfileOf(OneShip("")).Race;
+        Assert.AreEqual(3.5f, race.CrewAccumulationRate);
+        Assert.AreEqual(1.5f, race.PlanetCrewAccumulationModifier);
+    }
+
+    [TestMethod]
+    public void TheCrewPoolCapIsCfgMaxCrewAndTheStockValueWithoutIt()
+    {
+        Assert.AreEqual(5000, OneShip("").Plan.CrewPoolCap);
+        var r = Plan(new[] { "s" }, new[] { ("s", Ship), ("fed", Race) }, ("RTS_CFG.h", ConstantsWithoutPrevention));
+        Assert.AreEqual(CombatWorld.DefaultCrewPoolCap, r.Plan.CrewPoolCap);
+    }
+
+    [TestMethod]
     public void MissingTransporterValuesAreReportedOnceEachWithTheirStandIns()
     {
         var r = Plan(
@@ -206,6 +223,107 @@ public class CombatPlanTests
         Assert.IsFalse(weapons.Single(w => w.Slot == 1).TargetLocation);
         Assert.IsTrue(weapons.Single(w => w.Slot == 2).Special);
         Assert.IsTrue(weapons.Single(w => w.Slot == 2).TargetLocation);
+    }
+
+    const string HoldWeapon =
+        "classLabel = \"toggleweapon\"\r\nordName = \"holdo\"\r\nbuttonSlot = 4\r\nrange = 300\r\nspecial = 1\r\n";
+    const string HoldOrd =
+        "classLabel = \"holding_bm\"\r\nspecialEnergyCost = 50\r\nlifeSpan = 30\r\ntargetRange = 310\r\n"
+        + "boardingDelay = 1.5\r\nboardingInterval = 2\r\nboardingSize = 20\r\n";
+
+    [TestMethod]
+    public void ASpecialToggleWeaponWithTheHoldingBeamIsReadWithItsOrdnance()
+    {
+        var r = OneShip("weapon1 = \"hold\"\r\n", ("hold", HoldWeapon), ("holdo", HoldOrd));
+        var hold = ProfileOf(r).SpecialWeapons.Single();
+        Assert.AreEqual(
+            (4, 300f, 50f, 310f, 30f),
+            (hold.Slot, hold.Range, hold.EnergyCost, hold.TargetRange, hold.LifeSpan)
+        );
+        Assert.AreEqual((20f, 2f, 1.5f), (hold.BoardingSize, hold.BoardingInterval, hold.BoardingDelay));
+        Assert.AreEqual(0, ProfileOf(r).Weapons.Count);
+        Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ASpecialWeaponIsReadWithItsNameHardpointsFireSoundBeamModelAndScales()
+    {
+        var r = OneShip(
+            "weapon1 = \"hold\"\r\nweaponHardpoints1 = \"hp03\" \"hp05\"\r\nweapon2 = \"assim\"\r\nweaponHardpoints2 = \"hp07\"\r\n",
+            ("hold", HoldWeapon + "fireSound = \"swbhb.wav\"\r\n"),
+            ("holdo", HoldOrd + "shotGeometry = \"wholdbm.sod\"\r\nradiusScale = 2.5\r\nlengthScale = 5\r\n"),
+            (
+                "assim",
+                HoldWeapon.Replace("holdo", "assimo").Replace("buttonSlot = 4", "buttonSlot = 3")
+                    + "fireSound = \"swbauto.wav\"\r\n"
+            ),
+            (
+                "assimo",
+                "classLabel = \"borgbore\"\r\nspecialEnergyCost = 8\r\nspecialValue = 5\r\nattackRange = 400\r\nshotGeometry = \"wborgbor.sod\"\r\nradiusScale = 3\r\nlengthScale = 4\r\n"
+            )
+        );
+        var specials = ProfileOf(r).SpecialWeapons;
+        var hold = specials.Single(w => w.Kind == SpecialWeaponKind.HoldingBeam);
+        var assimilator = specials.Single(w => w.Kind == SpecialWeaponKind.AutoAssimilator);
+        Assert.AreEqual(
+            ("hold", "swbhb.wav", "wholdbm.sod", 2.5f, 5f),
+            (hold.Name, hold.FireSound, hold.Geometry, hold.RadiusScale, hold.LengthScale)
+        );
+        CollectionAssert.AreEqual(new[] { "hp03", "hp05" }, hold.Hardpoints.ToArray());
+        Assert.AreEqual(
+            ("assim", "swbauto.wav", "wborgbor.sod", 3f, 4f),
+            (
+                assimilator.Name,
+                assimilator.FireSound,
+                assimilator.Geometry,
+                assimilator.RadiusScale,
+                assimilator.LengthScale
+            )
+        );
+        CollectionAssert.AreEqual(new[] { "hp07" }, assimilator.Hardpoints.ToArray());
+        Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void AnAutoAssimilatorIsReadWithItsRateRangeAndCostAndNoDuration()
+    {
+        var r = OneShip(
+            "weapon1 = \"assim\"\r\n",
+            ("assim", HoldWeapon.Replace("holdo", "assimo").Replace("buttonSlot = 4", "buttonSlot = 3")),
+            (
+                "assimo",
+                "classLabel = \"borgbore\"\r\nspecialEnergyCost = 8\r\nspecialValue = 5\r\nattackRange = 400\r\n"
+                    + "duration = 9\r\n"
+            )
+        );
+        var assimilator = ProfileOf(r).SpecialWeapons.Single();
+        Assert.AreEqual(
+            (SpecialWeaponKind.AutoAssimilator, 3, 400f, 8f, 5f, 0f),
+            (
+                assimilator.Kind,
+                assimilator.Slot,
+                assimilator.Range,
+                assimilator.EnergyCost,
+                assimilator.CrewRate,
+                assimilator.LifeSpan
+            )
+        );
+        Assert.AreEqual(0, ProfileOf(r).Weapons.Count);
+        Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
+    [TestMethod]
+    public void AToggleWeaponThatIsNotSpecialOrNotTheHoldingBeamIsLeftOutWithoutAGap()
+    {
+        var r = OneShip(
+            "weapon1 = \"plain\"\r\nweapon2 = \"other\"\r\n",
+            ("plain", HoldWeapon.Replace("special = 1", "special = 0")),
+            ("other", HoldWeapon.Replace("holdo", "othero")),
+            ("holdo", HoldOrd),
+            ("othero", HoldOrd.Replace("holding_bm", "tractor_bm"))
+        );
+        Assert.AreEqual(0, ProfileOf(r).SpecialWeapons.Count);
+        Assert.AreEqual(0, r.Plan.Reports.Count);
     }
 
     [TestMethod]
@@ -472,10 +590,33 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void ProfileReadsTheSpecialEnergyMaximumAndRate()
+    {
+        var p = ProfileOf(OneShip("maxSpecialEnergy = 1000\r\nspecialEnergyRate = 10\r\n"));
+        Assert.AreEqual(1000f, p.MaxSpecialEnergy);
+        Assert.AreEqual(10f, p.SpecialEnergyRate);
+    }
+
+    [TestMethod]
+    public void ADefinitionWithNoSpecialEnergyHasNoneAndNoGap()
+    {
+        var r = OneShip("");
+        var p = ProfileOf(r);
+        Assert.AreEqual(0f, p.MaxSpecialEnergy);
+        Assert.AreEqual(0f, p.SpecialEnergyRate);
+        Assert.IsFalse(r.Plan.Reports.Any(g => g.Cause.Contains("pecialEnergy")));
+    }
+
+    [TestMethod]
     public void ProfileHoldsShieldsCrewAndRaceValuesFromTheInstall()
     {
-        var r = OneShip("canAttack = 0\r\ndefaultGreenAlert = 1\r\nfireball = \"fb\"\r\nlifeSupportLoss = 5\r\n");
+        var r = OneShip(
+            "canAttack = 0\r\ndefaultGreenAlert = 1\r\nfireball = \"fb\"\r\nlifeSupportLoss = 5\r\n"
+                + "maxSpecialEnergy = 1000\r\nspecialEnergyRate = 10\r\n"
+        );
         var p = ProfileOf(r);
+        Assert.AreEqual(1000f, p.MaxSpecialEnergy);
+        Assert.AreEqual(10f, p.SpecialEnergyRate);
         Assert.AreEqual(900f, p.MaxHealth);
         Assert.AreEqual(5f, p.ShieldRate);
         Assert.AreEqual(3f, p.ShieldDelay);

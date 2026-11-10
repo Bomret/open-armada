@@ -1,0 +1,33 @@
+# The special weapons show their beam models. A Borg cube holds a Klingon destroyer with its Holding Beam (F4) and a Borg
+# Assimilator drains another with its Auto-Assimilator (F3). All four ships are set to green alert so nothing fires. The
+# shots show the beams running, with each beam's crop, and the beams gone after both weapons are ordered off. The fire
+# sounds (swbhb.wav, swbauto.wav) play once each at the start; read them from the run's WAV.
+# Run it with --layout layouts/special-beams.jsonc; the layout's header comment has the whole command.
+wait 0.5
+select Held
+press Shift+G
+select Drained
+press Shift+G
+select Cube
+press Shift+G
+select Assimilator
+press Shift+G
+wait 1
+shot before
+select Cube
+special 4 Held
+select Assimilator
+special 3 Drained
+wait 1
+shot running
+shot running-cube Cube 2
+shot running-assimilator Assimilator 2
+expect Held team = 2
+expect Drained team = 2
+select Cube
+special 4
+select Assimilator
+special 3
+wait 0.5
+shot ended
+wait 2

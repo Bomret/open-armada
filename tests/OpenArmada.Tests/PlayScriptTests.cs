@@ -72,9 +72,25 @@ public class PlayScriptTests
     }
 
     [TestMethod]
+    public void ASpecialStepParsesWithItsKeyNumberAndAnOptionalTarget()
+    {
+        var script = PlayScript.Parse("special 4 enemy#2\nspecial 4\n", "x.play");
+
+        CollectionAssert.AreEqual(Array.Empty<string>(), script.Problems.ToArray());
+        var order = (SpecialStep)script.Steps[0];
+        Assert.AreEqual((4, "enemy#2"), (order.Slot, order.Unit));
+        var off = (SpecialStep)script.Steps[1];
+        Assert.AreEqual((4, (string?)null), (off.Slot, off.Unit));
+    }
+
+    [TestMethod]
     [DataRow("select", "'select' takes 1 argument, found 0")]
     [DataRow("attack a b", "'attack' takes 1 argument, found 2")]
     [DataRow("transport", "'transport' takes 1 argument, found 0")]
+    [DataRow("special", "'special' takes 1 or 2 arguments, found 0")]
+    [DataRow("special 4 a b", "'special' takes 1 or 2 arguments, found 3")]
+    [DataRow("special x", "'x' is not a special weapon key number from 1 to 6")]
+    [DataRow("special 7 a", "'7' is not a special weapon key number from 1 to 6")]
     [DataRow("move 1", "'move' takes 2 arguments, found 1")]
     [DataRow("move 1 x", "'x' is not a number")]
     [DataRow("box", "'box' takes 4 numbers or one or more unit names, found 0 arguments")]
@@ -124,6 +140,7 @@ public class PlayScriptTests
     [DataRow("expect a team < 1", "'team' takes only '=', not '<'")]
     [DataRow("expect a team = 1.5", "'1.5' is not an integer")]
     [DataRow("expect a team = red", "'red' is not an integer")]
+    [DataRow("expect a race < borg", "'race' takes only '=', not '<'")]
     [DataRow("expect a move < open", "'move' takes only '=', not '<'")]
     [DataRow("expect a move = 100,200", "'100,200' is not open or none")]
     [DataRow("fast-forward a move = none", "'fast-forward' takes 'until <unit> <field> <op> <value> max <seconds>'")]

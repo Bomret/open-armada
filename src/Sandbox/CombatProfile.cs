@@ -174,6 +174,78 @@ public sealed record WeaponProfile
     public bool TargetLocation { get; init; }
 }
 
+/// <summary>The special weapons the sandbox runs, by the <c>classLabel</c> of the weapon's ordnance.</summary>
+public enum SpecialWeaponKind
+{
+    /// <summary>The Holding Beam (<c>holding_bm</c>): holds the target and sends boarding parties.</summary>
+    HoldingBeam,
+
+    /// <summary>The Auto-Assimilator (<c>borgbore</c>): moves the target's crew to the shooter.</summary>
+    AutoAssimilator,
+}
+
+/// <summary>
+/// A special-weapon order's weapon: a <c>toggleweapon</c> with the <c>special</c> flag whose ordnance is the Holding
+/// Beam (<c>holding_bm</c>) or the Auto-Assimilator (<c>borgbore</c>). The weapon's button slot is the F-key the player
+/// orders it with (<c>fire_special_N</c>).
+/// </summary>
+public sealed record SpecialWeaponProfile
+{
+    /// <summary>The weapon the ordnance makes; the Holding Beam unless set.</summary>
+    public SpecialWeaponKind Kind { get; init; } = SpecialWeaponKind.HoldingBeam;
+
+    /// <summary>The weapon definition's name, for the gaps of its art.</summary>
+    public string Name { get; init; } = "";
+
+    /// <summary>The weapon's <c>weaponHardpoints</c>: the nodes its beam can leave from; none: the unit's center.</summary>
+    public IReadOnlyList<string> Hardpoints { get; init; } = [];
+
+    /// <summary>The weapon definition's <c>fireSound</c>, played when the weapon starts; empty when it names none.</summary>
+    public string FireSound { get; init; } = "";
+
+    /// <summary>The ordnance's <c>shotGeometry</c>: the beam's model file, such as <c>wholdbm.sod</c>; empty when it names none.</summary>
+    public string Geometry { get; init; } = "";
+
+    /// <summary>The ordnance's <c>radiusScale</c> (+0x128): the beam model's scale across the beam (0x4ddf80, 0x4da7a0).</summary>
+    public float RadiusScale { get; init; } = 1;
+
+    /// <summary>The ordnance's <c>lengthScale</c> (+0x124): the model's length, which the beam's distance is divided by (0x4ddf80, 0x4da7a0).</summary>
+    public float LengthScale { get; init; } = 1;
+
+    /// <summary>
+    /// The Auto-Assimilator's <c>specialValue</c> (ordnance +0x110, 0x4ea1e0): the crew it moves per second; 0 for the
+    /// Holding Beam.
+    /// </summary>
+    public float CrewRate { get; init; }
+
+    /// <summary>The weapon definition's <c>buttonSlot</c>: the special weapon key's number.</summary>
+    public required int Slot { get; init; }
+
+    /// <summary>
+    /// The weapon definition's <c>range</c>: a target must be within it for the beam to start. The Auto-Assimilator's is
+    /// the ordnance's <c>attackRange</c> (+0x120, 0x4da590).
+    /// </summary>
+    public required float Range { get; init; }
+
+    /// <summary>The ordnance's <c>specialEnergyCost</c> (+0x34, 0x4ea1e0): spent once at the start, then per second while on.</summary>
+    public required float EnergyCost { get; init; }
+
+    /// <summary>The ordnance's <c>targetRange</c>.</summary>
+    public required float TargetRange { get; init; }
+
+    /// <summary>The ordnance's <c>lifeSpan</c>.</summary>
+    public required float LifeSpan { get; init; }
+
+    /// <summary>The ordnance's <c>boardingSize</c>: the crew of one boarding party.</summary>
+    public required float BoardingSize { get; init; }
+
+    /// <summary>The ordnance's <c>boardingInterval</c>: the seconds between boarding parties.</summary>
+    public required float BoardingInterval { get; init; }
+
+    /// <summary>The ordnance's <c>boardingDelay</c>: the seconds before the first boarding party.</summary>
+    public required float BoardingDelay { get; init; }
+}
+
 /// <summary>
 /// One of the five ship systems that a unit has. Absent from a profile when its definition gives it no hit points.
 /// </summary>
@@ -250,6 +322,18 @@ public sealed record RaceValues
     /// definition gives none, as the game does.
     /// </summary>
     public float BoardingStrength { get; init; } = 1;
+
+    /// <summary>
+    /// The <c>crewAccumulationRate</c> (race +0x20c): the crew per second a starbase adds to its team's crew pool. 0 where
+    /// the definition gives none (stand-in).
+    /// </summary>
+    public float CrewAccumulationRate { get; init; }
+
+    /// <summary>
+    /// The <c>planetCrewAccumulationModifier</c> (race +0x210): the factor on <see cref="CrewAccumulationRate"/> in a
+    /// starbase's fill. 0 where the definition gives none (stand-in).
+    /// </summary>
+    public float PlanetCrewAccumulationModifier { get; init; }
 }
 
 /// <summary>
@@ -263,6 +347,12 @@ public sealed record CombatProfile
     /// readable definition, is left out.
     /// </summary>
     public required IReadOnlyList<WeaponProfile> Weapons { get; init; }
+
+    /// <summary>
+    /// The unit's special weapons the player orders (the Holding Beam). Empty for a unit with none; a toggle weapon
+    /// with another ordnance class is left out.
+    /// </summary>
+    public IReadOnlyList<SpecialWeaponProfile> SpecialWeapons { get; init; } = [];
 
     /// <summary>The <c>maxHealth</c>: the shield maximum. A unit has no hull hit points.</summary>
     public required float MaxHealth { get; init; }
@@ -340,4 +430,22 @@ public sealed record CombatProfile
     /// The values of the race the definition's <c>race</c> names; stand-in values when the race is missing.
     /// </summary>
     public required RaceValues Race { get; init; }
+
+    /// <summary>
+    /// The definition's <c>race</c> name, which a unit's current race name starts from (0x46dff0 +0x1a4); empty when
+    /// the key is missing.
+    /// </summary>
+    public string RaceName { get; init; } = "";
+
+    /// <summary>
+    /// The <c>maxSpecialEnergy</c>: the unit's special energy maximum (class +0xd8, 0x46a470); 0 when the definition
+    /// names none.
+    /// </summary>
+    public float MaxSpecialEnergy { get; init; }
+
+    /// <summary>
+    /// The <c>specialEnergyRate</c>: the special energy regained per second (class +0x224, 0x45fea0); 0 when the
+    /// definition names none.
+    /// </summary>
+    public float SpecialEnergyRate { get; init; }
 }

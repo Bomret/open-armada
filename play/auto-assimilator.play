@@ -1,0 +1,21 @@
+# A Borg Assimilator drains a Klingon destroyer's crew with its Auto-Assimilator. Both ships are set to green alert so
+# nothing fires. The Assimilator is selected, F3 is pressed, and the destroyer clicked (the special step). The weapon moves
+# 5 crew per second from the destroyer to the Assimilator until the destroyer has less than one crew and is derelict. The
+# drain never captures: the destroyer keeps team 2 and the race klingon, and the Assimilator's crew above its maximum goes
+# to team 1's crew pool.
+# Run it with --layout layouts/auto-assimilator.jsonc; the layout's header comment has the whole command.
+wait 0.5
+select Victim
+press Shift+G
+select Assimilator
+press Shift+G
+expect Victim team = 2
+expect Victim race = klingon
+special 3 Victim
+wait 30
+dump drained
+expect Victim crew = 0
+expect Victim team = 2
+expect Victim race = klingon
+expect Assimilator crew >= 200
+expect Assimilator pool > 30

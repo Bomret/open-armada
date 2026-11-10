@@ -201,6 +201,27 @@ reaches a hostile derelict. The survivors become the unit's crew; the unit keeps
 transport, and stops its current order. A neutral (team 0) unit is never captured.
 _Avoid_: takeover, hijack, conversion
 
+**Assimilation**
+A **Capture** by a Borg boarding party: the unit's race becomes `borg`, so its `borg` overlay shows.
+_Avoid_: borgification, conversion
+
+**Special-weapon order**
+A special weapon a unit has running on a target, from the player's order until an end condition or a second order for
+the weapon's slot. The weapons are the Holding Beam and the Auto-Assimilator. Each has a profile of slot, range,
+energy cost, and the effect's model and sound. A unit runs one at a time. Shapes: `SpecialWeaponOrder`,
+`SpecialWeaponProfile`.
+_Avoid_: toggle order, beam order
+
+**Special energy**
+A unit's reserve for special weapons, read from its definition for every race. It refills to its maximum at its
+rate. A special weapon starts only when the unit holds the weapon's cost. The weapon drains it while on.
+_Avoid_: energy, mana, power
+
+**Crew pool**
+A player's reserve of crew outside its units, capped per player. Starbases fill it, and an Auto-Assimilator's
+crew beyond its unit's maximum goes into it.
+_Avoid_: drone pool, crew reserve
+
 **Move order**
 An order that sends a ship to a point of the combat plane. The ship drives to the point and the order ends
 there. It also ends where the ship stands when a forced motion moves the ship while the ship is within its

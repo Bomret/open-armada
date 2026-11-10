@@ -107,3 +107,12 @@ Statement: Every order, selection, or key action a player gives in the map sandb
 Breaks: silently
 Check: none — no cheap test pairs each input handler with a step; reviewers check that a change adding a player action adds its play-script step.
 Paths: src/Viewer/**, src/Sandbox/PlayScript.cs
+
+### INV-0014
+
+Class: behavior
+Concepts: Race, Capture, Assimilation, State dump
+Statement: Race-dependent combat rules, the `borg` overlay, and the state dump read a unit's current race; once the map sandbox runs, none of them reads the race the unit's definition names.
+Breaks: silently
+Check: a unit test that captures a unit by a party of another race and finds the captor's race in its race-dependent values, its overlay, and the state dump.
+Paths: src/Sandbox/**, src/Viewer/**

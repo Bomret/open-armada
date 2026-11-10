@@ -120,7 +120,7 @@ public class StartingStateTests
         Assert.IsFalse(s.Derelict);
 
         var dump = new PlayState(new UnitNames(objects), u => new UnitPoses(objects).Pose(u), world.Units).Dump();
-        StringAssert.Contains(dump, "shields=225.00 crew=50.00 Engines=0.00/12.00/destroyed");
+        StringAssert.Contains(dump, "shields=225.00 crew=50.00 special=0.00/0.00 Engines=0.00/12.00/destroyed");
         StringAssert.Contains(dump, "immobile=true");
     }
 

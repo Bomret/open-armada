@@ -206,6 +206,68 @@ public class CombatArtTests
         CollectionAssert.AreEqual(new[] { "gone.wav" }, art.Reports.Single().Names.ToArray());
     }
 
+    static SpecialWeaponProfile Special(string sound, string geometry, params string[] hardpoints) =>
+        new()
+        {
+            Name = "gholdbm",
+            Slot = 4,
+            Range = 300,
+            EnergyCost = 50,
+            TargetRange = 300,
+            LifeSpan = 30,
+            BoardingSize = 20,
+            BoardingInterval = 1,
+            BoardingDelay = 1,
+            Hardpoints = hardpoints,
+            FireSound = sound,
+            Geometry = geometry,
+        };
+
+    static (PlacedObject Unit, CombatProfile Profile) Caster(SpecialWeaponProfile weapon) =>
+        (Placed("ship", 1, 0) with { Model = "ship" }, Profile() with { Fireball = "xfb", SpecialWeapons = [weapon] });
+
+    [TestMethod]
+    public void ASpecialWeaponsFireSoundAndBeamModelAreListedWithoutTheSodSuffix()
+    {
+        var art = CombatArt.Build(
+            Install(("addon/swbhb.wav", "x"), ("SOD/wholdbm.sod", Model("root"))),
+            new[] { Caster(Special("swbhb.wav", "wholdbm.sod", "hp01")) }
+        );
+        CollectionAssert.Contains(art.Sounds.ToArray(), "swbhb.wav");
+        CollectionAssert.AreEqual(new[] { "wholdbm" }, art.BeamModels.ToArray());
+        Assert.AreEqual(0, art.Reports.Count);
+    }
+
+    [TestMethod]
+    public void ASpecialWeaponSoundAndModelTheInstallLacksAreOneGapEachAndNotListed()
+    {
+        var art = CombatArt.Build(Install(), new[] { Caster(Special("swbhb.wav", "wholdbm.sod", "hp01")) });
+        CollectionAssert.DoesNotContain(art.Sounds.ToArray(), "swbhb.wav");
+        Assert.AreEqual(0, art.BeamModels.Count());
+        CollectionAssert.AreEquivalent(
+            new[] { "swbhb.wav", "wholdbm.sod" },
+            art.Reports.SelectMany(r => r.Names).ToArray()
+        );
+    }
+
+    [TestMethod]
+    public void ASpecialWeaponNamingNoSoundOrModelIsAGapNamingItsWeapon()
+    {
+        var art = CombatArt.Build(Install(), new[] { Caster(Special("", "", "hp01")) });
+        CollectionAssert.AreEqual(new[] { "gholdbm" }, art.Reports.SelectMany(r => r.Names).Distinct().ToArray());
+        Assert.AreEqual(2, art.Reports.Count);
+    }
+
+    [TestMethod]
+    public void AHardpointOfASpecialWeaponTheModelLacksIsAGap()
+    {
+        var art = CombatArt.Build(
+            Install(("addon/swbhb.wav", "x"), ("SOD/wholdbm.sod", Model("root"))),
+            new[] { Caster(Special("swbhb.wav", "wholdbm.sod", "hp01", "hp99")) }
+        );
+        CollectionAssert.AreEqual(new[] { "hp99" }, art.Reports.Single().Names.ToArray());
+    }
+
     [TestMethod]
     public void HardpointTheModelHoldsIsKnownAndOneItLacksIsAGap()
     {

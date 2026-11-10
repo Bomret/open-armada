@@ -103,6 +103,18 @@ public sealed class UnitCombatState(
     /// </summary>
     public RaceValues Race { get; set; } = profile.Race;
 
+    /// <summary>
+    /// The name of the unit's current race (INV-0014): the definition's <c>race</c> at the start, then the race a
+    /// team change set. The <c>borg</c> overlay and the state dump read this, never <see cref="Profile"/>'s race name.
+    /// </summary>
+    public string RaceName { get; set; } = profile.RaceName;
+
+    /// <summary>
+    /// The unit's current special energy; starts at the profile's maximum (stand-in: the exe's start value is not
+    /// recorded) and never exceeds it.
+    /// </summary>
+    public double SpecialEnergy { get; set; } = profile.MaxSpecialEnergy;
+
     /// <summary>A unit that starts with crew below one is derelict from the start: no crew, shields down.</summary>
     public double Shields { get; set; } = profile.CrewCost < 1 ? 0 : profile.MaxHealth;
 
@@ -287,6 +299,9 @@ public sealed class UnitCombatState(
     /// tick, transporting or not.
     /// </summary>
     public double TransportTimer { get; set; }
+
+    /// <summary>The special weapon the unit has running; null while it has none.</summary>
+    public SpecialWeaponOrder? SpecialOrder { get; set; }
 
     /// <summary>
     /// The teams that started boarding this unit and have not since ordered an attack on it (the boarding block,

@@ -34,13 +34,13 @@ public sealed record ExpectStep : PlayStep
     /// <summary>The unit's name as the script writes it (see <see cref="UnitNames"/>).</summary>
     public required string Unit { get; init; }
 
-    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, <c>move</c>, or a system name of <see cref="SystemNames"/>.</summary>
+    /// <summary>The field: <c>shields</c>, <c>crew</c>, <c>special</c>, <c>pool</c> (the crew pool of the unit's team), <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, <c>race</c>, <c>move</c>, or a system name of <see cref="SystemNames"/>.</summary>
     public required string Field { get; init; }
 
-    /// <summary>One of <c>&lt;</c>, <c>&lt;=</c>, <c>=</c>, <c>&gt;=</c>, <c>&gt;</c>; <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, and <c>move</c> take only <c>=</c>.</summary>
+    /// <summary>One of <c>&lt;</c>, <c>&lt;=</c>, <c>=</c>, <c>&gt;=</c>, <c>&gt;</c>; <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>team</c>, <c>race</c>, and <c>move</c> take only <c>=</c>.</summary>
     public required string Op { get; init; }
 
-    /// <summary>The value as written: a number, <c>true</c> or <c>false</c>, an integer for <c>team</c>, a unit name or <c>none</c> for <c>target</c>, or <c>open</c> or <c>none</c> for <c>move</c>.</summary>
+    /// <summary>The value as written: a number, <c>true</c> or <c>false</c>, an integer for <c>team</c>, a unit name or <c>none</c> for <c>target</c>, a race name or <c>none</c> for <c>race</c>, or <c>open</c> or <c>none</c> for <c>move</c>.</summary>
     public required string Value { get; init; }
 
     /// <summary>The number <see cref="Value"/> reads as, or null for a <c>destroyed</c>, <c>dying</c>, <c>target</c>, <c>move</c>, or <c>team</c> step.</summary>
@@ -86,6 +86,19 @@ public sealed record TransportStep : PlayStep
 {
     /// <summary>The unit's name as the script writes it.</summary>
     public required string Unit { get; init; }
+}
+
+/// <summary>
+/// <c>special &lt;slot&gt; [&lt;unit&gt;]</c>: the special weapon key of the slot (<c>fire_special_N</c>), then, with a unit, a
+/// left click at the unit's projected screen point. Without a unit it is the key alone, which turns a running weapon off.
+/// </summary>
+public sealed record SpecialStep : PlayStep
+{
+    /// <summary>The special weapon key's number, 1 to 6.</summary>
+    public required int Slot { get; init; }
+
+    /// <summary>The unit's name as the script writes it; null for the key alone.</summary>
+    public string? Unit { get; init; }
 }
 
 /// <summary><c>move &lt;x&gt; &lt;z&gt;</c>: a right click at the screen point of a point of the combat plane.</summary>
@@ -294,6 +307,24 @@ public sealed class PlayScript
                 return Wrong(word, 1, args.Length);
             case "transport":
                 return (new TransportStep { Line = number, Unit = args[0] }, null);
+            case "special":
+                if (args.Length is not (1 or 2))
+                    return (null, $"'special' takes 1 or 2 arguments, found {args.Length}");
+                if (
+                    !int.TryParse(args[0], NumberStyles.None, CultureInfo.InvariantCulture, out var slot)
+                    || slot is < 1 or > 6
+                )
+                    return (null, $"'{args[0]}' is not a special weapon key number from 1 to 6");
+
+                return (
+                    new SpecialStep
+                    {
+                        Line = number,
+                        Slot = slot,
+                        Unit = args.Length > 1 ? args[1] : null,
+                    },
+                    null
+                );
             case "select":
                 return (new SelectStep { Line = number, Unit = args[0] }, null);
             case "attack":
@@ -457,7 +488,21 @@ public sealed class PlayScript
         {
             field = system;
         }
-        else if (field is not ("shields" or "crew" or "destroyed" or "dying" or "target" or "team" or "move"))
+        else if (
+            field
+            is not (
+                "shields"
+                or "crew"
+                or "special"
+                or "pool"
+                or "destroyed"
+                or "dying"
+                or "target"
+                or "team"
+                or "race"
+                or "move"
+            )
+        )
         {
             return (null, $"unknown field '{args[1]}'");
         }
@@ -465,7 +510,7 @@ public sealed class PlayScript
         var op = args[2];
         if (!Ops.Contains(op))
             return (null, $"unknown operator '{op}', use one of < <= = >= >");
-        if (field is "destroyed" or "dying" or "target" or "team" or "move")
+        if (field is "destroyed" or "dying" or "target" or "team" or "race" or "move")
         {
             if (op != "=")
                 return (null, $"'{field}' takes only '=', not '{op}'");
@@ -479,7 +524,7 @@ public sealed class PlayScript
                 if (args[3] is not ("open" or "none"))
                     return (null, $"'{args[3]}' is not open or none");
             }
-            else if (field != "target" && args[3] is not ("true" or "false"))
+            else if (field is not ("target" or "race") && args[3] is not ("true" or "false"))
                 return (null, $"'{args[3]}' is not true or false");
         }
         else

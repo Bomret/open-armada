@@ -103,6 +103,9 @@ public sealed class CombatArt
     const string NoExplosionModel = "explosion names no model that the install holds, it shows no model";
     const string MissingSmallExplosion = "small explosion sprite missing from the sprite tables, it is not drawn";
     const string MissingRepairSpark = "repair spark sprite missing from the sprite tables, repair sparks are not drawn";
+    const string NoSpecialSound = "special weapon names no fire sound, it is silent";
+    const string NoBeamModel = "special weapon names no beam model, its beam is not drawn";
+    const string MissingBeamModel = "beam model missing from the install, it is not drawn";
     const string MissingHardpoint = "hardpoint missing from the model, its shots leave from the unit's center";
 
     const string MissingShieldGeometry = "shield geometry missing from the install, its shield hit effect is not shown";
@@ -131,6 +134,7 @@ public sealed class CombatArt
     string? _boardingSound;
     readonly Dictionary<string, SpriteArt> _sprites = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> _fireSounds = new(StringComparer.OrdinalIgnoreCase);
+    readonly HashSet<string> _beamModels = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<PlacedObject, ExplosionArt> _explosions = new(ReferenceEqualityComparer.Instance);
 
     // Per model: each node name, matched without regard to case, to the name the built node carries.
@@ -184,6 +188,11 @@ public sealed class CombatArt
                         art._gaps.Add(MissingHardpoint, hardpoint, unit);
                     }
                 }
+            }
+
+            foreach (var special in profile.SpecialWeapons)
+            {
+                art.ResolveSpecial(special, nodes, unit);
             }
 
             if (profile.Systems.Any(s => s.Name == SystemNames.ShieldGenerator))
@@ -387,6 +396,9 @@ public sealed class CombatArt
     public IEnumerable<string> ExplosionModels =>
         _explosions.Values.Select(e => e.Model).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The special weapons' beam models the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
+    public IEnumerable<string> BeamModels => _beamModels;
+
     /// <summary>The shield hit effect geometries the install holds, without <c>.sod</c>, each once (ignoring case).</summary>
     public IEnumerable<string> ShieldGeometries => _shieldGeometries;
 
@@ -492,6 +504,37 @@ public sealed class CombatArt
                 nodes.TryAdd(node.Name, NodeName.Of(node.Name));
         }
         catch (Exception e) when (e is IOException or InvalidDataException or UnsupportedFormatException) { }
+    }
+
+    // A special weapon's fire sound and beam model: each listed when the install holds it, else a gap; the weapon works
+    // without either.
+    void ResolveSpecial(SpecialWeaponProfile weapon, Dictionary<string, string> nodes, PlacedObject unit)
+    {
+        if (ResolveSound(weapon.FireSound, weapon.Name, NoSpecialSound, MissingSound, unit))
+        {
+            _fireSounds.Add(weapon.FireSound);
+        }
+
+        if (weapon.Geometry.Length == 0)
+        {
+            _gaps.Add(NoBeamModel, weapon.Name, unit);
+        }
+        else if (_files.Find(weapon.Geometry) == null)
+        {
+            _gaps.Add(MissingBeamModel, weapon.Geometry, unit);
+        }
+        else
+        {
+            _beamModels.Add(Path.GetFileNameWithoutExtension(weapon.Geometry));
+        }
+
+        foreach (var hardpoint in weapon.Hardpoints)
+        {
+            if (!nodes.ContainsKey(hardpoint))
+            {
+                _gaps.Add(MissingHardpoint, hardpoint, unit);
+            }
+        }
     }
 
     void ResolveSprite(WeaponProfile weapon, PlacedObject unit)

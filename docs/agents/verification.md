@@ -134,6 +134,10 @@ The checked-in play scripts, the layout or map each runs on, and the mechanics e
 | `sound-fade-start.play` | `layouts/sound-fade.jsonc` | A fireball that starts beyond its maximum distance, never heard |
 | `transport-feedback.play` | `layouts/transport-feedback.jsonc` | The transport effect on source and target while the transport runs and not after a cancel; the transport sound; the captured ship in its new team color beside a ship of its model in the old one |
 | `transport-cases.play` | `layouts/transport-cases.jsonc` | The transport to a derelict ship (captured) and to a friendly ship (crew added); the hero ship's voice line at its order and a ship with none silent; the transport sound at each party |
+| `special-weapon.play` | `layouts/special-weapon.jsonc` | A Borg cube's Holding Beam (F4, then a click) holds a moving ship's position and heading and drains the cube's special energy; the second key press turns it off and the ship drives on |
+| `special-beams.play` | `layouts/special-beams.jsonc` | A Borg cube's Holding Beam and a Borg Assimilator's Auto-Assimilator each show their beam model between ship and target while they run, play their fire sound once at the start, and show no beam once ordered off |
+| `borg-assimilation.play` | `layouts/borg-assimilation.jsonc` | A Borg cube's Holding Beam boards a Klingon destroyer through its shields until the parties outnumber its crew; the destroyer ends on the cube's team with the race `borg` |
+| `auto-assimilator.play` | `layouts/auto-assimilator.jsonc` | A Borg Assimilator's Auto-Assimilator (F3, then a click) drains a Klingon destroyer's crew into its own and the team's crew pool until the destroyer is derelict; the destroyer keeps its team and race |
 
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
 

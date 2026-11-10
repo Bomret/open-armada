@@ -11,7 +11,9 @@ namespace OpenArmada.Sandbox;
 /// <summary>
 /// The combat profile of every unit of a map, read once from the install, with the gaps found while
 /// reading (INV-0002: a gap is reported with its cause once and the map still opens). Beam (<c>cannon</c>) and
-/// torpedo (<c>launcher</c>) weapons are read; special weapons are out of scope and skipped without a gap.
+/// torpedo (<c>launcher</c>) weapons are read, and the Holding Beam (a <c>special</c> <c>toggleweapon</c>) as a
+/// <see cref="SpecialWeaponProfile"/> with the Auto-Assimilator (a <c>borgbore</c> ordnance); every other special weapon
+/// is skipped without a gap.
 /// Each gap is logged once per cause as a WARN; a definition or constants file that exists but cannot be read is
 /// logged instead as one ERROR per file, with its name and reason (INV-0005, INV-0002).
 /// A value the install lacks takes a stand-in (INV-0003) and is reported when the rules need it; no profile value is
@@ -22,6 +24,9 @@ public sealed class CombatPlan
 {
     const string BeamClass = "cannon";
     const string TorpedoClass = "launcher";
+    const string ToggleClass = "toggleweapon";
+    const string HoldingBeamClass = "holding_bm";
+    const string AutoAssimilatorClass = "borgbore";
 
     /// <summary>One entry per unit of the plan, by the placed object itself (not by value).</summary>
     public IReadOnlyDictionary<PlacedObject, CombatProfile> Profiles { get; }
@@ -72,6 +77,12 @@ public sealed class CombatPlan
     /// </summary>
     public TransporterValues Transporter { get; private init; } = TransporterValues.Stock;
 
+    /// <summary>
+    /// <c>cfgMaxCrew</c> of RTS_CFG.h: the cap of each team's crew pool (0x4453f0, 0x448c60); a missing or non-numeric
+    /// value takes <see cref="CombatWorld.DefaultCrewPoolCap"/>, with no report.
+    /// </summary>
+    public double CrewPoolCap { get; private init; }
+
     CombatPlan(
         IReadOnlyDictionary<PlacedObject, CombatProfile> profiles,
         IReadOnlyList<ReportEntry> reports,
@@ -103,6 +114,7 @@ public sealed class CombatPlan
         var debris = ReadDebris(files, rts, gaps);
         var avoidance = ReadAvoidance(rts, gaps);
         var transporter = ReadTransporter(rts, gaps);
+        var poolCap = ReadCrewPoolCap(rts);
         var reader = new ProfileReader(files);
         var byClass = new Dictionary<string, (CombatProfile Profile, List<(string Cause, string Name)> Gaps)>(
             StringComparer.OrdinalIgnoreCase
@@ -152,6 +164,7 @@ public sealed class CombatPlan
             MaxPreventionRotation = prevention,
             Avoidance = avoidance,
             Transporter = transporter,
+            CrewPoolCap = poolCap,
         };
     }
 
@@ -182,6 +195,12 @@ public sealed class CombatPlan
 
     // The transporter constants of the parsed RTS_CFG.h: a value it lacks, or gives as no finite number, takes its stand-in
     // (INV-0003) and is reported once. A null header (reported by ReadConstants) gives the stand-ins.
+    // No gap for a missing key: the pool cap matters only to an Auto-Assimilator's surplus, and the stand-in is the stock value.
+    static double ReadCrewPoolCap(GameConstants? constants) =>
+        constants != null && constants.TryNumber("cfgMaxCrew", out var v, out _) && double.IsFinite(v)
+            ? v
+            : CombatWorld.DefaultCrewPoolCap;
+
     static TransporterValues ReadTransporter(GameConstants? constants, Gaps gaps)
     {
         var stock = TransporterValues.Stock;
@@ -448,9 +467,13 @@ public sealed class CombatPlan
                 }
             }
 
+            var raceName = r.Str("race");
+            var specials = new List<SpecialWeaponProfile>();
+
             return new CombatProfile
             {
-                Weapons = ReadWeapons(d, r, gaps),
+                Weapons = ReadWeapons(d, r, gaps, specials),
+                SpecialWeapons = specials,
                 MaxHealth = r.Num("maxHealth", 0, report: true),
                 ShieldRate = r.Num("shieldRate", 0, report: true),
                 ShieldDelay = r.Num("shieldDelay", 0),
@@ -466,14 +489,18 @@ public sealed class CombatPlan
                 IsHero = r.Flag("isHero", false),
                 TransportVoice = r.Str("eventTransport"),
                 ShieldPad = r.Num("shieldPad", ShieldEllipsoid.DefaultShieldPad),
-                Race = ReadRace(d, r, gaps),
+                Race = ReadRace(raceName, r, gaps),
+                RaceName = raceName,
+                MaxSpecialEnergy = r.Num("maxSpecialEnergy", 0), // no gap: a definition with none has none
+                SpecialEnergyRate = r.Num("specialEnergyRate", 0),
             };
         }
 
         IReadOnlyList<WeaponProfile> ReadWeapons(
             ResolvedDefinition d,
             Values unit,
-            List<(string Cause, string Name)> gaps
+            List<(string Cause, string Name)> gaps,
+            List<SpecialWeaponProfile> specials
         )
         {
             var weapons = new List<WeaponProfile>();
@@ -506,7 +533,8 @@ public sealed class CombatPlan
                     w.Gap("classLabel missing, weapon left out");
                 }
 
-                if (label != BeamClass && label != TorpedoClass)
+                var special = label == ToggleClass && w.Flag("special", false);
+                if (label != BeamClass && label != TorpedoClass && !special)
                     continue;
                 var ordName = w.Str("ordName");
                 if (ordName.Length == 0)
@@ -520,6 +548,62 @@ public sealed class CombatPlan
                 if (ordnance == null)
                     continue;
                 var o = new Values(ordnance, gaps);
+                if (special)
+                {
+                    // only the Holding Beam and the Auto-Assimilator are orders the sandbox runs; another special weapon is
+                    // left out without a gap
+                    var kind = o.Str("classLabel");
+                    if (kind == HoldingBeamClass)
+                    {
+                        specials.Add(
+                            new SpecialWeaponProfile
+                            {
+                                Name = name,
+                                Hardpoints = unit.List($"weaponHardpoints{n}"),
+                                FireSound = w.Str("fireSound"),
+                                Geometry = o.Str("shotGeometry"),
+                                RadiusScale = o.Num("radiusScale", 1),
+                                LengthScale = o.Num("lengthScale", 1),
+                                Slot = (int)w.Num("buttonSlot", 0, report: true),
+                                Range = w.Num("range", 0, report: true),
+                                EnergyCost = o.Num("specialEnergyCost", 0, report: true),
+                                TargetRange = o.Num("targetRange", 0),
+                                LifeSpan = o.Num("lifeSpan", 0),
+                                BoardingSize = o.Num("boardingSize", 0),
+                                BoardingInterval = o.Num("boardingInterval", 0),
+                                BoardingDelay = o.Num("boardingDelay", 0),
+                            }
+                        );
+                    }
+                    else if (kind == AutoAssimilatorClass)
+                    {
+                        // its duration is not read: Armada.exe has no such key for it (0x4da590)
+                        specials.Add(
+                            new SpecialWeaponProfile
+                            {
+                                Kind = SpecialWeaponKind.AutoAssimilator,
+                                Name = name,
+                                Hardpoints = unit.List($"weaponHardpoints{n}"),
+                                FireSound = w.Str("fireSound"),
+                                Geometry = o.Str("shotGeometry"),
+                                RadiusScale = o.Num("radiusScale", 1),
+                                LengthScale = o.Num("lengthScale", 1),
+                                Slot = (int)w.Num("buttonSlot", 0, report: true),
+                                Range = o.Num("attackRange", 0, report: true),
+                                EnergyCost = o.Num("specialEnergyCost", 0, report: true),
+                                CrewRate = o.Num("specialValue", 0, report: true),
+                                TargetRange = 0,
+                                LifeSpan = 0,
+                                BoardingSize = 0,
+                                BoardingInterval = 0,
+                                BoardingDelay = 0,
+                            }
+                        );
+                    }
+
+                    continue;
+                }
+
                 var hardpoints = unit.List($"weaponHardpoints{n}");
                 if (hardpoints.Count == 0)
                 {
@@ -608,9 +692,8 @@ public sealed class CombatPlan
             return found.Definition;
         }
 
-        RaceValues ReadRace(ResolvedDefinition d, Values unit, List<(string Cause, string Name)> gaps)
+        RaceValues ReadRace(string race, Values unit, List<(string Cause, string Name)> gaps)
         {
-            var race = unit.Str("race");
             if (race.Length == 0)
             {
                 unit.Gap("race missing, stand-in race values used");
@@ -631,6 +714,8 @@ public sealed class CombatPlan
                     RepairRed = r.Num("repairRed", 1, report: true),
                     RepairStrength = r.Num("repairStrength", 1, report: true),
                     BoardingStrength = BoardingStrength(r),
+                    CrewAccumulationRate = r.Num("crewAccumulationRate", 0),
+                    PlanetCrewAccumulationModifier = r.Num("planetCrewAccumulationModifier", 0),
                 };
             }
             else if (_racesProblem != null)

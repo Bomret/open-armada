@@ -21,21 +21,25 @@ public sealed class PlayState
     readonly Func<PlacedObject, ShipPose> _pose;
     readonly Func<PlacedObject, Sod?> _model;
     readonly Func<int> _debris;
+    readonly Func<IReadOnlyDictionary<int, CrewPool>> _pools;
     readonly Dictionary<PlacedObject, UnitCombatState> _states = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// <c>names</c> holds the addressable units; <c>pose</c> reads a unit's current pose; <c>states</c> are the
     /// combat states of the units in the combat world at the start of the run; <c>model</c> reads a unit's model
-    /// for the damage nodes of its dump line (null: no unit has one).
+    /// for the damage nodes of its dump line (null: no unit has one); <c>pools</c> reads each team's crew pool for the
+    /// dump's pool lines and <c>expect pool</c> (null: no pools).
     /// </summary>
     public PlayState(
         UnitNames names,
         Func<PlacedObject, ShipPose> pose,
         IEnumerable<UnitCombatState> states,
         Func<PlacedObject, Sod?>? model = null,
-        Func<int>? debris = null
+        Func<int>? debris = null,
+        Func<IReadOnlyDictionary<int, CrewPool>>? pools = null
     )
     {
+        _pools = pools ?? (() => new Dictionary<int, CrewPool>());
         _debris = debris ?? (() => 0);
         _names = names;
         _pose = pose;
@@ -52,13 +56,15 @@ public sealed class PlayState
     public (PlacedObject? Unit, string? Problem) Resolve(string name) => _names.Resolve(name);
 
     /// <summary>
-    /// The state dump: one line per addressable unit in plan order, then a last line <c>debris=</c> with the number of
+    /// The state dump: one line per addressable unit in plan order, then one line <c>pool team=&lt;n&gt;
+    /// crew=&lt;crew&gt;/&lt;cap&gt;</c> per team with a crew pool in team order, then a last line <c>debris=</c> with the number of
     /// live debris pieces, <c>\n</c>-terminated, invariant culture, two
     /// decimals, the systems in a fixed order, and no time of day. A unit without combat state shows
     /// <c>state=none</c> after its position, velocity, and angles. Fields, space-separated: name, team, pos (x,y,z), vel
     /// (x,y,z, the unit's world velocity in the frame of pos; 0,0,0 for a unit that stands still or has no combat
     /// state), pitch, yaw, and roll (the unit's orientation as the game's angles in radians, see
-    /// <see cref="MoveGeometry"/>), shields, crew, one
+    /// <see cref="MoveGeometry"/>), race (the unit's current race name, or <c>none</c>; only for a unit with combat
+    /// state), shields, crew, one
     /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, coasting,
     /// destroyed (true once the unit has left the world), dying, alert, order,
     /// target, move (<c>x,z</c> of the player's open move order, or <c>none</c>), shieldDown (the state's shield-down overlay flag), damage (the names of the damage nodes the state
@@ -81,7 +87,11 @@ public sealed class PlayState
             );
             if (s != null)
             {
-                text.Append(CultureInfo.InvariantCulture, $" shields={s.Shields:F2} crew={s.Crew:F2}");
+                text.Append(
+                    CultureInfo.InvariantCulture,
+                    $" race={RaceOf(s)} shields={s.Shields:F2} crew={s.Crew:F2}"
+                        + $" special={s.SpecialEnergy:F2}/{s.Profile.MaxSpecialEnergy:F2}"
+                );
                 foreach (var name in SystemNames.All.Where(s.Systems.ContainsKey))
                 {
                     var system = s.Systems[name];
@@ -108,6 +118,11 @@ public sealed class PlayState
             }
 
             text.Append('\n');
+        }
+
+        foreach (var (team, pool) in _pools())
+        {
+            text.Append(CultureInfo.InvariantCulture, $"pool team={team} crew={pool.Crew:F2}/{pool.Cap:F2}\n");
         }
 
         text.Append(CultureInfo.InvariantCulture, $"debris={_debris()}\n");
@@ -155,6 +170,11 @@ public sealed class PlayState
                 holds = state.Team == int.Parse(step.Value, CultureInfo.InvariantCulture); // the parser accepts only an integer here
 
                 break;
+            case "race":
+                actual = RaceOf(state);
+                holds = actual == step.Value;
+
+                break;
             case "target":
                 var (expected, unknown) = step.Value == "none" ? (null, null) : _names.Resolve(step.Value);
                 if (unknown != null)
@@ -177,6 +197,14 @@ public sealed class PlayState
                 else if (step.Field == "crew")
                 {
                     value = state.Crew;
+                }
+                else if (step.Field == "special")
+                {
+                    value = state.SpecialEnergy;
+                }
+                else if (step.Field == "pool")
+                {
+                    value = _pools().TryGetValue(state.Team, out var pool) ? pool.Crew : 0; // the unit's team's pool
                 }
                 else if (state.Systems.TryGetValue(step.Field, out var system))
                 {
@@ -232,6 +260,9 @@ public sealed class PlayState
         };
 
     static string Flag(bool value) => value ? "true" : "false";
+
+    // The unit's current race name, or none for a definition that names no race.
+    static string RaceOf(UnitCombatState state) => state.RaceName.Length == 0 ? "none" : state.RaceName;
 
     // Two decimals; an angle that rounds to zero from below shows as 0.00, so a level unit never shows -0.00.
     static string Angle(float radians)

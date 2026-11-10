@@ -16,11 +16,41 @@ public class AlertBindingsTests
     public void CleanUp() => temp.CleanUp();
 
     // One block per stance: the key and the modifiers `+`/`-` lines name.
-    const string Reference =
+    static readonly string Reference =
         "# set green alert\ngreen {\n\t+ keyboard\tG\n\t- keyboard \tControl\n\t+ keyboard\tShift\n\t- keyboard\tAlt\n}\n"
         + "yellow {\n\t+ keyboard\tY\n\t- keyboard \tControl\n\t+ keyboard\tShift\n\t- keyboard\tAlt\n}\n"
         + "red {\n\t+ keyboard\tR\n\t- keyboard \tControl\n\t+ keyboard\tShift\n\t- keyboard\tAlt\n}\n"
-        + "transport {\n\t+ keyboard\tT\n\t- keyboard \tControl\n\t- keyboard\tShift\n\t- keyboard\tAlt\n}\n";
+        + "transport {\n\t+ keyboard\tT\n\t- keyboard \tControl\n\t- keyboard\tShift\n\t- keyboard\tAlt\n}\n"
+        + string.Concat(
+            Enumerable
+                .Range(1, 6)
+                .Select(n =>
+                    $"fire_special_{n} {{\n\t+ keyboard\tF{n}\n\t- keyboard \tControl\n\t- keyboard\tShift\n\t- keyboard\tAlt\n}}\n"
+                )
+        );
+
+    [TestMethod]
+    public void TheSpecialWeaponKeysAreF1ToF6WithNoModifiers()
+    {
+        var (b, gaps) = Read(("Input.map", Reference));
+        Assert.AreEqual(4, b.SpecialSlot(new KeyChord { Key = "F4" }));
+        Assert.AreEqual(4, b.SpecialSlot(new KeyChord { Key = "f4" }));
+        Assert.IsNull(b.SpecialSlot(new KeyChord { Key = "F4", Shift = true }));
+        Assert.IsNull(b.SpecialSlot(new KeyChord { Key = "F7" }));
+        Assert.AreEqual(new KeyChord { Key = "F6" }, b.SpecialChord(6));
+        Assert.IsNull(b.SpecialChord(7));
+        Assert.AreEqual(0, gaps.Count);
+    }
+
+    [TestMethod]
+    public void AMissingSpecialWeaponBlockIsOneGapAndLeavesThatKeyUnbound()
+    {
+        var (b, gaps) = Read(("Input.map", Reference.Replace("fire_special_3 {", "other {")));
+        Assert.AreEqual(1, gaps.Count);
+        StringAssert.Contains(gaps[0], "fire_special_3");
+        Assert.IsNull(b.SpecialChord(3));
+        Assert.AreEqual(4, b.SpecialSlot(new KeyChord { Key = "F4" }));
+    }
 
     [TestMethod]
     public void TheTransportChordIsTWithNoModifiers()

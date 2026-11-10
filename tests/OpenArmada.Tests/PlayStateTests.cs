@@ -64,13 +64,114 @@ public class PlayStateTests
         var lines = scene.Play.Dump().Split('\n');
 
         Assert.AreEqual(
-            "a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
+            "a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 race=none shields=100.00 crew=40.50 special=0.00/0.00 Engines=6.00/6.00/intact "
                 + "Weapons=5.00/5.00/intact Sensors=4.00/4.00/intact "
                 + "derelict=false immobile=false coasting=false destroyed=false dying=false alert=Red order=b target=none move=none shieldDown=false damage=crew",
             lines[0]
         );
         Assert.AreEqual(5, lines.Length); // three units, the debris line, and the empty rest after the last newline
         Assert.AreEqual("", lines[4]);
+    }
+
+    [TestMethod]
+    public void TheDumpShowsTheUnitsCurrentRaceNameBeforeItsShields()
+    {
+        var scene = new Scene();
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[0], " roll=0.00 race=none shields=100.00 ");
+        scene.StateA.RaceName = "borg";
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[0], " roll=0.00 race=borg shields=100.00 ");
+    }
+
+    [TestMethod]
+    public void TheDumpShowsEveryUnitsSpecialEnergyAsCurrentOverMaximum()
+    {
+        var scene = new Scene();
+        var lines = scene.Play.Dump().Split('\n');
+        StringAssert.Contains(lines[0], " crew=40.50 special=0.00/0.00 ");
+        StringAssert.Contains(lines[1], " special=0.00/0.00 ");
+        scene.StateA.SpecialEnergy = 12.5;
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[0], " special=12.50/0.00 ");
+    }
+
+    [TestMethod]
+    public void ASpecialExpectationReadsTheCurrentSpecialEnergy()
+    {
+        var scene = new Scene();
+        scene.StateA.SpecialEnergy = 12.5;
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("a", "special", "=", "12.5")));
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("a", "special", ">=", "10")));
+        Assert.AreEqual(
+            "expectation failed: a special: expected = 13, actual 12.50",
+            scene.Play.Expect(Scene.Expect("a", "special", "=", "13"))
+        );
+    }
+
+    [TestMethod]
+    public void ARaceExpectationReadsTheCurrentRaceName()
+    {
+        var scene = new Scene();
+        scene.StateA.RaceName = "fed";
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("a", "race", "=", "fed")));
+        Assert.AreEqual(
+            "expectation failed: a race: expected = borg, actual fed",
+            scene.Play.Expect(Scene.Expect("a", "race", "=", "borg"))
+        );
+    }
+
+    [TestMethod]
+    public void ACapturedUnitsDumpExpectationAndOverlayAllShowTheCaptorsRace()
+    {
+        // INV-0014: a Klingon unit captured by a party of another race reads the captor's race in its race values, its
+        // overlay, and the dump.
+        var captorRace = Race with
+        {
+            CrewYellowStatus = 0.9f,
+        };
+        var captor = Placed("s", 1, 0);
+        var target = Placed("t", 2, 100);
+        var profiles = new[]
+        {
+            (captor, Profile(race: captorRace, raceName: "borg", crew: 100)),
+            (target, Profile(crew: 0, raceName: "klingon")),
+        };
+        var poses = new UnitPoses([captor, target]);
+        var model = new Sod
+        {
+            Version = 1.8f,
+            Nodes =
+            [
+                new Sod.Node { Name = "root" },
+                new Sod.Node { Name = "damage", Parent = "root" },
+                new Sod.Node { Name = "borg", Parent = "damage" },
+            ],
+        };
+        var world = new CombatWorld(
+            poses,
+            profiles.Select(p => new CombatUnit
+            {
+                Unit = p.Item1,
+                Profile = p.Item2,
+                DefinitionName = "x.odf",
+                Radius = 0,
+                Mobile = false,
+            }),
+            1,
+            () => 0,
+            (_, _, pose) => pose.Position
+        );
+        var play = new PlayState(
+            new UnitNames([captor, target]),
+            poses.Pose,
+            [world.State(captor)!, world.State(target)!],
+            _ => model
+        );
+        world.ChangeTeam(target, 1, "borg", captorRace);
+        var line = play.Dump().Split('\n')[1];
+
+        Assert.AreEqual(captorRace, world.State(target)!.Race);
+        StringAssert.Contains(line, " race=borg ");
+        StringAssert.Contains(line, " damage=borg");
+        Assert.IsNull(play.Expect(Scene.Expect("t", "race", "=", "borg")));
     }
 
     [TestMethod]
@@ -233,7 +334,7 @@ public class PlayStateTests
         {
             StringAssert.Contains(
                 scene.Play.Dump(),
-                "pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 shields=100.00"
+                "pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 race=none shields=100.00"
             );
         }
         finally

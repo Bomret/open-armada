@@ -174,6 +174,12 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
             () => selection.Selected.Select(u => u.Object).ToList()
         );
         AddChild(new TransportInput(transport, selection, files, gap => AddGap(gap)));
+        var special = new SpecialWeaponControl(
+            orders.Combat,
+            bindings,
+            () => selection.Selected.Select(u => u.Object).ToList()
+        );
+        AddChild(new SpecialWeaponInput(special, selection));
 
         // The fight's sprites, sounds, and explosions come from the install, read once here; what it lacks joins
         // the gaps.
@@ -262,7 +268,8 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 orders.Pose,
                 orders.Combat.Units.ToList(),
                 ModelOf,
-                () => orders.Combat.Debris.Count
+                () => orders.Combat.Debris.Count,
+                () => orders.Combat.CrewPools
             );
             var folder = ProjectSettings.GlobalizePath($"res://play-out/{play.Stem}");
             var input = new PlayInput(

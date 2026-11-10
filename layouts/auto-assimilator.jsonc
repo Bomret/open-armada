@@ -1,0 +1,11 @@
+// A Borg Assimilator on team 1 100 units from a Klingon destroyer on team 2, for play/auto-assimilator.play: the
+// Assimilator's Auto-Assimilator (key F3) drains the destroyer's crew into itself until the destroyer is derelict, and the
+// destroyer keeps its team and race.
+// Run it with: sh tools/play-run.sh auto-assimilator --layout layouts/auto-assimilator.jsonc --fps 10
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "bcruise2", "team": 1, "position": [1900, 0, 2000], "label": "Assimilator" },
+    { "class": "kdestroy", "team": 2, "position": [2000, 0, 2000], "label": "Victim" },
+  ],
+}

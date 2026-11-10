@@ -383,7 +383,8 @@ not yet read.
 ## Special weapons
 
 A special weapon is a `toggleweapon` definition with `special = 1`. The sandbox runs the Holding Beam, whose ordnance
-`classLabel` is `holding_bm` (`gholdbm`, reached through `hholdbm`'s include); every other special weapon is left out of
+`classLabel` is `holding_bm` (`gholdbm`, reached through `hholdbm`'s include), and the Auto-Assimilator, whose ordnance
+`classLabel` is `borgbore` (`gborgbor`, ordnance `borgbor`, key F3); every other special weapon is left out of
 the plan without a gap. The plan reads the weapon's `buttonSlot` (the number of the `fire_special_N` key, F1 to F6) and
 `range`, and the ordnance's `specialEnergyCost` (+0x34, 0x4ea1e0), `targetRange`, `lifeSpan`, `boardingSize`,
 `boardingInterval`, and `boardingDelay`.
@@ -432,6 +433,37 @@ them again. **Stand-in**: the ordnance's `lifeSpan` (30 s) does not end the beam
 was not traced; the end conditions and the energy end it.
 
 **Not built yet**: the drones the beam sends aboard, the beam's model and sound, and the other special weapons.
+
+### The Auto-Assimilator
+
+The plan reads the weapon's `buttonSlot` (3 for the Borg Assimilator) and the ordnance's `specialEnergyCost`
+(+0x34, 0x4ea1e0), `specialValue` (+0x110, 0x4ea1e0: the crew moved per second) and `attackRange` (+0x120, 0x4da590,
+the weapon's reach). The ordnance's `duration` is not read: Armada.exe's loader has no such key (0x4da590). The order,
+its start (an enemy ship within the reach, the energy to cover the cost, spent once), its energy drain, and its
+ending by a second order, by the shooter's capture, or by the target's destruction are the Holding Beam's (see above);
+the start's range is `attackRange`.
+
+**Drain.** Each sandbox tick, while the weapon runs, `min(tick x specialValue, the target's crew)` leaves the target
+(0x563740 case 7, through 0x467390: a target of a maximum crew above 0 that is not derelict; its crew below one
+makes it derelict, 0x466ca0). The shooter takes the crew up to its maximum crew (0x467570); the rest goes to its team's
+crew pool, up to the pool's cap, and crew beyond the cap is lost. The target keeps its team and race: the drain never
+captures it, and no crew is created. The tick is fixed, so the drained total over a span is the same at any frame rate.
+
+**End** (0x4da8f0). The weapon ends when the target is derelict, or of the shooter's team, or beyond `attackRange`, when the
+shooter is not a ship, and when the shooter's special energy ratio reaches zero. **Stand-in**: the crew below one that
+leaves with the derelict (`CombatRules.CheckCrew`) is lost, so the crew across units and pools never grows but can shrink by
+that fraction; the end of range is the `attackRange` itself (the Holding Beam's 1.33 factor, 0x5d0148, belongs to its
+beam); a dying unit counts as destroyed, as for the Holding Beam.
+
+## Crew pool
+
+Each team has a crew pool in its team record (+0x20, the cap at +0x24; the record of 0x448f30, built by 0x448d50).
+The sandbox's combat world holds one pool per team a unit has belonged to. The cap is `cfgMaxCrew` of RTS_CFG.h (set into
+every team record by 0x448c60 from the config read at 0x4453f0). The Auto-Assimilator adds the crew its shooter cannot
+hold (0x563740 case 7: the pool becomes the smaller of the cap and the pool plus the surplus). **Stand-in**: every pool
+starts at 0 (the game starts it at a share of `cfgStartingCrew`, 0x448d50), and the cap is 99999, the stock value, where
+the install's RTS_CFG.h has no `cfgMaxCrew`. The state dump has a line `pool team=<n> crew=<crew>/<cap>` per team and
+`expect <unit> pool <op> <number>` reads the pool of the unit's team.
 
 ## Ship systems
 

@@ -201,6 +201,21 @@ reaches a hostile derelict. The survivors become the unit's crew; the unit keeps
 transport, and stops its current order. A neutral (team 0) unit is never captured.
 _Avoid_: takeover, hijack, conversion
 
+**Assimilation**
+A **Capture** by a Borg boarding party: the unit's race becomes `borg`, so its `borg` overlay shows. It is no
+separate mechanic.
+_Avoid_: borgification, conversion
+
+**Special energy**
+A unit's reserve for special weapons, read from its definition for every race: it refills to its maximum at its
+rate, a special weapon starts only when the unit holds the weapon's cost, and the weapon drains it while on.
+_Avoid_: energy, mana, power
+
+**Crew pool**
+A player's reserve of crew outside its units, capped per player. Starbases fill it, and an Auto-Assimilator's
+crew beyond its unit's maximum goes into it.
+_Avoid_: drone pool, crew reserve
+
 **Move order**
 An order that sends a ship to a point of the combat plane. The ship drives to the point and the order ends
 there. It also ends where the ship stands when a forced motion moves the ship while the ship is within its

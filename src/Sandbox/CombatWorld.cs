@@ -407,11 +407,14 @@ public sealed class CombatWorld
     // The beam ends when the target is out of the weapon's range times this (0x5d0148).
     const float BeamLeaveRange = 1.33f;
 
+    // The crew a shooter keeps beyond a boarding party it sends (0x5ca8ac).
+    const float BoardingCrewReserve = 5;
+
     // One tick of every running special weapon. It ends, with the energy as it stands, when its unit or its target is
     // destroyed (stand-in: a dying unit counts as destroyed, as for a boarding party), the target has joined the unit's
     // team, the target is beyond the range times 1.33, or the energy cannot cover the tick's drain (the cost times the
     // tick: 0x509160, 0x4ddf80). Otherwise it drains and holds its target.
-    void RunSpecials()
+    void RunSpecials(List<CombatEvent> events)
     {
         foreach (var u in _units.Values.Where(u => u.SpecialOrder != null).ToList())
         {
@@ -435,7 +438,43 @@ public sealed class CombatWorld
 
             u.SpecialEnergy = Math.Max(0, u.SpecialEnergy - drain);
             Hold(order);
+            Board(u, order, events);
         }
+    }
+
+    // The Holding Beam's boarding (0x4ddd30): the timer starts at the weapon's boardingDelay on the first hit and counts
+    // down by the tick. Below zero, while the target's maximum crew is above 0 and the shooter's crew is at least
+    // boardingSize + 5 (0x5ca8ac), the beam sends one ordinary boarding party of boardingSize crew from the shooter
+    // that lands at once, shields ignored (0x55f620 with race 0 and team -1), and the timer resets to boardingInterval.
+    // inferred: when the crew conditions fail the timer stays below zero and the next tick tries again.
+    // stand-in: the weapon's lifeSpan does not end the beam; the end conditions of RunSpecials and the energy do.
+    void Board(UnitCombatState shooter, SpecialWeaponOrder order, List<CombatEvent> events)
+    {
+        var weapon = order.Weapon;
+        var timer = (order.BoardingTimer ?? weapon.BoardingDelay) - Tick;
+        order.BoardingTimer = timer;
+        var target = order.Target;
+        if (
+            timer > Epsilon
+            || target.Profile.DefinedMaximumCrew <= 0
+            || shooter.Crew < weapon.BoardingSize + BoardingCrewReserve
+        )
+            return;
+        shooter.Crew -= weapon.BoardingSize;
+        CombatRules.CheckCrew(shooter);
+        _parties.Add(
+            new BoardingParty(
+                shooter.Unit,
+                target,
+                weapon.BoardingSize,
+                shooter.Team,
+                shooter.Race,
+                shooter.RaceName,
+                0
+            )
+        );
+        events.Add(new PartySent { Source = shooter.Unit, Target = target.Unit });
+        order.BoardingTimer = weapon.BoardingInterval;
     }
 
     // The Holding Beam's hold: the target's position and heading are what they were on the first tick of the beam (0x4ddd30).
@@ -1102,7 +1141,7 @@ public sealed class CombatWorld
         RunMotions();
         PullShips();
         SeparateShips();
-        RunSpecials();
+        RunSpecials(events);
         foreach (var u in _units.Values.ToList())
         {
             if (u.Destroyed)

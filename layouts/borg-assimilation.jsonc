@@ -1,0 +1,11 @@
+// A Borg cube on team 1 100 units from a Klingon destroyer on team 2, for play/borg-assimilation.play: the cube's Holding
+// Beam (key F4) sends boarding parties through the destroyer's shields until they outnumber its crew, and the destroyer
+// joins team 1 with the race borg.
+// Run it with: sh tools/play-run.sh borg-assimilation --layout layouts/borg-assimilation.jsonc --fps 10
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "bbattle", "team": 1, "position": [1900, 0, 2000], "label": "Cube" },
+    { "class": "kdestroy", "team": 2, "position": [2000, 0, 2000], "label": "Victim" },
+  ],
+}

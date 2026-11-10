@@ -58,7 +58,8 @@ public sealed class PlayState
     /// <c>state=none</c> after its position, velocity, and angles. Fields, space-separated: name, team, pos (x,y,z), vel
     /// (x,y,z, the unit's world velocity in the frame of pos; 0,0,0 for a unit that stands still or has no combat
     /// state), pitch, yaw, and roll (the unit's orientation as the game's angles in radians, see
-    /// <see cref="MoveGeometry"/>), shields, crew, one
+    /// <see cref="MoveGeometry"/>), race (the unit's current race name, or <c>none</c>; only for a unit with combat
+    /// state), shields, crew, one
     /// <c>System=hit points/maximum/intact|destroyed</c> per system the unit has, derelict, immobile, coasting,
     /// destroyed (true once the unit has left the world), dying, alert, order,
     /// target, move (<c>x,z</c> of the player's open move order, or <c>none</c>), shieldDown (the state's shield-down overlay flag), damage (the names of the damage nodes the state
@@ -81,7 +82,7 @@ public sealed class PlayState
             );
             if (s != null)
             {
-                text.Append(CultureInfo.InvariantCulture, $" shields={s.Shields:F2} crew={s.Crew:F2}");
+                text.Append(CultureInfo.InvariantCulture, $" race={RaceOf(s)} shields={s.Shields:F2} crew={s.Crew:F2}");
                 foreach (var name in SystemNames.All.Where(s.Systems.ContainsKey))
                 {
                     var system = s.Systems[name];
@@ -146,6 +147,11 @@ public sealed class PlayState
             case "team":
                 actual = state.Team.ToString(CultureInfo.InvariantCulture);
                 holds = state.Team == int.Parse(step.Value, CultureInfo.InvariantCulture); // the parser accepts only an integer here
+
+                break;
+            case "race":
+                actual = RaceOf(state);
+                holds = actual == step.Value;
 
                 break;
             case "target":
@@ -217,6 +223,9 @@ public sealed class PlayState
         };
 
     static string Flag(bool value) => value ? "true" : "false";
+
+    // The unit's current race name, or none for a definition that names no race.
+    static string RaceOf(UnitCombatState state) => state.RaceName.Length == 0 ? "none" : state.RaceName;
 
     // Two decimals; an angle that rounds to zero from below shows as 0.00, so a level unit never shows -0.00.
     static string Angle(float radians)

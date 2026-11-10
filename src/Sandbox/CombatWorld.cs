@@ -1181,7 +1181,9 @@ public sealed class CombatWorld
             // the red-status stop below is the game's test right after the party is sent (0x4672d0-0x467300): the
             // source's crew is already lowered (0x4674d0, called by 0x55f620), so (crew - TRANSPORTER_MAX) / maximum
             // crew against crewRedStatus asks whether the NEXT party would take the source to red
-            _parties.Add(new BoardingParty(u.Unit, t, size, u.Team, u.Race, u.RaceName, hostile ? Transporter.ActionDelay : 0));
+            _parties.Add(
+                new BoardingParty(u.Unit, t, size, u.Team, u.Race, u.RaceName, hostile ? Transporter.ActionDelay : 0)
+            );
             events.Add(new PartySent { Source = u.Unit, Target = t.Unit });
             u.TransportTimer = Transporter.Delay;
             if (u.Derelict || (u.Crew - Transporter.Max) / u.Profile.MaximumCrew <= u.Race.CrewRedStatus)

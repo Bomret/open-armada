@@ -286,18 +286,20 @@ public sealed class CombatWorld
     readonly SortedDictionary<int, CrewPool> _pools = new();
 
     /// <summary>
-    /// The crew pool of each team a unit has belonged to, by team, in team order (<see cref="CrewPool"/>).
+    /// The crew pool of each team a unit has belonged to, by team, in team order (<see cref="CrewPool"/>). A team no
+    /// surplus has reached reads as an empty pool at the cap; the read changes nothing.
     /// </summary>
     public IReadOnlyDictionary<int, CrewPool> CrewPools
     {
         get
         {
+            var pools = new SortedDictionary<int, CrewPool>(_pools);
             foreach (var u in _units.Values)
             {
-                PoolOf(u.Team);
+                pools.TryAdd(u.Team, new CrewPool(CrewPoolCap));
             }
 
-            return _pools;
+            return pools;
         }
     }
 
@@ -450,7 +452,8 @@ public sealed class CombatWorld
     // One tick of every running special weapon. It ends, with the energy as it stands, when its unit or its target is
     // destroyed (stand-in: a dying unit counts as destroyed, as for a boarding party), the target has joined the unit's
     // team, the target is beyond the range times 1.33, or the energy cannot cover the tick's drain (the cost times the
-    // tick: 0x509160, 0x4ddf80). Otherwise it drains and holds its target.
+    // tick: 0x509160, 0x4ddf80; for an Assimilator that is the end at a special energy of zero, 0x4da8f0), or an
+    // Assimilator's target has no defined maximum crew or is derelict. Otherwise it drains and holds its target.
     void RunSpecials(List<CombatEvent> events)
     {
         foreach (var u in _units.Values.Where(u => u.SpecialOrder != null).ToList())
@@ -467,7 +470,9 @@ public sealed class CombatWorld
                 || target.Team == u.Team
                 || Vector3.DistanceSquared(Position(u), Position(target)) > range * range
                 || u.SpecialEnergy + Epsilon < drain
-                || (assimilates && (target.Derelict || _avoidance[u].Starbase || u.SpecialEnergy <= 0))
+                || (
+                    assimilates && (target.Derelict || _avoidance[u].Starbase || target.Profile.DefinedMaximumCrew <= 0)
+                )
             )
             {
                 u.SpecialOrder = null;
@@ -496,7 +501,7 @@ public sealed class CombatWorld
     {
         var target = order.Target;
         var amount = Math.Min(Tick * order.Weapon.CrewRate, target.Crew);
-        if (amount <= 0 || target.Profile.DefinedMaximumCrew <= 0)
+        if (amount <= 0)
             return;
         target.Crew -= amount;
         CombatRules.CheckCrew(target);

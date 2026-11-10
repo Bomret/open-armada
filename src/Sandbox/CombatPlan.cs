@@ -81,7 +81,7 @@ public sealed class CombatPlan
     /// <c>cfgMaxCrew</c> of RTS_CFG.h: the cap of each team's crew pool (0x4453f0, 0x448c60); a missing or non-numeric
     /// value takes <see cref="CombatWorld.DefaultCrewPoolCap"/>, with no report.
     /// </summary>
-    public double CrewPoolCap { get; private init; } = CombatWorld.DefaultCrewPoolCap;
+    public double CrewPoolCap { get; private init; }
 
     CombatPlan(
         IReadOnlyDictionary<PlacedObject, CombatProfile> profiles,

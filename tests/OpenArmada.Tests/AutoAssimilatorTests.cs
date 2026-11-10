@@ -96,6 +96,58 @@ public class AutoAssimilatorTests
     }
 
     [TestMethod]
+    public void TheDrainEndsWhenTheShootersSpecialEnergyIsSpent()
+    {
+        // 20 energy: 10 for the start, 10 for one second of drain at cost 10 per second
+        var borg = Borg("borg", 1, 0, energy: 20);
+        var ship = Ship("ship", 2, 100);
+        var world = World(borg, ship);
+        world.SpecialWeapon(borg.Object, 3, ship.Object);
+        world.Step(3);
+        Assert.AreEqual(7, Crew(world, ship), 1e-6);
+        Assert.IsNull(world.State(borg.Object)!.SpecialOrder);
+    }
+
+    [TestMethod]
+    public void TheDrainEndsOnATargetWithNoDefinedMaximumCrewAndSpendsNoMoreEnergy()
+    {
+        var borg = Borg("borg", 1, 0);
+        var ship = new Spec(Placed("ship", 2, 100), Profile(crew: 12, maximumCrew: 0, raceName: "klingon"));
+        var world = World(borg, ship);
+        world.SpecialWeapon(borg.Object, 3, ship.Object);
+        world.Step(1);
+        Assert.IsNull(world.State(borg.Object)!.SpecialOrder);
+        Assert.AreEqual(990, world.State(borg.Object)!.SpecialEnergy, 1e-6);
+    }
+
+    [TestMethod]
+    public void AFreeAssimilatorDrainsWithoutEnergy()
+    {
+        var borg = new Spec(
+            Placed("borg", 1, 0),
+            Profile(crew: 50, maximumCrew: 100, raceName: "borg") with
+            {
+                SpecialWeapons = [Assimilator(cost: 0)],
+            }
+        );
+        var ship = Ship("ship", 2, 100);
+        var world = World(borg, ship);
+        Assert.IsTrue(world.SpecialWeapon(borg.Object, 3, ship.Object));
+        world.Step(1);
+        Assert.AreEqual(7, Crew(world, ship), 1e-6);
+    }
+
+    [TestMethod]
+    public void ReadingThePoolsChangesNothingAndStillListsEachTeam()
+    {
+        var world = World(Borg("borg", 1, 0), Ship("ship", 2, 100));
+        CollectionAssert.AreEqual(new[] { 1, 2 }, world.CrewPools.Keys.ToArray());
+        Assert.AreEqual(99999, world.CrewPools[2].Cap);
+        world.Step(1);
+        Assert.AreEqual(0, world.CrewPools[1].Crew);
+    }
+
+    [TestMethod]
     public void AFullAssimilatorSendsTheDrainedCrewToItsTeamsPoolAndNeverAboveTheCap()
     {
         var borg = Borg("borg", 1, 0, crew: 100);

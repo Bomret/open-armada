@@ -19,4 +19,11 @@ public sealed class SpecialWeaponOrder(SpecialWeaponProfile weapon, UnitCombatSt
     /// null until then.
     /// </summary>
     public ShipPose? Held { get; set; }
+
+    /// <summary>
+    /// The seconds until the beam's next boarding party: set to the weapon's <c>boardingDelay</c> on the first tick the
+    /// beam runs, counted down by each tick, and reset to <c>boardingInterval</c> after a party is sent (0x4ddd30);
+    /// null until the first tick.
+    /// </summary>
+    public double? BoardingTimer { get; set; }
 }

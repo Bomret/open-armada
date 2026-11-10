@@ -28,20 +28,29 @@ public class SpecialWeaponTests
 
     sealed record Spec(PlacedObject Object, CombatProfile Profile, bool Starbase = false, FlightModel? Motion = null);
 
-    static Spec Cube(string label, int team, float x, float energy = 1000, float rate = 0) =>
+    static Spec Cube(string label, int team, float x, float energy = 1000, float rate = 0, float crew = 100) =>
         new(
             Placed(label, team, x),
-            Profile(maxSpecialEnergy: energy, specialEnergyRate: rate) with
+            Profile(
+                maxSpecialEnergy: energy,
+                specialEnergyRate: rate,
+                crew: crew,
+                maximumCrew: Math.Max(100, crew)
+            ) with
             {
                 SpecialWeapons = [Hold()],
             }
         );
 
-    static Spec Ship(string label, int team, float x, bool moving = false)
+    static Spec Ship(string label, int team, float x, bool moving = false, float crew = 100, float maxCrew = 100)
     {
         var placed = Placed(label, team, x);
 
-        return new Spec(placed, Profile(), Motion: moving ? FlightFixtures.Cruiser(placed.Position) : null);
+        return new Spec(
+            placed,
+            Profile(crew: crew, maximumCrew: maxCrew, maxHealth: 100),
+            Motion: moving ? FlightFixtures.Cruiser(placed.Position) : null
+        );
     }
 
     static CombatWorld World(out UnitPoses poses, params Spec[] specs)
@@ -281,5 +290,90 @@ public class SpecialWeaponTests
         Assert.IsFalse(world.SpecialWeapon(cube.Object, 3, ship.Object));
         Assert.IsFalse(world.SpecialWeapon(ship.Object, 4, cube.Object));
         Assert.AreEqual(1000, Energy(world, cube));
+    }
+
+    // --- the drone boarding ---
+
+    static double Crew(CombatWorld world, Spec unit) => world.State(unit.Object)!.Crew;
+
+    [TestMethod]
+    public void ABeamOnAShieldedShipSendsATwentyCrewPartyAfterOneSecondAndOneEachSecondAfterThroughTheShields()
+    {
+        var cube = Cube("cube", 1, 0);
+        var ship = Ship("ship", 2, 100);
+        var world = World(cube, ship);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        world.Step(0.98);
+        Assert.AreEqual(100, Crew(world, cube));
+        world.Step(0.04);
+        Assert.AreEqual(80, Crew(world, cube), 1e-9);
+        Assert.AreEqual(80, Crew(world, ship), 1e-9);
+        world.Step(1);
+        Assert.AreEqual(60, Crew(world, cube), 1e-9);
+        Assert.AreEqual(60, Crew(world, ship), 1e-9);
+        Assert.AreEqual(100, world.State(ship.Object)!.Shields, "the party leaves the shields as they were");
+    }
+
+    [TestMethod]
+    public void ACubeWithFewerThanTwentyFiveCrewSendsNoPartyAndOneWithTwentyFiveSendsOne()
+    {
+        var few = Cube("few", 1, 0, crew: 24);
+        var enough = Cube("enough", 1, 0, crew: 25);
+        var ship = Ship("ship", 2, 100);
+        var world = World(few, enough, ship);
+        world.SpecialWeapon(few.Object, 4, ship.Object);
+        world.SpecialWeapon(enough.Object, 4, ship.Object);
+        world.Step(2.5);
+        Assert.AreEqual(24, Crew(world, few));
+        Assert.AreEqual(5, Crew(world, enough), 1e-9);
+    }
+
+    [TestMethod]
+    public void ATargetWithMaximumCrewZeroReceivesNoParty()
+    {
+        var cube = Cube("cube", 1, 0);
+        var ship = Ship("ship", 2, 100, crew: 0, maxCrew: 0);
+        var world = World(cube, ship);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        world.Step(3);
+        Assert.AreEqual(100, Crew(world, cube));
+    }
+
+    [TestMethod]
+    public void PartiesThatOutnumberTheCrewCaptureTheShipForTheCubesTeamAndRaceAndEndTheBeam()
+    {
+        var cube = Cube("cube", 1, 0) with { Profile = Cube("cube", 1, 0).Profile with { RaceName = "borg" } };
+        var ship = Ship("ship", 2, 100, crew: 30);
+        var world = World(cube, ship);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        world.Step(1.1);
+        Assert.AreEqual(2, world.State(ship.Object)!.Team);
+        world.Step(1);
+        var state = world.State(ship.Object)!;
+        Assert.AreEqual(1, state.Team);
+        Assert.AreEqual("borg", state.RaceName);
+        Assert.IsNull(world.State(cube.Object)!.SpecialOrder);
+    }
+
+    [TestMethod]
+    public void TheNumberOfPartiesOverFiveSecondsIsTheSameAtEveryStepLength()
+    {
+        var left = new List<double>();
+        foreach (var step in new[] { 1.0 / 60, 1.0 / 30, 0.5, 5.0 })
+        {
+            var cube = Cube("cube", 1, 0, energy: 5000, crew: 1000);
+            var ship = Ship("ship", 2, 100, crew: 1000, maxCrew: 1000);
+            var world = World(cube, ship);
+            world.SpecialWeapon(cube.Object, 4, ship.Object);
+            for (var t = 0.0; t < 5 - 1e-9; t += step)
+            {
+                world.Step(step);
+            }
+
+            left.Add(Math.Round(Crew(world, cube), 6));
+        }
+
+        Assert.AreEqual(1, left.Distinct().Count(), string.Join(", ", left));
+        Assert.AreEqual(900, left[0], 1e-9, "five parties of twenty from a thousand");
     }
 }

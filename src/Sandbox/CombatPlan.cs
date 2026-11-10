@@ -558,6 +558,12 @@ public sealed class CombatPlan
                         specials.Add(
                             new SpecialWeaponProfile
                             {
+                                Name = name,
+                                Hardpoints = unit.List($"weaponHardpoints{n}"),
+                                FireSound = w.Str("fireSound"),
+                                Geometry = o.Str("shotGeometry"),
+                                RadiusScale = o.Num("radiusScale", 1),
+                                LengthScale = o.Num("lengthScale", 1),
                                 Slot = (int)w.Num("buttonSlot", 0, report: true),
                                 Range = w.Num("range", 0, report: true),
                                 EnergyCost = o.Num("specialEnergyCost", 0, report: true),
@@ -576,6 +582,12 @@ public sealed class CombatPlan
                             new SpecialWeaponProfile
                             {
                                 Kind = SpecialWeaponKind.AutoAssimilator,
+                                Name = name,
+                                Hardpoints = unit.List($"weaponHardpoints{n}"),
+                                FireSound = w.Str("fireSound"),
+                                Geometry = o.Str("shotGeometry"),
+                                RadiusScale = o.Num("radiusScale", 1),
+                                LengthScale = o.Num("lengthScale", 1),
                                 Slot = (int)w.Num("buttonSlot", 0, report: true),
                                 Range = o.Num("attackRange", 0, report: true),
                                 EnergyCost = o.Num("specialEnergyCost", 0, report: true),

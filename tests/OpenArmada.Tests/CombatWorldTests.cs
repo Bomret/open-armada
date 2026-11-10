@@ -832,6 +832,25 @@ public class CombatWorldTests
     }
 
     [TestMethod]
+    public void ASpentSpecialEnergyIsBackAtTheMaximumAfterTenSecondsAndNeverAbove()
+    {
+        var cube = new Spec
+        {
+            Object = Placed("cube", 1, 0),
+            Profile = Profile(maxSpecialEnergy: 1000, specialEnergyRate: 10),
+        };
+        var world = World(null, cube);
+        var state = world.State(cube.Object)!;
+        state.SpecialEnergy -= 100;
+        world.Step(5);
+        Assert.AreEqual(950, state.SpecialEnergy, 1e-6);
+        world.Step(5);
+        Assert.AreEqual(1000, state.SpecialEnergy, 1e-6);
+        world.Step(5);
+        Assert.AreEqual(1000, state.SpecialEnergy, 1e-6);
+    }
+
+    [TestMethod]
     public void OneLongStepFiresAndLandsTheSameShotsAsManyShortSteps()
     {
         CombatWorld Build(out PlacedObject target)

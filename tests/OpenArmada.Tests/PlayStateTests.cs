@@ -64,7 +64,7 @@ public class PlayStateTests
         var lines = scene.Play.Dump().Split('\n');
 
         Assert.AreEqual(
-            "a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 race=none shields=100.00 crew=40.50 Engines=6.00/6.00/intact "
+            "a team=1 pos=1.50,0.00,2.00 vel=0.00,0.00,0.00 pitch=0.00 yaw=0.00 roll=0.00 race=none shields=100.00 crew=40.50 special=0.00/0.00 Engines=6.00/6.00/intact "
                 + "Weapons=5.00/5.00/intact Sensors=4.00/4.00/intact "
                 + "derelict=false immobile=false coasting=false destroyed=false dying=false alert=Red order=b target=none move=none shieldDown=false damage=crew",
             lines[0]
@@ -80,6 +80,30 @@ public class PlayStateTests
         StringAssert.Contains(scene.Play.Dump().Split('\n')[0], " roll=0.00 race=none shields=100.00 ");
         scene.StateA.RaceName = "borg";
         StringAssert.Contains(scene.Play.Dump().Split('\n')[0], " roll=0.00 race=borg shields=100.00 ");
+    }
+
+    [TestMethod]
+    public void TheDumpShowsEveryUnitsSpecialEnergyAsCurrentOverMaximum()
+    {
+        var scene = new Scene();
+        var lines = scene.Play.Dump().Split('\n');
+        StringAssert.Contains(lines[0], " crew=40.50 special=0.00/0.00 ");
+        StringAssert.Contains(lines[1], " special=0.00/0.00 ");
+        scene.StateA.SpecialEnergy = 12.5;
+        StringAssert.Contains(scene.Play.Dump().Split('\n')[0], " special=12.50/0.00 ");
+    }
+
+    [TestMethod]
+    public void ASpecialExpectationReadsTheCurrentSpecialEnergy()
+    {
+        var scene = new Scene();
+        scene.StateA.SpecialEnergy = 12.5;
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("a", "special", "=", "12.5")));
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("a", "special", ">=", "10")));
+        Assert.AreEqual(
+            "expectation failed: a special: expected = 13, actual 12.50",
+            scene.Play.Expect(Scene.Expect("a", "special", "=", "13"))
+        );
     }
 
     [TestMethod]

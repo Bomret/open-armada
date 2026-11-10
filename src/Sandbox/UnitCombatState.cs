@@ -109,6 +109,12 @@ public sealed class UnitCombatState(
     /// </summary>
     public string RaceName { get; set; } = profile.RaceName;
 
+    /// <summary>
+    /// The unit's current special energy; starts at the profile's maximum (stand-in: the exe's start value is not
+    /// recorded) and never exceeds it.
+    /// </summary>
+    public double SpecialEnergy { get; set; } = profile.MaxSpecialEnergy;
+
     /// <summary>A unit that starts with crew below one is derelict from the start: no crew, shields down.</summary>
     public double Shields { get; set; } = profile.CrewCost < 1 ? 0 : profile.MaxHealth;
 

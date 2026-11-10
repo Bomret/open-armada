@@ -82,7 +82,11 @@ public sealed class PlayState
             );
             if (s != null)
             {
-                text.Append(CultureInfo.InvariantCulture, $" race={RaceOf(s)} shields={s.Shields:F2} crew={s.Crew:F2}");
+                text.Append(
+                    CultureInfo.InvariantCulture,
+                    $" race={RaceOf(s)} shields={s.Shields:F2} crew={s.Crew:F2}"
+                        + $" special={s.SpecialEnergy:F2}/{s.Profile.MaxSpecialEnergy:F2}"
+                );
                 foreach (var name in SystemNames.All.Where(s.Systems.ContainsKey))
                 {
                     var system = s.Systems[name];
@@ -171,6 +175,10 @@ public sealed class PlayState
                 else if (step.Field == "crew")
                 {
                     value = state.Crew;
+                }
+                else if (step.Field == "special")
+                {
+                    value = state.SpecialEnergy;
                 }
                 else if (state.Systems.TryGetValue(step.Field, out var system))
                 {

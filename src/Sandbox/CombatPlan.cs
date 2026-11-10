@@ -470,6 +470,8 @@ public sealed class CombatPlan
                 ShieldPad = r.Num("shieldPad", ShieldEllipsoid.DefaultShieldPad),
                 Race = ReadRace(raceName, r, gaps),
                 RaceName = raceName,
+                MaxSpecialEnergy = r.Num("maxSpecialEnergy", 0), // no gap: a definition with none has none
+                SpecialEnergyRate = r.Num("specialEnergyRate", 0),
             };
         }
 

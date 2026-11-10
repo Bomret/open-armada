@@ -303,6 +303,16 @@ public sealed class CombatWorld
         }
     }
 
+    // A live starbase adds a tick of its race's crewAccumulationRate (race +0x20c) times planetCrewAccumulationModifier
+    // (+0x210) to its current team's pool (0x45f830). stand-in: the starbase test is is_starbase, a derelict starbase
+    // fills like any other, and a dying one does not; none of this is traced in 0x45f830.
+    void FillCrewPool(UnitCombatState u)
+    {
+        if (u.Dying || !_avoidance[u].Starbase)
+            return;
+        PoolOf(u.Team).Add(Tick * u.Race.CrewAccumulationRate * u.Race.PlanetCrewAccumulationModifier);
+    }
+
     CrewPool PoolOf(int team)
     {
         if (!_pools.TryGetValue(team, out var pool))
@@ -1229,6 +1239,7 @@ public sealed class CombatWorld
             Fire(u, events);
             CombatRules.RegainShields(u, Tick);
             CombatRules.RegainSpecialEnergy(u, Tick);
+            FillCrewPool(u);
             CombatRules.Sustain(u, Tick);
             Spark(u, events); // before the repair of the tick, as 0x4683d0 sparks before it adds hit points
             CombatRules.Repair(u, Tick);

@@ -304,6 +304,18 @@ public sealed record RaceValues
     /// definition gives none, as the game does.
     /// </summary>
     public float BoardingStrength { get; init; } = 1;
+
+    /// <summary>
+    /// The <c>crewAccumulationRate</c> (race +0x20c): the crew per second a starbase adds to its team's crew pool. 0 where
+    /// the definition gives none (stand-in).
+    /// </summary>
+    public float CrewAccumulationRate { get; init; }
+
+    /// <summary>
+    /// The <c>planetCrewAccumulationModifier</c> (race +0x210): the factor on <see cref="CrewAccumulationRate"/> in a
+    /// starbase's fill. 0 where the definition gives none (stand-in).
+    /// </summary>
+    public float PlanetCrewAccumulationModifier { get; init; }
 }
 
 /// <summary>

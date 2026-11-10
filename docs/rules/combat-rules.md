@@ -466,6 +466,14 @@ starts at 0 (the game starts it at a share of `cfgStartingCrew`, 0x448d50), and 
 the install's RTS_CFG.h has no `cfgMaxCrew`. The state dump has a line `pool team=<n> crew=<crew>/<cap>` per team and
 `expect <unit> pool <op> <number>` reads the pool of the unit's team.
 
+**Starbase fill.** Each tick each live starbase adds the tick's seconds times its race's `crewAccumulationRate` (race
++0x20c) times `planetCrewAccumulationModifier` (+0x210) to the pool of its current team, up to the cap (0x45f830; the
+race values are read by 0x4442b0). A Borg Nexus (3.5 × 1.5) adds 5.25 crew per second. A captured starbase fills its
+new team's pool at the race it now has, and its old team's pool stops gaining from it. The fill runs per world tick, so the
+amount over a span is the same at any step length. **Stand-in**: a starbase is a unit whose definition sets `is_starbase`
+to a number other than 0 (not traced in 0x45f830); a derelict starbase fills like any other, a destroyed or dying one
+does not; a race with no `crewAccumulationRate` or `planetCrewAccumulationModifier` has 0 for it, unreported.
+
 ## Ship systems
 
 Each of the five ship systems has the definition's `enginesHitPoints`, `lifeSupportHitPoints`,

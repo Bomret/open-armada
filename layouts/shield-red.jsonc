@@ -1,6 +1,6 @@
 // Three Klingon destroyers on team 2 and four Federation destroyers on team 1, 200 units apart at the centre, for
 // play/shield-red.play: High starts with full shields, Mid with half, and Low with 0.15 of its maximum, so each hit's
-// shield effect shows green, yellow, and red; Down starts with its shield generator destroyed and shows the
+// shield effect shows green, yellow, and red-orange; Down starts with its shield generator destroyed and shows the
 // shield-down overlay.
 // Run it with: sh tools/play-run.sh shield-red --layout layouts/shield-red.jsonc --fps 30
 {

@@ -149,7 +149,7 @@ public partial class CombatView : Node3D
         {
             try
             {
-                foreach (var cue in _art.TransportCues(e).Where(c => c.Kind != CueKind.Sound))
+                foreach (var cue in _art.TransportCues(e).Where(c => c.Lasts))
                 {
                     Apply(cue);
                 }

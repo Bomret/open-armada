@@ -175,17 +175,23 @@ public partial class UnitOrders : Node3D
 
     /// <summary>
     /// Steps the combat world by <c>seconds</c> without drawing (a play script's <c>fast-forward</c>). The next frame
-    /// raises the events through <see cref="Skipped"/> and draws the units where the world left them.
+    /// raises the events through <see cref="Skipped"/> and draws the units where the world left them. Returns null, or
+    /// the problem when the step failed; the failure is reported as a frame's is and never throws (INV-0002).
     /// </summary>
-    public void Skip(double seconds)
+    public string? Skip(double seconds)
     {
         try
         {
             _skipped.AddRange(_world.Step(seconds));
+
+            return null;
         }
-        catch (Exception e) // a failure of one skipped tick never stops the sandbox (INV-0002)
+        catch (Exception e)
         {
-            _faults.Report($"combat step failed: {e.Message}");
+            var problem = $"combat step failed: {e.Message}";
+            _faults.Report(problem);
+
+            return problem;
         }
     }
 
@@ -319,14 +325,7 @@ public partial class UnitOrders : Node3D
         {
             var skipped = _skipped.ToList();
             _skipped.Clear();
-            try
-            {
-                Skipped?.Invoke(skipped);
-            }
-            catch (Exception e)
-            {
-                _faults.Report($"combat step failed: {e.Message}");
-            }
+            Skipped?.Invoke(skipped); // the handler reports its own faults (CombatView.OnSkipped)
         }
 
         IReadOnlyList<CombatEvent> events = [];

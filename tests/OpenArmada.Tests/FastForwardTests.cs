@@ -18,14 +18,17 @@ public class FastForwardTests
         public int Ticks;
         public double Seconds;
 
-        public Scene(int arriveAfter)
+        public Scene(int arriveAfter, int failOn = -1)
         {
             State = new UnitCombatState(A, Profile(), "a.odf", 0, true) { PlayerMove = (100, -200) };
             Play = new PlayState(new UnitNames([A]), new UnitPoses([A]).Pose, [State]);
             ArriveAfter = arriveAfter;
+            FailOn = failOn;
         }
 
         int ArriveAfter { get; }
+
+        int FailOn { get; }
 
         public PlayRun Run(string text, bool canSkip = true) =>
             new(
@@ -42,6 +45,8 @@ public class FastForwardTests
                         {
                             State.PlayerMove = null;
                         }
+
+                        return Ticks == FailOn ? "combat step failed: boom" : null;
                     }
                     : null
             );
@@ -117,6 +122,18 @@ public class FastForwardTests
 
         Assert.AreEqual(0, scene.Ticks);
         CollectionAssert.AreEqual(new[] { "x.play line 1: unknown unit 'nobody'" }, run.Problems.ToArray());
+    }
+
+    [TestMethod]
+    public void AFailedCombatStepEndsTheStepWithItsProblem()
+    {
+        var scene = new Scene(arriveAfter: 1000, failOn: 3);
+        var run = scene.Run("fast-forward until a move = none max 10");
+
+        run.Advance(0);
+
+        Assert.AreEqual(3, scene.Ticks);
+        CollectionAssert.AreEqual(new[] { "x.play line 1: combat step failed: boom" }, run.Problems.ToArray());
     }
 
     [TestMethod]

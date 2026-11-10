@@ -73,6 +73,12 @@ public readonly record struct TransportCue(CueKind Kind, PlacedObject Unit, stri
 
     /// <summary>The sound played at the target of a fight against a live hostile unit (0x55f750).</summary>
     public const string BoardingSound = "msboard.wav";
+
+    /// <summary>
+    /// Whether the cue changes what the unit shows from then on (the effect on or off, a new team color), so a
+    /// play run's fast-forward applies it although it draws and plays nothing of the skipped time; a sound does not.
+    /// </summary>
+    public bool Lasts => Kind != CueKind.Sound;
 }
 
 /// <summary>A transport began: <c>Source</c> beams crew to <c>Target</c>.</summary>

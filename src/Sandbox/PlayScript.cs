@@ -57,7 +57,13 @@ public sealed record FastForwardStep : PlayStep
     /// <summary>The condition the step runs the world to.</summary>
     public required ExpectStep Until { get; init; }
 
-    /// <summary>The most world seconds the step runs; more than zero.</summary>
+    /// <summary>
+    /// The highest <see cref="MaxSeconds"/> a script may give: an hour of world time, so a condition that never holds
+    /// ends the run in bounded time.
+    /// </summary>
+    public const double MostSeconds = 3600;
+
+    /// <summary>The most world seconds the step runs; more than zero and at most <see cref="MostSeconds"/>.</summary>
     public required double MaxSeconds { get; init; }
 }
 
@@ -423,6 +429,8 @@ public sealed class PlayScript
             return (null, "'fast-forward' takes 'until <unit> <field> <op> <value> max <seconds>'");
         if (!Number(args[6], out var seconds) || seconds <= 0)
             return (null, $"'{args[6]}' is not a number of seconds above zero");
+        if (seconds > FastForwardStep.MostSeconds)
+            return (null, $"'{args[6]}' is more than {FastForwardStep.MostSeconds} seconds");
         var (until, problem) = ParseExpect(args[1..5], number);
         if (until == null)
             return (null, problem);

@@ -3,8 +3,8 @@
 The rules by which the game turns weapon fire into hits, shield loss, crew loss, system damage, and
 destruction (ADR 0004). They cover beam weapons (`classLabel` `cannon`), torpedo launchers (`launcher`),
 shields, ship systems, crew, derelicts, repair, the transport and boarding of units, and the special-weapon order
-with the Holding Beam's hold. Other special weapons, recrew, AI transports, the vision and counts of a captured
-starbase, and Borg assimilation are not covered.
+with the Holding Beam's hold and boarding. Other special weapons, recrew, AI transports, and the vision and counts
+of a captured starbase are not covered.
 
 The rules were recovered from `Armada.exe` of the 1.2 install (SHA-256
 `c5f32464c6b4322469d79ba19d33f26fde67b5c06ca2ee24a071cd67a52a88b5`) and are restated here in our own
@@ -417,6 +417,19 @@ tick the beam runs, the target's position and heading are reset to them (0x4ddd3
 when the beam ends the ship moves on from where it was held. **Stand-in**: the velocity a held ship builds under its order
 carries into the release, since the exe's treatment of the velocity during the hold was not traced. A target without a flight
 of its own is not held.
+
+**Boarding.** On the first tick the beam runs (the first hit) a timer starts at the ordnance's `boardingDelay` (1 s for the
+cube), and each tick it counts down by the tick's seconds. When it falls below zero, while the target's defined maximum crew
+is above 0 and the shooter's crew is at least `boardingSize` + 5 (0x5ca8ac), the beam sends one ordinary boarding party of
+`boardingSize` crew (20 for the cube) from the shooter, and the timer resets to `boardingInterval` (1 s). The party is the
+transport's (see "Transport and boarding"): it takes its crew from the shooter and carries the shooter's team and race
+(0x55f620 with race 0 and team -1, from 0x4ddd30), but it lands at once, with no delay and no test of the target's shields,
+which it leaves as they were. It fights and captures by the boarding rule (0x55f750, 0x46dff0): a party that outnumbers the
+crew gives the ship the shooter's team and race, so a Borg shooter assimilates it (the race `borg` shows the `borg` overlay),
+and the beam ends because the target has joined the shooter's team. The timer runs on the fixed ticks, so a step of any
+length sends the same parties. **Inferred**: when the crew conditions fail the timer stays below zero and the next tick tests
+them again. **Stand-in**: the ordnance's `lifeSpan` (30 s) does not end the beam, since whether the exe ends the beam by it
+was not traced; the end conditions and the energy end it.
 
 **Not built yet**: the drones the beam sends aboard, the beam's model and sound, and the other special weapons.
 

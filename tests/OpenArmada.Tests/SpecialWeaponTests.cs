@@ -166,6 +166,112 @@ public class SpecialWeaponTests
         Assert.IsNull(world.State(cube.Object)!.SpecialOrder);
     }
 
+    // A ship ordered to move 1000 units along +X at the start of the beam: it drives away unless the beam holds it.
+    static (CombatWorld World, UnitPoses Poses, Spec Cube, Spec Ship) HeldShip(float cubeEnergy = 1000)
+    {
+        var cube = Cube("cube", 1, 0, energy: cubeEnergy);
+        var ship = Ship("ship", 2, 100, moving: true);
+        var world = World(out var poses, cube, ship);
+        world.Move(ship.Object, 1000, 0);
+        Assert.IsTrue(world.SpecialWeapon(cube.Object, 4, ship.Object));
+
+        return (world, poses, cube, ship);
+    }
+
+    [TestMethod]
+    public void TheHoldingBeamKeepsTheTargetsPositionAndHeadingWhileItRuns()
+    {
+        var (world, poses, _, ship) = HeldShip();
+        world.Step(0.02);
+        var held = poses.Pose(ship.Object);
+        world.Step(3);
+        var now = poses.Pose(ship.Object);
+        Assert.AreEqual(0, Vector3.Distance(held.Position, now.Position), 1e-3);
+        Assert.AreEqual((held.Pitch, held.Yaw, held.Roll), (now.Pitch, now.Yaw, now.Roll));
+        Assert.AreEqual(0, Vector3.Distance(now.Position, world.State(ship.Object)!.Position!.Value), 1e-6);
+    }
+
+    [TestMethod]
+    public void TheTargetMovesOnFromWhereItWasHeldWhenTheBeamIsTurnedOff()
+    {
+        var (world, poses, cube, ship) = HeldShip();
+        world.Step(1);
+        var held = poses.Pose(ship.Object).Position;
+        world.SpecialWeapon(cube.Object, 4, null);
+        world.Step(3);
+        Assert.IsTrue(poses.Pose(ship.Object).Position.X > held.X + 1);
+    }
+
+    [TestMethod]
+    public void TheBeamEndsWhenItsTargetIsOutOfRangeTimesOnePointThreeThree()
+    {
+        var cube = Cube("cube", 1, 0) with { Motion = FlightFixtures.Cruiser(Placed("cube", 1, 0).Position) };
+        var ship = Ship("ship", 2, 100);
+        var world = World(cube, ship);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        world.Step(0.02);
+        Assert.IsNotNull(world.State(cube.Object)!.SpecialOrder);
+        // the 300 range reaches 399 before the beam ends: the cube pushed to a gap of 398 keeps it, one of 400 ends it
+        cube.Motion!.Push(new Vector3(-298, 0, 0));
+        world.Step(0.02);
+        Assert.IsNotNull(world.State(cube.Object)!.SpecialOrder);
+        cube.Motion.Push(new Vector3(-2, 0, 0));
+        world.Step(0.02);
+        Assert.IsNull(world.State(cube.Object)!.SpecialOrder);
+    }
+
+    [TestMethod]
+    public void TheBeamEndsWhenItsTargetJoinsTheCubesTeamOrIsDestroyed()
+    {
+        var cube = Cube("cube", 1, 0);
+        var joined = Ship("joined", 2, 100);
+        var doomed = Ship("doomed", 2, 120) with { Profile = Profile(maxHealth: 0, crew: 100) };
+        var world = World(cube, joined, doomed);
+        world.SpecialWeapon(cube.Object, 4, joined.Object);
+        world.ChangeTeam(joined.Object, 1, "borg", Race);
+        world.Step(0.02);
+        Assert.IsNull(world.State(cube.Object)!.SpecialOrder);
+        world.SpecialWeapon(cube.Object, 4, doomed.Object);
+        world.State(doomed.Object)!.Destroyed = true;
+        world.Step(0.02);
+        Assert.IsNull(world.State(cube.Object)!.SpecialOrder);
+    }
+
+    [TestMethod]
+    public void TheBeamEndsWhenTheCubeIsCapturedOrDestroyed()
+    {
+        var cube = Cube("cube", 1, 0);
+        var ship = Ship("ship", 2, 100);
+        var world = World(cube, ship);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        world.ChangeTeam(cube.Object, 2, "federation", Race);
+        Assert.IsNull(world.State(cube.Object)!.SpecialOrder);
+    }
+
+    [TestMethod]
+    public void TheTargetMovesOnWhenTheCubeIsDestroyed()
+    {
+        var (world, poses, cube, ship) = HeldShip();
+        world.Step(0.5);
+        var held = poses.Pose(ship.Object).Position;
+        world.State(cube.Object)!.Dying = true;
+        world.Step(3);
+        Assert.IsTrue(poses.Pose(ship.Object).Position.X > held.X + 1);
+    }
+
+    [TestMethod]
+    public void AMoveAttackOrStopOrderLeavesTheBeamOn()
+    {
+        var cube = Cube("cube", 1, 0);
+        var ship = Ship("ship", 2, 100);
+        var world = World(cube, ship);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        world.Move(cube.Object, 10, 10);
+        world.ClearOrder(cube.Object);
+        world.Step(0.02);
+        Assert.IsNotNull(world.State(cube.Object)!.SpecialOrder);
+    }
+
     [TestMethod]
     public void AnOrderForASlotTheUnitHasNoWeaponForStartsNothing()
     {

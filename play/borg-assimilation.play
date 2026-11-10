@@ -1,0 +1,17 @@
+# A Borg cube assimilates a Klingon destroyer with its Holding Beam. Both ships are set to green alert so nothing fires.
+# The cube is selected, F4 is pressed, and the destroyer clicked (the special step). The beam sends a 20-crew boarding
+# party through the destroyer's shields each second, and once the parties outnumber its crew the destroyer is captured:
+# it ends on team 1 with the race borg and the beam ends.
+# Run it with --layout layouts/borg-assimilation.jsonc; the layout's header comment has the whole command.
+wait 0.5
+select Victim
+press Shift+G
+select Cube
+press Shift+G
+expect Victim team = 2
+expect Victim race = klingon
+special 4 Victim
+wait 20
+dump assimilated
+expect Victim team = 1
+expect Victim race = borg

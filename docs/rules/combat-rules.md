@@ -387,7 +387,8 @@ A special weapon is a `toggleweapon` definition with `special = 1`. The sandbox 
 `classLabel` is `borgbore` (`gborgbor`, ordnance `borgbor`, key F3); every other special weapon is left out of
 the plan without a gap. The plan reads the weapon's `buttonSlot` (the number of the `fire_special_N` key, F1 to F6) and
 `range`, and the ordnance's `specialEnergyCost` (+0x34, 0x4ea1e0), `targetRange`, `lifeSpan`, `boardingSize`,
-`boardingInterval`, and `boardingDelay`.
+`boardingInterval`, and `boardingDelay`. For the effect it also reads the weapon's `fireSound` and `weaponHardpoints`
+and the ordnance's `shotGeometry`, `radiusScale`, and `lengthScale` (see "Effect").
 
 **The order.** The player presses the slot's key, then left-clicks a target. A key no selected unit has a weapon for does
 nothing. Per selected unit that has the weapon: a weapon that runs is turned off, with no refund, and a unit with it off
@@ -432,7 +433,19 @@ length sends the same parties. **Inferred**: when the crew conditions fail the t
 them again. **Stand-in**: the ordnance's `lifeSpan` (30 s) does not end the beam, since whether the exe ends the beam by it
 was not traced; the end conditions and the energy end it.
 
-**Not built yet**: the drones the beam sends aboard, the beam's model and sound, and the other special weapons.
+**Effect.** Each special weapon shows a beam model and plays a fire sound; the Holding Beam and the Auto-Assimilator
+(see below) share the rule. The model is the ordnance's `shotGeometry` (`wholdbm.sod` for the Holding Beam, `wborgbor.sod`
+for the Auto-Assimilator) and the sound is the weapon definition's `fireSound` (`swbhb.wav`, `swbauto.wav`). While the
+weapon runs, the model sits at the firing hardpoint, turned toward the target's center, and scaled `radiusScale` across
+and the distance over `lengthScale` along its length axis (the ordnance's +0x128 and +0x124 as 0x4ddf80 reads them for
+the Holding Beam each tick, and 0x4da7a0 for the Auto-Assimilator): the model's length is `lengthScale`, so the beam
+spans exactly the distance. The beam goes when the weapon ends. The fire sound plays once, when the weapon starts (its
+first tick runs). A model or sound that the install lacks or the game's decoders cannot read is a gap and the weapon
+works without it. **Stand-in**: the hardpoint is the nearest to the target at the start, among the weapon's
+`weaponHardpoints`, or the unit's center when it has none (the game's hardpoint choice, `param_1[0x43]` of 0x4ddf80, was
+not traced); the model's length axis is its Z axis and it spans from its origin (inferred from the scale rule).
+
+**Not built yet**: the drones the beam sends aboard as models, and the other special weapons.
 
 ### The Auto-Assimilator
 

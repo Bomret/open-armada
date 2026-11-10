@@ -256,11 +256,20 @@ public class CombatPlanTests
         var specials = ProfileOf(r).SpecialWeapons;
         var hold = specials.Single(w => w.Kind == SpecialWeaponKind.HoldingBeam);
         var assimilator = specials.Single(w => w.Kind == SpecialWeaponKind.AutoAssimilator);
-        Assert.AreEqual(("hold", "swbhb.wav", "wholdbm.sod", 2.5f, 5f), (hold.Name, hold.FireSound, hold.Geometry, hold.RadiusScale, hold.LengthScale));
+        Assert.AreEqual(
+            ("hold", "swbhb.wav", "wholdbm.sod", 2.5f, 5f),
+            (hold.Name, hold.FireSound, hold.Geometry, hold.RadiusScale, hold.LengthScale)
+        );
         CollectionAssert.AreEqual(new[] { "hp03", "hp05" }, hold.Hardpoints.ToArray());
         Assert.AreEqual(
             ("assim", "swbauto.wav", "wborgbor.sod", 3f, 4f),
-            (assimilator.Name, assimilator.FireSound, assimilator.Geometry, assimilator.RadiusScale, assimilator.LengthScale)
+            (
+                assimilator.Name,
+                assimilator.FireSound,
+                assimilator.Geometry,
+                assimilator.RadiusScale,
+                assimilator.LengthScale
+            )
         );
         CollectionAssert.AreEqual(new[] { "hp07" }, assimilator.Hardpoints.ToArray());
         Assert.AreEqual(0, r.Plan.Reports.Count);

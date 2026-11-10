@@ -106,7 +106,7 @@ public sealed class CombatArt
     const string NoSpecialSound = "special weapon names no fire sound, it is silent";
     const string NoBeamModel = "special weapon names no beam model, its beam is not drawn";
     const string MissingBeamModel = "beam model missing from the install, it is not drawn";
-    const string MissingHardpoint ="hardpoint missing from the model, its shots leave from the unit's center";
+    const string MissingHardpoint = "hardpoint missing from the model, its shots leave from the unit's center";
 
     const string MissingShieldGeometry = "shield geometry missing from the install, its shield hit effect is not shown";
     const string NotAShieldGeometry =

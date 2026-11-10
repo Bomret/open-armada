@@ -1,0 +1,13 @@
+// A Borg cube and a Borg Assimilator, each 100 units from a Klingon destroyer, for play/special-beams.play: the cube's
+// Holding Beam (key F4) and the Assimilator's Auto-Assimilator (key F3) each show their beam model between the ship and its
+// target while they run.
+// Run it with: sh tools/play-run.sh special-beams --layout layouts/special-beams.jsonc --fps 10
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "bbattle", "team": 1, "position": [1900, 0, 1900], "label": "Cube" },
+    { "class": "kdestroy", "team": 2, "position": [2000, 0, 1900], "label": "Held" },
+    { "class": "bcruise2", "team": 1, "position": [1900, 0, 2100], "label": "Assimilator" },
+    { "class": "kdestroy", "team": 2, "position": [2000, 0, 2100], "label": "Drained" },
+  ],
+}

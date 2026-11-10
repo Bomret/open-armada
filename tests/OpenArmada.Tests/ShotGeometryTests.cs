@@ -34,6 +34,14 @@ public class ShotGeometryTests
     public void BeamBetweenOnePointHasNoPose() => Assert.IsNull(ShotGeometry.Beam(new(1, 1, 1), new(1, 1, 1)));
 
     [TestMethod]
+    public void ASpecialBeamModelIsScaledByItsRadiusAcrossAndItsDistanceOverItsLengthScaleAlong() =>
+        Assert.AreEqual(new Vector3(2.5f, 2.5f, 20f), ShotGeometry.BeamModelScale(100, 2.5f, 5));
+
+    [TestMethod]
+    public void ABeamModelWithNoLengthScaleKeepsItsDistanceAsItsLength() =>
+        Assert.AreEqual(new Vector3(1, 1, 100), ShotGeometry.BeamModelScale(100, 1, 0));
+
+    [TestMethod]
     public void MissAimLiesBesideTheTargetByItsRadii()
     {
         var from = new Vector3(0, 0, 0);

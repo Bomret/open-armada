@@ -246,6 +246,45 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void ASpecialWeaponIsReadWithItsNameHardpointsFireSoundBeamModelAndScales()
+    {
+        var r = OneShip(
+            "weapon1 = \"hold\"\r\nweaponHardpoints1 = \"hp03\" \"hp05\"\r\nweapon2 = \"assim\"\r\nweaponHardpoints2 = \"hp07\"\r\n",
+            ("hold", HoldWeapon + "fireSound = \"swbhb.wav\"\r\n"),
+            ("holdo", HoldOrd + "shotGeometry = \"wholdbm.sod\"\r\nradiusScale = 2.5\r\nlengthScale = 5\r\n"),
+            (
+                "assim",
+                HoldWeapon.Replace("holdo", "assimo").Replace("buttonSlot = 4", "buttonSlot = 3")
+                    + "fireSound = \"swbauto.wav\"\r\n"
+            ),
+            (
+                "assimo",
+                "classLabel = \"borgbore\"\r\nspecialEnergyCost = 8\r\nspecialValue = 5\r\nattackRange = 400\r\nshotGeometry = \"wborgbor.sod\"\r\nradiusScale = 3\r\nlengthScale = 4\r\n"
+            )
+        );
+        var specials = ProfileOf(r).SpecialWeapons;
+        var hold = specials.Single(w => w.Kind == SpecialWeaponKind.HoldingBeam);
+        var assimilator = specials.Single(w => w.Kind == SpecialWeaponKind.AutoAssimilator);
+        Assert.AreEqual(
+            ("hold", "swbhb.wav", "wholdbm.sod", 2.5f, 5f),
+            (hold.Name, hold.FireSound, hold.Geometry, hold.RadiusScale, hold.LengthScale)
+        );
+        CollectionAssert.AreEqual(new[] { "hp03", "hp05" }, hold.Hardpoints.ToArray());
+        Assert.AreEqual(
+            ("assim", "swbauto.wav", "wborgbor.sod", 3f, 4f),
+            (
+                assimilator.Name,
+                assimilator.FireSound,
+                assimilator.Geometry,
+                assimilator.RadiusScale,
+                assimilator.LengthScale
+            )
+        );
+        CollectionAssert.AreEqual(new[] { "hp07" }, assimilator.Hardpoints.ToArray());
+        Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
+    [TestMethod]
     public void AnAutoAssimilatorIsReadWithItsRateRangeAndCostAndNoDuration()
     {
         var r = OneShip(

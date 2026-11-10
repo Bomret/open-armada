@@ -48,6 +48,14 @@ public static class ShotGeometry
         };
     }
 
+    /// <summary>
+    /// The scale of a special weapon's beam model over a beam of <c>distance</c>: the radius scale across and the
+    /// distance over the length scale along the model's Z axis (0x4ddf80, 0x4da7a0). A length scale of 0 or less is a
+    /// stand-in of 1, so the beam still spans its distance.
+    /// </summary>
+    public static Vector3 BeamModelScale(float distance, float radiusScale, float lengthScale) =>
+        new(radiusScale, radiusScale, distance / (lengthScale > 0 ? lengthScale : 1));
+
     /// <summary>The point a shot that missed is aimed at: beside the target's center, off the line from <c>from</c>.</summary>
     public static Vector3 MissAim(Vector3 from, Vector3 center, float radius)
     {

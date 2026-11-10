@@ -136,6 +136,7 @@ public partial class CombatView : Node3D
         }
 
         LoadShieldModels(art, builder, gap);
+        LoadBeamModels(art, builder, gap);
 
         orders.Stepped += OnStep;
     }
@@ -186,6 +187,10 @@ public partial class CombatView : Node3D
                         }
 
                         Draw(shot);
+
+                        break;
+                    case SpecialWeaponStarted started:
+                        StartSpecial(started);
 
                         break;
                     case ShieldHitEffect effect:
@@ -595,6 +600,7 @@ public partial class CombatView : Node3D
     public override void _Process(double delta)
     {
         UpdateShieldEffects();
+        UpdateBeams();
         UpdateSounds();
         var live = _world.Shots.ToHashSet();
         _drawn.RemoveAll(d =>

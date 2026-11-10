@@ -92,6 +92,42 @@ public class SpecialWeaponTests
     }
 
     [TestMethod]
+    public void ARunningWeaponAnnouncesItsStartOnceOnTheFirstTickItRuns()
+    {
+        var cube = Cube("cube", 1, 0);
+        var ship = Ship("ship", 2, 100);
+        var world = World(cube, ship);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        var first = world.Step(1).OfType<SpecialWeaponStarted>().Single();
+        Assert.AreSame(cube.Object, first.Unit);
+        Assert.AreSame(world.State(cube.Object)!.SpecialOrder!.Weapon, first.Weapon);
+        Assert.AreEqual(0, world.Step(1).OfType<SpecialWeaponStarted>().Count());
+    }
+
+    [TestMethod]
+    public void AWeaponOrderedOffAndOnAnnouncesItsStartAgain()
+    {
+        var cube = Cube("cube", 1, 0);
+        var ship = Ship("ship", 2, 100);
+        var world = World(cube, ship);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        world.Step(1);
+        world.SpecialWeapon(cube.Object, 4, null);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        Assert.AreEqual(1, world.Step(1).OfType<SpecialWeaponStarted>().Count());
+    }
+
+    [TestMethod]
+    public void AWeaponThatEndsBeforeItsFirstTickAnnouncesNoStart()
+    {
+        var cube = Cube("cube", 1, 0, energy: 50);
+        var ship = Ship("ship", 2, 100);
+        var world = World(cube, ship);
+        world.SpecialWeapon(cube.Object, 4, ship.Object);
+        Assert.AreEqual(0, world.Step(1).OfType<SpecialWeaponStarted>().Count());
+    }
+
+    [TestMethod]
     public void AnOrderWithLessEnergyThanTheCostStartsNothing()
     {
         var cube = Cube("cube", 1, 0, energy: 49.9f);

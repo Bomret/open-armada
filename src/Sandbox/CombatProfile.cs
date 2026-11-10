@@ -194,6 +194,24 @@ public sealed record SpecialWeaponProfile
     /// <summary>The weapon the ordnance makes; the Holding Beam unless set.</summary>
     public SpecialWeaponKind Kind { get; init; } = SpecialWeaponKind.HoldingBeam;
 
+    /// <summary>The weapon definition's name, for the gaps of its art.</summary>
+    public string Name { get; init; } = "";
+
+    /// <summary>The weapon's <c>weaponHardpoints</c>: the nodes its beam can leave from; none: the unit's center.</summary>
+    public IReadOnlyList<string> Hardpoints { get; init; } = [];
+
+    /// <summary>The weapon definition's <c>fireSound</c>, played when the weapon starts; empty when it names none.</summary>
+    public string FireSound { get; init; } = "";
+
+    /// <summary>The ordnance's <c>shotGeometry</c>: the beam's model file, such as <c>wholdbm.sod</c>; empty when it names none.</summary>
+    public string Geometry { get; init; } = "";
+
+    /// <summary>The ordnance's <c>radiusScale</c> (+0x128): the beam model's scale across the beam (0x4ddf80, 0x4da7a0).</summary>
+    public float RadiusScale { get; init; } = 1;
+
+    /// <summary>The ordnance's <c>lengthScale</c> (+0x124): the model's length, which the beam's distance is divided by (0x4ddf80, 0x4da7a0).</summary>
+    public float LengthScale { get; init; } = 1;
+
     /// <summary>
     /// The Auto-Assimilator's <c>specialValue</c> (ordnance +0x110, 0x4ea1e0): the crew it moves per second; 0 for the
     /// Holding Beam.

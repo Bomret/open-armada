@@ -9,12 +9,16 @@ namespace OpenArmada.Sandbox;
 /// caller feeds in through <see cref="Advance"/>, after the combat world has taken the same time. A step that
 /// fails or throws ends the run with a problem that names the script and the line. The run never logs and never
 /// throws for a step (INV-0007); the caller logs <see cref="Problems"/> and quits with the exit code.
+/// <c>skip</c> steps the combat world by the given seconds without drawing, for <see cref="FastForwardStep"/>, and
+/// returns null or the problem of a failed step; the skipped time is not on the run's clock, so a <c>wait</c> after it
+/// counts drawn time only.
 /// </summary>
 public sealed class PlayRun(
     PlayScript script,
     PlayState state,
     string outputFolder,
-    Func<PlayStep, string?>? input = null
+    Func<PlayStep, string?>? input = null,
+    Func<double, string?>? skip = null
 )
 {
     readonly List<string> _problems = [];
@@ -144,6 +148,8 @@ public sealed class PlayRun(
                 return PlayState.Write(outputFolder, dump.Name, state.Dump());
             case ExpectStep expect:
                 return state.Expect(expect);
+            case FastForwardStep fastForward:
+                return FastForward(fastForward);
             case HoldStep hold:
                 _held = hold;
                 _due += hold.Seconds;
@@ -151,6 +157,28 @@ public sealed class PlayRun(
                 return Input(step);
             default:
                 return Input(step);
+        }
+    }
+
+    // Steps the world one combat tick at a time until the condition holds; none when it holds already. A condition
+    // that cannot be asked, a failed step, or a condition that does not hold after the step's most seconds is the problem.
+    string? FastForward(FastForwardStep step)
+    {
+        if (skip == null)
+            return "step 'fast-forward' cannot run here";
+        // A tolerance like a wait's, so a whole number of ticks is not counted one too many by rounding.
+        var most = (int)Math.Ceiling(step.MaxSeconds / CombatWorld.Tick - 1e-9);
+        for (var ticks = 0; ; ticks++)
+        {
+            var (asked, problem) = state.Check(step.Until);
+            if (!asked)
+                return problem;
+            if (problem == null)
+                return null;
+            if (ticks == most)
+                return $"fast-forward not reached after {step.MaxSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)} s: {problem}";
+            if (skip(CombatWorld.Tick) is { } failed)
+                return failed;
         }
     }
 

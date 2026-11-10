@@ -1,5 +1,5 @@
-// Two Federation destroyers on team 1, 100 units apart at the centre, for play/emitters.play, play/sparks.play, and
-// play/vent-fade.play: the left one starts with its engines and life support destroyed, so its damage nodes hold a
+// Two Federation destroyers on team 1, 100 units apart at the centre, for play/emitters.play: the
+// left one starts with its engines and life support destroyed, so its damage nodes hold a
 // plasma and a steam emitter that spray until each system is whole, and both systems throw repair sparks; the right
 // one is undamaged, for contrast.
 // Run it with: sh tools/play-run.sh emitters --layout layouts/emitters.jsonc --fps 30

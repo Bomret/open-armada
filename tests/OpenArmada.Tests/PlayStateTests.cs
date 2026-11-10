@@ -369,6 +369,21 @@ public class PlayStateTests
     }
 
     [TestMethod]
+    public void AMoveExpectationTellsAnOpenMoveOrderFromNone()
+    {
+        var scene = new Scene();
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("a", "move", "=", "none")));
+
+        scene.StateA.PlayerMove = (100, -200);
+
+        Assert.IsNull(scene.Play.Expect(Scene.Expect("a", "move", "=", "open")));
+        Assert.AreEqual(
+            "expectation failed: a move: expected = none, actual open",
+            scene.Play.Expect(Scene.Expect("a", "move", "=", "none"))
+        );
+    }
+
+    [TestMethod]
     public void ATargetExpectationComparesTheUnitsNotTheirNames()
     {
         var scene = new Scene();

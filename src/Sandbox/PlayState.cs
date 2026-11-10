@@ -135,15 +135,22 @@ public sealed class PlayState
     /// an unresolvable unit, a unit without combat state, a unit that was destroyed and removed (only
     /// <c>destroyed</c> and <c>dying</c> can be asked of it), a system the unit lacks, or the expected and the actual value.
     /// </summary>
-    public string? Expect(ExpectStep step)
+    public string? Expect(ExpectStep step) => Check(step).Problem;
+
+    /// <summary>
+    /// Checks one <c>expect</c> condition. <c>Asked</c> is false when the condition cannot be asked at all, and then
+    /// <c>Problem</c> says why (the cases of <see cref="Expect"/> before a value is compared). Otherwise
+    /// <c>Problem</c> is null when the condition holds, else the expected and the actual value.
+    /// </summary>
+    public (bool Asked, string? Problem) Check(ExpectStep step)
     {
         var (unit, problem) = _names.Resolve(step.Unit);
         if (unit == null)
-            return problem;
+            return (false, problem);
         if (!_states.TryGetValue(unit, out var state))
-            return $"unit '{step.Unit}' has no combat state";
+            return (false, $"unit '{step.Unit}' has no combat state");
         if (state.Destroyed && step.Field is not ("destroyed" or "dying"))
-            return $"unit '{step.Unit}' was destroyed and removed";
+            return (false, $"unit '{step.Unit}' was destroyed and removed");
         string actual;
         bool holds;
         switch (step.Field)
@@ -171,9 +178,14 @@ public sealed class PlayState
             case "target":
                 var (expected, unknown) = step.Value == "none" ? (null, null) : _names.Resolve(step.Value);
                 if (unknown != null)
-                    return unknown;
+                    return (false, unknown);
                 actual = Of(state.Target);
                 holds = state.Target?.Unit == expected;
+
+                break;
+            case "move":
+                actual = state.PlayerMove == null ? "none" : "open";
+                holds = actual == step.Value;
 
                 break;
             default:
@@ -200,7 +212,7 @@ public sealed class PlayState
                 }
                 else
                 {
-                    return $"unit '{step.Unit}' has no system '{step.Field}'";
+                    return (false, $"unit '{step.Unit}' has no system '{step.Field}'");
                 }
 
                 actual = value.ToString("F2", CultureInfo.InvariantCulture);
@@ -209,9 +221,12 @@ public sealed class PlayState
                 break;
         }
 
-        return holds
-            ? null
-            : $"expectation failed: {step.Unit} {step.Field}: expected {step.Op} {step.Value}, actual {actual}";
+        return (
+            true,
+            holds
+                ? null
+                : $"expectation failed: {step.Unit} {step.Field}: expected {step.Op} {step.Value}, actual {actual}"
+        );
     }
 
     /// <summary>

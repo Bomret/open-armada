@@ -283,7 +283,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 folder
             );
             AddChild(new PlayKeys(input));
-            AddChild(new PlayDriver(new PlayRun(play, state, folder, input.Run)));
+            AddChild(new PlayDriver(new PlayRun(play, state, folder, input.Run, orders.Skip)));
         }
 
         sandbox.LogOpened(selection.Units.Count);

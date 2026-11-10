@@ -9,5 +9,5 @@ wait 0.3
 move 2300 -2300
 wait 2
 dump driving
-wait 25
+fast-forward until Sphere move = none max 40
 dump arrived

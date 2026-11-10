@@ -675,6 +675,14 @@ public class CombatArtTests
     static BoardingFight Fight() => new() { Source = Boarder, Target = Prize };
 
     [TestMethod]
+    [DataRow(CueKind.EffectOn, true)]
+    [DataRow(CueKind.EffectOff, true)]
+    [DataRow(CueKind.Recolor, true)]
+    [DataRow(CueKind.Sound, false)]
+    public void EveryCueButASoundLasts(CueKind kind, bool lasts) =>
+        Assert.AreEqual(lasts, new TransportCue(kind, Boarder).Lasts);
+
+    [TestMethod]
     public void ATransportAttachesTheEffectToSourceAndTargetAndItsStopTakesBothOff()
     {
         var art = TransportArt(TransportInstall());

@@ -24,6 +24,7 @@ public sealed class BoardingParty(
     double size,
     int team,
     RaceValues race,
+    string raceName,
     double delay
 )
 {
@@ -41,6 +42,9 @@ public sealed class BoardingParty(
 
     /// <summary>The source's race when the party was sent.</summary>
     public RaceValues Race { get; } = race;
+
+    /// <summary>The name of the source's race when the party was sent (0x55f620 takes the source's race).</summary>
+    public string RaceName { get; } = raceName;
 
     /// <summary>The seconds until the party lands.</summary>
     public double Remaining { get; set; } = delay;

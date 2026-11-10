@@ -124,6 +124,7 @@ public class PlayScriptTests
     [DataRow("expect a team < 1", "'team' takes only '=', not '<'")]
     [DataRow("expect a team = 1.5", "'1.5' is not an integer")]
     [DataRow("expect a team = red", "'red' is not an integer")]
+    [DataRow("expect a race < borg", "'race' takes only '=', not '<'")]
     public void AnUnreadableLineIsOneProblemNamingTheFileAndTheLine(string line, string reason)
     {
         var script = PlayScript.Parse($"wait 1\n{line}\n", "play/x.play");

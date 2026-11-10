@@ -448,6 +448,8 @@ public sealed class CombatPlan
                 }
             }
 
+            var raceName = r.Str("race");
+
             return new CombatProfile
             {
                 Weapons = ReadWeapons(d, r, gaps),
@@ -466,7 +468,8 @@ public sealed class CombatPlan
                 IsHero = r.Flag("isHero", false),
                 TransportVoice = r.Str("eventTransport"),
                 ShieldPad = r.Num("shieldPad", ShieldEllipsoid.DefaultShieldPad),
-                Race = ReadRace(d, r, gaps),
+                Race = ReadRace(raceName, r, gaps),
+                RaceName = raceName,
             };
         }
 
@@ -608,9 +611,8 @@ public sealed class CombatPlan
             return found.Definition;
         }
 
-        RaceValues ReadRace(ResolvedDefinition d, Values unit, List<(string Cause, string Name)> gaps)
+        RaceValues ReadRace(string race, Values unit, List<(string Cause, string Name)> gaps)
         {
-            var race = unit.Str("race");
             if (race.Length == 0)
             {
                 unit.Gap("race missing, stand-in race values used");

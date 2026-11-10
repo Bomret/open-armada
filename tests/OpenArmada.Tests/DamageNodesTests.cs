@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Formats;
@@ -295,6 +296,23 @@ public class DamageNodesTests
         );
         Assert.AreEqual(0, DamageNodes.ShowingNodes(Ship(), 1, _ => false, borg: false).Count);
     }
+
+    [TestMethod]
+    public void TheBorgSubtreeShowsWhileTheUnitsCurrentRaceIsBorg()
+    {
+        var unit = State(Profile(raceName: "klingon"));
+        var shown = () => DamageNodes.ShowingNodes(Ship(), unit).Select(n => n.Name).ToArray();
+        CollectionAssert.AreEqual(Array.Empty<string>(), shown(), "a non-Borg unit");
+        unit.RaceName = "borg";
+        CollectionAssert.AreEqual(new[] { "borg", "borgfire" }, shown(), "assimilated");
+        unit.RaceName = "fed";
+        CollectionAssert.AreEqual(Array.Empty<string>(), shown(), "recaptured");
+        Assert.AreEqual(0, DamageNodes.ShowingNodes(Model(Node("root", "")), State(Profile(raceName: "borg"))).Count);
+    }
+
+    [TestMethod]
+    public void AUnitDefinedAsBorgShowsTheBorgSubtreeFromTheStart() =>
+        Assert.AreEqual(2, DamageNodes.ShowingNodes(Ship(), State(Profile(raceName: "borg"))).Count);
 
     [TestMethod]
     public void ACrewRatioOfInfinityShowsNoCrewNode() =>

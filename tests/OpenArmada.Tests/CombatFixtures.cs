@@ -98,10 +98,12 @@ static class CombatFixtures
         float lifeSupportLoss = 0,
         RaceValues? race = null,
         bool defaultGreen = false,
-        bool canAttack = true
+        bool canAttack = true,
+        string raceName = ""
     ) =>
         new()
         {
+            RaceName = raceName,
             Weapons = weapons ?? new List<WeaponProfile>(),
             MaxHealth = maxHealth,
             ShieldRate = shieldRate,

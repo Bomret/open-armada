@@ -103,6 +103,12 @@ public sealed class UnitCombatState(
     /// </summary>
     public RaceValues Race { get; set; } = profile.Race;
 
+    /// <summary>
+    /// The name of the unit's current race (INV-0014): the definition's <c>race</c> at the start, then the race a
+    /// team change set. The <c>borg</c> overlay and the state dump read this, never <see cref="Profile"/>'s race name.
+    /// </summary>
+    public string RaceName { get; set; } = profile.RaceName;
+
     /// <summary>A unit that starts with crew below one is derelict from the start: no crew, shields down.</summary>
     public double Shields { get; set; } = profile.CrewCost < 1 ? 0 : profile.MaxHealth;
 

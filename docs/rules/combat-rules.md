@@ -495,14 +495,14 @@ The first party leaves on the first tick after the order, because the timer star
 counting while the unit is idle. **Stand-in**: a party lands once its delay has elapsed (the game lands it when its
 timer falls below 0, at most one tick later); every time is in world ticks, so the frame rate changes nothing.
 
-**A party in flight** (0x55f620, 0x55f750). A party carries the team and race its source had when it was sent and
-reads nothing of its source afterwards, so it lands whatever happened to the source. **Stand-in**: a party onto a
+**A party in flight** (0x55f620, 0x55f750). A party carries the team, the race name, and the race values its source had
+when it was sent (0x55f620 takes the source's race) and reads nothing of its source afterwards, so it lands whatever happened to the source. **Stand-in**: a party onto a
 target that is dying is lost, as one onto a destroyed target is (the game tests that the target is found).
 
 **The landing** (0x55f750). A party is lost when its target has a maximum crew below one (a unit without crew).
 
 - *A derelict target*: when the party's team is the target's team, crew is added (capped at the maximum) and the
-  target takes the party's race. When the party's team is hostile to the target's, the target is captured with the party
+  target takes the party's race name and race values. When the party's team is hostile to the target's, the target is captured with the party
   as its crew. Any other party (a neutral team on either side) only adds crew. A derelict that reaches one crew or more
   ends its derelict state. There is no fight and no boarding sound.
 - *A target that is not hostile*: the party's crew is added up to the target's maximum. The overflow stays in the
@@ -516,7 +516,10 @@ target that is dying is lost, as one onto a destroyed target is (the game tests 
 
 **Capture** (0x55f750, 0x46dff0). A hostile target whose crew fell to zero with survivors left, or a hostile derelict a
 party reaches, joins the party's team and race: the unit's current order is replaced by a stop (0x46eac0), its race
-becomes the party's, and its crew is the survivors, capped at its maximum; below one crew it stays derelict on the new
+becomes the party's (the owner change writes the race name at +0x1a4, 0x46dff0, and the race values come from the
+party's source race, 0x55f620), so a Borg party makes the unit race `borg` and a later Federation party makes it
+Federation again; the unit keeps every value of its own definition (weapons, maximum crew, and the rest). Its crew is
+the survivors, capped at its maximum; below one crew it stays derelict on the new
 team. The unit keeps its alert stance (**inferred**: no code in the owner change writes the stance), its place in
 the selection (**inferred**; nothing in the owner-change path touches a selection), and its own outgoing transport
 (0x46eac0 does not touch the transporting flag, 0x4d4): its next party is sent with the new team and race. A neutral
@@ -648,10 +651,13 @@ mesh, sprite, or emitter, and bit 1 skips its children.
 The class init (0x45fea0) finds seven nodes by whole name, ignoring case, with no prefix match (names at
 0x600518..0x600548, lookup 0x57ff30): `crew`, `engines`, `life`, `sensors`, `shields`, `target`, and `borg`. The
 stock models name the shield-generator node `shield`, so that node never binds, as in the game. The `borg` node
-shows on a ship whose race is the race named `borg` (0x601240, looked up once into 0x639fcc), and is hidden with
-its subtree on any other ship. Only the stock models of the other races hold art under it, for an assimilated
-ship. The sandbox keeps it hidden (**stand-in**: assimilation is not built, and the stock Borg models hold nothing
-under it).
+shows on a unit whose current race is the race named `borg` (0x4677b0 compares the unit's race name at +0x1a4 with
+0x601240, looked up once into 0x639fcc), and is hidden with its subtree on any other unit. Only the stock models of
+the other races hold art under it (the `assimbig`, `assimmedium`, and `assimsmall` sprites), for an assimilated ship.
+The sandbox shows the node's subtree from the unit's current race name (INV-0014), so a unit placed as Borg shows it
+from the start, a captured unit shows it while a Borg party's race holds, and a recapture hides it again. A model with
+no damage group or no `borg` node shows nothing extra. **Stand-in**: the name comparison ignores case (the game's
+string compare was not traced).
 
 - **Crew chain:** the ratio r is crew over `maximumCrew` over the race's `crewYellowStatus` (0x444437,
   0x4677b0). From the `crew` node the walk follows each node's first child (node +0x1c). The node at depth k

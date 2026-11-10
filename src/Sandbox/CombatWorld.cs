@@ -468,12 +468,13 @@ public sealed class CombatWorld
     /// does). Its alert stance, its place in the selection, its motion, its node, its readout, and its own transport stay;
     /// the teams that were boarding it lose their boarding block. Does nothing for a unit that is gone.
     /// </summary>
-    public void ChangeTeam(PlacedObject unit, int team, RaceValues race)
+    public void ChangeTeam(PlacedObject unit, int team, string raceName, RaceValues race)
     {
         if (State(unit) is not { } state)
             return;
         ClearOrder(unit);
         state.Team = team;
+        state.RaceName = raceName; // the owner change writes the race name with the race (0x46dff0 +0x1a4)
         state.Race = race;
         state.BoardedBy.Clear(); // the owner change zeroes the boarding block (0x46e030)
     }
@@ -1075,6 +1076,7 @@ public sealed class CombatWorld
             if (target.Team == party.Team)
             {
                 target.Race = party.Race;
+                target.RaceName = party.RaceName;
             }
 
             return;
@@ -1120,7 +1122,7 @@ public sealed class CombatWorld
     // at its maximum, and it is derelict with fewer than one. A neutral unit is never captured: only hostile units reach it.
     void Capture(BoardingParty party, UnitCombatState target, double survivors, List<CombatEvent> events)
     {
-        ChangeTeam(target.Unit, party.Team, party.Race);
+        ChangeTeam(target.Unit, party.Team, party.RaceName, party.Race);
         target.Crew = 0;
         target.Derelict = true;
         Receive(target, survivors);
@@ -1179,7 +1181,9 @@ public sealed class CombatWorld
             // the red-status stop below is the game's test right after the party is sent (0x4672d0-0x467300): the
             // source's crew is already lowered (0x4674d0, called by 0x55f620), so (crew - TRANSPORTER_MAX) / maximum
             // crew against crewRedStatus asks whether the NEXT party would take the source to red
-            _parties.Add(new BoardingParty(u.Unit, t, size, u.Team, u.Race, hostile ? Transporter.ActionDelay : 0));
+            _parties.Add(
+                new BoardingParty(u.Unit, t, size, u.Team, u.Race, u.RaceName, hostile ? Transporter.ActionDelay : 0)
+            );
             events.Add(new PartySent { Source = u.Unit, Target = t.Unit });
             u.TransportTimer = Transporter.Delay;
             if (u.Derelict || (u.Crew - Transporter.Max) / u.Profile.MaximumCrew <= u.Race.CrewRedStatus)

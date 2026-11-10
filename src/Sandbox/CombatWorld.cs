@@ -553,8 +553,8 @@ public sealed class CombatWorld
     /// <summary>
     /// Sets the unit's team and race (INV-0012): the unit's current order is replaced by a stop (the order, the automatic
     /// move, and the player move end, and the tether point becomes where the unit stands, as <see cref="ClearOrder"/>
-    /// does). Its alert stance, its place in the selection, its motion, its node, its readout, and its own transport stay;
-    /// the teams that were boarding it lose their boarding block. Does nothing for a unit that is gone.
+    /// does), and its running special weapon ends. Its alert stance, its place in the selection, its motion, its node, its
+    /// readout, and its own transport stay; the teams that were boarding it lose their boarding block. Does nothing for a unit that is gone.
     /// </summary>
     public void ChangeTeam(PlacedObject unit, int team, string raceName, RaceValues race)
     {

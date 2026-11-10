@@ -2,8 +2,9 @@
 
 The rules by which the game turns weapon fire into hits, shield loss, crew loss, system damage, and
 destruction (ADR 0004). They cover beam weapons (`classLabel` `cannon`), torpedo launchers (`launcher`),
-shields, ship systems, crew, derelicts, repair, and the transport and boarding of units. Special weapons, recrew,
-AI transports, the vision and counts of a captured starbase, and Borg assimilation are not covered.
+shields, ship systems, crew, derelicts, repair, the transport and boarding of units, and the special-weapon order
+with the Holding Beam's hold. Other special weapons, recrew, AI transports, the vision and counts of a captured
+starbase, and Borg assimilation are not covered.
 
 The rules were recovered from `Armada.exe` of the 1.2 install (SHA-256
 `c5f32464c6b4322469d79ba19d33f26fde67b5c06ca2ee24a071cd67a52a88b5`) and are restated here in our own
@@ -378,6 +379,46 @@ The state dump's `special=<current>/<maximum>` and `expect <unit> special <op> <
 **Stand-in**: a unit starts with its special energy at the maximum; the exe's start value is not yet read. The
 regain runs for every unit that has not left the map, derelict and dying ones included; the exe's conditions on it are
 not yet read.
+
+## Special weapons
+
+A special weapon is a `toggleweapon` definition with `special = 1`. The sandbox runs the Holding Beam, whose ordnance
+`classLabel` is `holding_bm` (`gholdbm`, reached through `hholdbm`'s include); every other special weapon is left out of
+the plan without a gap. The plan reads the weapon's `buttonSlot` (the number of the `fire_special_N` key, F1 to F6) and
+`range`, and the ordnance's `specialEnergyCost` (+0x34, 0x4ea1e0), `targetRange`, `lifeSpan`, `boardingSize`,
+`boardingInterval`, and `boardingDelay`.
+
+**The order.** The player presses the slot's key, then left-clicks a target. A key no selected unit has a weapon for does
+nothing. Per selected unit that has the weapon: a weapon that runs is turned off, with no refund, and a unit with it off
+waits for the click; a selection of only running units waits for none. The click on a unit gives each waiting unit the order
+and ends the wait; a click on empty space changes nothing. A selection change or a right-click ends the wait, and the
+right-click gives no move or attack order. **Inferred**: the per-unit loop over the selection and the end of the wait on a
+right-click copy the transport order's, and the key of the `fire_special_N` block being the key of the weapon whose
+`buttonSlot` is N; the game's key dispatch was not traced.
+
+**Start.** The beam starts only when the unit holds at least the weapon's cost in special energy and the target is an
+enemy ship: a unit of a team hostile to the unit's, no station, not dying, not the unit itself (+0xbc bit 0x8 marks the
+Holding Beam's targets, 0x4ddd30), within the weapon's `range`, measured center to center. It spends the cost once. A target
+that is friendly, neutral, a station, out of range, or the unit itself starts nothing and spends nothing.
+
+**Drain.** Each sandbox tick, while the beam runs, takes the cost times the tick's seconds (0x509160, 0x4ddf80). When the
+energy cannot cover a tick's drain the beam ends with the energy as it stands, so the energy never goes below zero. The
+world runs on fixed ticks, so the beam ends on the same tick at any frame rate. The regain of special energy (see "Special
+energy") runs beside the drain; whether the exe regains while a weapon runs was not traced (**stand-in**).
+
+**End.** The beam also ends when its target is destroyed or joins the unit's team, when the target is beyond the weapon's
+`range` times 1.33 (0x5d0148), and when its unit is destroyed or captured (a team change clears it, as it clears the order).
+**Stand-in**: a dying unit counts as destroyed for both ends, as for a boarding party; a unit runs one special weapon at a
+time, so the key of another slot starts nothing while one runs; a move, attack, or stop order leaves a running beam on, since
+the game's handling of those orders was not traced.
+
+**Hold.** On the first tick the beam runs, the sandbox records the target's position and heading (pitch, yaw, roll). Each
+tick the beam runs, the target's position and heading are reset to them (0x4ddd30). The target's velocity and order stay, so
+when the beam ends the ship moves on from where it was held. **Stand-in**: the velocity a held ship builds under its order
+carries into the release, since the exe's treatment of the velocity during the hold was not traced. A target without a flight
+of its own is not held.
+
+**Not built yet**: the drones the beam sends aboard, the beam's model and sound, and the other special weapons.
 
 ## Ship systems
 

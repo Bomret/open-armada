@@ -84,12 +84,11 @@ until mkdir "$lock" 2>/dev/null; do
   pid=$(cat "$lock/pid" 2>/dev/null)
   # A lock still without a pid after 5 checks of this call is a call killed before it wrote one. The count
   # restarts when a pid appears or the lock is replaced (another inode).
-  dead=
-  pidless=
+  stale=
   if [ -n "$pid" ]; then
     pidless_checks=0
     pidless_lock=
-    kill -0 "$pid" 2>/dev/null || dead=1
+    kill -0 "$pid" 2>/dev/null || stale=1
   else
     stamp=$(ls -di "$lock" 2>/dev/null)
     if [ "$stamp" != "$pidless_lock" ]; then
@@ -97,14 +96,15 @@ until mkdir "$lock" 2>/dev/null; do
       pidless_lock=$stamp
     fi
     pidless_checks=$((pidless_checks + 1))
-    [ "$pidless_checks" -gt 5 ] && pidless=1
+    [ "$pidless_checks" -gt 5 ] && stale=1
   fi
-  if [ -n "$dead" ] || [ -n "$pidless" ]; then
-    # Only the holder of the takeover mutex removes a lock, after reading its pid again while holding it. No
-    # other call can create the lock path while the stale lock still stands there.
+  if [ -n "$stale" ]; then
+    # Only the holder of the takeover mutex removes a lock, and only the lock it counted: after reading the pid
+    # again, a lock with a dead pid, or a pid-less lock still of the counted inode. A lock created since is
+    # left, as a call that took over first may be about to write its pid.
     if mkdir "$lock.takeover" 2>/dev/null; then
       pid=$(cat "$lock/pid" 2>/dev/null)
-      if { [ -n "$pid" ] && [ -n "$dead" ] && ! kill -0 "$pid" 2>/dev/null; } || { [ -z "$pid" ] && [ -n "$pidless" ]; }; then
+      if { [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; } || { [ -z "$pid" ] && [ "$(ls -di "$lock" 2>/dev/null)" = "$pidless_lock" ]; }; then
         rm -rf "$lock"
       fi
       rmdir "$lock.takeover"

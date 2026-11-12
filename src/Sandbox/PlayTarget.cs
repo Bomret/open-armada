@@ -29,6 +29,14 @@ public static class PlayTarget
     }
 
     /// <summary>
+    /// The problem with a hover on <c>name</c> aimed at <c>point</c>, a point <see cref="Of"/> accepted, or null. A
+    /// point on a viewport edge pixel hovers nothing (<see cref="SelectionDisplay.PlayHoverPoint"/>), so a step that
+    /// moved the play pointer there would show no selection display.
+    /// </summary>
+    public static string? HoverProblem(string name, Vector2 point, Vector2 viewport) =>
+        SelectionDisplay.PlayHoverPoint(point, viewport) == null ? $"'{name}' lies on the viewport edge" : null;
+
+    /// <summary>
     /// The problem with a click on <c>name</c> whose pick under the cursor is <c>picked</c> (null: no unit), or null
     /// when the pick is the named unit. A step that sends such a click would select or order something else.
     /// </summary>

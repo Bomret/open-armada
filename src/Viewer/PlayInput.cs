@@ -134,12 +134,15 @@ public sealed class PlayInput(
         return null;
     }
 
-    // One motion with no button held at the unit, aimed and checked as a select step's click is.
+    // One motion with no button held at the unit, aimed and checked as a select step's click is; a point on a viewport
+    // edge pixel, which hovers nothing, fails too.
     string? Hover(string unit)
     {
         var (point, problem) = Aim(unit, out _);
         if (point is not { } at)
             return problem;
+        if (PlayTarget.HoverProblem(unit, ToNumerics(at), ToNumerics(Size)) is { } onEdge)
+            return onEdge;
         if (PlayTarget.PickProblem(unit, PickedAt(at)) is { } wrongPick)
             return wrongPick;
         Send(Motion(at, Vector2.Zero, 0));

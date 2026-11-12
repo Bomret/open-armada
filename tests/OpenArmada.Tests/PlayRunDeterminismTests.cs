@@ -58,7 +58,17 @@ public class PlayRunDeterminismTests
     }
 
     // The folder's dumps in file-name order: first, last, middle.
-    static string[] Dumps(string folder) => Directory.GetFiles(folder).Order().Select(File.ReadAllText).ToArray();
+    static string[] Dumps(string folder)
+    {
+        var files = Directory.GetFiles(folder).Order().ToArray();
+        CollectionAssert.AreEqual(
+            new[] { "first.txt", "last.txt", "middle.txt" },
+            files.Select(Path.GetFileName).ToArray(),
+            "every dump step writes its dump"
+        );
+
+        return files.Select(File.ReadAllText).ToArray();
+    }
 
     [TestMethod]
     public void TwoRunsOfOneScriptOverOnePlanWriteIdenticalDumpsAndTheFightChangesTheState()

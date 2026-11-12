@@ -80,6 +80,7 @@ public class PlayRunTests
         Write("project.godot", "config");
         Write("OpenArmada.csproj", "<Project />");
         Write("global.json", "{}");
+        Write("Directory.Build.props", "<Project />");
         Write("play/demo.play", "wait 1");
         Write("layouts/demo.jsonc", "{}");
         Write("README.md", "readme");
@@ -208,6 +209,7 @@ public class PlayRunTests
     [DataRow("deleted")]
     [DataRow("renamed")]
     [DataRow("project")]
+    [DataRow("build-props")]
     [DataRow("script")]
     [DataRow("layout")]
     [DataRow("map")]
@@ -236,6 +238,9 @@ public class PlayRunTests
                 break;
             case "project":
                 Write("project.godot", "config 2");
+                break;
+            case "build-props":
+                Write("Directory.Build.props", "<Project><!-- changed --></Project>");
                 break;
             case "script":
                 Write("play/demo.play", "wait 2");
@@ -452,6 +457,35 @@ public class PlayRunTests
         HoldLock(gone.Id);
 
         Assert.AreEqual(0, Run(Layout).Status);
+        Assert.AreEqual(1, Calls);
+    }
+
+    [TestMethod]
+    public void ALockWithoutAPidIsTakenOverAfterTheGrace()
+    {
+        Directory.CreateDirectory(Out(".lock-demo"));
+
+        var call = Run(Layout, new Dictionary<string, string?> { ["FAKE_STATUS"] = "1" });
+
+        Assert.AreEqual(1, call.Status);
+        Assert.AreEqual(1, Calls);
+    }
+
+    [TestMethod]
+    public void ALockThatGainsAPidWithinTheGraceIsWaitedOnAndItsResultReused()
+    {
+        Run(Layout);
+        Directory.CreateDirectory(Out(".lock-demo"));
+        var call = Task.Run(() => Run(Layout));
+        Thread.Sleep(1500);
+        File.WriteAllText(Out(".lock-demo/pid"), Environment.ProcessId + "\n");
+        // Well past the grace: a call that counted on from before the pid appeared would have taken the lock over.
+        Thread.Sleep(7000);
+        var kept = File.ReadAllText(Out(".lock-demo/pid")).Trim() == Environment.ProcessId.ToString();
+        Directory.Delete(Out(".lock-demo"), true);
+
+        Assert.AreEqual(0, call.Result.Status);
+        Assert.IsTrue(kept, "the live owner's lock was taken over");
         Assert.AreEqual(1, Calls);
     }
 

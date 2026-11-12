@@ -3,14 +3,17 @@
 # are unchanged:
 #   sh tools/play-run.sh <stem> (--layout <file> | --map <map>) --fps <n> [--fresh]
 # The input hash covers the content and path of every tracked or untracked, not ignored file under src/ and
-# scenes/, the project files, the play script, the layout's content, the map name, the fps, the Godot version
-# and the ARMADA_DIR path. A result is stored in play-out/.cache/<hash>/ only for exit status 0 or 1. Each call
-# past the argument checks appends one line to play-out/runs.log. Bad arguments exit 2 and leave no trace.
-# Calls for one stem run one at a time through the lock play-out/.lock-<stem>, which holds the owner's pid: a
-# call waits on a live owner, says so once on stderr, and takes over the lock of a dead one under the mutex
-# play-out/.lock-<stem>.takeover. An unwritable play-out/ exits 2. A run builds OpenArmada.csproj first; a failed
-# build starts no Godot, stores nothing, and exits 3. PLAY_RUN_GODOT replaces the Godot binary (default
-# godot-mono), PLAY_RUN_DOTNET the dotnet binary (default dotnet).
+# scenes/, the project files (project.godot, OpenArmada.csproj, global.json, Directory.Build.props), the play
+# script, the layout's content, the map name, the fps, the Godot version and the ARMADA_DIR path. A result is
+# stored in play-out/.cache/<hash>/ only for exit status 0 or 1. Each call past the argument checks appends
+# one line to play-out/runs.log. Bad arguments exit 2 and leave no trace. Calls for one stem run one at a time
+# through the lock play-out/.lock-<stem>, which holds the owner's pid: a call waits on a live owner, says so
+# once on stderr, and takes over the lock of a dead one under the mutex play-out/.lock-<stem>.takeover. A lock
+# still without a pid after 5 one-second checks of a waiting call is a killed call's and is taken over the
+# same way; a pid appearing or the lock being replaced restarts the count. An unwritable play-out/ exits 2. A
+# run builds OpenArmada.csproj first; a failed build starts no Godot, stores nothing, and exits 3.
+# PLAY_RUN_GODOT replaces the Godot binary (default godot-mono), PLAY_RUN_DOTNET the dotnet binary (default
+# dotnet).
 set -u
 
 usage() {
@@ -70,6 +73,8 @@ version=$("$godot" --version 2>/dev/null) || usage "cannot read the version of $
 # holds the owner's pid; a lock whose pid is dead is taken over.
 lock=play-out/.lock-$stem
 waited=
+pidless_checks=0
+pidless_lock=
 mkdir -p play-out 2>/dev/null
 until mkdir "$lock" 2>/dev/null; do
   if [ ! -d play-out ] || [ ! -w play-out ]; then
@@ -77,13 +82,34 @@ until mkdir "$lock" 2>/dev/null; do
     exit 2
   fi
   pid=$(cat "$lock/pid" 2>/dev/null)
-  if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+  # A lock still without a pid after 5 checks of this call is a call killed before it wrote one. The count
+  # restarts when a pid appears or the lock is replaced (another inode).
+  dead=
+  pidless=
+  if [ -n "$pid" ]; then
+    pidless_checks=0
+    pidless_lock=
+    kill -0 "$pid" 2>/dev/null || dead=1
+  else
+    stamp=$(ls -di "$lock" 2>/dev/null)
+    if [ "$stamp" != "$pidless_lock" ]; then
+      pidless_checks=0
+      pidless_lock=$stamp
+    fi
+    pidless_checks=$((pidless_checks + 1))
+    [ "$pidless_checks" -gt 5 ] && pidless=1
+  fi
+  if [ -n "$dead" ] || [ -n "$pidless" ]; then
     # Only the holder of the takeover mutex removes a lock, after reading its pid again while holding it. No
     # other call can create the lock path while the stale lock still stands there.
     if mkdir "$lock.takeover" 2>/dev/null; then
       pid=$(cat "$lock/pid" 2>/dev/null)
-      if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then rm -rf "$lock"; fi
+      if { [ -n "$pid" ] && [ -n "$dead" ] && ! kill -0 "$pid" 2>/dev/null; } || { [ -z "$pid" ] && [ -n "$pidless" ]; }; then
+        rm -rf "$lock"
+      fi
       rmdir "$lock.takeover"
+      pidless_checks=0
+      pidless_lock=
       continue
     fi
   fi
@@ -106,7 +132,7 @@ hash=$(
     done >"$list"
     [ -s "$list" ] && git hash-object --stdin-paths <"$list" | paste -d ' ' "$list" -
     rm -f "$list"
-    for f in project.godot OpenArmada.csproj global.json; do
+    for f in project.godot OpenArmada.csproj global.json Directory.Build.props; do
       if [ -f "$f" ]; then echo "$f $(git hash-object -- "$f")"; else echo "$f missing"; fi
     done
     echo "script $(git hash-object -- "$script")"

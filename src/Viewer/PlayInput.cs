@@ -144,7 +144,7 @@ public sealed class PlayInput(
             return problem;
         if (_pointer.Hover(unit, ToNumerics(at), ToNumerics(Size), p => PickedAt(new Vector2(p.X, p.Y))) is { } hover)
             return hover;
-        View.PushInput(Motion(at, Vector2.Zero, 0), true);
+        Send(Motion(at, Vector2.Zero, 0));
 
         return null;
     }

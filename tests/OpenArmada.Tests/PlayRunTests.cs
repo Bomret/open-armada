@@ -412,6 +412,15 @@ public class PlayRunTests
     public void AFailingVersionReadExitsTwo() =>
         AssertUsageError(Run(Layout, new Dictionary<string, string?> { ["FAKE_VERSION_FAIL"] = "1" }), "version");
 
+    [TestMethod]
+    [DataRow("0")]
+    [DataRow("0.0")]
+    [DataRow("-1")]
+    [DataRow("1.")]
+    [DataRow("a")]
+    public void APollThatIsNoPositiveNumberExitsTwo(string poll) =>
+        AssertUsageError(Run(Layout, new Dictionary<string, string?> { ["PLAY_RUN_POLL"] = poll }), poll);
+
     void AssertUsageError((int Status, string Stdout, string Stderr) result, string reason)
     {
         Assert.AreEqual(2, result.Status, reason);
@@ -464,11 +473,14 @@ public class PlayRunTests
     public void ALockWithoutAPidIsTakenOverAfterTheGrace()
     {
         Directory.CreateDirectory(Out(".lock-demo"));
+        var clock = Stopwatch.StartNew();
 
-        var call = Run(Layout, new Dictionary<string, string?> { ["FAKE_STATUS"] = "1" });
+        var call = Run(Layout, new Dictionary<string, string?> { ["FAKE_STATUS"] = "1", ["PLAY_RUN_POLL"] = "0.02" });
 
         Assert.AreEqual(1, call.Status);
         Assert.AreEqual(1, Calls);
+        // 5 checks of 0.02 s: the grace follows the check interval.
+        Assert.IsTrue(clock.Elapsed < TimeSpan.FromSeconds(3), $"the takeover took {clock.Elapsed}");
     }
 
     [TestMethod]
@@ -476,11 +488,12 @@ public class PlayRunTests
     {
         Run(Layout);
         Directory.CreateDirectory(Out(".lock-demo"));
-        var call = Task.Run(() => Run(Layout));
-        Thread.Sleep(1500);
+        // A grace of 5 checks of 0.1 s, at least 0.5 s after the call starts.
+        var call = Task.Run(() => Run(Layout, new Dictionary<string, string?> { ["PLAY_RUN_POLL"] = "0.1" }));
+        Thread.Sleep(200);
         File.WriteAllText(Out(".lock-demo/pid"), Environment.ProcessId + "\n");
         // Well past the grace: a live owner whose pid appears within the grace is not taken over.
-        Thread.Sleep(7000);
+        Thread.Sleep(1500);
         var kept = File.ReadAllText(Out(".lock-demo/pid")).Trim() == Environment.ProcessId.ToString();
         Directory.Delete(Out(".lock-demo"), true);
 

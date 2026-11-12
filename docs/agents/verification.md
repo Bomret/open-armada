@@ -88,8 +88,8 @@ or none.
 - Calls for one stem run one at a time: a second call waits on the lock directory
   `play-out/.lock-<stem>`, says so once on stderr, then hashes its inputs and reuses what the first
   stored. The lock holds its owner's pid. A call takes over the lock of a dead owner, and a lock still
-  without a pid after 5 one-second checks of the waiting call (the count restarts when a pid appears or
-  the lock is replaced). Remove a lock by hand only when no run is live. Only the call holding the
+  without a pid after 5 checks of the waiting call, one second apart (`PLAY_RUN_POLL` sets the seconds
+  between checks, as the tests do; the count restarts when a pid appears or the lock is replaced). Remove a lock by hand only when no run is live. Only the call holding the
   takeover mutex `play-out/.lock-<stem>.takeover` removes a lock, after reading its pid again and, for
   a pid-less lock, finding it still the one it counted; a mutex left by a killed call is removed by hand
   too. An unwritable `play-out/` exits 2 with a message.

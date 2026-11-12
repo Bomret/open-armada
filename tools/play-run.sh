@@ -9,11 +9,12 @@
 # one line to play-out/runs.log. Bad arguments exit 2 and leave no trace. Calls for one stem run one at a time
 # through the lock play-out/.lock-<stem>, which holds the owner's pid: a call waits on a live owner, says so
 # once on stderr, and takes over the lock of a dead one under the mutex play-out/.lock-<stem>.takeover. A lock
-# still without a pid after 5 one-second checks of a waiting call is a killed call's and is taken over the
+# still without a pid after 5 checks of a waiting call, one second apart, is a killed call's and is taken over the
 # same way; a pid appearing or the lock being replaced restarts the count. An unwritable play-out/ exits 2. A
 # run builds OpenArmada.csproj first; a failed build starts no Godot, stores nothing, and exits 3.
 # PLAY_RUN_GODOT replaces the Godot binary (default godot-mono), PLAY_RUN_DOTNET the dotnet binary (default
-# dotnet).
+# dotnet), PLAY_RUN_POLL the seconds between a waiting call's checks (default 1, so the grace of 5 checks follows
+# it; a value that is no positive number exits 2).
 set -u
 
 usage() {
@@ -65,6 +66,12 @@ if [ -n "$layout" ] && [ ! -f "$layout" ]; then
   usage "no layout $layout"
 fi
 [ -n "${ARMADA_DIR:-}" ] || usage "set ARMADA_DIR to an Armada install"
+poll=${PLAY_RUN_POLL:-1}
+case "$poll" in
+  *[!0-9.]* | *.*.* | .* | *.) usage "PLAY_RUN_POLL needs a positive number of seconds" ;;
+  *[1-9]*) ;;
+  *) usage "PLAY_RUN_POLL needs a positive number of seconds" ;;
+esac
 godot=${PLAY_RUN_GODOT:-godot-mono}
 dotnet=${PLAY_RUN_DOTNET:-dotnet}
 version=$("$godot" --version 2>/dev/null) || usage "cannot read the version of $godot"
@@ -117,7 +124,7 @@ until mkdir "$lock" 2>/dev/null; do
     echo "play-run.sh: waiting on $lock (remove it if no run is live)" >&2
     waited=1
   fi
-  sleep 1
+  sleep "$poll"
 done
 trap 'rm -rf "$lock"' EXIT
 trap 'exit 130' INT TERM HUP

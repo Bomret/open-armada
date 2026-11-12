@@ -61,8 +61,8 @@ public sealed record TextTableEntry
 /// resolved. An import of any file already open in the chain, the top file included, is a cycle Note. A chain of
 /// imports that would hold more than 64 files, the definition reader's include limit, ends with one Note naming
 /// file:line and the limit. A file imported again is read again and its entries
-/// repeat, as the duplicates rule says, but one <c>Read</c> opens at most 1024 imported files, however they nest
-/// or repeat: the next import ends the reading of imports with one Note naming file:line and that limit, and the
+/// repeat, as the duplicates rule says, but one <c>Read</c> opens at most 1024 imported files (a stand-in), however
+/// they nest or repeat: the next import ends the reading of imports with one Note naming file:line and that limit, and the
 /// entries already read stay.
 ///
 /// A block reopened merges with the first (its entries add up); a different <c>:Parent</c> on the reopening is a
@@ -82,6 +82,8 @@ public sealed class TextTable
     public const int KeyOffset = 0x2ee40,
         KeyLength = 400;
 
+    // MaxImportDepth is the definition reader's include limit. stand-in: MaxImportFiles bounds the files one read
+    // opens, against imports that repeat without end; the game's own bound is not known.
     const int MaxImportDepth = 64,
         MaxImportFiles = 1024;
 

@@ -167,11 +167,11 @@ public static class SelectionDisplay
 
     /// <summary>
     /// The crew dot (0x49afe0): a DotSize square whose top-left corner sits on the box's right edge, DotRise above
-    /// its bottom edge, in the unit's crew status. Null for a unit whose maxHealth is not above 0.
+    /// its bottom edge, in the unit's crew status. Null for a unit whose game maximum crew (maximumCrew, crewCost where
+    /// missing) is 0, whatever its shield maximum.
     /// </summary>
     public static CrewDot? CrewDotOf(ScreenBox box, UnitCombatState state, float scale) =>
-        // stand-in: the shield bar's gate; the game's own gate is maximumCrew (crewCost where missing) not 0
-        state.Profile.MaxHealth <= 0
+        state.Profile.DefinedMaximumCrew == 0
             ? null
             : new CrewDot(
                 new ScreenRect(new Vector2(box.Right, box.Bottom - DotRise * scale), new Vector2(DotSize * scale)),

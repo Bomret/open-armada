@@ -259,9 +259,26 @@ public class SelectionDisplayTests
     }
 
     [TestMethod]
-    public void AUnitWithoutAShieldMaximumHasNoCrewDot()
+    public void AUnitWithAGameMaximumCrewOfZeroHasNoCrewDot()
     {
-        Assert.IsNull(SelectionDisplay.CrewDotOf(Box, WithShields(0, maxHealth: 0), 1));
+        // 0x49afe0: the dot's gate is the game's maximum crew, maximumCrew (crewCost where missing) not 0
+        var state = State(Profile() with { DefinedMaximumCrew = 0 });
+        Assert.IsNull(SelectionDisplay.CrewDotOf(Box, state, 1));
+    }
+
+    [TestMethod]
+    public void AUnitWithAFractionalMaximumCrewHasACrewDot()
+    {
+        var state = State(Profile() with { DefinedMaximumCrew = 0.5f });
+        Assert.IsNotNull(SelectionDisplay.CrewDotOf(Box, state, 1));
+    }
+
+    [TestMethod]
+    public void AUnitWithoutAShieldMaximumHasACrewDotAndNoShieldBar()
+    {
+        var state = WithShields(0, maxHealth: 0);
+        Assert.IsNull(SelectionDisplay.ShieldBarOf(Box, state, 1));
+        Assert.IsNotNull(SelectionDisplay.CrewDotOf(Box, state, 1));
     }
 
     [TestMethod]

@@ -89,11 +89,12 @@ or none.
   `play-out/.lock-<stem>`, says so once on stderr, then hashes its inputs and reuses what the first
   stored. The lock holds its owner's pid. A call takes over the lock of a dead owner, and a lock still
   without a pid after 5 checks of the waiting call, one second apart (`PLAY_RUN_POLL` sets the seconds
-  between checks, as the tests do; the count restarts when a pid appears or the lock is replaced). Remove a lock by hand only when no run is live. Only the call holding the
-  takeover mutex `play-out/.lock-<stem>.takeover` removes a lock, after reading its pid again and, for
-  a pid-less lock, finding it still the one it counted (it holds the file `waiter-<pid>` the counting call
-  put in it, which a replacement lacks even on a reused inode); a mutex left by a killed call is removed by hand
-  too. An unwritable `play-out/` exits 2 with a message.
+  between checks, as the tests do; the count restarts when a pid appears or the lock is replaced).
+  Remove a lock by hand only when no run is live. Only the call holding the takeover mutex
+  `play-out/.lock-<stem>.takeover` removes a lock, after reading its pid again and, for a pid-less
+  lock, finding it still the one it counted (it holds the file `waiter-<pid>` the counting call put in
+  it, which a replacement lacks even on a reused inode); a mutex left by a killed call is removed by
+  hand too. An unwritable `play-out/` exits 2 with a message.
 
 Movie Maker decouples simulated time from the wall clock. Each frame advances the game by exactly
 `1 / <fps>` seconds, and the next frame starts as soon as the last one is written. A run's wall-clock

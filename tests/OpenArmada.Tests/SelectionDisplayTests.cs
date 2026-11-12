@@ -336,6 +336,8 @@ public class SelectionDisplayTests
     [TestMethod]
     [DataRow(0f, 300f)]
     [DataRow(400f, 0f)]
+    [DataRow(0.5f, 300f)]
+    [DataRow(400f, 0.5f)]
     [DataRow(799f, 300f)]
     [DataRow(400f, 599f)]
     [DataRow(-5f, 300f)]

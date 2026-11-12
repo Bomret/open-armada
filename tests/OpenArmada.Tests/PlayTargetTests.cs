@@ -42,6 +42,7 @@ public class PlayTargetTests
 
     [TestMethod]
     [DataRow(0f, 100f)]
+    [DataRow(0.5f, 100f)]
     [DataRow(1279f, 100f)]
     [DataRow(100f, 0f)]
     [DataRow(100f, 719f)]

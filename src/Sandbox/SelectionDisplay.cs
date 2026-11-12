@@ -128,7 +128,7 @@ public static class SelectionDisplay
     /// mouse plays no part.
     /// </summary>
     public static Vector2? PlayHoverPoint(Vector2? pointer, Vector2 viewport) =>
-        pointer is { } p && p.X > 0 && p.Y > 0 && p.X < viewport.X - 1 && p.Y < viewport.Y - 1 ? p : null;
+        pointer is { } p && p.X >= 1 && p.Y >= 1 && p.X < viewport.X - 1 && p.Y < viewport.Y - 1 ? p : null;
 
     /// <summary>
     /// The screen box around a unit's box corners as projected to a screen of <c>screen</c> pixels (null: the corner

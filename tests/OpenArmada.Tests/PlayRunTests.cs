@@ -544,6 +544,81 @@ public class PlayRunTests
         StringAssert.Contains(call.Result.Stderr, "waiting on play-out/.lock-demo");
     }
 
+    // As MkdirShim, but the rival that held the dead lock removes it before the wrapper holds the mutex; an ls shim
+    // then stands in for a waiter that mkdirs a fresh live lock just after the wrapper's `ls -di` of the vanished one.
+    const string VanishShim = """
+        #!/bin/sh
+        for a; do
+          case "$a" in
+            *.takeover)
+              if [ ! -f "$FAKE_DIR/shimmed" ]; then
+                /bin/rm -rf play-out/.lock-demo
+                : > "$FAKE_DIR/shimmed"
+              fi
+              ;;
+          esac
+        done
+        /bin/mkdir "$@"
+        status=$?
+        if [ "$status" -ne 0 ] && [ -f "$FAKE_DIR/shimmed" ]; then : > "$FAKE_DIR/retried"; fi
+        exit "$status"
+        """;
+
+    const string LiveAfterLsShim = """
+        #!/bin/sh
+        /bin/ls "$@"
+        status=$?
+        case "$*" in
+          *-di*.lock-demo)
+            if [ -f "$FAKE_DIR/shimmed" ] && [ ! -f "$FAKE_DIR/lsdone" ]; then
+              /bin/mkdir play-out/.lock-demo
+              echo "$FAKE_LIVE_PID" > play-out/.lock-demo/pid
+              : > "$FAKE_DIR/lsdone"
+            fi
+            ;;
+        esac
+        exit "$status"
+        """;
+
+    [TestMethod]
+    public void ATakeoverKeepsALiveLockMadeWhereTheDeadOneVanished()
+    {
+        var shims = Path.Combine(root, "shims");
+        Directory.CreateDirectory(shims);
+        foreach (var (name, body) in new[] { ("mkdir", VanishShim), ("ls", LiveAfterLsShim) })
+        {
+            File.WriteAllText(Path.Combine(shims, name), body);
+            File.SetUnixFileMode(
+                Path.Combine(shims, name),
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+            );
+        }
+        using var gone = Process.Start("true")!;
+        gone.WaitForExit();
+        HoldLock(gone.Id);
+        var live = Environment.ProcessId.ToString();
+        var env = new Dictionary<string, string?>
+        {
+            ["PATH"] = shims + ":" + Environment.GetEnvironmentVariable("PATH"),
+            ["FAKE_LIVE_PID"] = live,
+        };
+        var call = Task.Run(() => Run(Layout, env));
+        var retried = Path.Combine(fake, "retried");
+        for (var i = 0; i < 200 && !File.Exists(retried) && !call.IsCompleted; i++)
+        {
+            Thread.Sleep(50);
+        }
+
+        var survived = File.Exists(retried) && File.ReadAllText(Out(".lock-demo/pid")).Trim() == live;
+        if (Directory.Exists(Out(".lock-demo")))
+        {
+            Directory.Delete(Out(".lock-demo"), true);
+        }
+        call.Wait();
+
+        Assert.IsTrue(survived, "the live lock was removed");
+    }
+
     // As MkdirShim, but the rival replaces the pid-less lock with a fresh pid-less one (another inode, as a call
     // that took over first and is about to write its pid leaves it) and marks it. The replacement must survive.
     const string ReplaceShim = """

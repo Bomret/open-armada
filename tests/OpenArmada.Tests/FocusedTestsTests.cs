@@ -58,12 +58,15 @@ public sealed class FocusedTestsTests
 
     static string Filter(string[] args) => args[Array.IndexOf(args, "--filter") + 1];
 
-    // The types declared after a [TestClass] line, past any attribute lines between them.
+    static string Source(string file) =>
+        File.ReadAllText(Path.Combine(CheckedInPlayTests.Root(), "tests", "OpenArmada.Tests", file));
+
+    // The types declared after a [TestClass] line, past any attribute and comment lines between them.
     static string[] DeclaredClasses(string file) =>
         Regex
             .Matches(
-                File.ReadAllText(Path.Combine(CheckedInPlayTests.Root(), "tests", "OpenArmada.Tests", file)),
-                @"^[ \t]*\[TestClass\][ \t]*\r?\n(?:[ \t]*\[.*\]\r?\n)*[ \t]*(?:\w+[ \t]+)*?class[ \t]+(\w+)",
+                Source(file),
+                @"^[ \t]*\[TestClass\][ \t]*\r?\n(?:[ \t]*(?:\[.*\]|//.*)\r?\n)*[ \t]*(?:\w+[ \t]+)*?class[ \t]+(\w+)",
                 RegexOptions.Multiline
             )
             .Select(m => m.Groups[1].Value)
@@ -74,12 +77,24 @@ public sealed class FocusedTestsTests
     public void ATestFileSelectsExactlyTheTestClassesItDeclares(string file)
     {
         var classes = DeclaredClasses(file);
+        // A [TestClass] the oracle cannot parse would yield no name here and in the script alike.
+        Assert.AreEqual(Regex.Matches(Source(file), @"^[ \t]*\[TestClass\]", RegexOptions.Multiline).Count, classes.Length);
         var expected =
             classes.Length == 0
                 ? Unit
                 : $"({string.Join("|", classes.Select(c => $"FullyQualifiedName~OpenArmada.Tests.{c}."))})&{Unit}";
 
         Assert.AreEqual(expected, Filter(Dotnet($"tests/OpenArmada.Tests/{file}")));
+    }
+
+    [TestMethod]
+    public void AClassFilteredRunIgnoresExitCodeEightAndTheWholeSuiteRunDoesNot()
+    {
+        var filtered = Dotnet("tests/OpenArmada.Tests/FocusedTestsTests.cs");
+        var index = Array.IndexOf(filtered, "--ignore-exit-code");
+
+        Assert.IsTrue(index >= 0 && filtered[index + 1] == "8", "the class-filtered run lacks --ignore-exit-code 8");
+        CollectionAssert.DoesNotContain(Dotnet("src/Anything.cs"), "--ignore-exit-code");
     }
 
     [TestMethod]

@@ -545,7 +545,7 @@ public class PlayRunTests
     }
 
     // As MkdirShim, but the rival that held the dead lock removes it before the wrapper holds the mutex; an ls shim
-    // then stands in for a waiter that mkdirs a fresh live lock just after the wrapper's `ls -di` of the vanished one.
+    // then stands in for a waiter that mkdirs a fresh live lock just after any `ls -di` of the vanished one.
     const string VanishShim = """
         #!/bin/sh
         for a; do
@@ -609,7 +609,11 @@ public class PlayRunTests
             Thread.Sleep(50);
         }
 
-        var survived = File.Exists(retried) && File.ReadAllText(Out(".lock-demo/pid")).Trim() == live;
+        // The wrapper must not consult the vanished lock at all; where it does (the ls shim then makes the live
+        // lock), the live lock must outlive the takeover.
+        var consulted = File.Exists(Path.Combine(fake, "lsdone"));
+        var survived =
+            !consulted || (File.Exists(retried) && File.ReadAllText(Out(".lock-demo/pid")).Trim() == live);
         if (Directory.Exists(Out(".lock-demo")))
         {
             Directory.Delete(Out(".lock-demo"), true);

@@ -82,6 +82,11 @@ lock=play-out/.lock-$stem
 waited=
 pidless_checks=0
 mark=$lock/waiter-$$
+# Removes the lock off its path first: `rm -rf` empties a directory before it removes it, and a waiter's mark
+# written in between would leave the lock behind.
+drop_lock() {
+  mv "$lock" "$lock.gone-$$" 2>/dev/null && rm -rf "$lock.gone-$$"
+}
 mkdir -p play-out 2>/dev/null
 until mkdir "$lock" 2>/dev/null; do
   if [ ! -d play-out ] || [ ! -w play-out ]; then
@@ -113,7 +118,7 @@ until mkdir "$lock" 2>/dev/null; do
     if mkdir "$lock.takeover" 2>/dev/null; then
       pid=$(cat "$lock/pid" 2>/dev/null)
       if { [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; } || { [ -z "$pid" ] && [ "$pidless_checks" -gt 0 ] && [ -e "$mark" ]; }; then
-        rm -rf "$lock"
+        drop_lock
       fi
       rmdir "$lock.takeover"
       pidless_checks=0
@@ -126,7 +131,7 @@ until mkdir "$lock" 2>/dev/null; do
   fi
   sleep "$poll"
 done
-trap 'rm -rf "$lock"' EXIT
+trap drop_lock EXIT
 trap 'exit 130' INT TERM HUP
 echo $$ >"$lock/pid"
 

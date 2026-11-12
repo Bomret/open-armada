@@ -672,6 +672,39 @@ public class PlayRunTests
         Assert.IsTrue(survived, "the replacement lock was removed");
     }
 
+    // An rm shim that removes a lock as `rm -rf` does, contents first and the directory last, and in between stands
+    // in for a waiter that reads no pid and writes its mark through the lock's path.
+    const string MarkingRmShim = """
+        #!/bin/sh
+        case "$*" in
+          *.lock-demo*)
+            for a; do dir=$a; done
+            /bin/rm -rf "$dir"/* "$dir"/.[!.]*
+            : > play-out/.lock-demo/waiter-1 2>/dev/null
+            /bin/rmdir "$dir"
+            ;;
+          *) exec /bin/rm "$@" ;;
+        esac
+        """;
+
+    [TestMethod]
+    public void AWaiterMarkingTheLockWhileTheOwnerRemovesItLeavesNoLock()
+    {
+        var shims = Path.Combine(root, "shims");
+        Directory.CreateDirectory(shims);
+        File.WriteAllText(Path.Combine(shims, "rm"), MarkingRmShim);
+        File.SetUnixFileMode(
+            Path.Combine(shims, "rm"),
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+        );
+
+        var path = shims + ":" + Environment.GetEnvironmentVariable("PATH");
+
+        Run(Layout, new Dictionary<string, string?> { ["PATH"] = path });
+
+        Assert.IsFalse(Directory.Exists(Out(".lock-demo")), "the owner left its lock behind");
+    }
+
     // The takeover race is timing-dependent, so this can pass without the atomic rename on a quiet machine.
     [TestMethod]
     public void ConcurrentWaitersOnADeadLockRunGodotOnce()

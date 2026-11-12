@@ -41,6 +41,23 @@ public class PlayTargetTests
     }
 
     [TestMethod]
+    [DataRow(0f, 100f)]
+    [DataRow(0.5f, 100f)]
+    [DataRow(1279f, 100f)]
+    [DataRow(100f, 0f)]
+    [DataRow(100f, 719f)]
+    public void AHoverOnAViewportEdgePixelIsAProblemNamingTheUnit(float x, float y)
+    {
+        Assert.AreEqual("'a' lies on the viewport edge", PlayTarget.HoverProblem("a", new Vector2(x, y), Screen));
+    }
+
+    [TestMethod]
+    public void AHoverOffTheViewportEdgesIsNoProblem()
+    {
+        Assert.IsNull(PlayTarget.HoverProblem("a", new Vector2(1, 718), Screen));
+    }
+
+    [TestMethod]
     public void APickOfAnotherObjectIsAProblemNamingBoth()
     {
         Assert.IsNull(PlayTarget.PickProblem("a", "a"));

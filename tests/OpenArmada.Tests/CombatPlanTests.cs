@@ -840,6 +840,15 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void ANegativeMaximumCrewDefinesNoMaximumCrew()
+    {
+        var p = ProfileOf(
+            Plan(new[] { "s" }, new[] { ("s", Ship + "maximumCrew = -5\r\n"), ("fed", Race) }, ("RTS_CFG.h", Constants))
+        );
+        Assert.AreEqual(0f, p.DefinedMaximumCrew);
+    }
+
+    [TestMethod]
     public void AMaximumCrewOfZeroTakesAPositiveStandIn()
     {
         var r = Plan(

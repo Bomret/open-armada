@@ -84,6 +84,19 @@ public class PlayScriptTests
     }
 
     [TestMethod]
+    public void HoverAndLeaveParseToTheirRecords()
+    {
+        var script = PlayScript.Parse("hover Vorcha6\nleave\n", "x.play");
+
+        CollectionAssert.AreEqual(Array.Empty<string>(), script.Problems.ToArray());
+        Assert.AreEqual(("Vorcha6", 1), (((HoverStep)script.Steps[0]).Unit, script.Steps[0].Line));
+        Assert.AreEqual(2, ((LeaveStep)script.Steps[1]).Line);
+    }
+
+    [TestMethod]
+    [DataRow("hover", "'hover' takes 1 argument, found 0")]
+    [DataRow("hover a b", "'hover' takes 1 argument, found 2")]
+    [DataRow("leave a", "'leave' takes 0 arguments, found 1")]
     [DataRow("select", "'select' takes 1 argument, found 0")]
     [DataRow("attack a b", "'attack' takes 1 argument, found 2")]
     [DataRow("transport", "'transport' takes 1 argument, found 0")]

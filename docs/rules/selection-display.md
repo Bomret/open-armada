@@ -106,11 +106,14 @@ shows the state of its system is **unknown**: its draw method was not read.
 
 The map sandbox draws the shield bar and the crew dot by the rules above, redrawn every frame. It draws
 them for the hovered unit and the units of its team, and the crew dots of the selected among them. It
-applies the hold and the display fade. With no hovered unit, no unit shows either part, whatever is
+applies the hold and the display fade. The crew dot takes the game's gate. A unit draws it when its
+`maximumCrew` is not 0, whatever its shield maximum. A missing `maximumCrew` is the `crewCost`. A negative one counts as 0. With no hovered unit, no unit shows either part, whatever is
 selected. The engine's pick is the one a click there would select. No unit is picked while the cursor is
 outside the window. No unit is picked in a run without a mouse, such as a `--screenshot` run. In both
 cases the display shows nothing once the hold has passed. The cursor counts as inside while the window
-confines it. A destroyed unit ends the hover on the frame it is removed.
+confines it. A play run picks under its play pointer and never under the real mouse. The play pointer is where
+its last mouse step left the cursor. A play run picks no unit before its first mouse step or after a `leave` step.
+It picks none while the play pointer lies on or past a viewport edge. A destroyed unit ends the hover on the frame it is removed.
 The engine draws no energy bar, no system icons, and no reticle, and it has no cloaking.
 
 The engine fills these gaps with stand-ins:
@@ -118,9 +121,6 @@ The engine fills these gaps with stand-ins:
 - The screen box comes from the box around the unit's meshes in world axes.
 - The pick is the click pick, the nearest object under the cursor, in place of the game's own pick.
 - A unit shows the shield bar when its `maxHealth` is above 0, in place of the game's own flag and value.
-  The crew dot takes the same gate. The game's own gate is `maximumCrew` not 0, where a missing
-  `maximumCrew` is the `crewCost`. A unit with a `maximumCrew` of 0, or no `maximumCrew` and a `crewCost` of 0,
-  fails it and shows no dot in the game.
 - A game pixel is as large as the display scale of the screen the window is on. So the display keeps its
   size on a high-density screen.
 - A part draws in full-intensity colors at an alpha. The alpha is the opacity minus 0.5, doubled, kept

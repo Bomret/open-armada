@@ -117,10 +117,18 @@ public static class SelectionDisplay
     /// <summary>
     /// The point the cursor hovers: the mouse position while the cursor is inside the window of a run that has a
     /// mouse; null otherwise, such as in a screenshot or headless run. Inside follows the edge scroll's rule,
-    /// CameraRig.CursorInside.
+    /// CameraRig.CursorInside. A play run hovers its play pointer instead (<see cref="PlayHoverPoint"/>).
     /// </summary>
     public static Vector2? HoverPoint(Vector2 mouse, bool mouseInWindow, bool confined, bool hasMouse) =>
         hasMouse && CameraRig.CursorInside(mouseInWindow, confined) ? mouse : null;
+
+    /// <summary>
+    /// The point a play run hovers: the play pointer while it lies inside the viewport of <c>viewport</c> pixels, off
+    /// its edge pixels; null without a pointer (no mouse step yet, or a <c>leave</c>) and on or past any edge. The real
+    /// mouse plays no part.
+    /// </summary>
+    public static Vector2? PlayHoverPoint(Vector2? pointer, Vector2 viewport) =>
+        pointer is { } p && p.X >= 1 && p.Y >= 1 && p.X < viewport.X - 1 && p.Y < viewport.Y - 1 ? p : null;
 
     /// <summary>
     /// The screen box around a unit's box corners as projected to a screen of <c>screen</c> pixels (null: the corner
@@ -167,11 +175,11 @@ public static class SelectionDisplay
 
     /// <summary>
     /// The crew dot (0x49afe0): a DotSize square whose top-left corner sits on the box's right edge, DotRise above
-    /// its bottom edge, in the unit's crew status. Null for a unit whose maxHealth is not above 0.
+    /// its bottom edge, in the unit's crew status. Null for a unit whose game maximum crew (maximumCrew, crewCost where
+    /// missing) is 0, whatever its shield maximum.
     /// </summary>
     public static CrewDot? CrewDotOf(ScreenBox box, UnitCombatState state, float scale) =>
-        // stand-in: the shield bar's gate; the game's own gate is maximumCrew (crewCost where missing) not 0
-        state.Profile.MaxHealth <= 0
+        state.Profile.DefinedMaximumCrew == 0
             ? null
             : new CrewDot(
                 new ScreenRect(new Vector2(box.Right, box.Bottom - DotRise * scale), new Vector2(DotSize * scale)),

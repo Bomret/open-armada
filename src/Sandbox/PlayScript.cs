@@ -74,6 +74,19 @@ public sealed record SelectStep : PlayStep
     public required string Unit { get; init; }
 }
 
+/// <summary>
+/// <c>hover &lt;unit&gt;</c>: one mouse motion, no button held, to the unit's projected screen point, which moves the play
+/// pointer there. It selects nothing.
+/// </summary>
+public sealed record HoverStep : PlayStep
+{
+    /// <summary>The unit's name as the script writes it.</summary>
+    public required string Unit { get; init; }
+}
+
+/// <summary><c>leave</c>: moves the play pointer outside the window.</summary>
+public sealed record LeaveStep : PlayStep;
+
 /// <summary><c>attack &lt;unit&gt;</c>: a right click at the unit's projected screen point.</summary>
 public sealed record AttackStep : PlayStep
 {
@@ -303,8 +316,12 @@ public sealed class PlayScript
     {
         switch (word)
         {
-            case "select" or "attack" or "transport" or "press" when args.Length != 1:
+            case "select" or "attack" or "transport" or "press" or "hover" when args.Length != 1:
                 return Wrong(word, 1, args.Length);
+            case "hover":
+                return (new HoverStep { Line = number, Unit = args[0] }, null);
+            case "leave":
+                return args.Length != 0 ? Wrong(word, 0, args.Length) : (new LeaveStep { Line = number }, null);
             case "transport":
                 return (new TransportStep { Line = number, Unit = args[0] }, null);
             case "special":

@@ -30,6 +30,7 @@ public class CheckedInPlayRunTests
         ["emitters"] = ["--layout", "layouts/emitters.jsonc", "--fps", "30"],
         ["group-move"] = ["--layout", "layouts/group-move.jsonc", "--fps", "10"],
         ["hit-explosion"] = ["--layout", "layouts/hit-explosion.jsonc", "--fps", "30"],
+        ["hover"] = ["--layout", "layouts/hover.jsonc", "--fps", "20"],
         ["map-black-hole"] = ["--map", "borg4", "--fps", "10"],
         ["nebula"] = ["--layout", "layouts/nebula.jsonc", "--fps", "10"],
         ["path-field"] = ["--layout", "layouts/path-field.jsonc", "--fps", "10"],

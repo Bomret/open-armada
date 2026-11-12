@@ -1,0 +1,42 @@
+# The play pointer on layouts/hover.jsonc. Nothing is hovered before the first mouse step. A box selects A and B and
+# leaves the pointer beside B, on no unit. A hover on C shows C's shield bar, A's and B's bars at the display fade, and
+# the crew dots of A and B; a key step leaves it so. A leave keeps the display for the 0.4 s hold, then shows nothing.
+# A hover on the Klingon K shows only K's bar. A select click on C hovers C, with its crew dot. A drag outside the
+# window hovers nothing. A scroll, and a turn of 0 pixels, leave the pointer at the viewport centre, on B.
+# A shot waits 0.7 s after a hover: the display fade passes 0.5, and the display steps one frame after the driver.
+# Run it with --layout layouts/hover.jsonc; the layout's header comment has the whole command.
+wait 0.5
+shot start
+box A B
+wait 0.7
+shot boxed
+hover C
+wait 0.7
+shot hovered
+press F11
+wait 0.1
+shot key
+leave
+wait 0.2
+shot held
+wait 0.4
+shot left
+leave
+hover K
+wait 0.7
+shot enemy
+select C
+wait 0.7
+shot selected
+box -20 -20 -10 -10
+wait 0.7
+shot outside
+scroll down
+wait 0.7
+shot scrolled
+leave
+wait 0.5
+turn 0
+wait 0.7
+shot turned
+dump end

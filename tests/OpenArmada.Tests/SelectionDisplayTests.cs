@@ -259,9 +259,26 @@ public class SelectionDisplayTests
     }
 
     [TestMethod]
-    public void AUnitWithoutAShieldMaximumHasNoCrewDot()
+    public void AUnitWithAGameMaximumCrewOfZeroHasNoCrewDot()
     {
-        Assert.IsNull(SelectionDisplay.CrewDotOf(Box, WithShields(0, maxHealth: 0), 1));
+        // 0x49afe0: the dot's gate is the game's maximum crew, maximumCrew (crewCost where missing) not 0
+        var state = State(Profile() with { DefinedMaximumCrew = 0 });
+        Assert.IsNull(SelectionDisplay.CrewDotOf(Box, state, 1));
+    }
+
+    [TestMethod]
+    public void AUnitWithAFractionalMaximumCrewHasACrewDot()
+    {
+        var state = State(Profile() with { DefinedMaximumCrew = 0.5f });
+        Assert.IsNotNull(SelectionDisplay.CrewDotOf(Box, state, 1));
+    }
+
+    [TestMethod]
+    public void AUnitWithoutAShieldMaximumHasACrewDotAndNoShieldBar()
+    {
+        var state = WithShields(0, maxHealth: 0);
+        Assert.IsNull(SelectionDisplay.ShieldBarOf(Box, state, 1));
+        Assert.IsNotNull(SelectionDisplay.CrewDotOf(Box, state, 1));
     }
 
     [TestMethod]
@@ -305,6 +322,31 @@ public class SelectionDisplayTests
         Assert.AreEqual(0, hover.Team);
         Assert.AreEqual(0, hover.Fade);
         Assert.AreEqual(0, SelectionDisplay.Shown(hover, new[] { B1, C2, D0 }, new[] { B1 }, Team).Count());
+    }
+
+    [TestMethod]
+    public void APlayRunHoversThePlayPointerInsideTheViewport()
+    {
+        var viewport = new System.Numerics.Vector2(800, 600);
+        var pointer = new System.Numerics.Vector2(10, 20);
+        Assert.AreEqual(pointer, SelectionDisplay.PlayHoverPoint(pointer, viewport));
+        Assert.IsNull(SelectionDisplay.PlayHoverPoint(null, viewport), "no mouse step yet, or the pointer left");
+    }
+
+    [TestMethod]
+    [DataRow(0f, 300f)]
+    [DataRow(400f, 0f)]
+    [DataRow(0.5f, 300f)]
+    [DataRow(400f, 0.5f)]
+    [DataRow(799f, 300f)]
+    [DataRow(400f, 599f)]
+    [DataRow(-5f, 300f)]
+    [DataRow(900f, 300f)]
+    [DataRow(400f, 650f)]
+    public void APlayPointerOnOrPastAViewportEdgeHoversNothing(float x, float y)
+    {
+        var viewport = new System.Numerics.Vector2(800, 600);
+        Assert.IsNull(SelectionDisplay.PlayHoverPoint(new System.Numerics.Vector2(x, y), viewport));
     }
 
     [TestMethod]

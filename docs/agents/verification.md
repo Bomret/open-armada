@@ -1,7 +1,7 @@
 # Verification
 
 ```sh
-dotnet tool restore && dotnet csharpier check . && dotnet test --project tests/OpenArmada.Tests && dotnet build OpenArmada.csproj && godot-mono --headless --path . -- --check --game "${ARMADA_DIR:?set ARMADA_DIR to an Armada install}"
+dotnet tool restore && dotnet csharpier check . && dotnet test --project tests/OpenArmada.Tests --filter 'TestCategory!=Install&TestCategory!=Godot' && dotnet build OpenArmada.csproj && godot-mono --headless --path . -- --check --game "${ARMADA_DIR:?set ARMADA_DIR to an Armada install}"
 ```
 
 ```sh
@@ -20,7 +20,30 @@ The focused command runs the unit tests the changed paths need. They build their
 need neither an install nor Godot. A changed test file runs the test classes it holds, through
 `dotnet test --filter`. Any other changed path except Markdown runs every unit test, since nothing maps a
 source file to the tests that cover it. Markdown alone runs no test. A red-green step therefore passes only
-the test files it works on; the run over a slice's whole changed-path set runs the whole suite.
+the test files it works on; the run over a slice's whole changed-path set runs the whole suite. A changed test
+file that holds only integration tests selects no test, and the command passes.
+
+Both commands run the unit tests only. They skip the integration tests: the tests with the MSTest category
+`Install` or `Godot`, through the filter `TestCategory!=Install&TestCategory!=Godot`. The category names are the
+constants of `tests/OpenArmada.Tests/Needs.cs`. Put `[TestCategory(Needs.Install)]` and `[TestCategory(Needs.Godot)]`
+on every test that needs the install or Godot, on the class where every test in it does. `NeedsTests` pins the
+filters of `mise.toml` and `tools/focused-tests.sh` to `Needs`.
+
+## Integration command
+
+```sh
+mise run test:integration
+```
+
+It runs only the tests of the categories `Install` and `Godot`. `CheckedInPlayRunTests` runs every checked-in play
+script through the play-run wrapper and fails on an exit status other than 0: a failed `expect`, a step that cannot
+run, a failed build. Its table holds each script's wrapper arguments (layout or map, frame rate), and
+`CheckedInPlayTests` fails where the table misses a script in `play/`. The wrapper reuses a stored result whose
+inputs hash the same, so a run on unchanged code starts no Godot. A test whose `ARMADA_DIR` is unset, or whose Godot
+(`PLAY_RUN_GODOT`, which `mise` sets) does not run, reports inconclusive.
+
+Neither the full command nor the focused one runs these tests. Run the integration command before a pull request that
+changes the sandbox, a play script, or a layout. A new play script gets its row in the table.
 
 ## Sandbox Definition-of-Done lines
 
@@ -140,6 +163,8 @@ The checked-in play scripts, the layout or map each runs on, and the mechanics e
 | `auto-assimilator.play` | `layouts/auto-assimilator.jsonc` | A Borg Assimilator's Auto-Assimilator (F3, then a click) drains a Klingon destroyer's crew into its own and the team's crew pool until the destroyer is derelict; the destroyer keeps its team and race |
 
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
+The integration command runs every script in the table and checks its exit status. It does not judge the frames,
+the shots, or the WAV.
 
 No timing command: the test runner's per-test durations are not wired in.
 

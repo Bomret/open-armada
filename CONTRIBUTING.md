@@ -37,9 +37,11 @@ public issue.
 Run every command through its mise task from the repository root. `mise tasks` lists the tasks.
 
 - `mise run format` formats the C# code with CSharpier.
-- `mise run test` runs the unit tests.
+- `mise run test` runs the unit tests, which need neither the install nor Godot.
 - `mise run check` runs the full verification: format check, unit tests, build, and the asset check
   against `ARMADA_DIR`. It must pass before you open a pull request.
+- `mise run test:integration` runs the integration tests: every checked-in play script, against
+  `ARMADA_DIR` and Godot. Run it before you open a pull request that changes the sandbox, a play script, or a layout.
 
 A change to what a player sees or hears in the map sandbox is checked with a play run.
 `docs/agents/verification.md` describes it.

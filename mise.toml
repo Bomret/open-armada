@@ -53,15 +53,20 @@ description = "Build the C# project"
 run = "dotnet build OpenArmada.csproj"
 
 [tasks.test]
-description = "Run the unit tests"
-run = "dotnet test --project tests/OpenArmada.Tests"
+description = "Run the unit tests, which need neither the install nor Godot"
+# The category names are the constants of tests/OpenArmada.Tests/Needs.cs.
+run = "dotnet test --project tests/OpenArmada.Tests --filter 'TestCategory!=Install&TestCategory!=Godot'"
+
+[tasks."test:integration"]
+description = "Run the integration tests: every checked-in play script (needs ARMADA_DIR and Godot)"
+run = "dotnet test --project tests/OpenArmada.Tests --filter 'TestCategory=Install|TestCategory=Godot'"
 
 [tasks.check]
 description = "Full verification: format check, unit tests, build, asset check (needs ARMADA_DIR)"
 depends = ["restore"]
 run = [
   "dotnet csharpier check .",
-  "dotnet test --project tests/OpenArmada.Tests",
+  "dotnet test --project tests/OpenArmada.Tests --filter 'TestCategory!=Install&TestCategory!=Godot'",
   "dotnet build OpenArmada.csproj",
   "{{ env.GODOT }} --headless --path . -- --check --game \"{{ env.ARMADA_DIR }}\"",
 ]

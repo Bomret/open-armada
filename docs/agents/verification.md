@@ -23,6 +23,12 @@ source file to the tests that cover it. Markdown alone runs no test. A red-green
 the test files it works on; the run over a slice's whole changed-path set runs the whole suite. A changed test
 file that holds only integration tests selects no test, and the command passes.
 
+The command finds a test file's classes from each `[TestClass]` line to its class declaration, across any attribute
+lines between, and selects them with `--filter "FullyQualifiedName~OpenArmada.Tests.<Class>."`. Keep the trailing
+dot: without it `PlayRun` also selects `PlayRunInputTests`. `dotnet test` exits 8 when the filter selects no test.
+The focused command ignores that exit, so a class holding only integration tests passes; a fail-to-pass command must
+not ignore it, since a filter that selects nothing would pass both runs.
+
 Both commands run the unit tests only. They skip the integration tests: the tests with the MSTest category
 `Install` or `Godot`, through the filter `TestCategory!=Install&TestCategory!=Godot`. The category names are the
 constants of `tests/OpenArmada.Tests/Needs.cs`. Put `[TestCategory(Needs.Install)]` and `[TestCategory(Needs.Godot)]`

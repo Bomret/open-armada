@@ -659,20 +659,37 @@ public class PlayRunTests
         exit "$status"
         """;
 
+    // An ls shim that reports one inode for every directory, as a file system that reuses a freed inode at once
+    // (ext4) can give the replacement the inode of the lock it replaced.
+    const string SameInodeShim = """
+        #!/bin/sh
+        case "$1" in
+          -di) echo "42 $2"; exit 0 ;;
+        esac
+        exec /bin/ls "$@"
+        """;
+
     [TestMethod]
-    public void ATakeoverKeepsAPidlessLockReplacedWhileItWaitedForTheMutex()
+    [DataRow(false)]
+    [DataRow(true)]
+    public void ATakeoverKeepsAPidlessLockReplacedWhileItWaitedForTheMutex(bool reusedInode)
     {
         var shims = Path.Combine(root, "shims");
         Directory.CreateDirectory(shims);
-        File.WriteAllText(Path.Combine(shims, "mkdir"), ReplaceShim);
-        File.SetUnixFileMode(
-            Path.Combine(shims, "mkdir"),
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
-        );
+        var bodies = reusedInode ? new[] { ("mkdir", ReplaceShim), ("ls", SameInodeShim) } : [("mkdir", ReplaceShim)];
+        foreach (var (name, body) in bodies)
+        {
+            File.WriteAllText(Path.Combine(shims, name), body);
+            File.SetUnixFileMode(
+                Path.Combine(shims, name),
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+            );
+        }
         Directory.CreateDirectory(Out(".lock-demo"));
         var env = new Dictionary<string, string?>
         {
             ["PATH"] = shims + ":" + Environment.GetEnvironmentVariable("PATH"),
+            ["PLAY_RUN_POLL"] = "0.02",
         };
         var call = Task.Run(() => Run(Layout, env));
         var retried = Path.Combine(fake, "retried");

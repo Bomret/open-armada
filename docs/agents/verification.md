@@ -91,7 +91,8 @@ or none.
   without a pid after 5 checks of the waiting call, one second apart (`PLAY_RUN_POLL` sets the seconds
   between checks, as the tests do; the count restarts when a pid appears or the lock is replaced). Remove a lock by hand only when no run is live. Only the call holding the
   takeover mutex `play-out/.lock-<stem>.takeover` removes a lock, after reading its pid again and, for
-  a pid-less lock, finding it still the one it counted; a mutex left by a killed call is removed by hand
+  a pid-less lock, finding it still the one it counted (it holds the file `waiter-<pid>` the counting call
+  put in it, which a replacement lacks even on a reused inode); a mutex left by a killed call is removed by hand
   too. An unwritable `play-out/` exits 2 with a message.
 
 Movie Maker decouples simulated time from the wall clock. Each frame advances the game by exactly

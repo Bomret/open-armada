@@ -81,7 +81,7 @@ version=$("$godot" --version 2>/dev/null) || usage "cannot read the version of $
 lock=play-out/.lock-$stem
 waited=
 pidless_checks=0
-pidless_lock=
+mark=$lock/waiter-$$
 mkdir -p play-out 2>/dev/null
 until mkdir "$lock" 2>/dev/null; do
   if [ ! -d play-out ] || [ ! -w play-out ]; then
@@ -89,34 +89,34 @@ until mkdir "$lock" 2>/dev/null; do
     exit 2
   fi
   pid=$(cat "$lock/pid" 2>/dev/null)
-  # A lock still without a pid after 5 checks of this call is a call killed before it wrote one. The count
-  # restarts when a pid appears or the lock is replaced (another inode).
+  # A lock still without a pid after 5 checks of this call is a call killed before it wrote one. The call marks
+  # the lock it counts with the file waiter-<its pid>; the count restarts when a pid appears or the lock lacks the
+  # mark, as a lock replaced since does even where it reuses the inode of the one it replaced.
   stale=
   if [ -n "$pid" ]; then
     pidless_checks=0
-    pidless_lock=
     kill -0 "$pid" 2>/dev/null || stale=1
   else
-    stamp=$(ls -di "$lock" 2>/dev/null)
-    if [ "$stamp" != "$pidless_lock" ]; then
+    if [ "$pidless_checks" -gt 0 ] && [ -e "$mark" ]; then
+      pidless_checks=$((pidless_checks + 1))
+    elif : >"$mark" 2>/dev/null; then
+      pidless_checks=1
+    else
       pidless_checks=0
-      pidless_lock=$stamp
     fi
-    pidless_checks=$((pidless_checks + 1))
     [ "$pidless_checks" -gt 5 ] && stale=1
   fi
   if [ -n "$stale" ]; then
     # Only the holder of the takeover mutex removes a lock, and only the lock it counted: after reading the pid
-    # again, a lock with a dead pid, or a counted pid-less lock still of the counted inode. A lock created since is
-    # left, as a call that took over first may be about to write its pid.
+    # again, a lock with a dead pid, or a counted pid-less lock still holding this call's mark. A lock created since
+    # is left, as a call that took over first may be about to write its pid.
     if mkdir "$lock.takeover" 2>/dev/null; then
       pid=$(cat "$lock/pid" 2>/dev/null)
-      if { [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; } || { [ -z "$pid" ] && [ -n "$pidless_lock" ] && [ "$(ls -di "$lock" 2>/dev/null)" = "$pidless_lock" ]; }; then
+      if { [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; } || { [ -z "$pid" ] && [ "$pidless_checks" -gt 0 ] && [ -e "$mark" ]; }; then
         rm -rf "$lock"
       fi
       rmdir "$lock.takeover"
       pidless_checks=0
-      pidless_lock=
       continue
     fi
   fi

@@ -557,8 +557,9 @@ public class PlayRunTests
         StringAssert.Contains(call.Result.Stderr, "waiting on play-out/.lock-demo");
     }
 
-    // As MkdirShim, but the rival that held the dead lock removes it before the wrapper holds the mutex; an ls shim
-    // then stands in for a waiter that mkdirs a fresh live lock just after any `ls -di` of the vanished one.
+    // As MkdirShim, but the rival that held the dead lock removes it when the wrapper takes the mutex, and a waiter
+    // makes a fresh lock there, still without its pid (the gap before `echo $$`) and marked `fresh`. The wrapper, which
+    // counted a dead pid and not this lock, must leave it.
     const string VanishShim = """
         #!/bin/sh
         for a; do
@@ -566,6 +567,8 @@ public class PlayRunTests
             *.takeover)
               if [ ! -f "$FAKE_DIR/shimmed" ]; then
                 /bin/rm -rf play-out/.lock-demo
+                /bin/mkdir play-out/.lock-demo
+                : > play-out/.lock-demo/fresh
                 : > "$FAKE_DIR/shimmed"
               fi
               ;;
@@ -577,43 +580,22 @@ public class PlayRunTests
         exit "$status"
         """;
 
-    const string LiveAfterLsShim = """
-        #!/bin/sh
-        /bin/ls "$@"
-        status=$?
-        case "$*" in
-          *-di*.lock-demo)
-            if [ -f "$FAKE_DIR/shimmed" ] && [ ! -f "$FAKE_DIR/lsdone" ]; then
-              /bin/mkdir play-out/.lock-demo
-              echo "$FAKE_LIVE_PID" > play-out/.lock-demo/pid
-              : > "$FAKE_DIR/lsdone"
-            fi
-            ;;
-        esac
-        exit "$status"
-        """;
-
     [TestMethod]
-    public void ATakeoverKeepsALiveLockMadeWhereTheDeadOneVanished()
+    public void ATakeoverKeepsAFreshLockMadeWhereTheDeadOneVanished()
     {
         var shims = Path.Combine(root, "shims");
         Directory.CreateDirectory(shims);
-        foreach (var (name, body) in new[] { ("mkdir", VanishShim), ("ls", LiveAfterLsShim) })
-        {
-            File.WriteAllText(Path.Combine(shims, name), body);
-            File.SetUnixFileMode(
-                Path.Combine(shims, name),
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
-            );
-        }
+        File.WriteAllText(Path.Combine(shims, "mkdir"), VanishShim);
+        File.SetUnixFileMode(
+            Path.Combine(shims, "mkdir"),
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+        );
         using var gone = Process.Start("true")!;
         gone.WaitForExit();
         HoldLock(gone.Id);
-        var live = Environment.ProcessId.ToString();
         var env = new Dictionary<string, string?>
         {
             ["PATH"] = shims + ":" + Environment.GetEnvironmentVariable("PATH"),
-            ["FAKE_LIVE_PID"] = live,
         };
         var call = Task.Run(() => Run(Layout, env));
         var retried = Path.Combine(fake, "retried");
@@ -622,21 +604,20 @@ public class PlayRunTests
             Thread.Sleep(50);
         }
 
-        // The wrapper must not consult the vanished lock at all; where it does (the ls shim then makes the live
-        // lock), the live lock must outlive the takeover.
-        var consulted = File.Exists(Path.Combine(fake, "lsdone"));
-        var survived = !consulted || (File.Exists(retried) && File.ReadAllText(Out(".lock-demo/pid")).Trim() == live);
+        // The grace on the fresh lock is 5 one-second checks, so it is still there unless the takeover removed it.
+        var survived = File.Exists(retried) && File.Exists(Out(".lock-demo/fresh"));
         if (Directory.Exists(Out(".lock-demo")))
         {
             Directory.Delete(Out(".lock-demo"), true);
         }
         call.Wait();
 
-        Assert.IsTrue(survived, "the live lock was removed");
+        Assert.IsTrue(survived, "the fresh lock was removed");
     }
 
-    // As MkdirShim, but the rival replaces the pid-less lock with a fresh pid-less one (another inode, as a call
-    // that took over first and is about to write its pid leaves it) and marks it. The replacement must survive.
+    // As MkdirShim, but the rival replaces the pid-less lock with a fresh pid-less one marked `replacement` (as a
+    // call that took over first and is about to write its pid leaves it). The replacement lacks the waiting call's
+    // waiter-<pid> mark, wherever its inode, and must survive.
     const string ReplaceShim = """
         #!/bin/sh
         for a; do
@@ -659,37 +640,23 @@ public class PlayRunTests
         exit "$status"
         """;
 
-    // An ls shim that reports one inode for every directory, as a file system that reuses a freed inode at once
-    // (ext4) can give the replacement the inode of the lock it replaced.
-    const string SameInodeShim = """
-        #!/bin/sh
-        case "$1" in
-          -di) echo "42 $2"; exit 0 ;;
-        esac
-        exec /bin/ls "$@"
-        """;
-
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void ATakeoverKeepsAPidlessLockReplacedWhileItWaitedForTheMutex(bool reusedInode)
+    public void ATakeoverKeepsAPidlessLockReplacedWhileItWaitedForTheMutex()
     {
         var shims = Path.Combine(root, "shims");
         Directory.CreateDirectory(shims);
-        var bodies = reusedInode ? new[] { ("mkdir", ReplaceShim), ("ls", SameInodeShim) } : [("mkdir", ReplaceShim)];
-        foreach (var (name, body) in bodies)
-        {
-            File.WriteAllText(Path.Combine(shims, name), body);
-            File.SetUnixFileMode(
-                Path.Combine(shims, name),
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
-            );
-        }
+        File.WriteAllText(Path.Combine(shims, "mkdir"), ReplaceShim);
+        File.SetUnixFileMode(
+            Path.Combine(shims, "mkdir"),
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+        );
         Directory.CreateDirectory(Out(".lock-demo"));
+        // A grace of 5 checks of 0.2 s: short to reach the takeover, long enough that the replacement is still
+        // there when the test looks right after the retry.
         var env = new Dictionary<string, string?>
         {
             ["PATH"] = shims + ":" + Environment.GetEnvironmentVariable("PATH"),
-            ["PLAY_RUN_POLL"] = "0.02",
+            ["PLAY_RUN_POLL"] = "0.2",
         };
         var call = Task.Run(() => Run(Layout, env));
         var retried = Path.Combine(fake, "retried");

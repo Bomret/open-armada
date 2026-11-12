@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
@@ -173,8 +174,30 @@ public class TextTableTests
             .ToArray();
         var t = Read("import \"f1.ldl\"\n", files);
         Assert.AreEqual(1, t.Notes.Count, string.Join("|", t.Notes));
-        Assert.IsTrue(t.Notes[0].Contains(".ldl:1:") && t.Notes[0].Contains("64"), t.Notes[0]);
-        Assert.IsTrue(t.Entries.Count > 0);
+        Assert.IsTrue(t.Notes[0].StartsWith("f63.ldl:1:") && t.Notes[0].Contains("64"), t.Notes[0]);
+        CollectionAssert.AreEqual(
+            Enumerable.Range(1, 63).Reverse().Select(i => $"{i}").ToArray(), // each file's import comes before its own entry
+            t.Entries.Select(e => e.Value).ToArray()
+        );
+    }
+
+    [TestMethod]
+    public void AChainWhereEachFileImportsTheNextTwiceEndsWithOneNoteNamingFileLineAndTheFileLimit()
+    {
+        var files = Enumerable
+            .Range(1, 20)
+            .Select(i =>
+                (
+                    $"f{i}.ldl",
+                    (i < 20 ? $"import \"f{i + 1}.ldl\"\nimport \"f{i + 1}.ldl\"\n" : "")
+                        + $"b{i} {{ string k \"{i}\" }}\n"
+                )
+            )
+            .ToArray();
+        var t = Read("import \"f1.ldl\"\n", files);
+        Assert.AreEqual(1, t.Notes.Count, string.Join("|", t.Notes));
+        Assert.IsTrue(Regex.IsMatch(t.Notes[0], @"^f\d+\.ldl:[12]:") && t.Notes[0].Contains("1024"), t.Notes[0]);
+        Assert.AreEqual(1024, t.Entries.Count);
     }
 
     [TestMethod]

@@ -60,7 +60,10 @@ public sealed record TextTableEntry
 /// letter case ignored, so "/a.ldl", "A.LDL" and "x//a.ldl" against "x\a.ldl" name one file; "." and ".." are not
 /// resolved. An import of any file already open in the chain, the top file included, is a cycle Note. A chain of
 /// imports that would hold more than 64 files, the definition reader's include limit, ends with one Note naming
-/// file:line and the limit.
+/// file:line and the limit. A file imported again is read again and its entries
+/// repeat, as the duplicates rule says, but one <c>Read</c> opens at most 1024 imported files, however they nest
+/// or repeat: the next import ends the reading of imports with one Note naming file:line and that limit, and the
+/// entries already read stay.
 ///
 /// A block reopened merges with the first (its entries add up); a different <c>:Parent</c> on the reopening is a
 /// Note and the first parent stays. A header written <c>Name{</c> is one token that is no keyword, so it is a Note.
@@ -79,8 +82,11 @@ public sealed class TextTable
     public const int KeyOffset = 0x2ee40,
         KeyLength = 400;
 
-    // The include limit of the definition reader (ResolvedDefinition's MaxDepth).
-    const int MaxImportDepth = 64;
+    const int MaxImportDepth = 64,
+        MaxImportFiles = 1024;
+
+    // The number of imported files opened so far in this read (one past MaxImportFiles once the limit is noted).
+    int _importsRead;
 
     readonly List<TextTableBlock> _blocks = new();
     readonly List<TextTableEntry> _entries = new();
@@ -269,6 +275,17 @@ public sealed class TextTable
             return;
         }
 
+        if (_importsRead >= MaxImportFiles)
+        {
+            // Past the limit every further import is skipped, so the read ends and one note says why.
+            if (_importsRead++ == MaxImportFiles)
+                _notes.Add(
+                    $"{at}: import '{target}' is over the limit of {MaxImportFiles} imported files; no more are read"
+                );
+
+            return;
+        }
+
         var raw = open(target);
         if (raw == null)
         {
@@ -289,6 +306,7 @@ public sealed class TextTable
             return;
         }
 
+        _importsRead++;
         stack.Add(target);
         ReadFile(target, decoded, key, open, stack);
         stack.RemoveAt(stack.Count - 1);

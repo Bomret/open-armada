@@ -139,7 +139,7 @@ The checked-in play scripts, the layout or map each runs on, and the mechanics e
 | `special-beams.play` | `layouts/special-beams.jsonc` | A Borg cube's Holding Beam and a Borg Assimilator's Auto-Assimilator each show their beam model between ship and target while they run, play their fire sound once at the start, and show no beam once ordered off |
 | `borg-assimilation.play` | `layouts/borg-assimilation.jsonc` | A Borg cube's Holding Beam boards a Klingon destroyer through its shields until the parties outnumber its crew; the destroyer ends on the cube's team with the race `borg` |
 | `auto-assimilator.play` | `layouts/auto-assimilator.jsonc` | A Borg Assimilator's Auto-Assimilator (F3, then a click) drains a Klingon destroyer's crew into its own and the team's crew pool until the destroyer is derelict; the destroyer keeps its team and race |
-| `hover.play` | `layouts/hover.jsonc` | The play pointer: a hover shows the hovered unit's shield bar, its team's bars, and the crew dots of the selected among them; a key step keeps it; a leave keeps the display for the hold, then none; a hover on the other team; a select click, a scroll, and a turn hovering the unit they leave the pointer on; a drag outside the window hovering nothing |
+| `hover.play` | `layouts/hover.jsonc` | The play pointer and the selection display it hovers; `README.md`, "Run a play script", lists the cases |
 
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
 

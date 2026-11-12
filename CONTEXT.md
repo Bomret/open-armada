@@ -473,7 +473,7 @@ moves, named screenshots, state dumps, and expectations on unit state.
 _Avoid_: scenario, macro, test script
 
 **Play pointer**
-The screen point where a play run's last mouse step left the cursor; outside the window until the first one.
+A screen point: where a play run's last mouse step left the cursor. It is outside the window until the run's first mouse step.
 In a play run it stands for the cursor, so the hovered unit is the unit under it.
 _Avoid_: virtual mouse, fake cursor, hover point
 

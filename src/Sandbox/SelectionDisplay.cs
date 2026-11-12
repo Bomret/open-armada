@@ -125,7 +125,7 @@ public static class SelectionDisplay
     /// <summary>
     /// The point a play run hovers: the play pointer while it lies inside the viewport of <c>viewport</c> pixels, off
     /// its edge pixels; null without a pointer (no mouse step yet, or a <c>leave</c>) and on or past any edge. The real
-    /// mouse plays no part (INV-0008).
+    /// mouse plays no part.
     /// </summary>
     public static Vector2? PlayHoverPoint(Vector2? pointer, Vector2 viewport) =>
         pointer is { } p && p.X > 0 && p.Y > 0 && p.X < viewport.X - 1 && p.Y < viewport.Y - 1 ? p : null;

@@ -127,6 +127,57 @@ public class TextTableTests
     }
 
     [TestMethod]
+    [DataRow("/t.ldl")]
+    [DataRow("\\t.ldl")]
+    [DataRow("T.LDL")]
+    [DataRow("//t.ldl")]
+    [DataRow("\\/t.ldl")]
+    public void AnImportOfTheTopFileUnderAnotherSpellingIsOneCycleNoteAndTheRestLoads(string spelling)
+    {
+        var t = Read($"import \"{spelling.Replace("\\", "\\\\")}\"\nb {{ string k \"v\" }}\n");
+        Assert.AreEqual(1, t.Entries.Count);
+        Assert.AreEqual(1, t.Notes.Count, string.Join("|", t.Notes));
+        Assert.IsTrue(t.Notes[0].StartsWith("t.ldl:1:") && t.Notes[0].Contains("cycle"), t.Notes[0]);
+    }
+
+    [TestMethod]
+    public void AnImportOfAnOpenFileInAFolderUnderAnotherSpellingIsACycle()
+    {
+        var t = Read(
+            "import \"sub/x.ldl\"\nb { string k \"v\" }\n",
+            ("sub/x.ldl", "import \"\\\\x.ldl\"\nimport \"X.LDL\"\n")
+        );
+        Assert.AreEqual(1, t.Entries.Count);
+        Assert.AreEqual(2, t.Notes.Count(n => n.Contains("cycle")), string.Join("|", t.Notes));
+        Assert.IsTrue(t.Notes.Any(n => n.StartsWith("sub/x.ldl:1:") && n.Contains("cycle")), string.Join("|", t.Notes));
+    }
+
+    [TestMethod]
+    public void SpellingsThatOpenDifferentFilesAreNotACycle()
+    {
+        var t = Read(
+            "import \"./t.ldl\"\nimport \"sub/../t.ldl\"\n",
+            ("./t.ldl", "b { string k \"dot\" }\n"),
+            ("sub/../t.ldl", "c { string k \"dotdot\" }\n")
+        );
+        CollectionAssert.AreEqual(new[] { "dot", "dotdot" }, t.Entries.Select(e => e.Value).ToArray());
+        Assert.AreEqual(0, t.Notes.Count, string.Join("|", t.Notes));
+    }
+
+    [TestMethod]
+    public void AChainOfSixtyFiveImportsEndsWithOneNoteNamingFileLineAndTheLimit()
+    {
+        var files = Enumerable
+            .Range(1, 65)
+            .Select(i => ($"f{i}.ldl", (i < 65 ? $"import \"f{i + 1}.ldl\"\n" : "") + $"b{i} {{ string k \"{i}\" }}\n"))
+            .ToArray();
+        var t = Read("import \"f1.ldl\"\n", files);
+        Assert.AreEqual(1, t.Notes.Count, string.Join("|", t.Notes));
+        Assert.IsTrue(t.Notes[0].Contains(".ldl:1:") && t.Notes[0].Contains("64"), t.Notes[0]);
+        Assert.IsTrue(t.Entries.Count > 0);
+    }
+
+    [TestMethod]
     public void UnknownStatementsAndMalformedEntriesAreNotesWithFileAndLineAndTheRestLoads()
     {
         var t = Read("junk\nb {\n string a unquoted\n string c \"ok\"\n}\n}\nd {\n");

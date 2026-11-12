@@ -56,6 +56,12 @@ public sealed record TextTableEntry
 /// both. A statement that fits none of this, a value that is not quoted, a block left open, an import that
 /// cannot be read and an import cycle are Notes naming file:line (INV-0002); the rest still loads.
 ///
+/// Import names are compared the way the file system opens them: split on both '/' and '\', empty segments dropped,
+/// letter case ignored, so "/a.ldl", "A.LDL" and "x//a.ldl" against "x\a.ldl" name one file; "." and ".." are not
+/// resolved. An import of any file already open in the chain, the top file included, is a cycle Note. A chain of
+/// imports that would hold more than 64 files, the definition reader's include limit, ends with one Note naming
+/// file:line and the limit.
+///
 /// A block reopened merges with the first (its entries add up); a different <c>:Parent</c> on the reopening is a
 /// Note and the first parent stays. A header written <c>Name{</c> is one token that is no keyword, so it is a Note.
 ///
@@ -72,6 +78,9 @@ public sealed class TextTable
     /// </summary>
     public const int KeyOffset = 0x2ee40,
         KeyLength = 400;
+
+    // The include limit of the definition reader (ResolvedDefinition's MaxDepth).
+    const int MaxImportDepth = 64;
 
     readonly List<TextTableBlock> _blocks = new();
     readonly List<TextTableEntry> _entries = new();
@@ -236,11 +245,26 @@ public sealed class TextTable
     // The folder of a file name, with its trailing separator ("" for a file in the root).
     static string FolderOf(string file) => file[..(file.LastIndexOfAny(new[] { '/', '\\' }) + 1)];
 
+    // The opener (GameFileSystem) splits a name on both separators and drops empty segments, so two names that
+    // split to the same segments, ignoring case, open one file. "." and ".." are not resolved, as the opener
+    // does not resolve them.
+    static bool SameFile(string a, string b) =>
+        Segments(a).SequenceEqual(Segments(b), StringComparer.OrdinalIgnoreCase);
+
+    static string[] Segments(string name) => name.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+
     void Import(string at, string target, byte[] key, Func<string, byte[]?> open, List<string> stack)
     {
-        if (stack.Contains(target, StringComparer.OrdinalIgnoreCase))
+        if (stack.Any(s => SameFile(s, target)))
         {
             _notes.Add($"{at}: import cycle through '{target}'");
+
+            return;
+        }
+
+        if (stack.Count >= MaxImportDepth)
+        {
+            _notes.Add($"{at}: import '{target}' is deeper than the limit of {MaxImportDepth} files; it is not read");
 
             return;
         }

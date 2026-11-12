@@ -418,7 +418,9 @@ public sealed class Sod
     /// Whether following the parent names from a node (the first node of a name is the parent) comes
     /// back to it: a node naming itself, or a loop of nodes. Such a node is no child of any node.
     /// </summary>
-    public bool InParentCycle(Node node) => InParentCycle(Nodes, node);
+    public bool InParentCycle(Node node) => (_cycle ??= ParentCycleMembers(Nodes)).Contains(node);
+
+    HashSet<Node>? _cycle;
 
     Dictionary<Node, int>? _indexes;
     ILookup<Node, Node>? _children;
@@ -482,26 +484,58 @@ public sealed class Sod
         (node.Mesh?.Groups.Sum(g => g.Corners.Length / 3 * 3) ?? 0)
         + Descendants(node).Sum(n => n.Mesh?.Groups.Sum(g => g.Corners.Length / 3 * 3) ?? 0);
 
-    static bool InParentCycle(IReadOnlyList<Node> nodes, Node node)
+    /// <summary>
+    /// The nodes in a parent cycle, found in one pass: each node's parent is the first node of its parent's name
+    /// (case-sensitive), so every node has at most one parent and a walk meets each node once.
+    /// </summary>
+    static HashSet<Node> ParentCycleMembers(IReadOnlyList<Node> nodes)
     {
-        var seen = new HashSet<Node>();
-        for (var current = node; current.Parent.Length > 0; )
+        var first = new Dictionary<string, Node>(StringComparer.Ordinal);
+        foreach (var n in nodes)
         {
-            var parent = nodes.FirstOrDefault(p => p.Name == current.Parent);
-            if (parent == null || !seen.Add(parent))
-                return false;
-            if (parent == node)
-                return true;
-            current = parent;
+            first.TryAdd(n.Name, n);
         }
 
-        return false;
+        var members = new HashSet<Node>();
+        var done = new HashSet<Node>();
+        var path = new Dictionary<Node, int>();
+        var walk = new List<Node>();
+        foreach (var start in nodes)
+        {
+            if (done.Contains(start))
+                continue;
+
+            path.Clear();
+            walk.Clear();
+            Node? current = start;
+            while (current != null && !done.Contains(current))
+            {
+                if (path.TryGetValue(current, out var at))
+                {
+                    for (var k = at; k < walk.Count; k++)
+                    {
+                        members.Add(walk[k]);
+                    }
+
+                    break;
+                }
+
+                path[current] = walk.Count;
+                walk.Add(current);
+                current = current.Parent.Length > 0 && first.TryGetValue(current.Parent, out var p) ? p : null;
+            }
+
+            done.UnionWith(walk);
+        }
+
+        return members;
     }
 
     static List<string> FindProblems(IReadOnlyList<Node> nodes)
     {
         var problems = new List<string>();
         var names = nodes.Select(n => n.Name).ToHashSet();
+        var cycle = ParentCycleMembers(nodes);
         foreach (var n in nodes)
         {
             if (n.Parent.Length > 0 && !names.Contains(n.Parent))
@@ -509,7 +543,7 @@ public sealed class Sod
                 problems.Add($"node '{n.Name}' names the parent '{n.Parent}', which the model lacks");
             }
 
-            if (InParentCycle(nodes, n))
+            if (cycle.Contains(n))
             {
                 problems.Add(
                     $"node '{n.Name}' is its own ancestor through its parents (a parent cycle); it hangs from the root"

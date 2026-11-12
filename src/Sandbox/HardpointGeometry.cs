@@ -30,29 +30,49 @@ public static class HardpointGeometry
         bool HangsFromRoot(Sod.Node n) => n.Parent.Length == 0 || !byName.ContainsKey(n.Parent) || sod.InParentCycle(n);
 
         var root = sod.Nodes.FirstOrDefault(HangsFromRoot);
+        // Each node's chain to the root is its transform followed by its parent's chain, so a node reuses its parent's.
+        var chains = new Dictionary<Sod.Node, Matrix4x4>();
+        var pending = new Stack<Sod.Node>();
         var offsets = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
         foreach (var start in sod.Nodes)
         {
             if (offsets.ContainsKey(start.Name))
                 continue;
 
-            var at = Vector3.Zero;
-            for (Sod.Node? node = start; node != null; )
+            for (Sod.Node? node = start; node != null && node != root && !chains.ContainsKey(node); )
             {
-                if (node == root)
-                    break;
-
-                var m = node.Transform;
-                // Mirror Z, as SodBuilder.ToGodot: S * M * S with S = diag(1, 1, -1).
-                at =
-                    new Vector3(m.Right.X, m.Right.Y, -m.Right.Z) * at.X
-                    + new Vector3(m.Up.X, m.Up.Y, -m.Up.Z) * at.Y
-                    + new Vector3(-m.Front.X, -m.Front.Y, m.Front.Z) * at.Z
-                    + new Vector3(m.Position.X, m.Position.Y, -m.Position.Z);
+                pending.Push(node);
                 node = HangsFromRoot(node) ? null : byName[node.Parent];
             }
 
-            offsets[start.Name] = at;
+            while (pending.Count > 0)
+            {
+                var node = pending.Pop();
+                var m = node.Transform;
+                // Mirror Z, as SodBuilder.ToGodot: S * M * S with S = diag(1, 1, -1). Rows are the images of the axes.
+                var own = new Matrix4x4(
+                    m.Right.X,
+                    m.Right.Y,
+                    -m.Right.Z,
+                    0,
+                    m.Up.X,
+                    m.Up.Y,
+                    -m.Up.Z,
+                    0,
+                    -m.Front.X,
+                    -m.Front.Y,
+                    m.Front.Z,
+                    0,
+                    m.Position.X,
+                    m.Position.Y,
+                    -m.Position.Z,
+                    1
+                );
+                chains[node] =
+                    HangsFromRoot(node) || byName[node.Parent] == root ? own : own * chains[byName[node.Parent]];
+            }
+
+            offsets[start.Name] = start == root ? Vector3.Zero : chains[start].Translation;
         }
 
         return offsets;

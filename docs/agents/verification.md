@@ -23,6 +23,12 @@ source file to the tests that cover it. Markdown alone runs no test. A red-green
 the test files it works on; the run over a slice's whole changed-path set runs the whole suite. A changed test
 file that holds only integration tests selects no test, and the command passes.
 
+The command finds a test file's classes. Each class runs from its `[TestClass]` line to its class declaration, across any attribute
+lines between. The command selects the classes with `--filter "FullyQualifiedName~OpenArmada.Tests.<Class>."`. Keep the trailing
+dot: without it `PlayRun` also selects `PlayRunInputTests`. `dotnet test` exits 8 when the filter selects no test.
+The focused command ignores that exit, so a class holding only integration tests passes. A fail-to-pass command
+must not ignore it. A filter that selects nothing passes both runs.
+
 Both commands run the unit tests only. They skip the integration tests: the tests with the MSTest category
 `Install` or `Godot`, through the filter `TestCategory!=Install&TestCategory!=Godot`. The category names are the
 constants of `tests/OpenArmada.Tests/Needs.cs`. Put `[TestCategory(Needs.Install)]` and `[TestCategory(Needs.Godot)]`
@@ -38,12 +44,12 @@ mise run test:integration
 It runs only the tests of the categories `Install` and `Godot`. `CheckedInPlayRunTests` runs every checked-in play
 script through the play-run wrapper and fails on an exit status other than 0: a failed `expect`, a step that cannot
 run, a failed build. Its table holds each script's wrapper arguments (layout or map, frame rate), and
-`CheckedInPlayTests` fails where the table misses a script in `play/`. The wrapper reuses a stored result whose
+`CheckedInPlayTests` fails where that table misses a script in `play/`. The wrapper reuses a stored result whose
 inputs hash the same, so a run on unchanged code starts no Godot. A test whose `ARMADA_DIR` is unset, or whose Godot
 (`PLAY_RUN_GODOT`, which `mise` sets) does not run, reports inconclusive.
 
 Neither the full command nor the focused one runs these tests. Run the integration command before a pull request that
-changes the sandbox, a play script, or a layout. A new play script gets its row in the table.
+changes the sandbox, a play script, or a layout. A new play script gets its row in that table and in README's.
 
 ## Sandbox Definition-of-Done lines
 
@@ -68,8 +74,8 @@ exits 4 and is not stored. Godot does not build C# itself, so without the build 
 or none.
 
 - The hash covers every tracked or untracked, not ignored file under `src/` and `scenes/` (content and
-  path), `project.godot`, `OpenArmada.csproj`, `global.json`, the play script, the layout's content,
-  the map name, the frame rate, the Godot version, and the `ARMADA_DIR` path.
+  path), `project.godot`, `OpenArmada.csproj`, `global.json`, `Directory.Build.props`, the play script,
+  the layout's content, the map name, the frame rate, the Godot version, and the `ARMADA_DIR` path.
 - It leaves out the install's content, `.godot/`, and the display. After a change to the install, run
   with `--fresh`.
 - A fix cycle runs only the play scripts its findings map to. The scope review runs every script the
@@ -79,12 +85,19 @@ or none.
   `exit=<status>`, and `run`, `reused`, or `build` (a failed build). A line proves a run at a tip when
   its `HEAD` equals the tip and it reads `clean`.
 - Bad arguments exit 2 with a message, and run, store, and log nothing.
-- Calls for one stem run one at a time: a second call waits on the lock directory
-  `play-out/.lock-<stem>`, says so once on stderr, then hashes its inputs and reuses what the first
-  stored. The lock holds its owner's pid, and a call takes over the lock of a dead owner. Remove a lock
-  by hand only when no run is live. Only the call holding the takeover mutex
-  `play-out/.lock-<stem>.takeover` removes a lock, after reading its pid again; a mutex left by a killed
-  call is removed by hand too. An unwritable `play-out/` exits 2 with a message.
+- Calls for one stem run one at a time. A second call waits on the lock directory
+  `play-out/.lock-<stem>` and says so once on stderr. It then hashes its inputs and reuses what the first
+  stored.
+- The lock holds its owner's pid. A call takes over the lock of a dead owner. It also takes over a lock
+  still without a pid after 5 checks of the waiting call, one second apart. `PLAY_RUN_POLL` sets the seconds
+  between checks, as the tests do. The count restarts when a pid appears or the lock is replaced.
+- Remove a lock by hand only when no run is live.
+- Only the call holding the takeover mutex `play-out/.lock-<stem>.takeover` removes a lock. It first
+  reads the pid again. For a pid-less lock it also checks that the lock is still the one it counted.
+  That lock holds the file `waiter-<pid>` the counting call put in it. A replacement lacks the file, even
+  on a reused inode.
+- A mutex left by a killed call is removed by hand too.
+- An unwritable `play-out/` exits 2 with a message.
 
 Movie Maker decouples simulated time from the wall clock. Each frame advances the game by exactly
 `1 / <fps>` seconds, and the next frame starts as soon as the last one is written. A run's wall-clock
@@ -134,39 +147,12 @@ A play run shows the selection display through its play pointer, which a `hover`
 `README.md`, "Run a play script", gives how long a script waits after a hover before a shot shows the
 team's bars and the crew dots.
 
-The checked-in play scripts, the layout or map each runs on, and the mechanics each shows:
-
-| Script | Layout or map | Shows |
-|---|---|---|
-| `black-hole.play` | `layouts/black-hole.jsonc` | A derelict ship pulled in and swallowed; a ship with thrust ordered into the hole's impassable square, holding at its start; the hole's model turning |
-| `borg-move.play` | `layouts/borg-move.jsonc` | A Borg ship's move order: its 3D velocity, no pitch or roll, its yaw toward the bearing plus a quarter turn |
-| `coast.play` | `layouts/coast.jsonc` | A ship with destroyed engines coasting from its starting velocity |
-| `damage.play` | `layouts/damage.jsonc` | Damage nodes of a ship with a tenth of its crew |
-| `destroy.play` | `layouts/destroy.jsonc` | A unit destroyed: dying, its explosions and fireball, its sound |
-| `drift.play` | `layouts/drift.jsonc` | A dying bird of prey coasting on |
-| `emitters.play` | `layouts/emitters.jsonc` | Damage emitters spraying plasma and steam; repair sparks of repairing systems; a damage emitter stopping once its system is whole |
-| `group-move.play` | `layouts/group-move.jsonc` | A group move: each ship's own cell |
-| `hit-explosion.play` | `layouts/hit-explosion.jsonc` | System hit explosions at a hit's node |
-| `map-black-hole.play` | `--map borg4` | A stock map with a black hole and asteroid fields |
-| `nebula.play` | `layouts/nebula.jsonc` | A ship slowed in a row of nebulae and its path bending out of the row |
-| `path-field.play` | `layouts/path-field.jsonc` | A move order's path around an asteroid field |
-| `scale.play` | `layouts/scale.jsonc` | A model drawn at its `scaleSOD` |
-| `shield-hit.play` | `layouts/shield-hit.jsonc` | Shield hit effects of beams and torpedoes on both sides |
-| `shield-hull.play` | `layouts/destroy.jsonc` | The hull hit sprite on a unit without shields |
-| `shield-red.play` | `layouts/shield-red.jsonc` | Shield hit colors by shield fraction; the shield-down overlay |
-| `sound-fade.play` | `layouts/sound-fade.jsonc` | A fireball fading as the camera pans away, silent beyond its maximum distance, heard again on return |
-| `sound-fade-start.play` | `layouts/sound-fade.jsonc` | A fireball that starts beyond its maximum distance, never heard |
-| `transport-feedback.play` | `layouts/transport-feedback.jsonc` | The transport effect on source and target while the transport runs and not after a cancel; the transport sound; the captured ship in its new team color beside a ship of its model in the old one |
-| `transport-cases.play` | `layouts/transport-cases.jsonc` | The transport to a derelict ship (captured) and to a friendly ship (crew added); the hero ship's voice line at its order and a ship with none silent; the transport sound at each party |
-| `special-weapon.play` | `layouts/special-weapon.jsonc` | A Borg cube's Holding Beam (F4, then a click) holds a moving ship's position and heading and drains the cube's special energy; the second key press turns it off and the ship drives on |
-| `special-beams.play` | `layouts/special-beams.jsonc` | A Borg cube's Holding Beam and a Borg Assimilator's Auto-Assimilator each show their beam model between ship and target while they run, play their fire sound once at the start, and show no beam once ordered off |
-| `borg-assimilation.play` | `layouts/borg-assimilation.jsonc` | A Borg cube's Holding Beam boards a Klingon destroyer through its shields until the parties outnumber its crew; the destroyer ends on the cube's team with the race `borg` |
-| `auto-assimilator.play` | `layouts/auto-assimilator.jsonc` | A Borg Assimilator's Auto-Assimilator (F3, then a click) drains a Klingon destroyer's crew into its own and the team's crew pool until the destroyer is derelict; the destroyer keeps its team and race |
-| `hover.play` | `layouts/hover.jsonc` | The play pointer and the selection display it hovers; `README.md`, "Run a play script", lists the cases |
+`README.md`, "Run a play script", has the one table of the checked-in play scripts, the layout or map each runs on,
+and the mechanics each shows.
 
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
-The integration command runs every script in the table and checks its exit status. It does not judge the frames,
-the shots, or the WAV.
+The integration command runs every script in the table of `CheckedInPlayRunTests` and checks its exit status.
+It does not judge the frames, the shots, or the WAV.
 
 No timing command: the test runner's per-test durations are not wired in.
 

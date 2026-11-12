@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Formats;
@@ -124,6 +125,79 @@ public class TextTableTests
             t.Notes.Any(n => n.StartsWith("t.ldl:3:") && n.Contains("inside a block")),
             string.Join("|", t.Notes)
         );
+    }
+
+    [TestMethod]
+    [DataRow("/t.ldl")]
+    [DataRow("\\t.ldl")]
+    [DataRow("T.LDL")]
+    [DataRow("//t.ldl")]
+    [DataRow("\\/t.ldl")]
+    public void AnImportOfTheTopFileUnderAnotherSpellingIsOneCycleNoteAndTheRestLoads(string spelling)
+    {
+        var t = Read($"import \"{spelling.Replace("\\", "\\\\")}\"\nb {{ string k \"v\" }}\n");
+        Assert.AreEqual(1, t.Entries.Count);
+        Assert.AreEqual(1, t.Notes.Count, string.Join("|", t.Notes));
+        Assert.IsTrue(t.Notes[0].StartsWith("t.ldl:1:") && t.Notes[0].Contains("cycle"), t.Notes[0]);
+    }
+
+    [TestMethod]
+    public void AnImportOfAnOpenFileInAFolderUnderAnotherSpellingIsACycle()
+    {
+        var t = Read(
+            "import \"sub/x.ldl\"\nb { string k \"v\" }\n",
+            ("sub/x.ldl", "import \"\\\\x.ldl\"\nimport \"X.LDL\"\n")
+        );
+        Assert.AreEqual(1, t.Entries.Count);
+        Assert.AreEqual(2, t.Notes.Count(n => n.Contains("cycle")), string.Join("|", t.Notes));
+        Assert.IsTrue(t.Notes.Any(n => n.StartsWith("sub/x.ldl:1:") && n.Contains("cycle")), string.Join("|", t.Notes));
+    }
+
+    [TestMethod]
+    public void SpellingsThatOpenDifferentFilesAreNotACycle()
+    {
+        var t = Read(
+            "import \"./t.ldl\"\nimport \"sub/../t.ldl\"\n",
+            ("./t.ldl", "b { string k \"dot\" }\n"),
+            ("sub/../t.ldl", "c { string k \"dotdot\" }\n")
+        );
+        CollectionAssert.AreEqual(new[] { "dot", "dotdot" }, t.Entries.Select(e => e.Value).ToArray());
+        Assert.AreEqual(0, t.Notes.Count, string.Join("|", t.Notes));
+    }
+
+    [TestMethod]
+    public void AChainOfSixtyFiveImportsEndsWithOneNoteNamingFileLineAndTheLimit()
+    {
+        var files = Enumerable
+            .Range(1, 65)
+            .Select(i => ($"f{i}.ldl", (i < 65 ? $"import \"f{i + 1}.ldl\"\n" : "") + $"b{i} {{ string k \"{i}\" }}\n"))
+            .ToArray();
+        var t = Read("import \"f1.ldl\"\n", files);
+        Assert.AreEqual(1, t.Notes.Count, string.Join("|", t.Notes));
+        Assert.IsTrue(t.Notes[0].StartsWith("f63.ldl:1:") && t.Notes[0].Contains("64"), t.Notes[0]);
+        CollectionAssert.AreEqual(
+            Enumerable.Range(1, 63).Reverse().Select(i => $"{i}").ToArray(), // each file's import comes before its own entry
+            t.Entries.Select(e => e.Value).ToArray()
+        );
+    }
+
+    [TestMethod]
+    public void AChainWhereEachFileImportsTheNextTwiceEndsWithOneNoteNamingFileLineAndTheFileLimit()
+    {
+        var files = Enumerable
+            .Range(1, 20)
+            .Select(i =>
+                (
+                    $"f{i}.ldl",
+                    (i < 20 ? $"import \"f{i + 1}.ldl\"\nimport \"f{i + 1}.ldl\"\n" : "")
+                        + $"b{i} {{ string k \"{i}\" }}\n"
+                )
+            )
+            .ToArray();
+        var t = Read("import \"f1.ldl\"\n", files);
+        Assert.AreEqual(1, t.Notes.Count, string.Join("|", t.Notes));
+        Assert.IsTrue(Regex.IsMatch(t.Notes[0], @"^f\d+\.ldl:[12]:") && t.Notes[0].Contains("1024"), t.Notes[0]);
+        Assert.AreEqual(1024, t.Entries.Count);
     }
 
     [TestMethod]

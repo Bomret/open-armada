@@ -1043,7 +1043,7 @@ table and narrow or remove its line here.
 | 0x5abbc0–0x5b7b10 | Audio beyond the rows above (the settings, the listener, and a 3D sound's distances, start, and following are named), jukebox, credits, starfield | `Utilities\Audio\*.cpp`, `JukeBox`, `Credits3D` |
 
 <!-- coverage:start -->
-Coverage: the index names 328 routines of the 9,401 functions in the game code band: 280 confirmed, 42 inferred, 6 unknown.
+Coverage: the index names 337 routines of the 9,401 functions in the game code band: 289 confirmed, 42 inferred, 6 unknown.
 <!-- coverage:end -->
 
 ## ODF keys

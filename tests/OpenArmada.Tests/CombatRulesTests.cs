@@ -63,6 +63,17 @@ public class CombatRulesTests
         Assert.AreEqual(4, CombatRules.ReloadDelay(Weapon(delay: 4), WithCrew(10)), 1e-6);
 
     [TestMethod]
+    public void AReloadDelayBelowAMillisecondIsRaisedToOneAlsoWithACrewFactorBelowOne()
+    {
+        var state = State(Profile(race: Race with { WeaponYellow = 0.1f, WeaponRed = 0.1f }));
+        state.Crew = 10; // red
+        Assert.AreEqual(0.001, CombatRules.ReloadDelay(Weapon(delay: 0.005f, crewAffects: true), state), 1e-9);
+        Assert.AreEqual(0.001, CombatRules.ReloadDelay(Weapon(delay: 1e-7f), WithCrew(100)), 1e-9);
+        Assert.AreEqual(0, CombatRules.ReloadDelay(Weapon(delay: 0), WithCrew(100)));
+        Assert.AreEqual(0.001, CombatRules.ReloadDelay(Weapon(delay: 0.001f), WithCrew(100)), 1e-9);
+    }
+
+    [TestMethod]
     public void ReloadIsScaledByTheRacesFactorWhenCrewAffectsIt()
     {
         var weapon = Weapon(delay: 4, crewAffects: true);

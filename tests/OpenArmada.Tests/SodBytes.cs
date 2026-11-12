@@ -3,13 +3,15 @@ using System.Text;
 
 namespace OpenArmada.Tests;
 
-// Writes SOD files in code (INV-0001): the layout of versions 1.5 to 1.8, which is all the model
-// tests need. Every method returns the writer, so a file reads top to bottom.
+// Writes SOD files in code (INV-0001): the layouts of versions 1.2 and 1.4 to 1.8. A 1.2 file has no
+// channel count and no references; its meshes list polygons that carry their own corner count. Every
+// method returns the writer, so a file reads top to bottom.
 internal sealed class SodBytes
 {
     readonly MemoryStream _ms = new();
     readonly BinaryWriter _w;
     readonly float _version;
+    ChannelSpec[] _channels = [];
 
     internal SodBytes(float version)
     {
@@ -89,8 +91,53 @@ internal sealed class SodBytes
         return this;
     }
 
+    // The animation channels End writes; a 1.2 file has none.
+    internal SodBytes Channels(params ChannelSpec[] channels)
+    {
+        _channels = channels;
+        return this;
+    }
+
+    // 1.2: texture name, lighting material, counts, an unknown 1.0, vertices, texture coordinates and
+    // polygons (a corner count, then the corners); no cull byte.
+    void MeshV12(MeshSpec m)
+    {
+        Id(m.Texture);
+        Id(m.Lighting);
+        var polygons = m.Polygons ?? [m.Corners];
+        _w.Write((ushort)m.Vertices);
+        _w.Write((ushort)polygons.Length);
+        _w.Write((ushort)m.TexCoords);
+        _w.Write(1f);
+        for (var i = 0; i < m.Vertices * 3; i++)
+        {
+            _w.Write((float)i);
+        }
+
+        for (var i = 0; i < m.TexCoords * 2; i++)
+        {
+            _w.Write(0.5f);
+        }
+
+        foreach (var polygon in polygons)
+        {
+            _w.Write((ushort)polygon.Length);
+            foreach (var (v, t) in polygon)
+            {
+                _w.Write((ushort)v);
+                _w.Write((ushort)t);
+            }
+        }
+    }
+
     void Mesh(MeshSpec m)
     {
+        if (_version < 1.3f)
+        {
+            MeshV12(m);
+            return;
+        }
+
         if (_version >= 1.65f)
         {
             Id(m.TextureMaterial);
@@ -122,10 +169,29 @@ internal sealed class SodBytes
         _w.Write((ushort)0);
     }
 
-    // No channels, and the animation references (1.7 has none with an offset; 1.8 has one).
+    // The channels (a 1.2 file has no channel count), then the animation references (1.7 has none with an
+    // offset; 1.8 has one).
     internal byte[] End(params (byte Type, string Node, string Animation, float Offset)[] references)
     {
-        _w.Write((ushort)0); // channels
+        if (_version >= 1.3f)
+        {
+            _w.Write((ushort)_channels.Length);
+            foreach (var c in _channels)
+            {
+                Id(c.Node);
+                _w.Write((ushort)c.Keys.Length);
+                _w.Write(c.Period);
+                _w.Write((ushort)0); // unused
+                foreach (var key in c.Keys)
+                {
+                    foreach (var f in key)
+                    {
+                        _w.Write(f);
+                    }
+                }
+            }
+        }
+
         if (_version < 1.55f)
             return _ms.ToArray();
         _w.Write((ushort)references.Length);
@@ -152,8 +218,19 @@ internal sealed class SodBytes
         public required int TexCoords { get; init; }
         public required (int Vertex, int TexCoord)[] Corners { get; init; }
 
+        // The polygons of a 1.2 mesh, each with its own corner count; null makes Corners one polygon.
+        public (int Vertex, int TexCoord)[][]? Polygons { get; init; }
+
         // The stored cull byte.
         public byte Cull { get; init; } = 1;
+    }
+
+    // One animation channel: the node, the period and each keyframe's 12 floats (axes, then position).
+    internal sealed record ChannelSpec
+    {
+        public required string Node { get; init; }
+        public float Period { get; init; } = 1f;
+        public float[][] Keys { get; init; } = [];
     }
 
     internal sealed record NodeSpec

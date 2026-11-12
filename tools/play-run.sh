@@ -3,14 +3,18 @@
 # are unchanged:
 #   sh tools/play-run.sh <stem> (--layout <file> | --map <map>) --fps <n> [--fresh]
 # The input hash covers the content and path of every tracked or untracked, not ignored file under src/ and
-# scenes/, the project files, the play script, the layout's content, the map name, the fps, the Godot version
-# and the ARMADA_DIR path. A result is stored in play-out/.cache/<hash>/ only for exit status 0 or 1. Each call
-# past the argument checks appends one line to play-out/runs.log. Bad arguments exit 2 and leave no trace.
-# Calls for one stem run one at a time through the lock play-out/.lock-<stem>, which holds the owner's pid: a
-# call waits on a live owner, says so once on stderr, and takes over the lock of a dead one under the mutex
-# play-out/.lock-<stem>.takeover. An unwritable play-out/ exits 2. A run builds OpenArmada.csproj first; a failed
-# build starts no Godot, stores nothing, and exits 3. PLAY_RUN_GODOT replaces the Godot binary (default
-# godot-mono), PLAY_RUN_DOTNET the dotnet binary (default dotnet).
+# scenes/, the project files (project.godot, OpenArmada.csproj, global.json, Directory.Build.props), the play
+# script, the layout's content, the map name, the fps, the Godot version and the ARMADA_DIR path. A result is
+# stored in play-out/.cache/<hash>/ only for exit status 0 or 1. Each call past the argument checks appends
+# one line to play-out/runs.log. Bad arguments exit 2 and leave no trace. Calls for one stem run one at a time
+# through the lock play-out/.lock-<stem>, which holds the owner's pid: a call waits on a live owner, says so
+# once on stderr, and takes over the lock of a dead one under the mutex play-out/.lock-<stem>.takeover. A lock
+# still without a pid after 5 checks of a waiting call, one second apart, is a killed call's and is taken over the
+# same way; a pid appearing or the lock being replaced restarts the count. An unwritable play-out/ exits 2. A
+# run builds OpenArmada.csproj first; a failed build starts no Godot, stores nothing, and exits 3.
+# PLAY_RUN_GODOT replaces the Godot binary (default godot-mono), PLAY_RUN_DOTNET the dotnet binary (default
+# dotnet), PLAY_RUN_POLL the seconds between a waiting call's checks (default 1, so the grace of 5 checks follows
+# it; a value that is no positive number exits 2).
 set -u
 
 usage() {
@@ -62,6 +66,12 @@ if [ -n "$layout" ] && [ ! -f "$layout" ]; then
   usage "no layout $layout"
 fi
 [ -n "${ARMADA_DIR:-}" ] || usage "set ARMADA_DIR to an Armada install"
+poll=${PLAY_RUN_POLL:-1}
+case "$poll" in
+  *[!0-9.]* | *.*.* | .* | *.) usage "PLAY_RUN_POLL needs a positive number of seconds" ;;
+  *[1-9]*) ;;
+  *) usage "PLAY_RUN_POLL needs a positive number of seconds" ;;
+esac
 godot=${PLAY_RUN_GODOT:-godot-mono}
 dotnet=${PLAY_RUN_DOTNET:-dotnet}
 version=$("$godot" --version 2>/dev/null) || usage "cannot read the version of $godot"
@@ -70,6 +80,13 @@ version=$("$godot" --version 2>/dev/null) || usage "cannot read the version of $
 # holds the owner's pid; a lock whose pid is dead is taken over.
 lock=play-out/.lock-$stem
 waited=
+pidless_checks=0
+mark=$lock/waiter-$$
+# Removes the lock off its path first: `rm -rf` empties a directory before it removes it, and a waiter's mark
+# written in between would leave the lock behind.
+drop_lock() {
+  mv "$lock" "$lock.gone-$$" 2>/dev/null && rm -rf "$lock.gone-$$"
+}
 mkdir -p play-out 2>/dev/null
 until mkdir "$lock" 2>/dev/null; do
   if [ ! -d play-out ] || [ ! -w play-out ]; then
@@ -77,13 +94,34 @@ until mkdir "$lock" 2>/dev/null; do
     exit 2
   fi
   pid=$(cat "$lock/pid" 2>/dev/null)
-  if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
-    # Only the holder of the takeover mutex removes a lock, after reading its pid again while holding it. No
-    # other call can create the lock path while the stale lock still stands there.
+  # A lock still without a pid after 5 checks of this call is a call killed before it wrote one. The call marks
+  # the lock it counts with the file waiter-<its pid>; the count restarts when a pid appears or the lock lacks the
+  # mark, as a lock replaced since does even where it reuses the inode of the one it replaced.
+  stale=
+  if [ -n "$pid" ]; then
+    pidless_checks=0
+    kill -0 "$pid" 2>/dev/null || stale=1
+  else
+    if [ "$pidless_checks" -gt 0 ] && [ -e "$mark" ]; then
+      pidless_checks=$((pidless_checks + 1))
+    elif : >"$mark" 2>/dev/null; then
+      pidless_checks=1
+    else
+      pidless_checks=0
+    fi
+    [ "$pidless_checks" -gt 5 ] && stale=1
+  fi
+  if [ -n "$stale" ]; then
+    # Only the holder of the takeover mutex removes a lock, and only the lock it counted: after reading the pid
+    # again, a lock with a dead pid, or a counted pid-less lock still holding this call's mark. A lock created since
+    # is left, as a call that took over first may be about to write its pid.
     if mkdir "$lock.takeover" 2>/dev/null; then
       pid=$(cat "$lock/pid" 2>/dev/null)
-      if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then rm -rf "$lock"; fi
+      if { [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; } || { [ -z "$pid" ] && [ "$pidless_checks" -gt 0 ] && [ -e "$mark" ]; }; then
+        drop_lock
+      fi
       rmdir "$lock.takeover"
+      pidless_checks=0
       continue
     fi
   fi
@@ -91,9 +129,9 @@ until mkdir "$lock" 2>/dev/null; do
     echo "play-run.sh: waiting on $lock (remove it if no run is live)" >&2
     waited=1
   fi
-  sleep 1
+  sleep "$poll"
 done
-trap 'rm -rf "$lock"' EXIT
+trap drop_lock EXIT
 trap 'exit 130' INT TERM HUP
 echo $$ >"$lock/pid"
 
@@ -106,7 +144,7 @@ hash=$(
     done >"$list"
     [ -s "$list" ] && git hash-object --stdin-paths <"$list" | paste -d ' ' "$list" -
     rm -f "$list"
-    for f in project.godot OpenArmada.csproj global.json; do
+    for f in project.godot OpenArmada.csproj global.json Directory.Build.props; do
       if [ -f "$f" ]; then echo "$f $(git hash-object -- "$f")"; else echo "$f missing"; fi
     done
     echo "script $(git hash-object -- "$script")"

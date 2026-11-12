@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Sandbox;
@@ -47,6 +48,22 @@ public class CheckedInPlayTests
         CollectionAssert.AreEqual(
             Scripts.Select(s => Path.GetFileNameWithoutExtension((string)s[0])).Order().ToArray(),
             CheckedInPlayRunTests.Runs.Keys.Order().ToArray()
+        );
+
+    // README's "Run a play script" table is the only table of the play scripts: one row per file of play/, no other.
+    [TestMethod]
+    public void TheReadmePlayScriptTableNamesEveryCheckedInPlayScriptAndNoOther() =>
+        CollectionAssert.AreEqual(
+            Scripts.Select(s => (string)s[0]).Order().ToArray(),
+            File.ReadLines(Path.Combine(Root(), "README.md"))
+                .SkipWhile(line => line != "## Run a play script")
+                .Skip(1)
+                .TakeWhile(line => !line.StartsWith("## "))
+                .Select(line => Regex.Match(line, @"^\| `([^`]+\.play)` \|"))
+                .Where(m => m.Success)
+                .Select(m => m.Groups[1].Value)
+                .Order()
+                .ToArray()
         );
 
     [TestMethod]

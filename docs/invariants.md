@@ -62,7 +62,7 @@ Class: behavior
 Concepts: Play run, Play script, State dump
 Statement: A play run fixes its frame rate and every random source it reads, so two play runs of one map or layout and one play script write identical state dumps.
 Breaks: silently
-Check: a unit test that runs one play script twice against the same sandbox plan and compares the state dumps.
+Check: `PlayRunDeterminismTests` runs one play script twice against the same sandbox plan, in a fight that draws from the seeded random source. It compares the state dumps byte for byte. The viewer alone reaches its seed wiring and the asteroids' frame-time animation. The twice-run `cmp` of the state dumps covers them. `docs/agents/verification.md` describes it under the play-run lines.
 
 ### INV-0009
 

@@ -80,6 +80,7 @@ public class PlayRunTests
         Write("project.godot", "config");
         Write("OpenArmada.csproj", "<Project />");
         Write("global.json", "{}");
+        Write("Directory.Build.props", "<Project />");
         Write("play/demo.play", "wait 1");
         Write("layouts/demo.jsonc", "{}");
         Write("README.md", "readme");
@@ -208,6 +209,7 @@ public class PlayRunTests
     [DataRow("deleted")]
     [DataRow("renamed")]
     [DataRow("project")]
+    [DataRow("build-props")]
     [DataRow("script")]
     [DataRow("layout")]
     [DataRow("map")]
@@ -236,6 +238,9 @@ public class PlayRunTests
                 break;
             case "project":
                 Write("project.godot", "config 2");
+                break;
+            case "build-props":
+                Write("Directory.Build.props", "<Project><!-- changed --></Project>");
                 break;
             case "script":
                 Write("play/demo.play", "wait 2");
@@ -407,6 +412,15 @@ public class PlayRunTests
     public void AFailingVersionReadExitsTwo() =>
         AssertUsageError(Run(Layout, new Dictionary<string, string?> { ["FAKE_VERSION_FAIL"] = "1" }), "version");
 
+    [TestMethod]
+    [DataRow("0")]
+    [DataRow("0.0")]
+    [DataRow("-1")]
+    [DataRow("1.")]
+    [DataRow("a")]
+    public void APollThatIsNoPositiveNumberExitsTwo(string poll) =>
+        AssertUsageError(Run(Layout, new Dictionary<string, string?> { ["PLAY_RUN_POLL"] = poll }), poll);
+
     void AssertUsageError((int Status, string Stdout, string Stderr) result, string reason)
     {
         Assert.AreEqual(2, result.Status, reason);
@@ -452,6 +466,39 @@ public class PlayRunTests
         HoldLock(gone.Id);
 
         Assert.AreEqual(0, Run(Layout).Status);
+        Assert.AreEqual(1, Calls);
+    }
+
+    [TestMethod]
+    public void ALockWithoutAPidIsTakenOverAfterTheGrace()
+    {
+        Directory.CreateDirectory(Out(".lock-demo"));
+        var clock = Stopwatch.StartNew();
+
+        var call = Run(Layout, new Dictionary<string, string?> { ["FAKE_STATUS"] = "1", ["PLAY_RUN_POLL"] = "0.02" });
+
+        Assert.AreEqual(1, call.Status);
+        Assert.AreEqual(1, Calls);
+        // 5 checks of 0.02 s: the grace follows the check interval.
+        Assert.IsTrue(clock.Elapsed < TimeSpan.FromSeconds(3), $"the takeover took {clock.Elapsed}");
+    }
+
+    [TestMethod]
+    public void ALockThatGainsAPidWithinTheGraceIsWaitedOnAndItsResultReused()
+    {
+        Run(Layout);
+        Directory.CreateDirectory(Out(".lock-demo"));
+        // A grace of 5 checks of 0.1 s, at least 0.5 s after the call starts.
+        var call = Task.Run(() => Run(Layout, new Dictionary<string, string?> { ["PLAY_RUN_POLL"] = "0.1" }));
+        Thread.Sleep(200);
+        File.WriteAllText(Out(".lock-demo/pid"), Environment.ProcessId + "\n");
+        // Well past the grace: a live owner whose pid appears within the grace is not taken over.
+        Thread.Sleep(1500);
+        var kept = File.ReadAllText(Out(".lock-demo/pid")).Trim() == Environment.ProcessId.ToString();
+        Directory.Delete(Out(".lock-demo"), true);
+
+        Assert.AreEqual(0, call.Result.Status);
+        Assert.IsTrue(kept, "the live owner's lock was taken over");
         Assert.AreEqual(1, Calls);
     }
 
@@ -508,6 +555,154 @@ public class PlayRunTests
 
         Assert.IsTrue(survived, "the live lock was removed");
         StringAssert.Contains(call.Result.Stderr, "waiting on play-out/.lock-demo");
+    }
+
+    // As MkdirShim, but the rival that held the dead lock removes it when the wrapper takes the mutex, and a waiter
+    // makes a fresh lock there, still without its pid (the gap before `echo $$`) and marked `fresh`. The wrapper, which
+    // counted a dead pid and not this lock, must leave it.
+    const string VanishShim = """
+        #!/bin/sh
+        for a; do
+          case "$a" in
+            *.takeover)
+              if [ ! -f "$FAKE_DIR/shimmed" ]; then
+                /bin/rm -rf play-out/.lock-demo
+                /bin/mkdir play-out/.lock-demo
+                : > play-out/.lock-demo/fresh
+                : > "$FAKE_DIR/shimmed"
+              fi
+              ;;
+          esac
+        done
+        /bin/mkdir "$@"
+        status=$?
+        if [ "$status" -ne 0 ] && [ -f "$FAKE_DIR/shimmed" ]; then : > "$FAKE_DIR/retried"; fi
+        exit "$status"
+        """;
+
+    [TestMethod]
+    public void ATakeoverKeepsAFreshLockMadeWhereTheDeadOneVanished()
+    {
+        var shims = Path.Combine(root, "shims");
+        Directory.CreateDirectory(shims);
+        File.WriteAllText(Path.Combine(shims, "mkdir"), VanishShim);
+        File.SetUnixFileMode(
+            Path.Combine(shims, "mkdir"),
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+        );
+        using var gone = Process.Start("true")!;
+        gone.WaitForExit();
+        HoldLock(gone.Id);
+        var env = new Dictionary<string, string?>
+        {
+            ["PATH"] = shims + ":" + Environment.GetEnvironmentVariable("PATH"),
+        };
+        var call = Task.Run(() => Run(Layout, env));
+        var retried = Path.Combine(fake, "retried");
+        for (var i = 0; i < 200 && !File.Exists(retried) && !call.IsCompleted; i++)
+        {
+            Thread.Sleep(50);
+        }
+
+        // The grace on the fresh lock is 5 one-second checks, so it is still there unless the takeover removed it.
+        var survived = File.Exists(retried) && File.Exists(Out(".lock-demo/fresh"));
+        if (Directory.Exists(Out(".lock-demo")))
+        {
+            Directory.Delete(Out(".lock-demo"), true);
+        }
+        call.Wait();
+
+        Assert.IsTrue(survived, "the fresh lock was removed");
+    }
+
+    // As MkdirShim, but the rival replaces the pid-less lock with a fresh pid-less one marked `replacement` (as a
+    // call that took over first and is about to write its pid leaves it). The replacement lacks the waiting call's
+    // waiter-<pid> mark, wherever its inode, and must survive.
+    const string ReplaceShim = """
+        #!/bin/sh
+        for a; do
+          case "$a" in
+            *.takeover)
+              if [ ! -f "$FAKE_DIR/shimmed" ]; then
+                /bin/mkdir play-out/.lock-demo.new
+                : > play-out/.lock-demo.new/replacement
+                /bin/mv play-out/.lock-demo play-out/.lock-demo.old
+                /bin/mv play-out/.lock-demo.new play-out/.lock-demo
+                /bin/rmdir play-out/.lock-demo.old
+                : > "$FAKE_DIR/shimmed"
+              fi
+              ;;
+          esac
+        done
+        /bin/mkdir "$@"
+        status=$?
+        if [ "$status" -ne 0 ] && [ -f "$FAKE_DIR/shimmed" ]; then : > "$FAKE_DIR/retried"; fi
+        exit "$status"
+        """;
+
+    [TestMethod]
+    public void ATakeoverKeepsAPidlessLockReplacedWhileItWaitedForTheMutex()
+    {
+        var shims = Path.Combine(root, "shims");
+        Directory.CreateDirectory(shims);
+        File.WriteAllText(Path.Combine(shims, "mkdir"), ReplaceShim);
+        File.SetUnixFileMode(
+            Path.Combine(shims, "mkdir"),
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+        );
+        Directory.CreateDirectory(Out(".lock-demo"));
+        // A grace of 5 checks of 0.2 s: short to reach the takeover, long enough that the replacement is still
+        // there when the test looks right after the retry.
+        var env = new Dictionary<string, string?>
+        {
+            ["PATH"] = shims + ":" + Environment.GetEnvironmentVariable("PATH"),
+            ["PLAY_RUN_POLL"] = "0.2",
+        };
+        var call = Task.Run(() => Run(Layout, env));
+        var retried = Path.Combine(fake, "retried");
+        for (var i = 0; i < 200 && !File.Exists(retried) && !call.IsCompleted; i++)
+        {
+            Thread.Sleep(50);
+        }
+
+        var survived = File.Exists(retried) && File.Exists(Out(".lock-demo/replacement"));
+        Directory.Delete(Out(".lock-demo"), true);
+        call.Wait();
+
+        Assert.IsTrue(survived, "the replacement lock was removed");
+    }
+
+    // An rm shim that removes a lock as `rm -rf` does, contents first and the directory last, and in between stands
+    // in for a waiter that reads no pid and writes its mark through the lock's path.
+    const string MarkingRmShim = """
+        #!/bin/sh
+        case "$*" in
+          *.lock-demo*)
+            for a; do dir=$a; done
+            /bin/rm -rf "$dir"/* "$dir"/.[!.]*
+            : > play-out/.lock-demo/waiter-1 2>/dev/null
+            /bin/rmdir "$dir"
+            ;;
+          *) exec /bin/rm "$@" ;;
+        esac
+        """;
+
+    [TestMethod]
+    public void AWaiterMarkingTheLockWhileTheOwnerRemovesItLeavesNoLock()
+    {
+        var shims = Path.Combine(root, "shims");
+        Directory.CreateDirectory(shims);
+        File.WriteAllText(Path.Combine(shims, "rm"), MarkingRmShim);
+        File.SetUnixFileMode(
+            Path.Combine(shims, "rm"),
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+        );
+
+        var path = shims + ":" + Environment.GetEnvironmentVariable("PATH");
+
+        Run(Layout, new Dictionary<string, string?> { ["PATH"] = path });
+
+        Assert.IsFalse(Directory.Exists(Out(".lock-demo")), "the owner left its lock behind");
     }
 
     // The takeover race is timing-dependent, so this can pass without the atomic rename on a quiet machine.

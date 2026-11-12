@@ -1,7 +1,8 @@
 #!/bin/sh
 # The focused test command: runs the unit tests a set of changed paths needs, from the repository root.
 # It skips the integration tests, the categories of tests/OpenArmada.Tests/Needs.cs.
-# Changed test files run their own test classes. Any other changed path, except Markdown, runs every test,
+# Changed test files run their own test classes: the type after each [TestClass] line, past any attribute lines
+# between them. Any other changed path, except Markdown, runs every test,
 # since nothing maps a source file to the tests that cover it. Markdown alone runs nothing.
 set -eu
 
@@ -12,7 +13,17 @@ for path in "$@"; do
   case "$path" in
     *.md) continue ;;
     tests/OpenArmada.Tests/*.cs)
-      classes=$(sed -n '/\[TestClass\]/{n;s/.*class \([A-Za-z0-9_]*\).*/\1/p;}' "$path" 2>/dev/null || true)
+      classes=$(awk '
+        /^[ \t]*\[TestClass\]/ { open = 1; next }
+        open && /^[ \t]*(\[|\/\/)/ { next }
+        open {
+          if (match($0, /(^|[ \t])class[ \t]+[A-Za-z0-9_]+/)) {
+            name = substr($0, RSTART, RLENGTH)
+            sub(/.*class[ \t]+/, "", name)
+            print name
+          }
+          open = 0
+        }' "$path" 2>/dev/null || true)
       if [ -n "$classes" ]; then
         for class in $classes; do
           filter="${filter:+$filter|}FullyQualifiedName~OpenArmada.Tests.$class."

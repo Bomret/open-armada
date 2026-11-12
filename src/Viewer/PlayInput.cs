@@ -31,12 +31,13 @@ public sealed class PlayInput(
     const float BoxMargin = 12;
 
     readonly HashSet<Key> _held = [];
+    readonly PlayPointer _pointer = new();
 
     /// <summary>
     /// The play pointer: where the run's last mouse event left the cursor, in viewport coordinates; null outside the
-    /// window, before the first mouse event and after a <c>leave</c>.
+    /// window, before the first mouse event and after a <c>leave</c> (<see cref="PlayPointer"/>).
     /// </summary>
-    public Vector2? Pointer { get; private set; }
+    public Vector2? Pointer => _pointer.At is { } at ? new Vector2(at.X, at.Y) : null;
 
     /// <summary>Runs one input step; returns its problem, or null. The caller maps a throw to a problem naming the line.</summary>
     public string? Run(PlayStep step)
@@ -48,7 +49,7 @@ public sealed class PlayInput(
             case HoverStep hover:
                 return Hover(hover.Unit);
             case LeaveStep:
-                Pointer = null;
+                _pointer.Leave();
 
                 return null;
             case AttackStep attack:
@@ -141,11 +142,9 @@ public sealed class PlayInput(
         var (point, problem) = Aim(unit, out _);
         if (point is not { } at)
             return problem;
-        if (PlayTarget.HoverProblem(unit, ToNumerics(at), ToNumerics(Size)) is { } onEdge)
-            return onEdge;
-        if (PlayTarget.PickProblem(unit, PickedAt(at)) is { } wrongPick)
-            return wrongPick;
-        Send(Motion(at, Vector2.Zero, 0));
+        if (_pointer.Hover(unit, ToNumerics(at), ToNumerics(Size), p => PickedAt(new Vector2(p.X, p.Y))) is { } hover)
+            return hover;
+        View.PushInput(Motion(at, Vector2.Zero, 0), true);
 
         return null;
     }
@@ -433,7 +432,7 @@ public sealed class PlayInput(
 
     void Send(InputEventMouse e)
     {
-        Pointer = e.Position;
+        _pointer.Land(ToNumerics(e.Position));
         View.PushInput(e, true);
     }
 

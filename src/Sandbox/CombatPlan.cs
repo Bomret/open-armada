@@ -613,13 +613,21 @@ public sealed class CombatPlan
                     continue;
                 }
 
+                var shotDelay = w.Num("shotDelay", 1, report: true);
+                if (shotDelay > 0 && shotDelay < CombatRules.MinReloadDelay)
+                {
+                    // stand-in: the game's own lower bound is not known; an unbounded fire rate stalls the sandbox
+                    unit.Gap($"weapon {name} shotDelay below 1 ms, raised to 1 ms");
+                    shotDelay = (float)CombatRules.MinReloadDelay;
+                }
+
                 weapons.Add(
                     new WeaponProfile
                     {
                         Slot = n,
                         Name = name,
                         Hardpoints = hardpoints,
-                        ShotDelay = w.Num("shotDelay", 1, report: true),
+                        ShotDelay = shotDelay,
                         Range = w.Num("range", 0, report: true),
                         HitChance = w.Target("hitChance", 1, report: true),
                         WarpToHitModifier = w.Num("warpToHitModifier", 0),

@@ -514,6 +514,43 @@ public class CombatPlanTests
         Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause == "weapon without hardpoints, weapon left out"));
     }
 
+    static string Tiny(string delay) => Beam.Replace("shotDelay = 2", $"shotDelay = {delay}");
+
+    [TestMethod]
+    public void AShotDelayBelowAMillisecondIsRaisedAndReportedNamingTheWeaponAndItsUnit()
+    {
+        var r = OneShip("weapon1 = \"tiny\"\r\nweaponHardpoints1 = \"a\"\r\n", ("tiny", Tiny("0.0000001")));
+        Assert.AreEqual(0.001f, ProfileOf(r).Weapons.Single().ShotDelay);
+        var gap = r.Plan.Reports.Single();
+        StringAssert.Contains(gap.Cause, "tiny");
+        CollectionAssert.AreEqual(new[] { "s" }, gap.Names.ToArray());
+    }
+
+    [TestMethod]
+    public void TwoTinyShotDelayWeaponsOnOneUnitAreEachReported()
+    {
+        var r = OneShip(
+            "weapon1 = \"tiny1\"\r\nweaponHardpoints1 = \"a\"\r\nweapon2 = \"tiny2\"\r\nweaponHardpoints2 = \"a\"\r\n",
+            ("tiny1", Tiny("0.0000001")),
+            ("tiny2", Tiny("0.0000002"))
+        );
+        Assert.AreEqual(2, r.Plan.Reports.Count);
+        Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.Contains("tiny1")));
+        Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.Contains("tiny2")));
+    }
+
+    [TestMethod]
+    public void ShotDelaysOfZeroAndOfAMillisecondOrMoreReportNothingAndStayUnchanged()
+    {
+        var r = OneShip(
+            "weapon1 = \"zero\"\r\nweaponHardpoints1 = \"a\"\r\nweapon2 = \"ms\"\r\nweaponHardpoints2 = \"a\"\r\n",
+            ("zero", Tiny("0")),
+            ("ms", Tiny("0.001"))
+        );
+        CollectionAssert.AreEqual(new[] { 0f, 0.001f }, ProfileOf(r).Weapons.Select(w => w.ShotDelay).ToArray());
+        Assert.AreEqual(0, r.Plan.Reports.Count);
+    }
+
     // A world of the plan's one ship and a hostile unit 50 units away, at red alert.
     static (CombatWorld World, PlacedObject Ship, PlacedObject Foe) WithFoe((CombatPlan Plan, SelectableUnit[] Units) r)
     {

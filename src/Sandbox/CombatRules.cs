@@ -80,16 +80,23 @@ public static class CombatRules
         + (targetStopped ? weapon.ToHitStopModifier : 0);
 
     /// <summary>
+    /// The shortest positive reload delay in seconds. stand-in: the game's own lower bound is not known; the floor
+    /// keeps a tiny shotDelay from firing an unbounded number of rounds per tick (at most Tick / 1 ms = 20).
+    /// </summary>
+    public const double MinReloadDelay = 0.001;
+
+    /// <summary>
     /// The seconds until the weapon fires again: shotDelay, times the race's crew factor when the weapon sets
-    /// crewAffectsWeaponDelay.
+    /// crewAffectsWeaponDelay, and at least <see cref="MinReloadDelay"/> when positive (a delay of 0 or below stays
+    /// as is). stand-in: the floor, as the crew factor is unbounded and could undo the plan's floor of shotDelay.
     /// </summary>
     public static double ReloadDelay(WeaponProfile weapon, UnitCombatState shooter)
     {
-        if (!weapon.CrewAffectsWeaponDelay)
-            return weapon.ShotDelay;
-        var race = shooter.Race;
+        var delay = weapon.ShotDelay;
+        if (weapon.CrewAffectsWeaponDelay)
+            delay *= CrewFactor(shooter, shooter.Race.WeaponYellow, shooter.Race.WeaponRed);
 
-        return weapon.ShotDelay * CrewFactor(shooter, race.WeaponYellow, race.WeaponRed);
+        return delay > 0 ? Math.Max(delay, MinReloadDelay) : delay;
     }
 
     /// <summary>

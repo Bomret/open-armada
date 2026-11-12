@@ -75,6 +75,7 @@ public sealed class CombatWorld
     public const double Tick = 0.02;
 
     const double Epsilon = 1e-9;
+    const int MaxRoundsPerTick = (int)(Tick / CombatRules.MinReloadDelay + 0.5);
 
     // the facing offset is a quarter turn times a draw of 0 to 3 (0x5014d0 with 4)
     const int FacingOffsets = 4;
@@ -1871,7 +1872,10 @@ public sealed class CombatWorld
             var delay = CombatRules.ReloadDelay(weapon.Profile, u);
             // A delay below a tick fires several rounds in one tick; a delay of zero fires one round per tick. A
             // round is one shot from one hardpoint.
-            while (weapon.Cooldown <= Epsilon)
+            // The reload floor bounds the steady rate to MaxRoundsPerTick; the cap also bounds a first tick, where a
+            // ready weapon fires its stored round as well.
+            var rounds = 0;
+            while (weapon.Cooldown <= Epsilon && rounds++ < MaxRoundsPerTick)
             {
                 events.Add(new ShotFired { Shot = Launch(u, weapon.Profile, target, hardpoint) });
                 weapon.Cooldown += delay;

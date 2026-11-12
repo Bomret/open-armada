@@ -10,12 +10,12 @@ namespace OpenArmada.Tests;
 [TestClass]
 public class SodV12AndChannelTests
 {
-    static SodBytes.MeshSpec Polygon(int corners, string lighting = "lit") =>
+    static SodBytes.MeshSpec Polygon(int corners) =>
         new()
         {
             TextureMaterial = "",
             Texture = "tex",
-            Lighting = lighting,
+            Lighting = "lit",
             Vertices = Math.Max(corners, 1),
             TexCoords = Math.Max(corners, 1),
             Corners = Enumerable.Range(0, corners).Select(i => (i, i)).ToArray(),
@@ -54,7 +54,10 @@ public class SodV12AndChannelTests
     [TestMethod]
     public void V12PentagonGivesNineCorners()
     {
-        Assert.AreEqual(9, OnlyMesh(Sod.Read(V12(Polygon(5)).End())).Groups.Single().Corners.Length);
+        CollectionAssert.AreEqual(
+            new (ushort, ushort)[] { (0, 0), (1, 1), (2, 2), (0, 0), (2, 2), (3, 3), (0, 0), (3, 3), (4, 4) },
+            OnlyMesh(Sod.Read(V12(Polygon(5)).End())).Groups.Single().Corners
+        );
     }
 
     [TestMethod]
@@ -183,11 +186,14 @@ public class SodV12AndChannelTests
     }
 
     [TestMethod]
-    public void ReferencesFollowTheChannelsFromV15()
+    [DataRow(1.6f, 0f)]
+    [DataRow(1.7f, 0f)]
+    [DataRow(1.8f, 0.25f)]
+    public void ReferencesFollowTheChannelsFromV16(float version, float offset)
     {
-        var sod = Sod.Read(new SodBytes(1.8f).Lighting().Nodes().Channels(Channels).End((2, "a", "walk", 0.25f)));
+        var sod = Sod.Read(new SodBytes(version).Lighting().Nodes().Channels(Channels).End((2, "a", "walk", 0.25f)));
         var r = sod.References.Single();
-        Assert.AreEqual(("a", "walk", 0.25f), (r.Node, r.Animation, r.Offset));
+        Assert.AreEqual(("a", "walk", offset), (r.Node, r.Animation, r.Offset));
         Assert.AreEqual(3, sod.Channels.Count);
     }
 }

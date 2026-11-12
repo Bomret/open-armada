@@ -402,15 +402,17 @@ public sealed class Sod
         if (r.BaseStream.Position != data.Length)
             throw new InvalidDataException($"{data.Length - r.BaseStream.Position} trailing bytes");
 
+        var cycle = ParentCycleMembers(nodeList);
         return new Sod
         {
+            _cycle = cycle,
             Version = version,
             TextureMaterials = textureMaterials,
             LightingMaterials = lightingMaterials,
             Nodes = nodeList,
             Channels = channelList,
             References = references,
-            Problems = FindProblems(nodeList),
+            Problems = FindProblems(nodeList, cycle),
         };
     }
 
@@ -531,11 +533,10 @@ public sealed class Sod
         return members;
     }
 
-    static List<string> FindProblems(IReadOnlyList<Node> nodes)
+    static List<string> FindProblems(IReadOnlyList<Node> nodes, HashSet<Node> cycle)
     {
         var problems = new List<string>();
         var names = nodes.Select(n => n.Name).ToHashSet();
-        var cycle = ParentCycleMembers(nodes);
         foreach (var n in nodes)
         {
             if (n.Parent.Length > 0 && !names.Contains(n.Parent))

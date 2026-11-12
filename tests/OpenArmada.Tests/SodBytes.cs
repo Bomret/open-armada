@@ -219,7 +219,7 @@ internal sealed class SodBytes
         public required (int Vertex, int TexCoord)[] Corners { get; init; }
 
         // The polygons of a 1.2 mesh, each with its own corner count; null makes Corners one polygon.
-        public (int Vertex, int TexCoord)[][]? Polygons { get; init; } = null;
+        public (int Vertex, int TexCoord)[][]? Polygons { get; init; }
 
         // The stored cull byte.
         public byte Cull { get; init; } = 1;

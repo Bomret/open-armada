@@ -78,7 +78,10 @@ public sealed class FocusedTestsTests
     {
         var classes = DeclaredClasses(file);
         // A [TestClass] the oracle cannot parse would yield no name here and in the script alike.
-        Assert.AreEqual(Regex.Matches(Source(file), @"^[ \t]*\[TestClass\]", RegexOptions.Multiline).Count, classes.Length);
+        Assert.AreEqual(
+            Regex.Matches(Source(file), @"^[ \t]*\[TestClass\]", RegexOptions.Multiline).Count,
+            classes.Length
+        );
         var expected =
             classes.Length == 0
                 ? Unit

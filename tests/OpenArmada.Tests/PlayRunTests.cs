@@ -612,8 +612,7 @@ public class PlayRunTests
         // The wrapper must not consult the vanished lock at all; where it does (the ls shim then makes the live
         // lock), the live lock must outlive the takeover.
         var consulted = File.Exists(Path.Combine(fake, "lsdone"));
-        var survived =
-            !consulted || (File.Exists(retried) && File.ReadAllText(Out(".lock-demo/pid")).Trim() == live);
+        var survived = !consulted || (File.Exists(retried) && File.ReadAllText(Out(".lock-demo/pid")).Trim() == live);
         if (Directory.Exists(Out(".lock-demo")))
         {
             Directory.Delete(Out(".lock-demo"), true);

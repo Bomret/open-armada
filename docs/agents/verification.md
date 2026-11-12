@@ -146,8 +146,8 @@ team's bars and the crew dots.
 and the mechanics each shows.
 
 `README.md`, "Run a play script", holds the step syntax and the dump fields. Never commit `play-out/`.
-The integration command runs every script in the table of `CheckedInPlayRunTests` and checks its exit status. It does not judge the frames,
-the shots, or the WAV.
+The integration command runs every script in the table of `CheckedInPlayRunTests` and checks its exit status.
+It does not judge the frames, the shots, or the WAV.
 
 No timing command: the test runner's per-test durations are not wired in.
 

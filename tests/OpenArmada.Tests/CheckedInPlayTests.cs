@@ -56,6 +56,9 @@ public class CheckedInPlayTests
         CollectionAssert.AreEqual(
             Scripts.Select(s => (string)s[0]).Order().ToArray(),
             File.ReadLines(Path.Combine(Root(), "README.md"))
+                .SkipWhile(line => line != "## Run a play script")
+                .Skip(1)
+                .TakeWhile(line => !line.StartsWith("## "))
                 .Select(line => Regex.Match(line, @"^\| `([^`]+\.play)` \|"))
                 .Where(m => m.Success)
                 .Select(m => m.Groups[1].Value)

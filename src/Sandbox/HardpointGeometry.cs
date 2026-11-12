@@ -32,6 +32,8 @@ public static class HardpointGeometry
         var root = sod.Nodes.FirstOrDefault(HangsFromRoot);
         // Each node's chain to the root is its transform followed by its parent's chain, so a node reuses its parent's.
         var chains = new Dictionary<Sod.Node, Matrix4x4>();
+        if (root != null)
+            chains[root] = Matrix4x4.Identity;
         var pending = new Stack<Sod.Node>();
         var offsets = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
         foreach (var start in sod.Nodes)
@@ -39,7 +41,7 @@ public static class HardpointGeometry
             if (offsets.ContainsKey(start.Name))
                 continue;
 
-            for (Sod.Node? node = start; node != null && node != root && !chains.ContainsKey(node); )
+            for (Sod.Node? node = start; node != null && !chains.ContainsKey(node); )
             {
                 pending.Push(node);
                 node = HangsFromRoot(node) ? null : byName[node.Parent];
@@ -68,11 +70,10 @@ public static class HardpointGeometry
                     -m.Position.Z,
                     1
                 );
-                chains[node] =
-                    HangsFromRoot(node) || byName[node.Parent] == root ? own : own * chains[byName[node.Parent]];
+                chains[node] = HangsFromRoot(node) ? own : own * chains[byName[node.Parent]];
             }
 
-            offsets[start.Name] = start == root ? Vector3.Zero : chains[start].Translation;
+            offsets[start.Name] = chains[start].Translation;
         }
 
         return offsets;

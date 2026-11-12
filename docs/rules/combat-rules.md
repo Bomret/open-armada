@@ -235,8 +235,10 @@ below its `crewYellowStatus`, and 1 otherwise.
 
 A positive reload delay is at least 1 ms (**stand-in**; the game's own lower bound is not known). The
 combat plan raises a `shotDelay` below 1 ms to 1 ms and reports a gap naming the weapon and its unit, and
-the reload delay after the crew factor is floored the same way, so a weapon fires at most 20 rounds per
-0.02 s tick. A delay of 0 or below fires one round per tick.
+the reload delay after the crew factor is floored the same way, so a weapon fires at a steady rate of at
+most 20 rounds per 0.02 s tick. The combat world also caps a weapon at 20 rounds per tick (**stand-in**,
+same reason), so a ready weapon with a delay below a tick fires at most 20 rounds on its first tick. A delay
+of 0 or below fires one round per tick.
 
 ## To-hit
 

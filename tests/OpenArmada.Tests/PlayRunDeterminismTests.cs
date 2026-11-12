@@ -57,10 +57,8 @@ public class PlayRunDeterminismTests
         Assert.AreEqual(0, run.Problems.Count, string.Join("; ", run.Problems));
     }
 
-    static string[] Dumps(string folder) =>
-        new[] { "first", "middle", "last" }
-            .Select(name => File.ReadAllText(Path.Combine(folder, name + ".txt")))
-            .ToArray();
+    // The folder's dumps in file-name order: first, last, middle.
+    static string[] Dumps(string folder) => Directory.GetFiles(folder).Order().Select(File.ReadAllText).ToArray();
 
     [TestMethod]
     public void TwoRunsOfOneScriptOverOnePlanWriteIdenticalDumpsAndTheFightChangesTheState()
@@ -80,11 +78,14 @@ public class PlayRunDeterminismTests
             var two = Once("two");
 
             CollectionAssert.AreEqual(one, two, "the two runs write the same dumps");
-            Assert.AreNotEqual(one[0], one[2], "the fight changes the state between the first and the last dump");
+            Assert.AreNotEqual(one[0], one[1], "the fight changes the state between the first and the last dump");
         }
         finally
         {
-            Directory.Delete(root, true);
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, true);
+            }
         }
     }
 }

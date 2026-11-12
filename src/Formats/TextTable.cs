@@ -85,7 +85,7 @@ public sealed class TextTable
     const int MaxImportDepth = 64,
         MaxImportFiles = 1024;
 
-    // The number of imported files opened so far in this read (one past MaxImportFiles once the limit is noted).
+    // The number of imported files opened so far in this read (every import met past MaxImportFiles counts too; the note fires once, when the count first passes the limit).
     int _importsRead;
 
     readonly List<TextTableBlock> _blocks = new();

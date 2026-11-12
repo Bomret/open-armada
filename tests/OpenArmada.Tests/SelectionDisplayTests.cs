@@ -325,6 +325,29 @@ public class SelectionDisplayTests
     }
 
     [TestMethod]
+    public void APlayRunHoversThePlayPointerInsideTheViewport()
+    {
+        var viewport = new System.Numerics.Vector2(800, 600);
+        var pointer = new System.Numerics.Vector2(10, 20);
+        Assert.AreEqual(pointer, SelectionDisplay.PlayHoverPoint(pointer, viewport));
+        Assert.IsNull(SelectionDisplay.PlayHoverPoint(null, viewport), "no mouse step yet, or the pointer left");
+    }
+
+    [TestMethod]
+    [DataRow(0f, 300f)]
+    [DataRow(400f, 0f)]
+    [DataRow(799f, 300f)]
+    [DataRow(400f, 599f)]
+    [DataRow(-5f, 300f)]
+    [DataRow(900f, 300f)]
+    [DataRow(400f, 650f)]
+    public void APlayPointerOnOrPastAViewportEdgeHoversNothing(float x, float y)
+    {
+        var viewport = new System.Numerics.Vector2(800, 600);
+        Assert.IsNull(SelectionDisplay.PlayHoverPoint(new System.Numerics.Vector2(x, y), viewport));
+    }
+
+    [TestMethod]
     public void TheCursorHoversOnlyInsideTheWindowOfARunWithAMouse()
     {
         var mouse = new System.Numerics.Vector2(10, 20);

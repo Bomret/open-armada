@@ -13,7 +13,8 @@ namespace OpenArmada.Viewer;
 /// coordinates, so the input handlers see what a player's click gives at any display scale. Every check runs
 /// before the first event: a step that fails sends none. Mouse events enter the viewport directly in viewport
 /// coordinates; key events go through the Input singleton, so polled keys see them until the release, and are flushed
-/// at once, so key and mouse steps of one frame reach the handlers in file order.
+/// at once, so key and mouse steps of one frame reach the handlers in file order. Every mouse event moves the play
+/// pointer to where it lands.
 /// </summary>
 public sealed class PlayInput(
     Node host,
@@ -31,6 +32,12 @@ public sealed class PlayInput(
 
     readonly HashSet<Key> _held = [];
 
+    /// <summary>
+    /// The play pointer: where the run's last mouse event left the cursor, in viewport coordinates; null outside the
+    /// window, before the first mouse event and after a <c>leave</c>.
+    /// </summary>
+    public Vector2? Pointer { get; private set; }
+
     /// <summary>Runs one input step; returns its problem, or null. The caller maps a throw to a problem naming the line.</summary>
     public string? Run(PlayStep step)
     {
@@ -38,6 +45,12 @@ public sealed class PlayInput(
         {
             case SelectStep select:
                 return Click(select.Unit, MouseButton.Left);
+            case HoverStep hover:
+                return Hover(hover.Unit);
+            case LeaveStep:
+                Pointer = null;
+
+                return null;
             case AttackStep attack:
                 return Click(attack.Unit, MouseButton.Right, attack: true);
             case TransportStep transport:
@@ -117,6 +130,19 @@ public sealed class PlayInput(
         }
 
         ClickAt(button, at);
+
+        return null;
+    }
+
+    // One motion with no button held at the unit, aimed and checked as a select step's click is.
+    string? Hover(string unit)
+    {
+        var (point, problem) = Aim(unit, out _);
+        if (point is not { } at)
+            return problem;
+        if (PlayTarget.PickProblem(unit, PickedAt(at)) is { } wrongPick)
+            return wrongPick;
+        Send(Motion(at, Vector2.Zero, 0));
 
         return null;
     }
@@ -402,7 +428,11 @@ public sealed class PlayInput(
         return (region, null);
     }
 
-    void Send(InputEvent e) => View.PushInput(e, true);
+    void Send(InputEventMouse e)
+    {
+        Pointer = e.Position;
+        View.PushInput(e, true);
+    }
 
     static InputEventMouseButton Button(MouseButton button, Vector2 at, bool pressed) =>
         new()

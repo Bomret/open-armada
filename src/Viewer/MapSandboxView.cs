@@ -36,6 +36,9 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
     // Null while the map shows a problem instead of the scene (_Ready returns before the rig is built).
     CameraRig? _rig;
     bool _mouseInWindow;
+
+    // The play run's input executor, whose play pointer the selection display hovers; null outside a play run.
+    PlayInput? _playInput;
     int _frames;
 
     /// <inheritdoc/>
@@ -282,6 +285,7 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
                 (float)_rig.CombatPlaneHeight,
                 folder
             );
+            _playInput = input;
             AddChild(new PlayKeys(input));
             AddChild(new PlayDriver(new PlayRun(play, state, folder, input.Run, orders.Skip)));
         }
@@ -361,24 +365,35 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
         return true;
     }
 
-    // A headless, screenshot, or play run has no mouse: the real mouse neither confines nor scrolls nor hovers.
+    // A headless, screenshot, or play run has no mouse: the real mouse neither confines nor scrolls nor hovers. A play
+    // run hovers its play pointer instead, which never scrolls or confines.
     bool HasMouse => DisplayServer.GetName() != "headless" && screenshot == null && play == null;
 
-    // The point the cursor hovers for the selection display; null outside the window or without a mouse.
+    // The point the cursor hovers for the selection display: in a play run the play pointer inside the viewport;
+    // otherwise the real mouse, null outside the window or without a mouse.
     Vector2? HoverPoint()
     {
-        var mouse = GetViewport().GetMousePosition();
-
-        return
-            SelectionDisplay.HoverPoint(
+        System.Numerics.Vector2? point;
+        if (_playInput is { } input)
+        {
+            var size = GetViewport().GetVisibleRect().Size;
+            point = SelectionDisplay.PlayHoverPoint(
+                input.Pointer is { } p ? new System.Numerics.Vector2(p.X, p.Y) : null,
+                new System.Numerics.Vector2(size.X, size.Y)
+            );
+        }
+        else
+        {
+            var mouse = GetViewport().GetMousePosition();
+            point = SelectionDisplay.HoverPoint(
                 new System.Numerics.Vector2(mouse.X, mouse.Y),
                 _mouseInWindow,
                 Input.MouseMode == Input.MouseModeEnum.Confined,
                 HasMouse
-            )
-                is { } p
-            ? new Vector2(p.X, p.Y)
-            : null;
+            );
+        }
+
+        return point is { } at ? new Vector2(at.X, at.Y) : null;
     }
 
     // A finding only the view gathers: shown once and logged once, as WARN.

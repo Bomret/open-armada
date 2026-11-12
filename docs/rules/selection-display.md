@@ -112,7 +112,9 @@ whatever its shield maximum. With no hovered unit, no unit shows either part, wh
 selected. The engine's pick is the one a click there would select. No unit is picked while the cursor is
 outside the window. No unit is picked in a run without a mouse, such as a `--screenshot` run. In both
 cases the display shows nothing once the hold has passed. The cursor counts as inside while the window
-confines it. A destroyed unit ends the hover on the frame it is removed.
+confines it. A play run picks under its play pointer, the point where its last mouse step left the cursor,
+and never under the real mouse. It picks no unit before its first mouse step, after a `leave` step, or
+while the play pointer lies on or past a viewport edge. A destroyed unit ends the hover on the frame it is removed.
 The engine draws no energy bar, no system icons, and no reticle, and it has no cloaking.
 
 The engine fills these gaps with stand-ins:

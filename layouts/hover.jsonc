@@ -1,0 +1,13 @@
+// Three Federation destroyers on team 1 and a Klingon destroyer on team 2 in an empty area, for play/hover.play: the
+// play pointer hovers one ship and then the other team's, and the frames show the selection display it gives. B lies
+// at the viewport centre, where a scroll or a turn leaves the play pointer.
+// Run it with: sh tools/play-run.sh hover --layout layouts/hover.jsonc --fps 20
+{
+  "bounds": { "minX": 0, "maxX": 4000, "minZ": 0, "maxZ": 4000 },
+  "objects": [
+    { "class": "fdestroy", "team": 1, "position": [1800, 0, 2000], "label": "A" },
+    { "class": "fdestroy", "team": 1, "position": [2000, 0, 2025], "label": "B" },
+    { "class": "fdestroy", "team": 1, "position": [1900, 0, 1800], "label": "C" },
+    { "class": "kdestroy", "team": 2, "position": [2200, 0, 1800], "label": "K" },
+  ],
+}

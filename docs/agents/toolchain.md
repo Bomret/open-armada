@@ -20,8 +20,10 @@
   - Build every project (game, tests, `tools/WavLevel`) — `dotnet build OpenArmada.slnx`
   - Run the asset browser — `godot-mono --path . -- --game "$ARMADA_DIR" [--model <name>]`
   - Render one frame to a file and quit — append `--screenshot <file.png>` to the browser command
-  - Unit tests — `dotnet test --project tests/OpenArmada.Tests` (MSTest on Microsoft.Testing.Platform,
-    selected in `global.json`)
+  - Unit tests — `mise run test`, `dotnet test --project tests/OpenArmada.Tests --filter 'TestCategory!=Install&TestCategory!=Godot'` (MSTest on
+    Microsoft.Testing.Platform, selected in `global.json`)
+  - Integration tests — `mise run test:integration` (runs only the `Install` and `Godot` test categories: every
+    checked-in play script; needs `ARMADA_DIR` and Godot)
   - Asset check of an install — `godot-mono --headless --path . -- --check --game "$ARMADA_DIR"`
   - Measure a sound's level in a play run's WAV — `dotnet run --project tools/WavLevel -- <wav> --from <s> --to <s>`
   - Dump `Armada.exe` with Ghidra and rebuild the program index — `tools/GhidraDump/` (Ghidra scripts

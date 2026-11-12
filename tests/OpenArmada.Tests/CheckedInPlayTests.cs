@@ -8,11 +8,11 @@ using OpenArmada.Sandbox;
 namespace OpenArmada.Tests;
 
 // Every checked-in play script and layout reads without a problem, so a typo shows in the unit tests and not only in a
-// Movie Maker run.
+// Movie Maker run. The play-run table of the integration tests names every checked-in play script.
 [TestClass]
 public class CheckedInPlayTests
 {
-    static string Root()
+    internal static string Root()
     {
         var dir = new DirectoryInfo(System.AppContext.BaseDirectory);
         while (dir != null && !File.Exists(Path.Combine(dir.FullName, "OpenArmada.csproj")))
@@ -41,6 +41,13 @@ public class CheckedInPlayTests
         CollectionAssert.AreEqual(new string[0], script.Problems.ToArray());
         Assert.AreNotEqual(0, script.Steps.Count);
     }
+
+    [TestMethod]
+    public void ThePlayRunTableNamesEveryCheckedInPlayScript() =>
+        CollectionAssert.AreEqual(
+            Scripts.Select(s => Path.GetFileNameWithoutExtension((string)s[0])).Order().ToArray(),
+            CheckedInPlayRunTests.Runs.Keys.Order().ToArray()
+        );
 
     [TestMethod]
     [DynamicData(nameof(Layouts))]

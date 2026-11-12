@@ -23,11 +23,11 @@ source file to the tests that cover it. Markdown alone runs no test. A red-green
 the test files it works on; the run over a slice's whole changed-path set runs the whole suite. A changed test
 file that holds only integration tests selects no test, and the command passes.
 
-The command finds a test file's classes from each `[TestClass]` line to its class declaration, across any attribute
-lines between, and selects them with `--filter "FullyQualifiedName~OpenArmada.Tests.<Class>."`. Keep the trailing
+The command finds a test file's classes. Each class runs from its `[TestClass]` line to its class declaration, across any attribute
+lines between. The command selects the classes with `--filter "FullyQualifiedName~OpenArmada.Tests.<Class>."`. Keep the trailing
 dot: without it `PlayRun` also selects `PlayRunInputTests`. `dotnet test` exits 8 when the filter selects no test.
-The focused command ignores that exit, so a class holding only integration tests passes; a fail-to-pass command must
-not ignore it, since a filter that selects nothing would pass both runs.
+The focused command ignores that exit, so a class holding only integration tests passes. A fail-to-pass command
+must not ignore it. A filter that selects nothing passes both runs.
 
 Both commands run the unit tests only. They skip the integration tests: the tests with the MSTest category
 `Install` or `Godot`, through the filter `TestCategory!=Install&TestCategory!=Godot`. The category names are the
@@ -85,16 +85,19 @@ or none.
   `exit=<status>`, and `run`, `reused`, or `build` (a failed build). A line proves a run at a tip when
   its `HEAD` equals the tip and it reads `clean`.
 - Bad arguments exit 2 with a message, and run, store, and log nothing.
-- Calls for one stem run one at a time: a second call waits on the lock directory
-  `play-out/.lock-<stem>`, says so once on stderr, then hashes its inputs and reuses what the first
-  stored. The lock holds its owner's pid. A call takes over the lock of a dead owner, and a lock still
-  without a pid after 5 checks of the waiting call, one second apart (`PLAY_RUN_POLL` sets the seconds
-  between checks, as the tests do; the count restarts when a pid appears or the lock is replaced).
-  Remove a lock by hand only when no run is live. Only the call holding the takeover mutex
-  `play-out/.lock-<stem>.takeover` removes a lock, after reading its pid again and, for a pid-less
-  lock, finding it still the one it counted (it holds the file `waiter-<pid>` the counting call put in
-  it, which a replacement lacks even on a reused inode); a mutex left by a killed call is removed by
-  hand too. An unwritable `play-out/` exits 2 with a message.
+- Calls for one stem run one at a time. A second call waits on the lock directory
+  `play-out/.lock-<stem>` and says so once on stderr. It then hashes its inputs and reuses what the first
+  stored.
+- The lock holds its owner's pid. A call takes over the lock of a dead owner. It also takes over a lock
+  still without a pid after 5 checks of the waiting call, one second apart. `PLAY_RUN_POLL` sets the seconds
+  between checks, as the tests do. The count restarts when a pid appears or the lock is replaced.
+- Remove a lock by hand only when no run is live.
+- Only the call holding the takeover mutex `play-out/.lock-<stem>.takeover` removes a lock. It first
+  reads the pid again. For a pid-less lock it also checks that the lock is still the one it counted.
+  That lock holds the file `waiter-<pid>` the counting call put in it. A replacement lacks the file, even
+  on a reused inode.
+- A mutex left by a killed call is removed by hand too.
+- An unwritable `play-out/` exits 2 with a message.
 
 Movie Maker decouples simulated time from the wall clock. Each frame advances the game by exactly
 `1 / <fps>` seconds, and the next frame starts as soon as the last one is written. A run's wall-clock

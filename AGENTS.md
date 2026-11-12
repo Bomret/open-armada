@@ -55,7 +55,7 @@ GitHub (`Bomret/open-armada`) through `gh`; scopes open as draft pull requests i
 In-repo `AGENTS.md` hierarchy, controlled writing standard, American English. See `docs/agents/documentation.md`.
 
 ### Knowledge base
-GitHub wiki of `Bomret/open-armada` (git repository `Bomret/open-armada.wiki`), staged locally and sent by `/superdev:publish-kb`. See `docs/agents/knowledge-base.md`.
+GitHub wiki of `Bomret/open-armada` (git repository `Bomret/open-armada.wiki`, reached through the `gh` login), staged locally and sent by `/superdev:publish-kb`. See `docs/agents/knowledge-base.md`.
 
 ### Coding
 C# style rules in `docs/agents/CODING.md`; the patterns this repo uses in `docs/agents/CODING_PATTERNS.md`.
@@ -64,7 +64,7 @@ C# style rules in `docs/agents/CODING.md`; the patterns this repo uses in `docs/
 .NET SDK 10 (net8.0) and Godot 4.7.2 .NET; build with `dotnet build OpenArmada.csproj`. Format with CSharpier 1.3.0, a local tool, through `dotnet csharpier format .`. See `docs/agents/toolchain.md`.
 
 ### Verification
-Full: format check, unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: the unit tests the changed paths need. The first `dotnet tool restore` needs NuGet access. Sandbox Definition-of-Done lines about what a player sees or hears are verified with a play run, whose frames and WAV the agent judges itself. See `docs/agents/verification.md`, which also names the exception.
+Full: format check, unit tests, build, and the headless asset check against `$ARMADA_DIR`; focused: the unit tests the changed paths need. Each test worktree runs `dotnet tool restore` first, and the first run needs NuGet access. Sandbox Definition-of-Done lines about what a player sees or hears are verified with a play run, whose frames and WAV the agent judges itself. See `docs/agents/verification.md`, which also names the exception.
 
 ### Deployment
 Posture `manual`, no targets. See `docs/agents/deployment.md`.

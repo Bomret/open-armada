@@ -157,3 +157,7 @@ The focused command selects every test a changed path can affect.
 - `*.Test/`
 - `*.test.*`
 - `*_test.*`
+
+## Prepare command
+
+`dotnet tool restore`

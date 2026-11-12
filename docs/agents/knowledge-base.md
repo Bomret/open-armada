@@ -6,23 +6,17 @@ truth; the wiki is a published view.
 
 ## Configuration
 
-- **Backend:** GitHub repository wiki of `Bomret/open-armada`, reached as its git repository
-  `git@github.com:Bomret/open-armada.wiki.git`. GitHub has no REST API for wiki pages, so every call is a
-  git clone, and every write a commit and push to that repository.
-- **The wiki git repository exists only after its first page.** GitHub creates it when a page is saved in
-  the web UI (`https://github.com/Bomret/open-armada/wiki`). Until then every clone answers "Repository not
-  found", and each template below answers exit 2, "could not answer". Create the `Home` page in the web UI
-  once, before the first `/superdev:publish-kb`.
-- **Auth:** the SSH key `git` uses for `github.com`. No token environment variable is read. A clone or push
-  that fails on auth stops the step: each template below answers exit 2 (`find`) or exit 1 (the others),
-  and `/superdev:publish-kb` leaves the page staged.
-- **Pages are files.** A page titled `<title>` is the file `<title with each space as ->.md` at the root
-  of the wiki repository, and GitHub shows it at `https://github.com/Bomret/open-armada/wiki/<that name>`.
-  A title holding `/`, `-`, or a character outside letters, digits, spaces, `.`, and `_` is refused with
-  exit 2, because its file name cannot be mapped back to one title.
-  changelog: durable, reader-facing docs only, not every `AGENTS.md`.
+- **Backend:** GitHub repo Wiki, reached as the git repository `https://github.com/Bomret/open-armada.wiki.git`.
+  GitHub offers no wiki API, so every command clones that repository, changes one file, and pushes.
+- **Auth:** the `gh` CLI's stored login for `github.com`. Every clone and every push passes
+  `gh auth git-credential` as its credential helper and runs with `GIT_TERMINAL_PROMPT=0`, so no command
+  waits on a password prompt. No token environment variable is read. No `gh`, or a `gh` with no login for
+  `github.com`, stops the step: each template below answers exit 2, "could not answer", and
+  `/superdev:publish-kb` leaves the page staged.
 - **Hierarchy:** links. A GitHub wiki nests no pages. Each child page links from a list item in its
   parent's body, and `/superdev:publish-kb` writes that link (ADR 0168).
+- **Decisions:** stay in the repository's ADRs. The knowledge base carries no ADR digest and no ADR
+  summaries.
 
 ## Audience, language & outline
 
@@ -73,16 +67,27 @@ written for.
 
 ## Wiki git conventions
 
-- **Every command works in its own fresh clone**, `git clone -q --depth 1` into a `mktemp -d` directory
-  that the command removes on exit. Nothing is cached between calls, so a page another writer pushed is
-  always seen.
-- **A write is one commit, pushed to the wiki's default branch** (`git push -q origin HEAD`), with the
-  message `superdev: publish <title>`. A rejected push (another writer pushed in between) answers exit 1,
-  and the page stays staged for the next run.
-- **Find** maps the title to its file name and tests for that file in the clone. A present file answers
-  `{"sub_url": "<name>", "file": "<name>.md"}`; an absent one answers exit 3. A failed clone answers
-  exit 2: a missing wiki repository and a failed login look the same to `git`.
-- **Read** prints the file's content, which is the page markdown.
+- **A page is one file.** A page titled `<title>` is the file `<title with each space as ->.md` at the
+  root of the wiki repository. GitHub renders the file name, with each `-` shown as a space, as the page
+  title. That file name without `.md` is the page's `sub_url`, and its URL is
+  `https://github.com/Bomret/open-armada/wiki/<sub_url>`.
+- **A title holds no `/`.** A `/` cannot be part of a file name at the wiki root. Each template reads the
+  title with `jq -er` on its own, checks that status, and refuses a missing, non-string, empty, or `/`-holding title
+  with exit 2 and its cause on stderr, before it clones anything.
+- **A page never touches the file system.** Each template clones without a checkout and reads and writes
+  the page through git objects, so a title holding `:` or another character a Windows file name cannot
+  hold still works. The page file name matches exactly, case included, on every file system. A title that differs only in case from an existing page (`home`
+  beside `Home.md`) therefore reads absent, and `create` adds a second page.
+- **Only `.md` pages count.** A page GitHub renders from another extension, such as `.markdown`,
+  `.asciidoc`, or `.rst`, reads as absent, and `create` adds a `.md` page beside it.
+- **The page is absent** only when a clone succeeds and holds no file for the title. That is the only
+  outcome `/superdev:publish-kb` §4 treats as positive absence (ADR 0027). A failed clone could not answer.
+- **The wiki repository exists only once the wiki holds a page.** GitHub creates it when the first page is
+  saved in the web editor. Until then every clone fails and every command answers exit 2.
+- **A write that changes nothing lands nothing.** `create` and `update` answer exit 0 without a commit when
+  the new tree equals the cloned one.
+- If `gh` is missing or not logged in, or the wiki cannot be cloned, `/superdev:publish-kb` **leaves every
+  page staged**, reports why, and deletes nothing. A later run retries exactly the pages that did not land.
 
 ## Commands
 
@@ -90,77 +95,101 @@ The **backend command contract** (ADR 0069) `scripts/publish-kb.js` runs. Each c
 `sh -c <template> sh <path>`: `$1` names a JSON file holding `title`, `bodyFile` (`create` and `update`),
 the `find` result's fields under `found` (`read`, `update`, and `delete`), and the `knowledge-base`
 section of `.superdev/info.json` under `operator` (ADR 0207). Every command reads its values from that
-file with `jq`. `find` emits the page's `sub_url` and `file`; `read`, `update`, and `delete` take
-`.found.file` from it, and `/superdev:publish-kb` fills a parent link's `{sub_url}` from it (ADR 0168).
-`find` answers exit 3, the only outcome `scripts/publish-kb.js` reads as positive absence, only after a
-successful clone that lacks the file; any other failure answers exit 2, "could not answer". `create`,
-`update`, and `delete` map any failed step to exit 1.
+file with `jq`. `find` emits the page's `sub_url`, and `/superdev:publish-kb` fills a `parent-link`
+target's `{sub_url}` from it (`sub_url` is the contract's optional named `find` key, ADR 0168). `find`
+answers exit 3 only when the clone succeeded and holds no file for the title; any other failure answers
+exit 2, "could not answer," so a page never gets created from a clone that failed. Every failure exit
+writes its cause to stderr.
+
+Every template opens with the same lines: check the `gh` login for `github.com`, read the title, shallow-clone
+the wiki without a checkout into a temporary directory that is removed on exit, and derive the page file from the title. So
+each one stands alone under the bound below. The templates use POSIX `sh` and options every platform's
+tools accept.
 
 Every command below runs under a **30-second bound** (ADR 0130), or whatever
-`knowledge-base.timeoutMs` of `.superdev/info.json` names. `scripts/publish-kb.js` applies it at the spawn. A command killed at
-the bound leaves its page staged and **stops the run**: the remaining pages are reported untried and stay
-staged for the next one.
+`knowledge-base.timeoutMs` of `.superdev/info.json` names. `scripts/publish-kb.js` applies it at the spawn.
+A command killed at the bound leaves its page staged and **stops the run**: the remaining pages are
+reported untried and stay staged for the next one.
 
 ### find
 
 ```sh
-name=$(jq -er '.title | if test("^[A-Za-z0-9._ ]+$") then gsub(" "; "-") else error("unmappable title") end' "$1" 2>/dev/null) || { echo "superdev: the title cannot be mapped to a GitHub wiki file name" >&2; exit 2; }
-d=$(mktemp -d) || exit 2
-trap 'rm -rf "$d"' EXIT
-git clone -q --depth 1 git@github.com:Bomret/open-armada.wiki.git "$d" 2>/dev/null || { echo "superdev: cannot clone git@github.com:Bomret/open-armada.wiki.git; check the SSH login for github.com, and create the Home page in the web UI if the wiki has no page yet" >&2; exit 2; }
-[ -f "$d/$name.md" ] || exit 3
-jq -cn --arg n "$name" '{sub_url: $n, file: ($n + ".md")}'
+gh auth status --hostname github.com >/dev/null 2>&1 || { echo "superdev: gh is missing or not logged in to github.com; run: gh auth login --hostname github.com" >&2; exit 2; }
+dir=$(mktemp -d) || { echo "superdev: cannot create a temporary directory" >&2; exit 2; }; trap 'rm -rf "$dir"' EXIT
+title=$(jq -er '.title | select(type == "string" and length > 0)' "$1") || { echo "superdev: the values file holds no title" >&2; exit 2; }
+case "$title" in */*) echo "superdev: the title holds /, which a wiki file name cannot: $title" >&2; exit 2 ;; esac
+file="$(printf '%s' "$title" | tr ' ' '-').md"
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c credential.helper='!gh auth git-credential' clone -q --depth 1 --no-checkout https://github.com/Bomret/open-armada.wiki.git "$dir/w" 2>"$dir/err" || { echo "superdev: cannot clone https://github.com/Bomret/open-armada.wiki.git: $(cat "$dir/err"); check the wiki is enabled and holds a page" >&2; exit 2; }
+git -C "$dir/w" cat-file -e "HEAD:$file" 2>/dev/null || exit 3
+jq -cn --arg s "${file%.md}" '{sub_url: $s}'
 ```
 
 ### read
 
 ```sh
-file=$(jq -er '.found.file' "$1") || exit 1
-d=$(mktemp -d) || exit 1
-trap 'rm -rf "$d"' EXIT
-git clone -q --depth 1 git@github.com:Bomret/open-armada.wiki.git "$d" 2>/dev/null || exit 1
-cat "$d/$file"
+gh auth status --hostname github.com >/dev/null 2>&1 || { echo "superdev: gh is missing or not logged in to github.com; run: gh auth login --hostname github.com" >&2; exit 2; }
+dir=$(mktemp -d) || { echo "superdev: cannot create a temporary directory" >&2; exit 2; }; trap 'rm -rf "$dir"' EXIT
+title=$(jq -er '.title | select(type == "string" and length > 0)' "$1") || { echo "superdev: the values file holds no title" >&2; exit 2; }
+case "$title" in */*) echo "superdev: the title holds /, which a wiki file name cannot: $title" >&2; exit 2 ;; esac
+file="$(printf '%s' "$title" | tr ' ' '-').md"
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c credential.helper='!gh auth git-credential' clone -q --depth 1 --no-checkout https://github.com/Bomret/open-armada.wiki.git "$dir/w" 2>"$dir/err" || { echo "superdev: cannot clone https://github.com/Bomret/open-armada.wiki.git: $(cat "$dir/err"); check the wiki is enabled and holds a page" >&2; exit 2; }
+git -C "$dir/w" cat-file blob "HEAD:$file" 2>"$dir/err" || { echo "superdev: cannot read the wiki file $file: $(cat "$dir/err")" >&2; exit 1; }
 ```
 
 ### create
 
 ```sh
-name=$(jq -er '.title | if test("^[A-Za-z0-9._ ]+$") then gsub(" "; "-") else error("unmappable title") end' "$1") || exit 1
-title=$(jq -er '.title' "$1") || exit 1
-body=$(jq -er '.bodyFile' "$1") || exit 1
-d=$(mktemp -d) || exit 1
-trap 'rm -rf "$d"' EXIT
-git clone -q --depth 1 git@github.com:Bomret/open-armada.wiki.git "$d" || exit 1
-[ -e "$d/$name.md" ] && { echo "superdev: $name.md already exists" >&2; exit 1; }
-cp "$body" "$d/$name.md" || exit 1
-git -C "$d" add -- "$name.md" && git -C "$d" commit -q -m "superdev: publish $title" && git -C "$d" push -q origin HEAD || exit 1
+gh auth status --hostname github.com >/dev/null 2>&1 || { echo "superdev: gh is missing or not logged in to github.com; run: gh auth login --hostname github.com" >&2; exit 2; }
+dir=$(mktemp -d) || { echo "superdev: cannot create a temporary directory" >&2; exit 2; }; trap 'rm -rf "$dir"' EXIT
+title=$(jq -er '.title | select(type == "string" and length > 0)' "$1") || { echo "superdev: the values file holds no title" >&2; exit 2; }
+case "$title" in */*) echo "superdev: the title holds /, which a wiki file name cannot: $title" >&2; exit 2 ;; esac
+file="$(printf '%s' "$title" | tr ' ' '-').md"
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c credential.helper='!gh auth git-credential' clone -q --depth 1 --no-checkout https://github.com/Bomret/open-armada.wiki.git "$dir/w" 2>"$dir/err" || { echo "superdev: cannot clone https://github.com/Bomret/open-armada.wiki.git: $(cat "$dir/err"); check the wiki is enabled and holds a page" >&2; exit 2; }
+body=$(jq -er '.bodyFile' "$1") || { echo "superdev: the values file holds no bodyFile" >&2; exit 1; }
+blob=$(git -C "$dir/w" hash-object -w -- "$body" 2>"$dir/err") || { echo "superdev: cannot store $body: $(cat "$dir/err")" >&2; exit 1; }
+git -C "$dir/w" ls-tree -z HEAD >"$dir/tree" || { echo "superdev: cannot list the wiki tree" >&2; exit 1; }
+tree=$({ tr '\000' '\n' <"$dir/tree" | f="$file" awk '{ n = $0; sub(/^[^\t]*\t/, "", n); if (n != ENVIRON["f"]) print }'; printf '100644 blob %s\t%s\n' "$blob" "$file"; } | tr '\n' '\000' | git -C "$dir/w" mktree -z) || { echo "superdev: cannot build the wiki tree for $file" >&2; exit 1; }
+[ "$tree" = "$(git -C "$dir/w" rev-parse 'HEAD^{tree}')" ] && exit 0
+login=$(gh api --hostname github.com user --jq .login 2>"$dir/err") && [ -n "$login" ] || { echo "superdev: cannot look up the gh user on github.com: $(cat "$dir/err")" >&2; exit 1; }
+commit=$(git -C "$dir/w" -c user.name="$login" -c user.email="$login@users.noreply.github.com" commit-tree "$tree" -p HEAD -m "superdev: publish" 2>"$dir/err") && git -C "$dir/w" update-ref HEAD "$commit" 2>"$dir/err" || { echo "superdev: git commit failed: $(cat "$dir/err")" >&2; exit 1; }
+GIT_TERMINAL_PROMPT=0 git -C "$dir/w" -c credential.helper= -c credential.helper='!gh auth git-credential' push -q origin HEAD 2>"$dir/err" || { echo "superdev: git push failed: $(cat "$dir/err")" >&2; exit 1; }
 ```
 
 ### update
 
 ```sh
-file=$(jq -er '.found.file' "$1") || exit 1
-title=$(jq -er '.title' "$1") || exit 1
-body=$(jq -er '.bodyFile' "$1") || exit 1
-d=$(mktemp -d) || exit 1
-trap 'rm -rf "$d"' EXIT
-git clone -q --depth 1 git@github.com:Bomret/open-armada.wiki.git "$d" || exit 1
-[ -f "$d/$file" ] || exit 1
-cp "$body" "$d/$file" || exit 1
-git -C "$d" add -- "$file" || exit 1
-git -C "$d" diff --cached --quiet && exit 0
-git -C "$d" commit -q -m "superdev: publish $title" && git -C "$d" push -q origin HEAD || exit 1
+gh auth status --hostname github.com >/dev/null 2>&1 || { echo "superdev: gh is missing or not logged in to github.com; run: gh auth login --hostname github.com" >&2; exit 2; }
+dir=$(mktemp -d) || { echo "superdev: cannot create a temporary directory" >&2; exit 2; }; trap 'rm -rf "$dir"' EXIT
+title=$(jq -er '.title | select(type == "string" and length > 0)' "$1") || { echo "superdev: the values file holds no title" >&2; exit 2; }
+case "$title" in */*) echo "superdev: the title holds /, which a wiki file name cannot: $title" >&2; exit 2 ;; esac
+file="$(printf '%s' "$title" | tr ' ' '-').md"
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c credential.helper='!gh auth git-credential' clone -q --depth 1 --no-checkout https://github.com/Bomret/open-armada.wiki.git "$dir/w" 2>"$dir/err" || { echo "superdev: cannot clone https://github.com/Bomret/open-armada.wiki.git: $(cat "$dir/err"); check the wiki is enabled and holds a page" >&2; exit 2; }
+git -C "$dir/w" cat-file -e "HEAD:$file" 2>/dev/null || { echo "superdev: the wiki holds no file $file to update" >&2; exit 1; }
+body=$(jq -er '.bodyFile' "$1") || { echo "superdev: the values file holds no bodyFile" >&2; exit 1; }
+blob=$(git -C "$dir/w" hash-object -w -- "$body" 2>"$dir/err") || { echo "superdev: cannot store $body: $(cat "$dir/err")" >&2; exit 1; }
+git -C "$dir/w" ls-tree -z HEAD >"$dir/tree" || { echo "superdev: cannot list the wiki tree" >&2; exit 1; }
+tree=$({ tr '\000' '\n' <"$dir/tree" | f="$file" awk '{ n = $0; sub(/^[^\t]*\t/, "", n); if (n != ENVIRON["f"]) print }'; printf '100644 blob %s\t%s\n' "$blob" "$file"; } | tr '\n' '\000' | git -C "$dir/w" mktree -z) || { echo "superdev: cannot build the wiki tree for $file" >&2; exit 1; }
+[ "$tree" = "$(git -C "$dir/w" rev-parse 'HEAD^{tree}')" ] && exit 0
+login=$(gh api --hostname github.com user --jq .login 2>"$dir/err") && [ -n "$login" ] || { echo "superdev: cannot look up the gh user on github.com: $(cat "$dir/err")" >&2; exit 1; }
+commit=$(git -C "$dir/w" -c user.name="$login" -c user.email="$login@users.noreply.github.com" commit-tree "$tree" -p HEAD -m "superdev: publish" 2>"$dir/err") && git -C "$dir/w" update-ref HEAD "$commit" 2>"$dir/err" || { echo "superdev: git commit failed: $(cat "$dir/err")" >&2; exit 1; }
+GIT_TERMINAL_PROMPT=0 git -C "$dir/w" -c credential.helper= -c credential.helper='!gh auth git-credential' push -q origin HEAD 2>"$dir/err" || { echo "superdev: git push failed: $(cat "$dir/err")" >&2; exit 1; }
 ```
 
 ### delete
 
 ```sh
-file=$(jq -er '.found.file' "$1") || exit 1
-title=$(jq -er '.title' "$1") || exit 1
-d=$(mktemp -d) || exit 1
-trap 'rm -rf "$d"' EXIT
-git clone -q --depth 1 git@github.com:Bomret/open-armada.wiki.git "$d" || exit 1
-git -C "$d" rm -q -- "$file" && git -C "$d" commit -q -m "superdev: delete $title" && git -C "$d" push -q origin HEAD || exit 1
+gh auth status --hostname github.com >/dev/null 2>&1 || { echo "superdev: gh is missing or not logged in to github.com; run: gh auth login --hostname github.com" >&2; exit 2; }
+dir=$(mktemp -d) || { echo "superdev: cannot create a temporary directory" >&2; exit 2; }; trap 'rm -rf "$dir"' EXIT
+title=$(jq -er '.title | select(type == "string" and length > 0)' "$1") || { echo "superdev: the values file holds no title" >&2; exit 2; }
+case "$title" in */*) echo "superdev: the title holds /, which a wiki file name cannot: $title" >&2; exit 2 ;; esac
+file="$(printf '%s' "$title" | tr ' ' '-').md"
+GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c credential.helper='!gh auth git-credential' clone -q --depth 1 --no-checkout https://github.com/Bomret/open-armada.wiki.git "$dir/w" 2>"$dir/err" || { echo "superdev: cannot clone https://github.com/Bomret/open-armada.wiki.git: $(cat "$dir/err"); check the wiki is enabled and holds a page" >&2; exit 2; }
+git -C "$dir/w" cat-file -e "HEAD:$file" 2>/dev/null || { echo "superdev: the wiki holds no file $file to delete" >&2; exit 1; }
+git -C "$dir/w" ls-tree -z HEAD >"$dir/tree" || { echo "superdev: cannot list the wiki tree" >&2; exit 1; }
+tree=$(tr '\000' '\n' <"$dir/tree" | f="$file" awk '{ n = $0; sub(/^[^\t]*\t/, "", n); if (n != ENVIRON["f"]) print }' | tr '\n' '\000' | git -C "$dir/w" mktree -z) || { echo "superdev: cannot remove $file from the wiki tree" >&2; exit 1; }
+login=$(gh api --hostname github.com user --jq .login 2>"$dir/err") && [ -n "$login" ] || { echo "superdev: cannot look up the gh user on github.com: $(cat "$dir/err")" >&2; exit 1; }
+commit=$(git -C "$dir/w" -c user.name="$login" -c user.email="$login@users.noreply.github.com" commit-tree "$tree" -p HEAD -m "superdev: publish" 2>"$dir/err") && git -C "$dir/w" update-ref HEAD "$commit" 2>"$dir/err" || { echo "superdev: git commit failed: $(cat "$dir/err")" >&2; exit 1; }
+GIT_TERMINAL_PROMPT=0 git -C "$dir/w" -c credential.helper= -c credential.helper='!gh auth git-credential' push -q origin HEAD 2>"$dir/err" || { echo "superdev: git push failed: $(cat "$dir/err")" >&2; exit 1; }
 ```
 
 ## superdev usage
@@ -171,7 +200,7 @@ git -C "$d" rm -q -- "$file" && git -C "$d" commit -q -m "superdev: delete $titl
 
 ## Degrade / switching
 
-No `git` or `jq`, a failed clone or push, or a wiki with no page yet → `/superdev:publish-kb` leaves every
+No `gh`, no `gh` login for `github.com`, or a wiki that cannot be cloned → `/superdev:publish-kb` leaves every
 page staged, reports why, and deletes nothing; a later run retries exactly the pages that did not land. The
 in-repo docs are the record meanwhile. To move to a different knowledge base later, re-run
 `/superdev:setup` and pick a different one.

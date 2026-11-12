@@ -267,9 +267,10 @@ is the general *Assignee* recovery rule (`plan-contract.md`) made concrete for G
 - **A token without push access silently drops the assignment** — and `labels` and `milestone` with it.
   The create **succeeds**, returns `201`, and the returned `assignees` is empty. Nothing is retried or
   rolled back.
-- GitHub has **no reject-the-create failure shape** for the assignee: an unassignable login is dropped,
-  not refused. The retry-once-without-the-assignee path in `plan-contract.md` applies to trackers that
-  reject; it never triggers here.
+- **A login GitHub cannot assign rejects the whole create**: a token with push access gets `422` with an
+  `errors` entry naming `field: assignees`, `code: invalid`, and no issue exists. Retry that one create with
+  `assignees` omitted, per the retry-once-without-the-assignee path in `plan-contract.md`, and report it
+  once per run.
 - **Check the returned `labels`, not just `assignees`.** Labels are sent on every create; an assignee is
   not sent at all under `"assignee": "none"`, so assignee-based detection is blind in exactly that
   configuration. An empty `labels` array on the response means the labels didn't stick — the documented

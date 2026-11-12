@@ -346,7 +346,7 @@ public class AsteroidFieldTests
         Assert.AreEqual(400f, obstacles.Single().Radius);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("fieldRadius = 400", "fieldRadius = 0")]
     [DataRow("fieldRadius = 400", "fieldRadius = -5")]
     [DataRow("fieldRadius = 400", "fieldRadius = nan")]
@@ -377,7 +377,7 @@ public class AsteroidFieldTests
         Assert.AreEqual(400f, obstacles.Single().Radius);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("minAsteroids = 3", "minAsteroids = -1")]
     [DataRow("maxAsteroids = 8", "maxAsteroids = -1")]
     [DataRow("maxAsteroids = 8", "maxAsteroids = 2147483647")]

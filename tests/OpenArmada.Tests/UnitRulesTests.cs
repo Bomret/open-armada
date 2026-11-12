@@ -28,7 +28,7 @@ public class UnitRulesTests
             Classify("physicsFile = \"u_p.odf\"\r\nunitName = \"Dreadnought\"")
         );
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("1")]
     [DataRow("1.0")]
     [DataRow("1f")]

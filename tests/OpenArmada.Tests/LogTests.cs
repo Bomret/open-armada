@@ -55,7 +55,7 @@ public class LogTests
         Assert.AreEqual(1, Log.ErrorCount);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("a\nb\n\n")]
     [DataRow("a\r\nb\r\n\r\n")]
     [DataRow("a\nb\n\n\n")]

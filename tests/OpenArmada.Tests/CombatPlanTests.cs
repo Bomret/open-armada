@@ -853,7 +853,7 @@ public class CombatPlanTests
         Assert.IsTrue(r.Plan.Reports.Any(g => g.Cause.Contains("maximumCrew")));
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("maxHealth")]
     [DataRow("shieldRate")]
     [DataRow("crewCost")]

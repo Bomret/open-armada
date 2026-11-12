@@ -16,6 +16,7 @@ namespace OpenArmada.Tests;
 // tools/play-run.sh is a POSIX shell script.
 [TestClass]
 [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+[System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
 public class PlayRunTests
 {
     const string Armada = "/games/Star Trek - Armada";

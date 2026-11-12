@@ -854,7 +854,7 @@ public class CombatRulesTests
         Assert.AreEqual(0, unit.SpecialEnergy, 1e-6);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(30)]
     [DataRow(60)]
     public void SpecialEnergyRegainOverTenSecondsIsTheSameAtAnyTickRate(int ticksPerSecond)

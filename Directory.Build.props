@@ -1,0 +1,8 @@
+<Project>
+  <!-- Settings every project in the repository shares. TargetFramework stays in each .csproj, because the
+       Godot editor checks it there. -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

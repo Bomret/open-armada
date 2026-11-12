@@ -56,7 +56,7 @@ public class InterfaceSpritesTests
         CollectionAssert.AreEqual(new[] { "ok" }, found.Sprites.Keys.ToArray());
     }
 
-    [TestMethod]
+    [TestMethod, System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
     public void Table_that_cannot_be_opened_is_one_error_and_the_tables_that_load_still_resolve()
     {
         if (OperatingSystem.IsWindows())

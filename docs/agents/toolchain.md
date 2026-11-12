@@ -29,6 +29,9 @@
 - Solution: `OpenArmada.slnx` lists every `.csproj`; add a new project to it with
   `dotnet sln OpenArmada.slnx add <path>`. The Godot editor also reads it, and warns when a `.sln` sits
   beside it, so the repository keeps no `.sln`.
+- Shared build settings: `Directory.Build.props` applies `Nullable` and `TreatWarningsAsErrors` to every
+  project, so any compiler or analyzer warning fails the build. `TargetFramework` stays in each `.csproj`,
+  where the Godot editor checks it.
 - Formatter: CSharpier `1.3.0`, a local dotnet tool pinned in `dotnet-tools.json`;
   `.csharpierrc.json` sets `printWidth: 120` and leaves every other option at its default. CSharpier
   reads `.gitignore`, so `.godot/`, `bin/`, `obj/`, and `.superdev/` are skipped.

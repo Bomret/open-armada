@@ -1,7 +1,6 @@
 <Project Sdk="MSTest.Sdk/4.5.1">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
     <RootNamespace>OpenArmada.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

@@ -28,7 +28,7 @@ The wiki is **human-consumption first**. Recorded at setup:
 
 ## Outline
 
-A living skeleton. `/superdev:plan` and `/superdev:document` fill and extend it.
+A living skeleton. `/superdev:document` extends it.
 
 - **`Home`.** The root page, with no parent. Hand-written. Each group section below holds one link list
   that `/superdev:publish-kb` maintains.
@@ -41,6 +41,12 @@ A living skeleton. `/superdev:plan` and `/superdev:document` fill and extend it.
   Parent: `Home`, section `Developers`.
 - **`Changelog`.** `(aggregate)`: one `## <feature>` section per feature, contributed by the scope that
   built it. Parent: `Home`, section `Developers`.
+
+**Every outline entry names a topic page** (ADR 0229, INV-0188). An entry gives one page's exact title,
+and the page holds one subject a reader looks up, such as `Architecture` or `Combat rules`. An entry holding a
+placeholder (`<...>`) names no page, and the doc pass writes no page under it. `/superdev:document`'s doc pass
+extends the topic page a change touches. Only when no topic fits does it add one explicit entry here, in the
+scope's doc commit, with its reason. A page per feature is no entry.
 
 **Create the root page first.** A child published before its root lands, but stays staged as not linked,
 because its parent has no page to carry the link yet.
@@ -58,8 +64,9 @@ heading as its first list item when that content holds none yet.
 
 ## Staging
 
-This is a **remote** backend, so nothing but `/superdev:publish-kb` calls it (ADR 0023). `/superdev:plan`
-and `/superdev:document` write each page as a **staged page** under `.superdev/kb-pending/<scope>/` in the
+This is a **remote** backend, so nothing but `/superdev:publish-kb` calls it (ADR 0023).
+The doc pass writes each page as a **staged page**: `/superdev:document` runs it, and on the `lite` tier
+`/superdev:implement` runs it inline first. Each page is staged under `.superdev/kb-pending/<scope>/` in the
 main working tree, resolved by `scope.js staging <scope>` (ADR 0119). Each carries YAML frontmatter with
 the page `title` and an `action` of `upsert`, `patch`, or `delete`, and the page body below. A page reaches
 the wiki when a human runs `/superdev:publish-kb`, after the feature has reached the readers this wiki is
@@ -194,8 +201,10 @@ GIT_TERMINAL_PROMPT=0 git -C "$dir/w" -c credential.helper= -c credential.helper
 
 ## superdev usage
 
-- `/superdev:plan` and `/superdev:document` stage pages; `/superdev:document` reconciles and extends the
-  wiki through its doc-writer.
+- `/superdev:document` reconciles and extends the wiki's topic pages through its doc-writer, and stages
+  the pages it changed.
+- `/superdev:implement` runs the same doc pass inline first on the `lite` tier, and stages the pages it
+  changed; `/superdev:document`'s doc-writer then extends them.
 - `/superdev:publish-kb` sends the staged pages to the wiki. The only command that calls it.
 
 ## Degrade / switching

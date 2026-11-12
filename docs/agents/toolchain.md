@@ -17,6 +17,7 @@
   - Format — `dotnet csharpier format .`
   - Check formatting — `dotnet csharpier check .`. The full verification command runs it first.
   - Build — `dotnet build OpenArmada.csproj`
+  - Build every project (game, tests, `tools/WavLevel`) — `dotnet build OpenArmada.slnx`
   - Run the asset browser — `godot-mono --path . -- --game "$ARMADA_DIR" [--model <name>]`
   - Render one frame to a file and quit — append `--screenshot <file.png>` to the browser command
   - Unit tests — `dotnet test --project tests/OpenArmada.Tests` (MSTest on Microsoft.Testing.Platform,
@@ -25,6 +26,9 @@
   - Measure a sound's level in a play run's WAV — `dotnet run --project tools/WavLevel -- <wav> --from <s> --to <s>`
   - Dump `Armada.exe` with Ghidra and rebuild the program index — `tools/GhidraDump/` (Ghidra scripts
     and Python tools); `tools/GhidraDump/README.md` has the runs
+- Solution: `OpenArmada.slnx` lists every `.csproj`; add a new project to it with
+  `dotnet sln OpenArmada.slnx add <path>`. The Godot editor also reads it, and warns when a `.sln` sits
+  beside it, so the repository keeps no `.sln`.
 - Formatter: CSharpier `1.3.0`, a local dotnet tool pinned in `dotnet-tools.json`;
   `.csharpierrc.json` sets `printWidth: 120` and leaves every other option at its default. CSharpier
   reads `.gitignore`, so `.godot/`, `bin/`, `obj/`, and `.superdev/` are skipped.

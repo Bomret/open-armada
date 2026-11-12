@@ -191,7 +191,9 @@ public class SodV12AndChannelTests
     [DataRow(1.8f, 0.25f)]
     public void ReferencesFollowTheChannelsFromV16(float version, float offset)
     {
-        var sod = Sod.Read(new SodBytes(version).Lighting().Nodes().Channels(Channels).End((2, "a", "walk", 0.25f)));
+        // Versions before 1.7 start with a texture material table.
+        var bytes = version < 1.65f ? new SodBytes(version).TextureMaterials() : new SodBytes(version);
+        var sod = Sod.Read(bytes.Lighting().Nodes().Channels(Channels).End((2, "a", "walk", 0.25f)));
         var r = sod.References.Single();
         Assert.AreEqual(("a", "walk", offset), (r.Node, r.Animation, r.Offset));
         Assert.AreEqual(3, sod.Channels.Count);

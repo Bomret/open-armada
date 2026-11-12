@@ -374,11 +374,11 @@ public partial class MapSandboxView(MapSandbox sandbox, string? screenshot, Play
     Vector2? HoverPoint()
     {
         System.Numerics.Vector2? point;
-        if (_playInput is { } input)
+        if (play != null)
         {
             var size = GetViewport().GetVisibleRect().Size;
             point = SelectionDisplay.PlayHoverPoint(
-                input.Pointer is { } p ? new System.Numerics.Vector2(p.X, p.Y) : null,
+                _playInput?.Pointer is { } p ? new System.Numerics.Vector2(p.X, p.Y) : null,
                 new System.Numerics.Vector2(size.X, size.Y)
             );
         }

@@ -233,6 +233,11 @@ After each shot the reload delay is `shotDelay`, multiplied by a crew factor whe
 the factor is the race's `weaponRed` at or below its `crewRedStatus`, the race's `weaponYellow` at or
 below its `crewYellowStatus`, and 1 otherwise.
 
+A positive reload delay is at least 1 ms (**stand-in**; the game's own lower bound is not known). The
+combat plan raises a `shotDelay` below 1 ms to 1 ms and reports a gap naming the weapon and its unit, and
+the reload delay after the crew factor is floored the same way, so a weapon fires at most 20 rounds per
+0.02 s tick. A delay of 0 or below fires one round per tick.
+
 ## To-hit
 
 The to-hit roll happens when the weapon fires (0x50a3b0):

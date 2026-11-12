@@ -489,6 +489,23 @@ public class CombatWorldTests
         Assert.AreEqual(2, Fired(world.Step(3.5), "a")); // crew ratio 0.1 is red: delay 3 s, shots at 0 and 3
     }
 
+    // A world of one attacker with a weapon of the given delay and a target in range; the shots of its first tick.
+    static int ShotsInOneTick(float delay)
+    {
+        var a = new Spec { Object = Placed("a", 1, 0), Profile = Profile(new[] { Weapon(delay: delay, range: 200) }) };
+        var b = Fighter("b", 2, 100);
+        var world = World(null, a, b);
+        world.Attack(a.Object, b.Object);
+
+        return Fired(world.Step(CombatWorld.Tick), "a");
+    }
+
+    [TestMethod]
+    public void AWeaponWithATinyShotDelayFiresAtMostTwentyRoundsPerTick() => Assert.AreEqual(20, ShotsInOneTick(1e-7f));
+
+    [TestMethod]
+    public void AWeaponWithAZeroShotDelayFiresOneRoundPerTick() => Assert.AreEqual(1, ShotsInOneTick(0));
+
     [TestMethod]
     public void AnAttackingShipFiresAtTheNearestHostileUnitInRangeWhileItsTargetIsFar()
     {

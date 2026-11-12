@@ -74,8 +74,8 @@ exits 4 and is not stored. Godot does not build C# itself, so without the build 
 or none.
 
 - The hash covers every tracked or untracked, not ignored file under `src/` and `scenes/` (content and
-  path), `project.godot`, `OpenArmada.csproj`, `global.json`, the play script, the layout's content,
-  the map name, the frame rate, the Godot version, and the `ARMADA_DIR` path.
+  path), `project.godot`, `OpenArmada.csproj`, `global.json`, `Directory.Build.props`, the play script,
+  the layout's content, the map name, the frame rate, the Godot version, and the `ARMADA_DIR` path.
 - It leaves out the install's content, `.godot/`, and the display. After a change to the install, run
   with `--fresh`.
 - A fix cycle runs only the play scripts its findings map to. The scope review runs every script the
@@ -87,10 +87,12 @@ or none.
 - Bad arguments exit 2 with a message, and run, store, and log nothing.
 - Calls for one stem run one at a time: a second call waits on the lock directory
   `play-out/.lock-<stem>`, says so once on stderr, then hashes its inputs and reuses what the first
-  stored. The lock holds its owner's pid, and a call takes over the lock of a dead owner. Remove a lock
-  by hand only when no run is live. Only the call holding the takeover mutex
-  `play-out/.lock-<stem>.takeover` removes a lock, after reading its pid again; a mutex left by a killed
-  call is removed by hand too. An unwritable `play-out/` exits 2 with a message.
+  stored. The lock holds its owner's pid. A call takes over the lock of a dead owner, and a lock still
+  without a pid after 5 one-second checks of the waiting call (the count restarts when a pid appears or
+  the lock is replaced). Remove a lock by hand only when no run is live. Only the call holding the
+  takeover mutex `play-out/.lock-<stem>.takeover` removes a lock, after reading its pid again and, for
+  a pid-less lock, finding it still the one it counted; a mutex left by a killed call is removed by hand
+  too. An unwritable `play-out/` exits 2 with a message.
 
 Movie Maker decouples simulated time from the wall clock. Each frame advances the game by exactly
 `1 / <fps>` seconds, and the next frame starts as soon as the last one is written. A run's wall-clock

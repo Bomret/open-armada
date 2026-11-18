@@ -68,7 +68,9 @@ public static class InstallClassifier
     /// of a texture an override replaces too), and any other mip level is a texture extra (past a gap, or
     /// after a level of the wrong size). Without, the names alone decide. The kinds are <c>kinds</c>, or every
     /// discovered kind. An asset whose Reads throws adds a <see cref="ReadFailure"/> to <c>failures</c> and
-    /// the kind's other assets are still read; a kind that cannot list its assets adds none.
+    /// the kind's other assets are still read; a kind that cannot list its assets adds none. With <c>files</c>
+    /// and no <c>failures</c> collection those read failures are discarded: a caller that must report them
+    /// (INV-0002) passes one, as the asset check does.
     /// </summary>
     public static IReadOnlyList<Classified> Classify(
         IEnumerable<string> inventory,

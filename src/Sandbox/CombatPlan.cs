@@ -63,7 +63,7 @@ public sealed class CombatPlan
 
     /// <summary>
     /// <c>MAX_PREVENTION_ROTATION</c>: the largest angle of a collision turn, in radians; the game's compiled default
-    /// 0.4 where the install's RTS_CFG.h gives none (reported).
+    /// 0.4 where the install's RTS_CFG.h gives none or gives one that is no finite number (reported).
     /// </summary>
     public float MaxPreventionRotation { get; private init; } = CombatWorld.DefaultMaxPreventionRotation;
 

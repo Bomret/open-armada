@@ -19,7 +19,8 @@ public static class AssetCheck
     /// listed in their own category and do not fail the check. A reader that throws fails only
     /// its own asset (INV-0002); nothing here lets an exception escape. <c>decode</c>, when given, runs
     /// the engine's own decoder on each asset the readers accepted and throws when it rejects the
-    /// asset (ADR 0002); the Godot-free tests pass none.
+    /// asset (ADR 0002); the Godot-free tests pass none. The install's file classification uses exactly the
+    /// <c>kinds</c> given here, not every discovered kind.
     /// </summary>
     public static int Run(
         string? game,
@@ -131,7 +132,8 @@ public static class AssetCheck
         return failedTotal == 0 ? 0 : 1;
     }
 
-    // Classifies every file of the install (InstallClassifier), prints the counts, each known but not
+    // Classifies every file of the install (InstallClassifier) with the kinds Run was given, not every
+    // discovered kind, so a kind left out leaves its files unclassified. Prints the counts, each known but not
     // loaded file, the out of scope groups and each unclassified file. Returns the number unclassified
     // plus the number of assets whose kind cannot say what they read (each logged once with the kind and
     // the asset), each of which fails the check; an install it cannot list (an unreadable folder) fails

@@ -274,6 +274,7 @@ public class AssetCheckTests
         Assert.AreEqual(1, lines.Count(l => l.Contains("fussy/a") && l.Contains("cannot tell")));
         StringAssert.Contains(lines.Single(l => l.Contains("fussy/a")), " ERROR check: ");
         Assert.IsFalse(output.Contains("UNCLASSIFIED b.bmp"), output);
+        StringAssert.Contains(output, "files: 1 loaded, 0 out of scope, 0 known but not loaded, 0 unclassified");
     }
 
     [TestMethod]

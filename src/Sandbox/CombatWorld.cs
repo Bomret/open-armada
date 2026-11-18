@@ -150,8 +150,9 @@ public sealed class CombatWorld
     readonly Dictionary<UnitCombatState, ObstacleAvoidance> _scorers = new(ReferenceEqualityComparer.Instance);
     AvoidanceKeys _avoidanceKeys = AvoidanceKeys.Stock;
 
-    // The faults of a unit's flight, its recording of the flight, process, event horizon, black-hole pull and collision separation: a unit (by
-    // reference) and the section with the exception's type (or a flight's message), each reported once.
+    // The faults of a unit's flight, its recording of the flight, process, event horizon, black-hole pull and
+    // collision separation: a unit (by reference) and the section with the exception's type (or a flight's
+    // message), each reported once.
     readonly HashSet<(UnitCombatState, string)> _flightFaults = new();
 
     // The units whose non-finite push is reported: by reference, since labels can repeat.

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
@@ -586,6 +587,20 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void AShotDelayThatIsNoFiniteNumberTakesDelayOneIsReportedAndKeepsFiring()
+    {
+        foreach (var value in new[] { "1e999", "NaN", "Infinity" })
+        {
+            var r = OneShip("weapon1 = \"tiny\"\r\nweaponHardpoints1 = \"a\"\r\n", ("tiny", Tiny(value)));
+            Assert.AreEqual(1f, ProfileOf(r).Weapons.Single().ShotDelay, value);
+            StringAssert.Contains(r.Plan.Reports.Single().Cause, "shotDelay", value);
+            var (world, ship, foe) = WithFoe(r);
+            Assert.IsTrue(world.Attack(ship, foe), value);
+            Assert.AreEqual(2, world.Step(1.5).OfType<ShotFired>().Count(), value); // shots at 0 and 1 s
+        }
+    }
+
+    [TestMethod]
     public void AUnitWhoseOnlyWeaponHasNoHardpointsRefusesAnAttackOrder()
     {
         var (world, ship, foe) = WithFoe(OneShip("weapon1 = \"beam\"\r\n"));
@@ -785,7 +800,7 @@ public class CombatPlanTests
     [TestMethod]
     public void AFormationSpacingThatIsNoPositiveNumberTakesTheGamesDefaultAndIsReportedOnce()
     {
-        foreach (var value in new[] { "0", "-5", "\"wide\"", "1e40" })
+        foreach (var value in new[] { "0", "-5", "\"wide\"", "1e40", "1e999", "-1e999" })
         {
             var r = Plan(
                 new[] { "s", "s" },
@@ -825,6 +840,40 @@ public class CombatPlanTests
         );
         Assert.AreEqual(0.4f, r.Plan.MaxPreventionRotation);
         Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("game constant MAX_PREVENTION_ROTATION")));
+    }
+
+    // RTS_CFG.h with one of the three constants set to the given literal.
+    // The declaration is a float one, so an overflowing literal parses as a float (an int declaration would fail the
+    // integer reading and count as missing).
+    static string ConstantsWith(string name, string value) =>
+        Regex.Replace(Constants, $@"(?:int|float) {name} = [^;]+", $"float {name} = {value}");
+
+    [TestMethod]
+    public void AShieldProtectionBonusOrRotationThatIsNoFiniteNumberTakesItsStandInAndIsReportedOnce()
+    {
+        foreach (var value in new[] { "1e999", "-1e999", "1e39" })
+        {
+            foreach (
+                var name in new[] { "SHIELD_DAMAGE_PROTECTION", "SYSTEM_HITPOINTS_BONUS", "MAX_PREVENTION_ROTATION" }
+            )
+            {
+                var r = Plan(
+                    new[] { "s", "s" },
+                    new[] { ("s", Ship), ("fed", Race) },
+                    ("RTS_CFG.h", ConstantsWith(name, value))
+                );
+                var label = $"{name} = {value}";
+                Assert.AreEqual(name == "SHIELD_DAMAGE_PROTECTION" ? 1f : 0.5f, r.Plan.ShieldDamageProtection, label);
+                Assert.AreEqual(name == "SYSTEM_HITPOINTS_BONUS" ? 0f : 2f, r.Plan.SystemHitpointsBonus, label);
+                Assert.AreEqual(name == "MAX_PREVENTION_ROTATION" ? 0.4f : 0.6f, r.Plan.MaxPreventionRotation, label);
+                Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains(name)), label);
+                Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("game constant")), label);
+                Assert.IsTrue(
+                    r.Plan.Reports.Single(g => g.Cause.Contains(name)).Cause.Contains("is no finite number"),
+                    label
+                );
+            }
+        }
     }
 
     [TestMethod]

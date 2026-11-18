@@ -272,7 +272,20 @@ public sealed class SandboxPlan
         return (found, unreadable, cost);
     }
 
-    /// <summary><c>hasModel</c> tells whether the install holds a model of the name (given without ".sod").</summary>
+    /// <summary>
+    /// Builds the sandbox plan of a map: its objects placed with the models the install holds, the background,
+    /// the asteroid fields, black holes, nebulae and asteroid sites, and the gaps each of them left.
+    /// </summary>
+    /// <param name="asset">The map to plan. Only its read map (<c>Map</c>) is used.</param>
+    /// <param name="definitions">
+    /// The result of <see cref="Definitions"/> for the map: the resolved definition of each object class
+    /// (<c>Found</c>), the classes whose definition is present but unreadable (<c>Unreadable</c>), and
+    /// <c>CannotPathIntoCost</c>.
+    /// </param>
+    /// <param name="hasModel">
+    /// Tells whether the install holds a model of the name, given without ".sod". The plan names a model only
+    /// where this returns true.
+    /// </param>
     public static SandboxPlan Build(
         MapAsset asset,
         (

@@ -46,7 +46,7 @@ ADR and INV numbers in the superdev seed files of `docs/agents/` (`deployment.md
 `docs/adr/` or `docs/invariants.md`.
 
 ### Slice store
-GitHub Issues on `Bomret/open-armada`, through the `gh` CLI. See `docs/agents/issue-tracker.md`.
+GitHub Issues on `Bomret/open-armada`, through the `gh` CLI. See `docs/agents/issue-tracker.md`, and `docs/agents/issue-tracker-plan.md` for the writes only `/superdev:plan` makes.
 
 ### Code host
 GitHub (`Bomret/open-armada`) through `gh`; scopes open as draft pull requests into `main`. See `docs/agents/code-management.md`.

@@ -38,6 +38,9 @@ The merge call below degrades the same way: print the exact `gh pr merge`/REST c
   and `mergeable`). GitHub computes `mergeable` asynchronously and answers `null` while it does;
   re-read up to 3 times with a short pause and, if it is still `null`, report it as **unknown** — never
   as mergeable.
+- **Read the draft state**: `gh pr view <number> --json isDraft --jq .isDraft` prints `true` for a draft.
+- **Mark ready**: `gh pr ready <number>` takes a draft pull request out of draft. GitHub refuses to merge a
+  draft, so `/superdev:ship` calls it before the merge under the merge consent.
 - **Merge it, pinned**: `gh pr merge --squash --match-head-commit <tested-tip-sha> <number>` (or
   `PUT /repos/Bomret/open-armada/pulls/<pull_number>/merge` with
   `{ "merge_method": "squash", "commit_title": "<pr-title>", "sha": "<tested-tip-sha>" }`).

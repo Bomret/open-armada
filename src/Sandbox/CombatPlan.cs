@@ -34,12 +34,15 @@ public sealed class CombatPlan
     /// <summary>The gaps found while reading, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports { get; }
 
-    /// <summary>The game constants of RTS_CFG.h that the combat rules read.</summary>
+    /// <summary>
+    /// <c>SHIELD_DAMAGE_PROTECTION</c>, one of the game constants of RTS_CFG.h that the combat rules read; stand-in 1
+    /// (no protection) where the install's RTS_CFG.h gives none or gives one that is no finite number.
+    /// </summary>
     public float ShieldDamageProtection { get; }
 
     /// <summary>
     /// <c>SYSTEM_HITPOINTS_BONUS</c>: the hit points added to each ship system a unit has; stand-in 0 where the
-    /// install's RTS_CFG.h gives none.
+    /// install's RTS_CFG.h gives none or gives one that is no finite number.
     /// </summary>
     public float SystemHitpointsBonus { get; }
 

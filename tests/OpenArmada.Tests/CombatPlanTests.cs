@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OpenArmada.Assets;
 using OpenArmada.Diagnostics;
@@ -799,7 +800,7 @@ public class CombatPlanTests
     [TestMethod]
     public void AFormationSpacingThatIsNoPositiveNumberTakesTheGamesDefaultAndIsReportedOnce()
     {
-        foreach (var value in new[] { "0", "-5", "\"wide\"", "1e40" })
+        foreach (var value in new[] { "0", "-5", "\"wide\"", "1e40", "1e999", "-1e999" })
         {
             var r = Plan(
                 new[] { "s", "s" },
@@ -842,20 +843,10 @@ public class CombatPlanTests
     }
 
     // RTS_CFG.h with one of the three constants set to the given literal.
+    // The declaration is a float one, so an overflowing literal parses as a float (an int declaration would fail the
+    // integer reading and count as missing).
     static string ConstantsWith(string name, string value) =>
-        Constants
-            .Replace(
-                "SHIELD_DAMAGE_PROTECTION = 0.5",
-                $"SHIELD_DAMAGE_PROTECTION = {(name == "SHIELD_DAMAGE_PROTECTION" ? value : "0.5")}"
-            )
-            .Replace(
-                "SYSTEM_HITPOINTS_BONUS = 2",
-                $"SYSTEM_HITPOINTS_BONUS = {(name == "SYSTEM_HITPOINTS_BONUS" ? value : "2")}"
-            )
-            .Replace(
-                "MAX_PREVENTION_ROTATION = 0.6",
-                $"MAX_PREVENTION_ROTATION = {(name == "MAX_PREVENTION_ROTATION" ? value : "0.6")}"
-            );
+        Regex.Replace(Constants, $@"(?:int|float) {name} = [^;]+", $"float {name} = {value}");
 
     [TestMethod]
     public void AShieldProtectionBonusOrRotationThatIsNoFiniteNumberTakesItsStandInAndIsReportedOnce()
@@ -877,22 +868,11 @@ public class CombatPlanTests
                 Assert.AreEqual(name == "MAX_PREVENTION_ROTATION" ? 0.4f : 0.6f, r.Plan.MaxPreventionRotation, label);
                 Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains(name)), label);
                 Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("game constant")), label);
+                Assert.IsTrue(
+                    r.Plan.Reports.Single(g => g.Cause.Contains(name)).Cause.Contains("is no finite number"),
+                    label
+                );
             }
-        }
-    }
-
-    [TestMethod]
-    public void AFormationSpacingOfAnOverflowingLiteralIsReportedOnce()
-    {
-        foreach (var value in new[] { "1e999", "-1e999" })
-        {
-            var r = Plan(
-                new[] { "s" },
-                new[] { ("s", Ship), ("fed", Race) },
-                ("RTS_CFG.h", Constants.Replace("FORMATION_SPACING = 100.0", $"FORMATION_SPACING = {value}"))
-            );
-            Assert.AreEqual(40f, r.Plan.FormationSpacing, value);
-            Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("FORMATION_SPACING")), value);
         }
     }
 

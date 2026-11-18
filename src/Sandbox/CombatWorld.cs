@@ -142,7 +142,6 @@ public sealed class CombatWorld
     readonly List<CombatEvent> _queued = new();
     readonly DebrisField _debris;
     readonly Dictionary<PlacedObject, Sod?> _models = new(ReferenceEqualityComparer.Instance);
-    readonly HashSet<string> _faults = new();
 
     // The units' avoidance values and the avoidance of each ship, once OBSTACLE_AVOIDANCE is on (Avoidance).
     readonly Dictionary<UnitCombatState, (AvoidanceTraits Traits, bool Starbase)> _avoidance = new(
@@ -151,7 +150,9 @@ public sealed class CombatWorld
     readonly Dictionary<UnitCombatState, ObstacleAvoidance> _scorers = new(ReferenceEqualityComparer.Instance);
     AvoidanceKeys _avoidanceKeys = AvoidanceKeys.Stock;
 
-    // The flights and processes that failed: a unit (by reference) and the cause, each reported once.
+    // The faults of a unit's flight, its recording of the flight, process, event horizon, black-hole pull and
+    // collision separation: a unit (by reference) and the section with the exception's type (or a flight's
+    // message), each reported once.
     readonly HashSet<(UnitCombatState, string)> _flightFaults = new();
 
     // The units whose non-finite push is reported: by reference, since labels can repeat.
@@ -1031,7 +1032,7 @@ public sealed class CombatWorld
     // not dying, ship or station, whose center lies within EventRadius of the hole's center in the plane (the edge
     // included) is swallowed (0x450a40). It becomes a dying unit with a timer of 0 (0x466090), so it leaves in the next
     // tick through RunDying, with no fireball and no small explosions. A hole whose EventRadius is 0 swallows nothing
-    // (0x44da40). A fault in one unit's test is reported once per cause and the run goes on.
+    // (0x44da40). A fault in one unit's test is reported once per unit and exception type and the run goes on.
     void SwallowUnits()
     {
         foreach (var hole in BlackHoles)
@@ -1055,7 +1056,7 @@ public sealed class CombatWorld
                 }
                 catch (Exception e)
                 {
-                    if (_faults.Add(e.Message))
+                    if (_flightFaults.Add((u, "event horizon: " + e.GetType().Name)))
                     {
                         Log.Error(Area.Combat, $"black-hole event horizon on {u.Unit.Label} failed: {e.Message}");
                     }
@@ -1070,7 +1071,7 @@ public sealed class CombatWorld
     // the gravity radius R: the velocity changes by the unit direction to the center times F times the tick, with F
     // = GravityForce x R^2 / d^2 (R^2 when d^2 < 1). The result is held to the ship's speed cap (0x450f40, 0x450ea0).
     // stand-in: the cap is impulseSpeed alone (no warp multiplier). A ship at the exact center has no direction and
-    // keeps its velocity. A fault in one ship's pull is reported once per cause and the run goes on.
+    // keeps its velocity. A fault in one ship's pull is reported once per ship and exception type and the run goes on.
     void PullShips()
     {
         foreach (var hole in BlackHoles)
@@ -1104,7 +1105,7 @@ public sealed class CombatWorld
                 }
                 catch (Exception e)
                 {
-                    if (_faults.Add(e.Message))
+                    if (_flightFaults.Add((s, "pull: " + e.GetType().Name)))
                     {
                         Log.Error(Area.Combat, $"black-hole pull on {s.Unit.Label} failed: {e.Message}");
                     }
@@ -1116,7 +1117,7 @@ public sealed class CombatWorld
     // The collision separation of the post-simulate pass (0x464910): each ship that is not dying, not derelict, and has
     // a motion (a station has none, so it runs no pass) separates from the ships in the box around it, in the plan's
     // unit order. A neighbour is any other unit that is not dying; a station never moves. A fault in a pass is
-    // reported once per cause and the pass of the next ship runs (INV-0002).
+    // reported once per ship and exception type and the pass of the next ship runs (INV-0002).
     void SeparateShips()
     {
         var all = _units.Values.ToList();
@@ -1130,7 +1131,7 @@ public sealed class CombatWorld
             }
             catch (Exception e) // a fault of one ship's pass is reported, and the run goes on
             {
-                if (_faults.Add(e.Message))
+                if (_flightFaults.Add((a, "separation: " + e.GetType().Name)))
                 {
                     Log.Error(Area.Combat, $"collision separation of {a.Unit.Label} failed: {e.Message}");
                 }

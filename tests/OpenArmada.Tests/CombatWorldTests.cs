@@ -2372,6 +2372,207 @@ public class CombatWorldTests
         Assert.AreNotEqual(before, poses.Pose(a.Object).Position);
     }
 
+    // Coasting ships c1 and c2 (team 1, engines destroyed), a black hole, and a mover "m" after them in the unit order.
+    // The mover's avoidance runs in each tick's motion pass, once the coasting ships have moved: it takes their poses
+    // away, so that the same tick's black-hole pull and collision separation, and the next tick's event horizon, each
+    // read a pose that is gone and fault with a KeyNotFoundException. The motion pass puts the poses back.
+    // The coasting ships share one label, so that their faults carry one message; with changingMessages, the
+    // KeyNotFoundException message names the ship's pose key, whose text (through its DestroyedSystems) changes on
+    // every read, so that no two faults carry one message.
+    static (CombatWorld World, PlacedObject Mover) PoseThiefWorld(int coasting, bool changingMessages = false)
+    {
+        var ships = Enumerable
+            .Range(0, coasting)
+            .Select(_ =>
+            {
+                var o = Placed("c", 1, 0) with
+                {
+                    Start = new StartingState
+                    {
+                        DestroyedSystems = changingMessages ? new CountedReads(["Engines"]) : ["Engines"],
+                    },
+                };
+
+                return new Spec
+                {
+                    Object = o,
+                    Profile = Profile(maxHealth: 0, hull: 0, systems: [Sys("Engines")]),
+                    Motion = Owned(o),
+                };
+            })
+            .ToList();
+        var mover = Placed("m", 1, 0);
+        ships.Add(
+            new Spec
+            {
+                Object = mover,
+                Profile = Profile(maxHealth: 0, hull: 0, systems: [Sys("Engines")]),
+                Motion = Owned(mover),
+            }
+        );
+        var poses = new UnitPoses(ships.Select(s => s.Object));
+        var world = new CombatWorld(
+            poses,
+            ships.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = 0,
+                Mobile = true,
+                Motion = s.Motion,
+            }),
+            1,
+            () => 0,
+            (_, _, pose) => pose.Position
+        )
+        {
+            BlackHoles =
+            [
+                new BlackHole
+                {
+                    Object = Placed("hole", 0, 900),
+                    Center = new Vector3(900, 0, 0),
+                    GravityRadius = 50,
+                    EventRadius = 5,
+                },
+            ],
+        };
+        // UnitPoses offers no way to forget a unit, so the fixture reaches its private dictionary.
+        var posesField =
+            typeof(UnitPoses).GetField(
+                "_poses",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
+            ) ?? throw new AssertFailedException("UnitPoses has no private field _poses: update PoseThiefWorld");
+        var posesByUnit = (Dictionary<PlacedObject, ShipPose>)posesField.GetValue(poses)!;
+        world.Move(mover, 0, 500);
+        ships[^1].Motion!.Avoidance = (_, _, direction) =>
+        {
+            foreach (var ship in ships.Take(coasting))
+            {
+                world.State(ship.Object)!.Position = null;
+                posesByUnit.Remove(ship.Object);
+            }
+
+            return direction;
+        };
+
+        return (world, mover);
+    }
+
+    // A list whose text differs on every read, so that a record holding it prints a new text each time.
+    sealed class CountedReads(IReadOnlyList<string> items) : IReadOnlyList<string>
+    {
+        int _reads;
+
+        public int Count => items.Count;
+
+        public string this[int index] => items[index];
+
+        public IEnumerator<string> GetEnumerator() => items.GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public override string ToString() => $"read {++_reads}";
+    }
+
+    static readonly string[] Sections =
+    [
+        "black-hole event horizon on",
+        "black-hole pull on",
+        "collision separation of",
+    ];
+
+    [TestMethod]
+    public void TheSameFaultInTwoUnitsIsReportedOncePerUnitForEachOfTheBlackHoleAndCollisionSections()
+    {
+        var (world, _) = PoseThiefWorld(2);
+        using var log = new CapturedLog();
+        world.Step(CombatWorld.Tick * 5);
+
+        foreach (var section in Sections)
+        {
+            Assert.AreEqual(2, log.Lines.Count(l => l.Contains($"{section} c failed")), $"{section}\n{log.Text}");
+        }
+    }
+
+    [TestMethod]
+    public void AUnitFailingOnEveryTickIsReportedOncePerSectionAndTheOtherUnitsKeepStepping()
+    {
+        var (world, mover) = PoseThiefWorld(1);
+        using var log = new CapturedLog();
+        var before = world.State(mover)!.Position;
+        world.Step(CombatWorld.Tick * 20);
+
+        foreach (var section in Sections)
+        {
+            Assert.AreEqual(1, log.Lines.Count(l => l.Contains($"{section} c failed")), $"{section}\n{log.Text}");
+        }
+
+        Assert.AreNotEqual(before, world.State(mover)!.Position, "the mover kept flying");
+    }
+
+    [TestMethod]
+    public void AFaultWhoseMessageChangesEveryTickIsReportedOncePerUnitForEachOfTheBlackHoleAndCollisionSections()
+    {
+        var (world, _) = PoseThiefWorld(2, changingMessages: true);
+        using var log = new CapturedLog();
+        world.Step(CombatWorld.Tick * 20);
+
+        foreach (var section in Sections)
+        {
+            Assert.AreEqual(2, log.Lines.Count(l => l.Contains($"{section} c failed")), $"{section}\n{log.Text}");
+        }
+    }
+
+    // The obstacles of a world whose enumeration fails with a message that changes on every call.
+    sealed class FailingObstacles : IReadOnlyList<Obstacle>
+    {
+        int _calls;
+
+        public int Count => 0;
+
+        public Obstacle this[int index] => throw new ArgumentOutOfRangeException(nameof(index));
+
+        public IEnumerator<Obstacle> GetEnumerator() =>
+            throw new ArgumentException($"the obstacles failed at call {++_calls}");
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    [TestMethod]
+    public void ACollisionFaultWhoseMessageChangesEveryTickIsReportedOncePerUnit()
+    {
+        var a = WithSystems("a", 1, 0, null, Sys("Engines"));
+        var b = WithSystems("b", 1, 500, null, Sys("Engines"));
+        var units = new[] { a with { Motion = Owned(a.Object) }, b with { Motion = Owned(b.Object) } };
+        var world = new CombatWorld(
+            new UnitPoses(units.Select(s => s.Object)),
+            units.Select(s => new CombatUnit
+            {
+                Unit = s.Object,
+                Profile = s.Profile,
+                DefinitionName = s.Object.Label + ".odf",
+                Radius = 0,
+                Mobile = true,
+                Motion = s.Motion,
+            }),
+            1,
+            () => 0,
+            (_, _, pose) => pose.Position
+        )
+        {
+            Obstacles = new FailingObstacles(),
+        };
+        using var log = new CapturedLog();
+        world.Step(CombatWorld.Tick * 20);
+
+        foreach (var label in new[] { "a", "b" })
+        {
+            Assert.AreEqual(1, log.Lines.Count(l => l.Contains($"collision separation of {label} failed")), log.Text);
+        }
+    }
+
     // A race whose values differ from the fixture race in every value the rules read.
     static readonly RaceValues OtherRace = Race with
     {

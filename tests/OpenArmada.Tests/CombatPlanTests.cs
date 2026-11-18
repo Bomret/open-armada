@@ -876,6 +876,25 @@ public class CombatPlanTests
         }
     }
 
+    // A non-finite constant is worded alike whichever reader takes it; a missing one keeps "missing or no number".
+    [TestMethod]
+    [DataRow("COLLISION_SAFETY_MARGIN", "1e999")]
+    [DataRow("TRANSPORTER_RANGE", "-1e999")]
+    [DataRow("TRANSPORTER_DELAY", "1e39")]
+    public void AnAvoidanceOrTransporterConstantThatIsNoFiniteNumberIsReportedOnceAsNoFiniteNumber(
+        string name,
+        string value
+    )
+    {
+        var r = Plan(
+            new[] { "s", "s" },
+            new[] { ("s", Ship), ("fed", Race) },
+            ("RTS_CFG.h", ConstantsWith(name, value))
+        );
+        var gap = r.Plan.Reports.Single(g => g.Cause.Contains(name));
+        StringAssert.Contains(gap.Cause, $"game constant {name} is no finite number");
+    }
+
     [TestMethod]
     public void TheAvoidanceKeysComeFromTheInstall()
     {
@@ -1102,7 +1121,10 @@ public class CombatPlanTests
             _ => expected with { MaxVelocity = DebrisLimits.Default.MaxVelocity },
         };
         Assert.AreEqual(expected, r.Plan.Debris);
-        Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains(key)));
+        StringAssert.Contains(
+            r.Plan.Reports.Single(g => g.Cause.Contains(key)).Cause,
+            $"game constant {key} is no finite number"
+        );
     }
 
     // 3000000000 is above int's range, which the cap is held in.

@@ -180,9 +180,13 @@ public sealed class CombatPlan
             return game;
         float Key(string name, float fallback)
         {
-            if (constants.TryNumber(name, out var v, out _) && float.IsFinite((float)v))
+            var number = constants.TryNumber(name, out var v, out _);
+            if (number && float.IsFinite((float)v))
                 return (float)v;
-            gaps.Add($"game constant {name} missing or no number, the game's default {Text(fallback)} used", name);
+            gaps.Add(
+                $"game constant {name} {(number ? "is no finite number" : "missing or no number")}, the game's default {Text(fallback)} used",
+                name
+            );
 
             return fallback;
         }
@@ -211,9 +215,13 @@ public sealed class CombatPlan
             return stock;
         float Key(string name, float standIn)
         {
-            if (constants.TryNumber(name, out var v, out _) && float.IsFinite((float)v))
+            var number = constants.TryNumber(name, out var v, out _);
+            if (number && float.IsFinite((float)v))
                 return (float)v;
-            gaps.Add($"game constant {name} missing or no number, stand-in {Text(standIn)} used", name);
+            gaps.Add(
+                $"game constant {name} {(number ? "is no finite number" : "missing or no number")}, stand-in {Text(standIn)} used",
+                name
+            );
 
             return standIn;
         }
@@ -372,13 +380,14 @@ public sealed class CombatPlan
             return defaults;
         }
 
-        // A limit that is no finite float counts as missing; one above `most` is reported and takes `most`.
+        // A limit that is missing or no finite float takes its default; one above `most` is reported and takes `most`.
         float Limit(string key, float standIn, float most = float.MaxValue)
         {
-            if (!art.TryNumber(key, out var v, out _) || !float.IsFinite((float)v))
+            var number = art.TryNumber(key, out var v, out _);
+            if (!number || !float.IsFinite((float)v))
             {
                 gaps.Add(
-                    $"game constant {key} missing or no finite number, the game's default {Text(standIn)} used",
+                    $"game constant {key} {(number ? "is no finite number" : "missing or no number")}, the game's default {Text(standIn)} used",
                     key
                 );
 

@@ -310,14 +310,27 @@ public sealed class CombatPlan
             spacing = DefaultFormationSpacing;
         }
 
+        // The constant, or its stand-in where it is no finite number as a float (a missing one is reported by
+        // Constant and its stand-in is finite, so no cause is reported twice).
+        float FiniteConstant(string name, float standIn, string standInIs)
+        {
+            var v = Constant(name, standIn);
+            if (float.IsFinite(v))
+                return v;
+            gaps.Add($"game constant {name} is no finite number, {standInIs} {Text(standIn)} used", name);
+
+            return standIn;
+        }
+
         // stand-in: no protection by the shields (the whole damage hurts the shields) and no bonus to system hit
-        // points, where the install's RTS_CFG.h gives neither.
-        // MAX_PREVENTION_ROTATION (0x4453f0): the game's compiled default is 0.4 where the install gives none.
+        // points, where the install's RTS_CFG.h gives neither or gives one that is no finite number.
+        // MAX_PREVENTION_ROTATION (0x4453f0): the game's compiled default is 0.4 where the install gives none or
+        // gives one that is no finite number.
         return (
-            Constant("SHIELD_DAMAGE_PROTECTION", 1),
-            Constant("SYSTEM_HITPOINTS_BONUS", 0),
+            FiniteConstant("SHIELD_DAMAGE_PROTECTION", 1, "stand-in"),
+            FiniteConstant("SYSTEM_HITPOINTS_BONUS", 0, "stand-in"),
             spacing,
-            Constant("MAX_PREVENTION_ROTATION", CombatWorld.DefaultMaxPreventionRotation),
+            FiniteConstant("MAX_PREVENTION_ROTATION", CombatWorld.DefaultMaxPreventionRotation, "the game's default"),
             constants
         );
     }

@@ -586,6 +586,20 @@ public class CombatPlanTests
     }
 
     [TestMethod]
+    public void AShotDelayThatIsNoFiniteNumberTakesDelayOneIsReportedAndKeepsFiring()
+    {
+        foreach (var value in new[] { "1e999", "NaN", "Infinity" })
+        {
+            var r = OneShip("weapon1 = \"tiny\"\r\nweaponHardpoints1 = \"a\"\r\n", ("tiny", Tiny(value)));
+            Assert.AreEqual(1f, ProfileOf(r).Weapons.Single().ShotDelay, value);
+            StringAssert.Contains(r.Plan.Reports.Single().Cause, "shotDelay", value);
+            var (world, ship, foe) = WithFoe(r);
+            Assert.IsTrue(world.Attack(ship, foe), value);
+            Assert.AreEqual(2, world.Step(1.5).OfType<ShotFired>().Count(), value); // shots at 0 and 1 s
+        }
+    }
+
+    [TestMethod]
     public void AUnitWhoseOnlyWeaponHasNoHardpointsRefusesAnAttackOrder()
     {
         var (world, ship, foe) = WithFoe(OneShip("weapon1 = \"beam\"\r\n"));
@@ -825,6 +839,61 @@ public class CombatPlanTests
         );
         Assert.AreEqual(0.4f, r.Plan.MaxPreventionRotation);
         Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("game constant MAX_PREVENTION_ROTATION")));
+    }
+
+    // RTS_CFG.h with one of the three constants set to the given literal.
+    static string ConstantsWith(string name, string value) =>
+        Constants
+            .Replace(
+                "SHIELD_DAMAGE_PROTECTION = 0.5",
+                $"SHIELD_DAMAGE_PROTECTION = {(name == "SHIELD_DAMAGE_PROTECTION" ? value : "0.5")}"
+            )
+            .Replace(
+                "SYSTEM_HITPOINTS_BONUS = 2",
+                $"SYSTEM_HITPOINTS_BONUS = {(name == "SYSTEM_HITPOINTS_BONUS" ? value : "2")}"
+            )
+            .Replace(
+                "MAX_PREVENTION_ROTATION = 0.6",
+                $"MAX_PREVENTION_ROTATION = {(name == "MAX_PREVENTION_ROTATION" ? value : "0.6")}"
+            );
+
+    [TestMethod]
+    public void AShieldProtectionBonusOrRotationThatIsNoFiniteNumberTakesItsStandInAndIsReportedOnce()
+    {
+        foreach (var value in new[] { "1e999", "-1e999", "1e39" })
+        {
+            foreach (
+                var name in new[] { "SHIELD_DAMAGE_PROTECTION", "SYSTEM_HITPOINTS_BONUS", "MAX_PREVENTION_ROTATION" }
+            )
+            {
+                var r = Plan(
+                    new[] { "s", "s" },
+                    new[] { ("s", Ship), ("fed", Race) },
+                    ("RTS_CFG.h", ConstantsWith(name, value))
+                );
+                var label = $"{name} = {value}";
+                Assert.AreEqual(name == "SHIELD_DAMAGE_PROTECTION" ? 1f : 0.5f, r.Plan.ShieldDamageProtection, label);
+                Assert.AreEqual(name == "SYSTEM_HITPOINTS_BONUS" ? 0f : 2f, r.Plan.SystemHitpointsBonus, label);
+                Assert.AreEqual(name == "MAX_PREVENTION_ROTATION" ? 0.4f : 0.6f, r.Plan.MaxPreventionRotation, label);
+                Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains(name)), label);
+                Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("game constant")), label);
+            }
+        }
+    }
+
+    [TestMethod]
+    public void AFormationSpacingOfAnOverflowingLiteralIsReportedOnce()
+    {
+        foreach (var value in new[] { "1e999", "-1e999" })
+        {
+            var r = Plan(
+                new[] { "s" },
+                new[] { ("s", Ship), ("fed", Race) },
+                ("RTS_CFG.h", Constants.Replace("FORMATION_SPACING = 100.0", $"FORMATION_SPACING = {value}"))
+            );
+            Assert.AreEqual(40f, r.Plan.FormationSpacing, value);
+            Assert.AreEqual(1, r.Plan.Reports.Count(g => g.Cause.Contains("FORMATION_SPACING")), value);
+        }
     }
 
     [TestMethod]

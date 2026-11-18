@@ -226,7 +226,9 @@ is **inferred** to be handled twice per tick.
   well as yaws, by the decomposition's angles (a roll can change too), and the heading target becomes the new yaw.
   The rates stay as they were.
 - `MAX_PREVENTION_ROTATION` is read from `RTS_CFG.h` (0x4453f0). The stock value is 0.6 and the compiled default
-  is 0.4.
+  is 0.4. **stand-in:** a value that is no finite number is reported and takes 0.4, as a missing one does.
+- **stand-in:** a fault in a unit's event horizon test, a ship's pull or a ship's separation is reported once per
+  unit and exception type, and the pass goes on with the next unit.
 
 **No height servo.** The shipped game has none (`docs/rules/flight-model.md`, "The servos").
 

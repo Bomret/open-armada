@@ -48,6 +48,9 @@ public sealed record Classified
     public required string Group { get; init; }
 }
 
+/// <summary>An asset kind that could not say which files one of its assets reads, and why.</summary>
+public sealed record ReadFailure(string Kind, string Asset, string Reason);
+
 /// <summary>
 /// The classification rules: the one place that says which install file belongs to which class. Godot-free.
 /// The "Loaded" rules mirror the enumeration scope of the asset kinds, and with the install opened the kinds
@@ -63,13 +66,22 @@ public static class InstallClassifier
     /// override copy where it wins its name. A file the rules below call loaded that no kind reads is known
     /// but not loaded: a file whose bare name a kind reads from another copy is a shadowed copy (a mip level
     /// of a texture an override replaces too), and any other mip level is a texture extra (past a gap, or
-    /// after a level of the wrong size). Without, the names alone decide.
+    /// after a level of the wrong size). Without, the names alone decide. The kinds are <c>kinds</c>, or every
+    /// discovered kind. An asset whose Reads throws adds a <see cref="ReadFailure"/> to <c>failures</c> and
+    /// the kind's other assets are still read; a kind that cannot list its assets adds none. With <c>files</c>
+    /// and no <c>failures</c> collection those read failures are discarded: a caller that must report them
+    /// (INV-0002) passes one, as the asset check does.
     /// </summary>
-    public static IReadOnlyList<Classified> Classify(IEnumerable<string> inventory, GameFileSystem? files = null)
+    public static IReadOnlyList<Classified> Classify(
+        IEnumerable<string> inventory,
+        GameFileSystem? files = null,
+        IEnumerable<AssetKind>? kinds = null,
+        ICollection<ReadFailure>? failures = null
+    )
     {
         var entries = inventory.ToList();
         var all = new HashSet<string>(entries.Select(e => e.ToLowerInvariant()));
-        var reads = files == null ? null : Reads(files);
+        var reads = files == null ? null : Reads(files, kinds ?? AssetKind.Discover(), failures);
 
         return entries
             .Select(e =>
@@ -87,30 +99,45 @@ public static class InstallClassifier
     }
 
     // The entries the kinds read, each with the name of a kind that reads it, and the bare names of those
-    // entries. A kind that cannot list its assets adds nothing; the asset check reports it.
+    // entries. A kind that cannot list its assets adds nothing and is not a failure here: the asset check
+    // reports it. An asset whose Reads throws adds nothing and is a failure (the kind's other assets are
+    // still read); the failures are returned as data, never logged here.
     sealed record KindReads
     {
         public required Dictionary<string, string> Entries { get; init; }
         public required HashSet<string> Names { get; init; }
     }
 
-    static KindReads Reads(GameFileSystem files)
+    static KindReads Reads(GameFileSystem files, IEnumerable<AssetKind> kinds, ICollection<ReadFailure>? failures)
     {
         var reads = new KindReads { Entries = new(), Names = new() };
-        foreach (var kind in AssetKind.Discover())
+        foreach (var kind in kinds)
         {
+            List<string> names;
             try
             {
-                foreach (var name in kind.Enumerate(files))
+                names = kind.Enumerate(files).ToList();
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            foreach (var name in names)
+            {
+                try
                 {
-                    foreach (var entry in kind.Reads(files, name))
+                    foreach (var entry in kind.Reads(files, name).ToList())
                     {
                         reads.Entries.TryAdd(entry.ToLowerInvariant(), kind.Name);
                         reads.Names.Add(Bare(entry.ToLowerInvariant()));
                     }
                 }
+                catch (Exception e)
+                {
+                    failures?.Add(new ReadFailure(kind.Name, name, e.Message));
+                }
             }
-            catch (Exception) { }
         }
 
         return reads;
@@ -243,16 +270,19 @@ public static class InstallClassifier
             ("scrnthms" or "dcphr", _) => Known("launcher resources"),
             ("manual.pdf", _) => Out("help"),
             _ when Gog(name) => Out("GOG wrapper"),
+            // The installer's uninstall data and the license it shows.
+            _ when name.StartsWith("unins", StringComparison.Ordinal) || name == "eula.txt" => Out("install"),
+            (_, ".ico" or ".lnk") => Out("launcher shortcuts"),
             _ => Unknown,
         };
 
-    // The files a GOG install adds at its root: its own metadata, the IPX and DirectDraw wrappers, and
-    // their setup scripts. Armada.exe names none of them.
+    // The files a GOG install adds at its root: its own metadata, install log and web cache, the IPX and
+    // DirectDraw wrappers, and their setup scripts. Armada.exe names none of them.
     static bool Gog(string name) =>
         name.StartsWith("goggame-", StringComparison.Ordinal)
         || name.StartsWith("ipxwrapper-", StringComparison.Ordinal)
         || name.StartsWith("directplay-", StringComparison.Ordinal)
-        || name is "firewall.cmd" or "firewall_u.cmd" or "dxcfg.ini";
+        || name is "firewall.cmd" or "firewall_u.cmd" or "dxcfg.ini" or "goglog.ini" or "webcache.zip";
 
     static (FileClass, string) Misc(string name, string ext) =>
         name.StartsWith("gui_", StringComparison.Ordinal) && ext == ".cfg" ? Loaded("interface configurations")

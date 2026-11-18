@@ -34,12 +34,15 @@ public sealed class CombatPlan
     /// <summary>The gaps found while reading, once per cause.</summary>
     public IReadOnlyList<ReportEntry> Reports { get; }
 
-    /// <summary>The game constants of RTS_CFG.h that the combat rules read.</summary>
+    /// <summary>
+    /// <c>SHIELD_DAMAGE_PROTECTION</c>, one of the game constants of RTS_CFG.h that the combat rules read; stand-in 1
+    /// (no protection) where the install's RTS_CFG.h gives none or gives one that is no finite number.
+    /// </summary>
     public float ShieldDamageProtection { get; }
 
     /// <summary>
     /// <c>SYSTEM_HITPOINTS_BONUS</c>: the hit points added to each ship system a unit has; stand-in 0 where the
-    /// install's RTS_CFG.h gives none.
+    /// install's RTS_CFG.h gives none or gives one that is no finite number.
     /// </summary>
     public float SystemHitpointsBonus { get; }
 
@@ -60,7 +63,7 @@ public sealed class CombatPlan
 
     /// <summary>
     /// <c>MAX_PREVENTION_ROTATION</c>: the largest angle of a collision turn, in radians; the game's compiled default
-    /// 0.4 where the install's RTS_CFG.h gives none (reported).
+    /// 0.4 where the install's RTS_CFG.h gives none or gives one that is no finite number (reported).
     /// </summary>
     public float MaxPreventionRotation { get; private init; } = CombatWorld.DefaultMaxPreventionRotation;
 
@@ -177,9 +180,13 @@ public sealed class CombatPlan
             return game;
         float Key(string name, float fallback)
         {
-            if (constants.TryNumber(name, out var v, out _) && float.IsFinite((float)v))
+            var number = constants.TryNumber(name, out var v, out _);
+            if (number && float.IsFinite((float)v))
                 return (float)v;
-            gaps.Add($"game constant {name} missing or no number, the game's default {Text(fallback)} used", name);
+            gaps.Add(
+                $"game constant {name} {(number ? "is no finite number" : "missing or no number")}, the game's default {Text(fallback)} used",
+                name
+            );
 
             return fallback;
         }
@@ -208,9 +215,13 @@ public sealed class CombatPlan
             return stock;
         float Key(string name, float standIn)
         {
-            if (constants.TryNumber(name, out var v, out _) && float.IsFinite((float)v))
+            var number = constants.TryNumber(name, out var v, out _);
+            if (number && float.IsFinite((float)v))
                 return (float)v;
-            gaps.Add($"game constant {name} missing or no number, stand-in {Text(standIn)} used", name);
+            gaps.Add(
+                $"game constant {name} {(number ? "is no finite number" : "missing or no number")}, stand-in {Text(standIn)} used",
+                name
+            );
 
             return standIn;
         }
@@ -310,14 +321,27 @@ public sealed class CombatPlan
             spacing = DefaultFormationSpacing;
         }
 
+        // The constant, or its stand-in where it is no finite number as a float (a missing one is reported by
+        // Constant and its stand-in is finite, so no cause is reported twice).
+        float FiniteConstant(string name, float standIn, string standInIs)
+        {
+            var v = Constant(name, standIn);
+            if (float.IsFinite(v))
+                return v;
+            gaps.Add($"game constant {name} is no finite number, {standInIs} {Text(standIn)} used", name);
+
+            return standIn;
+        }
+
         // stand-in: no protection by the shields (the whole damage hurts the shields) and no bonus to system hit
-        // points, where the install's RTS_CFG.h gives neither.
-        // MAX_PREVENTION_ROTATION (0x4453f0): the game's compiled default is 0.4 where the install gives none.
+        // points, where the install's RTS_CFG.h gives neither or gives one that is no finite number.
+        // MAX_PREVENTION_ROTATION (0x4453f0): the game's compiled default is 0.4 where the install gives none or
+        // gives one that is no finite number.
         return (
-            Constant("SHIELD_DAMAGE_PROTECTION", 1),
-            Constant("SYSTEM_HITPOINTS_BONUS", 0),
+            FiniteConstant("SHIELD_DAMAGE_PROTECTION", 1, "stand-in"),
+            FiniteConstant("SYSTEM_HITPOINTS_BONUS", 0, "stand-in"),
             spacing,
-            Constant("MAX_PREVENTION_ROTATION", CombatWorld.DefaultMaxPreventionRotation),
+            FiniteConstant("MAX_PREVENTION_ROTATION", CombatWorld.DefaultMaxPreventionRotation, "the game's default"),
             constants
         );
     }
@@ -356,13 +380,14 @@ public sealed class CombatPlan
             return defaults;
         }
 
-        // A limit that is no finite float counts as missing; one above `most` is reported and takes `most`.
+        // A limit that is missing or no finite float takes its default; one above `most` is reported and takes `most`.
         float Limit(string key, float standIn, float most = float.MaxValue)
         {
-            if (!art.TryNumber(key, out var v, out _) || !float.IsFinite((float)v))
+            var number = art.TryNumber(key, out var v, out _);
+            if (!number || !float.IsFinite((float)v))
             {
                 gaps.Add(
-                    $"game constant {key} missing or no finite number, the game's default {Text(standIn)} used",
+                    $"game constant {key} {(number ? "is no finite number" : "missing or no number")}, the game's default {Text(standIn)} used",
                     key
                 );
 

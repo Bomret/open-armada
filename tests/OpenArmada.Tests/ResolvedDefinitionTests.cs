@@ -170,6 +170,16 @@ public class ResolvedDefinitionTests
     }
 
     [TestMethod]
+    public void ABadIncludeLineStillResolvesAndIsNoted()
+    {
+        var def = Resolve("a.odf", ("a.odf", "#include foo.odf\r\nx = 1"));
+        Assert.AreEqual(1, def.GetInt("x"));
+        Assert.AreEqual(0, def.Problems.Count);
+        Assert.AreEqual(1, def.Notes.Count);
+        StringAssert.Contains(def.Notes[0], "line 1");
+    }
+
+    [TestMethod]
     public void UnrecognizedLinesOfAnyChainMemberAreNotedWithItsName()
     {
         var def = Resolve("b.odf", ("a.odf", "x = 1\r\ngarbage line"), ("b.odf", "#include \"a.odf\""));
@@ -395,8 +405,12 @@ public class ResolvedDefinitionTests
     }
 
     [TestMethod]
-    public void IncludeNameWithoutQuotesResolves() =>
-        Assert.AreEqual(1, Resolve("c.odf", ("a.odf", "x = 1"), ("c.odf", "#include a.odf")).GetInt("x"));
+    public void IncludeNameWithoutQuotesIncludesNothing()
+    {
+        var def = Resolve("c.odf", ("a.odf", "x = 1"), ("c.odf", "#include a.odf\r\ny = 2"));
+        Assert.AreEqual(2, def.GetInt("y"));
+        Assert.IsFalse(def.Has("x"));
+    }
 
     [TestMethod]
     public void EveryListedDefinitionResolvesByItsListedNameAndAnAddonSubfolderFileIsNotListed()

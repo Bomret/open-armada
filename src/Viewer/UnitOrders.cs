@@ -78,16 +78,21 @@ public partial class UnitOrders : Node3D
         _plan = move;
 
         var spriteNodes = ShieldEllipsoid.SpriteNodeLines(files);
+        // The shield is looked up once per unit; the missing ellipsoid is logged and shown once per model.
+        var flatShields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         ShieldEllipsoid? Shield(PlacedObject o, CombatProfile profile)
         {
             if (model(o) is not { } sod)
                 return null;
             var shield = ShieldEllipsoid.Of(sod, spriteNodes, profile.ShieldPad);
-            if (shield == null)
+            if (shield == null && flatShields.Add(o.Model))
             {
-                gap(
-                    $"{o.Model}: model has no shield ellipsoid (its box is flat on an axis), it shows no shield hit effect"
-                );
+                var text =
+                    $"{o.Model}: model has no shield ellipsoid (its box is flat on an axis), it shows no shield hit effect";
+
+                Log.Warn(Area.Combat, text);
+
+                gap(text);
             }
 
             return shield;

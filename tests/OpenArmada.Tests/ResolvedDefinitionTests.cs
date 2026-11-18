@@ -405,8 +405,12 @@ public class ResolvedDefinitionTests
     }
 
     [TestMethod]
-    public void IncludeNameWithoutQuotesResolves() =>
-        Assert.AreEqual(1, Resolve("c.odf", ("a.odf", "x = 1"), ("c.odf", "#include a.odf")).GetInt("x"));
+    public void IncludeNameWithoutQuotesIncludesNothing()
+    {
+        var def = Resolve("c.odf", ("a.odf", "x = 1"), ("c.odf", "#include a.odf\r\ny = 2"));
+        Assert.AreEqual(2, def.GetInt("y"));
+        Assert.IsFalse(def.Has("x"));
+    }
 
     [TestMethod]
     public void EveryListedDefinitionResolvesByItsListedNameAndAnAddonSubfolderFileIsNotListed()

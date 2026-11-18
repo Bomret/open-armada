@@ -187,9 +187,10 @@ public class AssetBrowserTests
     [TestMethod]
     public void Showing_an_asset_with_no_kind_selected_is_out_of_range_and_logs_no_selection()
     {
-        var b = OpenWith(new Dictionary<string, AssetBrowser.CreatePreview>(), new FakeKind("models", "m"));
+        var b = OpenWith(new Dictionary<string, AssetBrowser.CreatePreview>());
         using var log = new CapturedLog();
 
+        Assert.IsNull(b.Kind);
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => b.ShowAsset(0));
         Assert.AreEqual(0, log.Lines.Count);
     }

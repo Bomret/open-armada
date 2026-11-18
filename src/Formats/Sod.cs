@@ -250,13 +250,6 @@ public sealed class Sod
 
     static readonly float[] KnownVersions = { 1.2f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f };
 
-    /// <summary>Reads the whole file at <c>path</c> and parses it with <see cref="Read"/>.</summary>
-    /// <exception cref="InvalidDataException">
-    /// when the data is not a SOD file the reader decodes; see <see cref="Read"/>.
-    /// </exception>
-    /// <exception cref="UnsupportedFormatException">when the file is of version 1.0.</exception>
-    public static Sod Load(string path) => Read(File.ReadAllBytes(path));
-
     /// <summary>
     /// Parses a SOD file. Problems the model can still be drawn with go to <see cref="Problems"/>; the read does not
     /// throw for them.

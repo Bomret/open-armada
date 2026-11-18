@@ -81,6 +81,23 @@ public class InstallClassifierTests
     public void GogInstallerAndWrapperFilesAreOutOfScope(string entry) =>
         Assert.AreEqual(FileClass.OutOfScope, ClassOf(entry));
 
+    // The installer, uninstaller and launcher files a GOG install leaves at its root.
+    [TestMethod]
+    [DataRow("goglog.ini", "GOG wrapper")]
+    [DataRow("webcache.zip", "GOG wrapper")]
+    [DataRow("unins000.ini", "install")]
+    [DataRow("unins000.dat", "install")]
+    [DataRow("unins000.msg", "install")]
+    [DataRow("EULA.txt", "install")]
+    [DataRow("support.ico", "launcher shortcuts")]
+    [DataRow("gog.ico", "launcher shortcuts")]
+    [DataRow("Launch Star Trek™ - Armada.lnk", "launcher shortcuts")]
+    public void GogRootInstallAndLauncherFilesAreOutOfScopeInTheirGroup(string entry, string group)
+    {
+        var c = InstallClassifier.Classify([entry]).Single();
+        Assert.AreEqual((FileClass.OutOfScope, group), (c.Class, c.Group));
+    }
+
     [TestMethod]
     [DataRow("ARMADA.PRF")]
     [DataRow("misc/moon.alb")]

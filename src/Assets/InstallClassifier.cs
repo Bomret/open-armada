@@ -270,16 +270,19 @@ public static class InstallClassifier
             ("scrnthms" or "dcphr", _) => Known("launcher resources"),
             ("manual.pdf", _) => Out("help"),
             _ when Gog(name) => Out("GOG wrapper"),
+            // The installer's uninstall data and the license it shows.
+            _ when name.StartsWith("unins", StringComparison.Ordinal) || name == "eula.txt" => Out("install"),
+            (_, ".ico" or ".lnk") => Out("launcher shortcuts"),
             _ => Unknown,
         };
 
-    // The files a GOG install adds at its root: its own metadata, the IPX and DirectDraw wrappers, and
-    // their setup scripts. Armada.exe names none of them.
+    // The files a GOG install adds at its root: its own metadata, install log and web cache, the IPX and
+    // DirectDraw wrappers, and their setup scripts. Armada.exe names none of them.
     static bool Gog(string name) =>
         name.StartsWith("goggame-", StringComparison.Ordinal)
         || name.StartsWith("ipxwrapper-", StringComparison.Ordinal)
         || name.StartsWith("directplay-", StringComparison.Ordinal)
-        || name is "firewall.cmd" or "firewall_u.cmd" or "dxcfg.ini";
+        || name is "firewall.cmd" or "firewall_u.cmd" or "dxcfg.ini" or "goglog.ini" or "webcache.zip";
 
     static (FileClass, string) Misc(string name, string ext) =>
         name.StartsWith("gui_", StringComparison.Ordinal) && ext == ".cfg" ? Loaded("interface configurations")

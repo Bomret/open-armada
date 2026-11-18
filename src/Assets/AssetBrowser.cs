@@ -150,7 +150,10 @@ public sealed class AssetBrowser
     /// it. A preview that throws writes one ERROR entry with <see cref="FailureMessage"/>, and the pane shows the same
     /// text (INV-0002).
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">when <c>index</c> is outside <see cref="Assets"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// when <c>index</c> is outside <see cref="Assets"/>, which includes every index while no kind is selected
+    /// (the list is empty); nothing is logged then.
+    /// </exception>
     public Pane ShowAsset(int index)
     {
         var kind = Kind!;

@@ -252,6 +252,38 @@ public class AssetCheckTests
 
     sealed class StackOverflowGuardException() : Exception("reader blew up");
 
+    // A kind whose Reads throws for its first asset; its second asset reads b.xyz, a file no rule places.
+    sealed class UnreadableFirstKind : AssetKind
+    {
+        public override string Name => "fussy";
+
+        public override IEnumerable<string> Enumerate(GameFileSystem f) => ["a", "b.xyz"];
+
+        public override object Load(GameFileSystem f, string n) => n;
+
+        public override IEnumerable<string> Reads(GameFileSystem f, string n) =>
+            n == "a" ? throw new IOException("cannot tell") : base.Reads(f, n);
+    }
+
+    [TestMethod]
+    public void KindThatCannotSayWhatOneAssetReadsIsLoggedOnceAndItsOtherAssetsAreStillClassified()
+    {
+        var (code, output) = Run(Install(("b.xyz", "")), new UnreadableFirstKind());
+        var lines = output.Split('\n');
+        Assert.AreEqual(1, code);
+        Assert.AreEqual(1, lines.Count(l => l.Contains("fussy/a") && l.Contains("cannot tell")));
+        StringAssert.Contains(lines.Single(l => l.Contains("fussy/a")), " ERROR check: ");
+        Assert.IsFalse(output.Contains("UNCLASSIFIED b.xyz"), output);
+    }
+
+    [TestMethod]
+    public void KindThatCannotEnumerateIsLoggedOnceInTheWholeCheck()
+    {
+        var kind = new FakeKind("fake", _ => throw new IOException("disk gone"), _ => { });
+        var (_, output) = Run(Install(), kind);
+        Assert.AreEqual(1, output.Split('\n').Count(l => l.Contains("disk gone")));
+    }
+
     [TestMethod]
     public void KindThatCannotEnumerateIsAFailureNotACrash()
     {

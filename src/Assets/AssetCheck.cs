@@ -126,7 +126,7 @@ public static class AssetCheck
 
         Log.Info(Area.Check, $"{loadedTotal} loaded, {unsupportedTotal} unsupported, {failedTotal} failed");
         Log.Info(Area.Check, $"{unresolved} unresolved references");
-        failedTotal += Classify(files);
+        failedTotal += Classify(files, kinds);
 
         return failedTotal == 0 ? 0 : 1;
     }
@@ -134,19 +134,26 @@ public static class AssetCheck
     // Classifies every file of the install (InstallClassifier), prints the counts, each known but not
     // loaded file, the out of scope groups and each unclassified file. Returns the number unclassified,
     // each of which fails the check; an install it cannot list (an unreadable folder) fails it once, with
-    // the reason, which names the folder.
-    static int Classify(GameFileSystem files)
+    // the reason, which names the folder. Each asset whose kind cannot say what it reads is one more
+    // failure, logged once with the kind and the asset.
+    static int Classify(GameFileSystem files, IEnumerable<AssetKind> kinds)
     {
         IReadOnlyList<Classified> classified;
+        var readFailures = new List<ReadFailure>();
         try
         {
-            classified = InstallClassifier.Classify(files.Inventory(), files);
+            classified = InstallClassifier.Classify(files.Inventory(), files, kinds, readFailures);
         }
         catch (Exception e)
         {
             Log.Error(Area.Check, $"FAIL files: cannot classify the install: {e.Message}");
 
             return 1;
+        }
+
+        foreach (var f in readFailures)
+        {
+            Log.Error(Area.Check, $"FAIL {f.Kind}/{f.Asset}: cannot list the files it reads: {f.Reason}");
         }
 
         foreach (var c in classified.Where(c => c.Class == FileClass.KnownNotLoaded))

@@ -185,6 +185,26 @@ public class AssetBrowserTests
     }
 
     [TestMethod]
+    public void Showing_an_asset_with_no_kind_selected_is_out_of_range_and_logs_no_selection()
+    {
+        var b = OpenWith(new Dictionary<string, AssetBrowser.CreatePreview>(), new FakeKind("models", "m"));
+        using var log = new CapturedLog();
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => b.ShowAsset(0));
+        Assert.AreEqual(0, log.Lines.Count);
+    }
+
+    [TestMethod]
+    public void Showing_an_asset_outside_the_selected_kind_is_out_of_range()
+    {
+        var b = OpenWith(new Dictionary<string, AssetBrowser.CreatePreview>(), new FakeKind("models", "a", "b"));
+        b.ShowKind(0);
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => b.ShowAsset(-1));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => b.ShowAsset(2));
+    }
+
+    [TestMethod]
     public void Each_note_of_a_shown_asset_is_one_warn_after_its_info_on_every_showing()
     {
         var b = OpenWith(

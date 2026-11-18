@@ -64,6 +64,31 @@ public class OdfTests
     }
 
     [TestMethod]
+    [DataRow("#INCLUDE \"a.odf\"")]
+    [DataRow("#Include \"a.odf\"")]
+    [DataRow("#includes \"a.odf\"")]
+    [DataRow("#include x \"a.odf\"")]
+    [DataRow("#include \"a.odf\" \"b.odf\"")]
+    public void IncludeDirectiveMatchesAsACaseInsensitivePrefixAndTakesTheFirstQuotedName(string line)
+    {
+        var odf = Odf.Parse(line);
+        CollectionAssert.AreEqual(new[] { "a.odf" }, odf.Includes.ToArray());
+        Assert.AreEqual(0, odf.Problems.Count);
+    }
+
+    [TestMethod]
+    [DataRow("#includefoo")]
+    [DataRow("#include foo.odf")]
+    [DataRow("#include \"a.odf")]
+    [DataRow("#include \"\"")]
+    public void IncludeWithoutACompleteNonEmptyQuotedNameIncludesNothingAndIsOneProblem(string line)
+    {
+        var odf = Odf.Parse(line);
+        Assert.AreEqual(0, odf.Includes.Count);
+        Assert.AreEqual(1, odf.Problems.Count);
+    }
+
+    [TestMethod]
     public void UnrecognizedLinesAndUnterminatedQuotesAreReportedWithTheirLine()
     {
         var odf = Odf.Parse("a = 1\r\nthis is not a pair\r\nb = \"open\r\nc = 3\r\n");

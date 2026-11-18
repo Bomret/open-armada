@@ -23,9 +23,13 @@ public sealed record OdfEntry
 
 /// <summary>
 /// The text of one object definition (.odf), parsed without resolving includes. Lines are
-/// <c>key = value</c>, <c>[Section]</c>, <c>#include "parent.odf"</c>, <c>//</c> comments (full-line or trailing) and
+/// <c>key = value</c>, <c>[Section]</c>, include lines, <c>//</c> comments (full-line or trailing) and
 /// continuations of the previous value (indented lines, or lines that start with a quoted name). A line that is none of these, or that holds an
-/// unterminated quote, is listed in Problems as "line N: reason" and its entry is left out.
+/// unterminated quote, is listed in Problems as "line N: reason" and its entry is left out. An include line is read as
+/// the game reads it: a line whose first eight characters match <c>#include</c> ignoring case (so <c>#INCLUDES</c>
+/// matches too) names the text between its first <c>"</c> and the next <c>"</c>; anything before the first quote and any
+/// later quoted name is ignored. A line with no quote, an unclosed quote or an empty name includes nothing and is one
+/// entry in Problems.
 /// </summary>
 public sealed class Odf
 {
@@ -35,7 +39,10 @@ public sealed class Odf
     readonly List<OdfEntry> _entries = new();
     readonly List<string> _problems = new();
 
-    /// <summary>The names of the <c>#include</c> lines in file order, not resolved.</summary>
+    /// <summary>
+    /// The names of the include lines in file order, not resolved: for each line, the text between its first pair of
+    /// double quotes. A line without a complete, non-empty quoted name adds no name.
+    /// </summary>
     public IReadOnlyList<string> Includes => _includes;
 
     /// <summary>The <c>key = value</c> entries in file order. A key given twice gives two entries.</summary>
@@ -61,15 +68,19 @@ public sealed class Odf
             if (line.Length == 0)
                 continue;
             var trimmed = line.TrimStart();
-            if (trimmed.StartsWith("#include", StringComparison.Ordinal))
+            if (trimmed.StartsWith("#include", StringComparison.OrdinalIgnoreCase))
             {
-                if (Tokenize(trimmed[8..], out var inc, out var why) && inc.Count == 1)
+                // stand-in: the game reads past the line's end when the closing quote is missing; the sandbox treats
+                // that line as a bad include instead.
+                var open = trimmed.IndexOf('"');
+                var close = open < 0 ? -1 : trimmed.IndexOf('"', open + 1);
+                if (close > open + 1)
                 {
-                    odf._includes.Add(inc[0]);
+                    odf._includes.Add(trimmed[(open + 1)..close]);
                 }
                 else
                 {
-                    odf._problems.Add($"line {n}: bad include ({why ?? "expected one name"})");
+                    odf._problems.Add($"line {n}: bad include (expected a quoted, non-empty name)");
                 }
 
                 current = null;

@@ -252,12 +252,12 @@ public class AssetCheckTests
 
     sealed class StackOverflowGuardException() : Exception("reader blew up");
 
-    // A kind whose Reads throws for its first asset; its second asset reads b.xyz, a file no rule places.
+    // A kind whose Reads throws for its first asset; its second asset reads b.bmp, a root bitmap no rule places.
     sealed class UnreadableFirstKind : AssetKind
     {
         public override string Name => "fussy";
 
-        public override IEnumerable<string> Enumerate(GameFileSystem f) => ["a", "b.xyz"];
+        public override IEnumerable<string> Enumerate(GameFileSystem f) => ["a", "b.bmp"];
 
         public override object Load(GameFileSystem f, string n) => n;
 
@@ -268,12 +268,12 @@ public class AssetCheckTests
     [TestMethod]
     public void KindThatCannotSayWhatOneAssetReadsIsLoggedOnceAndItsOtherAssetsAreStillClassified()
     {
-        var (code, output) = Run(Install(("b.xyz", "")), new UnreadableFirstKind());
+        var (code, output) = Run(Install(("b.bmp", "")), new UnreadableFirstKind());
         var lines = output.Split('\n');
         Assert.AreEqual(1, code);
         Assert.AreEqual(1, lines.Count(l => l.Contains("fussy/a") && l.Contains("cannot tell")));
         StringAssert.Contains(lines.Single(l => l.Contains("fussy/a")), " ERROR check: ");
-        Assert.IsFalse(output.Contains("UNCLASSIFIED b.xyz"), output);
+        Assert.IsFalse(output.Contains("UNCLASSIFIED b.bmp"), output);
     }
 
     [TestMethod]

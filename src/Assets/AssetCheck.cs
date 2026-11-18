@@ -132,10 +132,10 @@ public static class AssetCheck
     }
 
     // Classifies every file of the install (InstallClassifier), prints the counts, each known but not
-    // loaded file, the out of scope groups and each unclassified file. Returns the number unclassified,
-    // each of which fails the check; an install it cannot list (an unreadable folder) fails it once, with
-    // the reason, which names the folder. Each asset whose kind cannot say what it reads is one more
-    // failure, logged once with the kind and the asset.
+    // loaded file, the out of scope groups and each unclassified file. Returns the number unclassified
+    // plus the number of assets whose kind cannot say what they read (each logged once with the kind and
+    // the asset), each of which fails the check; an install it cannot list (an unreadable folder) fails
+    // it once, with the reason, which names the folder.
     static int Classify(GameFileSystem files, IEnumerable<AssetKind> kinds)
     {
         IReadOnlyList<Classified> classified;
@@ -178,6 +178,6 @@ public static class AssetCheck
             $"files: {N(FileClass.Loaded)} loaded, {N(FileClass.OutOfScope)} out of scope, {N(FileClass.KnownNotLoaded)} known but not loaded, {unclassified.Count} unclassified"
         );
 
-        return unclassified.Count;
+        return unclassified.Count + readFailures.Count;
     }
 }
